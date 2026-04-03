@@ -1,0 +1,35 @@
+import { resolve } from 'path'
+import { loadEnv } from 'vite'
+import { defineConfig } from 'electron-vite'
+import react from '@vitejs/plugin-react'
+import tailwindcss from '@tailwindcss/vite'
+
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), '')
+  const authUrl = env.VITE_AUTH_URL ?? ''
+
+  return {
+    main: {
+      define: {
+        __APP_AUTH_URL__: JSON.stringify(authUrl),
+      },
+    },
+    preload: {},
+    renderer: {
+    build: {
+      rollupOptions: {
+        input: {
+          index: resolve(__dirname, 'src/renderer/index.html'),
+        }
+      }
+    },
+    resolve: {
+      alias: {
+        '@': resolve('src/renderer/src'),
+        '@renderer': resolve('src/renderer/src')
+      }
+    },
+    plugins: [react(), tailwindcss()],
+  },
+}
+})
