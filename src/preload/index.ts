@@ -9,6 +9,10 @@ const api = {
     signOut: (): Promise<{ ok: boolean }> => ipcRenderer.invoke('auth:sign-out'),
   },
   workspace: {
+    checkGit: (): Promise<
+      | { ok: true; version: string }
+      | { ok: false; error: string }
+    > => ipcRenderer.invoke('workspace:check-git'),
     ensureDataRoot: (): Promise<
       | { ok: true; path: string }
       | { ok: false; error: string }

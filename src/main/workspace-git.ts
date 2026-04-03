@@ -30,6 +30,28 @@ function assertSafeRelativePath(cwd: string, rel: string): string {
   return abs
 }
 
+function checkGitBinary():
+  | { ok: true; version: string }
+  | { ok: false; error: string } {
+  try {
+    const stdout = execFileSync('git', ['--version'], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+    const version = stdout.trim().split(/\n/)[0]?.trim() ?? stdout.trim()
+    return { ok: true, version }
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    return {
+      ok: false,
+      error:
+        msg.includes('ENOENT') || msg.includes('not found')
+          ? 'Git is not installed or not on your PATH.'
+          : msg,
+    }
+  }
+}
+
 function runGit(args: string[], cwd: string): void {
   execFileSync('git', args, { cwd, stdio: 'pipe' })
 }
@@ -251,6 +273,16 @@ function readGitnotesIndexImpl(cwd: string): {
 }
 
 export function registerWorkspaceGitIpc(): void {
+  ipcMain.handle(
+    'workspace:check-git',
+    async (): Promise<
+      | { ok: true; version: string }
+      | { ok: false; error: string }
+    > => {
+      return checkGitBinary()
+    }
+  )
+
   ipcMain.handle(
     'workspace:ensure-data-root',
     async (): Promise<

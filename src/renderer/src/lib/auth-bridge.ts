@@ -12,6 +12,10 @@ export type GitNotesApi = {
     signOut: () => Promise<{ ok: boolean }>
   }
   workspace?: {
+    checkGit?: () => Promise<
+      | { ok: true; version: string }
+      | { ok: false; error: string }
+    >
     ensureDataRoot?: () => Promise<
       | { ok: true; path: string }
       | { ok: false; error: string }

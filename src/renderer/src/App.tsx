@@ -1,13 +1,16 @@
-import { useCallback, useEffect, useState } from "react"
-import type { JSX } from "react"
+import { useCallback, useEffect, useState } from 'react'
+import type { JSX } from 'react'
 
-import { LoginScreen } from "@/components/auth/LoginScreen"
-import { NotesApp } from "@/components/notes/NotesApp"
-import { getApi, parseSession } from "@/lib/auth-bridge"
+import { LoginScreen } from '@/components/auth/LoginScreen'
+import { OnboardingScreen } from '@/components/onboarding/OnboardingScreen'
+import { NotesApp } from '@/components/notes/NotesApp'
+import { getApi, parseSession } from '@/lib/auth-bridge'
+
+type AppPhase = 'loading' | 'onboarding' | 'auth' | 'app'
 
 export default function App(): JSX.Element {
   const api = getApi()
-  const [phase, setPhase] = useState<"loading" | "auth" | "app">("loading")
+  const [phase, setPhase] = useState<AppPhase>('loading')
   const [user, setUser] = useState<{
     name?: string
     email?: string
@@ -18,25 +21,29 @@ export default function App(): JSX.Element {
 
   const refreshSession = useCallback(async () => {
     if (!api) {
-      setPhase("app")
+      setPhase('app')
       setUser(null)
       return
     }
     const r = await api.auth.getSession()
     if (!r.ok) {
-      setPhase("auth")
+      setPhase('auth')
       setUser(null)
       return
     }
     const parsed = parseSession(r.data)
     if (parsed?.user) {
       setUser(parsed.user)
-      setPhase("app")
+      setPhase('app')
     } else {
-      setPhase("auth")
       setUser(null)
+      setPhase('onboarding')
     }
   }, [api])
+
+  const handleOnboardingReady = useCallback(() => {
+    setPhase('auth')
+  }, [])
 
   useEffect(() => {
     void refreshSession()
@@ -50,7 +57,7 @@ export default function App(): JSX.Element {
       await api.auth.signInWithGithub()
       await refreshSession()
     } catch (e) {
-      setLoginError(e instanceof Error ? e.message : "Sign-in failed")
+      setLoginError(e instanceof Error ? e.message : 'Sign-in failed')
     } finally {
       setBusy(false)
     }
@@ -59,10 +66,11 @@ export default function App(): JSX.Element {
   const handleSignOut = useCallback(async () => {
     if (!api) return
     await api.auth.signOut()
-    await refreshSession()
-  }, [api, refreshSession])
+    setUser(null)
+    setPhase('auth')
+  }, [api])
 
-  if (phase === "loading") {
+  if (phase === 'loading') {
     return (
       <div className="bg-background text-muted-foreground flex h-screen items-center justify-center text-sm">
         Loading…
@@ -70,16 +78,13 @@ export default function App(): JSX.Element {
     )
   }
 
-  if (api && (phase === "auth" || !user)) {
-    return (
-      <LoginScreen onGitHub={handleGitHub} busy={busy} error={loginError} />
-    )
+  if (api && phase === 'onboarding') {
+    return <OnboardingScreen api={api} onReady={handleOnboardingReady} />
   }
 
-  return (
-    <NotesApp
-      user={user ?? undefined}
-      onSignOut={api ? handleSignOut : undefined}
-    />
-  )
+  if (api && phase === 'auth') {
+    return <LoginScreen onGitHub={handleGitHub} busy={busy} error={loginError} />
+  }
+
+  return <NotesApp user={user ?? undefined} onSignOut={api ? handleSignOut : undefined} />
 }
