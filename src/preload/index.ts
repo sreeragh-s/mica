@@ -7,6 +7,15 @@ const api = {
     signInWithGithub: (): Promise<{ user: unknown }> =>
       ipcRenderer.invoke('auth:sign-in-github'),
     signOut: (): Promise<{ ok: boolean }> => ipcRenderer.invoke('auth:sign-out'),
+    fetch: (
+      url: string,
+      init?: {
+        method?: string
+        body?: string
+        headers?: Record<string, string>
+      }
+    ): Promise<{ ok: boolean; status: number; body: string }> =>
+      ipcRenderer.invoke('auth:fetch', url, init),
   },
   workspace: {
     checkGit: (): Promise<
@@ -14,9 +23,18 @@ const api = {
       | { ok: false; error: string }
     > => ipcRenderer.invoke('workspace:check-git'),
     ensureDataRoot: (): Promise<
-      | { ok: true; path: string }
+      | {
+          ok: true
+          path: string
+          gitAvailable: boolean
+          filesystemOnly: boolean
+        }
       | { ok: false; error: string }
     > => ipcRenderer.invoke('workspace:ensure-data-root'),
+    setSyncMode: (
+      payload: { cwd: string; syncMode: 'git' | 'github_api' | 'local' }
+    ): Promise<{ ok: true } | { ok: false; error: string }> =>
+      ipcRenderer.invoke('workspace:set-sync-mode', payload),
     openExternal: (url: string): Promise<void> =>
       ipcRenderer.invoke('workspace:open-external', url),
     setGitRemote: (

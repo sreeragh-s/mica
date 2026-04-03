@@ -8,6 +8,14 @@ type GitNotesApi = {
     >
     signInWithGithub: () => Promise<{ user: unknown }>
     signOut: () => Promise<{ ok: boolean }>
+    fetch?: (
+      url: string,
+      init?: {
+        method?: string
+        body?: string
+        headers?: Record<string, string>
+      }
+    ) => Promise<{ ok: boolean; status: number; body: string }>
   }
   workspace: {
     checkGit: () => Promise<
@@ -15,9 +23,18 @@ type GitNotesApi = {
       | { ok: false; error: string }
     >
     ensureDataRoot: () => Promise<
-      | { ok: true; path: string }
+      | {
+          ok: true
+          path: string
+          gitAvailable: boolean
+          filesystemOnly: boolean
+        }
       | { ok: false; error: string }
     >
+    setSyncMode?: (payload: {
+      cwd: string
+      syncMode: 'git' | 'github_api' | 'local'
+    }) => Promise<{ ok: true } | { ok: false; error: string }>
     openExternal: (url: string) => Promise<void>
     setGitRemote: (payload: {
       cwd: string

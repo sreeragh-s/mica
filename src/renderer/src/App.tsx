@@ -2,11 +2,12 @@ import { useCallback, useEffect, useState } from 'react'
 import type { JSX } from 'react'
 
 import { LoginScreen } from '@/components/auth/LoginScreen'
-import { OnboardingScreen } from '@/components/onboarding/OnboardingScreen'
+import { SetupScreen } from '@/components/setup/SetupScreen'
 import { NotesApp } from '@/components/notes/NotesApp'
 import { getApi, parseSession } from '@/lib/auth-bridge'
+import { loadSetupState } from '@/lib/setup-storage'
 
-type AppPhase = 'loading' | 'onboarding' | 'auth' | 'app'
+type AppPhase = 'loading' | 'auth' | 'setup' | 'app'
 
 export default function App(): JSX.Element {
   const api = getApi()
@@ -21,12 +22,14 @@ export default function App(): JSX.Element {
 
   const refreshSession = useCallback(async () => {
     if (!api) {
+      console.info('[gitnotes-app] session: no preload API — phase app (dev/browser)')
       setPhase('app')
       setUser(null)
       return
     }
     const r = await api.auth.getSession()
     if (!r.ok) {
+      console.info('[gitnotes-app] session: get-session failed', r)
       setPhase('auth')
       setUser(null)
       return
@@ -34,16 +37,32 @@ export default function App(): JSX.Element {
     const parsed = parseSession(r.data)
     if (parsed?.user) {
       setUser(parsed.user)
-      setPhase('app')
+      const setup = loadSetupState()
+      const setupKeyRaw = localStorage.getItem('gitnotes-setup')
+      const hasNotesKey = localStorage.getItem('gitnotes-notes') != null
+      const nextPhase: AppPhase = !setup.complete ? 'setup' : 'app'
+      console.info('[gitnotes-app] session: signed in', {
+        setupKeyInStorage: setupKeyRaw != null,
+        setupComplete: setup.complete,
+        setupSyncMode: setup.syncMode ?? null,
+        hasNotesKey,
+        nextPhase,
+        reason:
+          nextPhase === 'setup'
+            ? 'setup.complete is false — show SetupScreen until Get started or GitHub flow completes'
+            : 'setup.complete is true (from gitnotes-setup) — go to notes',
+      })
+      if (!setup.complete) {
+        setPhase('setup')
+      } else {
+        setPhase('app')
+      }
     } else {
+      console.info('[gitnotes-app] session: no user in session — phase auth')
       setUser(null)
-      setPhase('onboarding')
+      setPhase('auth')
     }
   }, [api])
-
-  const handleOnboardingReady = useCallback(() => {
-    setPhase('auth')
-  }, [])
 
   useEffect(() => {
     void refreshSession()
@@ -70,6 +89,11 @@ export default function App(): JSX.Element {
     setPhase('auth')
   }, [api])
 
+  const handleSetupDone = useCallback(() => {
+    console.info('[gitnotes-app] setup: finished — phase app', loadSetupState())
+    setPhase('app')
+  }, [])
+
   if (phase === 'loading') {
     return (
       <div className="bg-background text-muted-foreground flex h-screen items-center justify-center text-sm">
@@ -78,12 +102,12 @@ export default function App(): JSX.Element {
     )
   }
 
-  if (api && phase === 'onboarding') {
-    return <OnboardingScreen api={api} onReady={handleOnboardingReady} />
-  }
-
   if (api && phase === 'auth') {
     return <LoginScreen onGitHub={handleGitHub} busy={busy} error={loginError} />
+  }
+
+  if (api && phase === 'setup') {
+    return <SetupScreen api={api} onDone={handleSetupDone} />
   }
 
   return <NotesApp user={user ?? undefined} onSignOut={api ? handleSignOut : undefined} />

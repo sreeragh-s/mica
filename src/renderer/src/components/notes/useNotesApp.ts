@@ -9,8 +9,11 @@ import {
 } from 'react'
 import type { SerializedEditorState } from 'lexical'
 
+import { backendFetchJson } from '@/lib/backend-api'
 import { getApi } from '@/lib/auth-bridge'
+import { mergeGithubContentShas, loadGithubContentShas } from '@/lib/github-shas-storage'
 import { isMacElectron } from '@/lib/electron-env'
+import { loadSetupState } from '@/lib/setup-storage'
 import { diskBodyToContent } from '@/lib/markdown-to-serialized'
 import {
   DEFAULT_WORKSPACE_ID,
@@ -77,9 +80,19 @@ export function useNotesApp({ user, onSignOut }: NotesAppProps) {
   const [treeExpandNonce, setTreeExpandNonce] = useState(0)
   const [treeExpandIds, setTreeExpandIds] = useState<string[]>([])
 
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+
   const selectedNote = useMemo(
     () => notes.find((n) => n.id === selectedId) ?? null,
     [notes, selectedId]
+  )
+
+  const focusedFolder = useMemo(
+    () =>
+      focusedFolderId
+        ? folders.find((f) => f.id === focusedFolderId) ?? null
+        : null,
+    [folders, focusedFolderId]
   )
 
   const notesByFolder = useMemo(() => {
@@ -132,8 +145,23 @@ export function useNotesApp({ user, onSignOut }: NotesAppProps) {
   const [gitHubBusy, setGitHubBusy] = useState(false)
   const [gitHubMessage, setGitHubMessage] = useState<string | null>(null)
 
+  const [setupSyncMode] = useState<'git' | 'github_api' | 'local' | undefined>(
+    () => loadSetupState().syncMode
+  )
+  const useGithubApiSync = setupSyncMode === 'github_api'
+  const [githubApiDirty, setGithubApiDirty] = useState(false)
+
   const refreshWorkspaceGitStatuses = useCallback(async () => {
     const api = getApi()
+    if (useGithubApiSync) {
+      const next: Record<string, boolean> = {}
+      for (const f of foldersRef.current) {
+        if (!f.localGitPath) continue
+        next[f.id] = githubApiDirty
+      }
+      setDirtyByWorkspaceId(next)
+      return
+    }
     if (!api?.workspace?.gitStatus) return
     const next: Record<string, boolean> = {}
     for (const f of foldersRef.current) {
@@ -142,7 +170,7 @@ export function useNotesApp({ user, onSignOut }: NotesAppProps) {
       if (s.ok) next[f.id] = s.dirty
     }
     setDirtyByWorkspaceId(next)
-  }, [])
+  }, [useGithubApiSync, githubApiDirty])
 
   type GitnotesIndexOk = {
     ok: true
@@ -205,6 +233,90 @@ export function useNotesApp({ user, onSignOut }: NotesAppProps) {
     applyGitnotesIndex(r, cwd)
   }, [applyGitnotesIndex])
 
+  const handleGithubApiPull = useCallback(async () => {
+    setGitSyncBusy(true)
+    setGitSyncError(null)
+    try {
+      const r = await backendFetchJson<{
+        files: { path: string; content: string; sha?: string }[]
+        commitSha?: string | null
+      }>('/api/github/sync/pull', { method: 'POST' })
+      if (!r.ok) {
+        setGitSyncError(r.message)
+        return
+      }
+      const cwd = dataRootRef.current
+      const api = getApi()
+      if (!cwd || !api?.workspace?.writeNoteFile) {
+        setGitSyncError('No data root')
+        return
+      }
+      const shaPatch: Record<string, string> = {}
+      for (const f of r.data.files) {
+        const rel = f.path.replace(/\\/g, '/')
+        const wr = await api.workspace.writeNoteFile({
+          cwd,
+          relativePath: rel,
+          content: f.content,
+        })
+        if (!wr.ok) {
+          setGitSyncError(wr.error)
+          return
+        }
+        if (f.sha) shaPatch[rel] = f.sha
+      }
+      mergeGithubContentShas(shaPatch)
+      await reloadNotesFromDisk()
+      setGithubApiDirty(false)
+    } finally {
+      setGitSyncBusy(false)
+    }
+  }, [reloadNotesFromDisk])
+
+  const handleGithubApiPush = useCallback(async () => {
+    setGitSyncBusy(true)
+    setGitSyncError(null)
+    try {
+      const cwd = dataRootRef.current
+      if (!cwd) {
+        setGitSyncError('No data root')
+        return
+      }
+      const shas = loadGithubContentShas()
+      const files: { path: string; content: string; sha?: string | null }[] = []
+      for (const f of foldersRef.current) {
+        const wsNotes = notesRef.current.filter((n) => n.folderId === f.id)
+        const payload = buildMarkdownSyncPayload(f, wsNotes)
+        for (const p of payload) {
+          const rel = p.relativePath.replace(/\\/g, '/')
+          files.push({
+            path: rel,
+            content: p.content,
+            sha: shas[rel] ?? null,
+          })
+        }
+      }
+      const r = await backendFetchJson<{ ok?: boolean; commitSha?: string | null }>(
+        '/api/github/sync/push',
+        {
+          method: 'POST',
+          body: {
+            message: gitCommitMessage.trim() || 'Update notes',
+            files,
+          },
+        }
+      )
+      if (!r.ok || !(r.data as { ok?: boolean })?.ok) {
+        setGitSyncError(!r.ok ? r.message : 'Push failed')
+        return
+      }
+      setGithubApiDirty(false)
+      await refreshWorkspaceGitStatuses()
+    } finally {
+      setGitSyncBusy(false)
+    }
+  }, [gitCommitMessage, refreshWorkspaceGitStatuses])
+
   const flushNoteToDisk = useCallback(
     async (noteId: string) => {
       const api = getApi()
@@ -233,12 +345,15 @@ export function useNotesApp({ user, onSignOut }: NotesAppProps) {
         if (!wr.ok) {
           console.error('[gitnotes] write note failed', wr.error)
         }
+        if (useGithubApiSync) {
+          setGithubApiDirty(true)
+        }
         await refreshWorkspaceGitStatuses()
       } finally {
         pendingDiskWrites.current.delete(noteId)
       }
     },
-    [refreshWorkspaceGitStatuses]
+    [refreshWorkspaceGitStatuses, useGithubApiSync]
   )
 
   const scheduleNoteFlush = useCallback(
@@ -256,6 +371,10 @@ export function useNotesApp({ user, onSignOut }: NotesAppProps) {
   )
 
   const handleGitCommit = useCallback(async (workspaceId?: string) => {
+    if (useGithubApiSync) {
+      await handleGithubApiPush()
+      return
+    }
     const api = getApi()
     const wid = workspaceId ?? selectedNote?.folderId ?? focusedFolderId
     const folder = folders.find((x) => x.id === wid && x.localGitPath) ?? null
@@ -277,9 +396,22 @@ export function useNotesApp({ user, onSignOut }: NotesAppProps) {
     } finally {
       setGitSyncBusy(false)
     }
-  }, [selectedNote, focusedFolderId, folders, gitCommitMessage, user, refreshWorkspaceGitStatuses])
+  }, [
+    selectedNote,
+    focusedFolderId,
+    folders,
+    gitCommitMessage,
+    user,
+    refreshWorkspaceGitStatuses,
+    useGithubApiSync,
+    handleGithubApiPush,
+  ])
 
   const handleGitPush = useCallback(async (workspaceId?: string) => {
+    if (useGithubApiSync) {
+      await handleGithubApiPush()
+      return
+    }
     const api = getApi()
     const wid = workspaceId ?? selectedNote?.folderId ?? focusedFolderId
     const folder = folders.find((x) => x.id === wid && x.localGitPath) ?? null
@@ -296,9 +428,20 @@ export function useNotesApp({ user, onSignOut }: NotesAppProps) {
     } finally {
       setGitSyncBusy(false)
     }
-  }, [selectedNote, focusedFolderId, folders, refreshWorkspaceGitStatuses])
+  }, [
+    selectedNote,
+    focusedFolderId,
+    folders,
+    refreshWorkspaceGitStatuses,
+    useGithubApiSync,
+    handleGithubApiPush,
+  ])
 
   const handleGitPull = useCallback(async (workspaceId?: string) => {
+    if (useGithubApiSync) {
+      await handleGithubApiPull()
+      return
+    }
     const api = getApi()
     const wid = workspaceId ?? selectedNote?.folderId ?? focusedFolderId
     const folder = folders.find((x) => x.id === wid && x.localGitPath) ?? null
@@ -322,10 +465,17 @@ export function useNotesApp({ user, onSignOut }: NotesAppProps) {
     folders,
     reloadNotesFromDisk,
     refreshWorkspaceGitStatuses,
+    useGithubApiSync,
+    handleGithubApiPull,
   ])
 
   const handleGitPullThenPush = useCallback(
     async (workspaceId?: string) => {
+      if (useGithubApiSync) {
+        await handleGithubApiPull()
+        await handleGithubApiPush()
+        return
+      }
       const api = getApi()
       const wid = workspaceId ?? selectedNote?.folderId ?? focusedFolderId
       const folder = folders.find((x) => x.id === wid && x.localGitPath) ?? null
@@ -355,10 +505,17 @@ export function useNotesApp({ user, onSignOut }: NotesAppProps) {
       folders,
       reloadNotesFromDisk,
       refreshWorkspaceGitStatuses,
+      useGithubApiSync,
+      handleGithubApiPull,
+      handleGithubApiPush,
     ]
   )
 
   const handleGitCommitAndPush = useCallback(async (workspaceId?: string) => {
+    if (useGithubApiSync) {
+      await handleGithubApiPush()
+      return
+    }
     const api = getApi()
     const wid = workspaceId ?? selectedNote?.folderId ?? focusedFolderId
     const folder = folders.find((x) => x.id === wid && x.localGitPath) ?? null
@@ -389,7 +546,16 @@ export function useNotesApp({ user, onSignOut }: NotesAppProps) {
     } finally {
       setGitSyncBusy(false)
     }
-  }, [selectedNote, focusedFolderId, folders, gitCommitMessage, user, refreshWorkspaceGitStatuses])
+  }, [
+    selectedNote,
+    focusedFolderId,
+    folders,
+    gitCommitMessage,
+    user,
+    refreshWorkspaceGitStatuses,
+    useGithubApiSync,
+    handleGithubApiPush,
+  ])
 
   useEffect(() => {
     const api = getApi()
@@ -522,10 +688,10 @@ export function useNotesApp({ user, onSignOut }: NotesAppProps) {
     }
   }, [primaryGitFolder, githubRemoteUrl])
 
-  const gitDirtyGlobal = useMemo(
-    () => Object.values(dirtyByWorkspaceId).some(Boolean),
-    [dirtyByWorkspaceId]
-  )
+  const gitDirtyGlobal = useMemo(() => {
+    if (useGithubApiSync) return githubApiDirty
+    return Object.values(dirtyByWorkspaceId).some(Boolean)
+  }, [useGithubApiSync, githubApiDirty, dirtyByWorkspaceId])
 
   const handleSaveGithubRemote = useCallback(() => {
     const u = githubRemoteUrl.trim()
@@ -736,6 +902,7 @@ export function useNotesApp({ user, onSignOut }: NotesAppProps) {
           if (!r.ok) {
             console.error('[gitnotes] delete note files failed', r.error)
           }
+          if (useGithubApiSync) setGithubApiDirty(true)
           await refreshWorkspaceGitStatuses()
         }
         setNotes((prev) => prev.filter((n) => n.id !== noteId))
@@ -752,7 +919,7 @@ export function useNotesApp({ user, onSignOut }: NotesAppProps) {
         }
       })()
     },
-    [diskMode, refreshWorkspaceGitStatuses, selectedId]
+    [diskMode, refreshWorkspaceGitStatuses, selectedId, useGithubApiSync]
   )
 
   const cancelFolderCreate = useCallback(() => {
@@ -784,11 +951,12 @@ export function useNotesApp({ user, onSignOut }: NotesAppProps) {
           if (!wr.ok) {
             console.error('[gitnotes] workspace readme failed', wr.error)
           }
+          if (useGithubApiSync) setGithubApiDirty(true)
           await refreshWorkspaceGitStatuses()
         })()
       }
     }
-  }, [cancelFolderCreate, diskMode, refreshWorkspaceGitStatuses])
+  }, [cancelFolderCreate, diskMode, refreshWorkspaceGitStatuses, useGithubApiSync])
 
   const onFolderDraftKeyDown = useCallback(
     (e: KeyboardEvent<HTMLInputElement>) => {
@@ -819,8 +987,39 @@ export function useNotesApp({ user, onSignOut }: NotesAppProps) {
     setTreeExpandNonce((n) => n + 1)
   }, [])
 
-  const closeWorkspaceSettings = useCallback(() => {
+  const navigateToNotesRoot = useCallback(() => {
+    setAppMode('notes')
     setWorkspaceSettingsFolderId(null)
+    setSelectedId(null)
+  }, [])
+
+  const focusFolderInTree = useCallback((folderId: string) => {
+    setWorkspaceSettingsFolderId(null)
+    setAppMode('notes')
+    setSelectedId(null)
+    setFocusedFolderId(folderId)
+    setTreeExpandIds([treeFolderId(folderId)])
+    setTreeExpandNonce((n) => n + 1)
+  }, [])
+
+  const openWorkspaceSettingsForFolder = useCallback((folderId: string) => {
+    setAppMode('notes')
+    setWorkspaceSettingsFolderId(folderId)
+    setSelectedId(null)
+    setFocusedFolderId(folderId)
+    setTreeExpandIds([treeFolderId(folderId)])
+    setTreeExpandNonce((n) => n + 1)
+  }, [])
+
+  const selectNote = useCallback((noteId: string) => {
+    const note = notesRef.current.find((n) => n.id === noteId)
+    if (!note) return
+    setWorkspaceSettingsFolderId(null)
+    setAppMode('notes')
+    setSelectedId(noteId)
+    setFocusedFolderId(note.folderId)
+    setTreeExpandIds([treeFolderId(note.folderId)])
+    setTreeExpandNonce((n) => n + 1)
   }, [])
 
   const renameWorkspace = useCallback(
@@ -840,16 +1039,21 @@ export function useNotesApp({ user, onSignOut }: NotesAppProps) {
             if (!wr.ok) {
               console.error('[gitnotes] rename workspace readme failed', wr.error)
             }
+            if (useGithubApiSync) setGithubApiDirty(true)
             await refreshWorkspaceGitStatuses()
           })()
         }
       }
     },
-    [diskMode, refreshWorkspaceGitStatuses]
+    [diskMode, refreshWorkspaceGitStatuses, useGithubApiSync]
   )
 
   const backToNotes = useCallback(() => {
     setAppMode('notes')
+  }, [])
+
+  const toggleSidebar = useCallback(() => {
+    setSidebarCollapsed((c) => !c)
   }, [])
 
   const defaultExpandedFolderIds = useMemo(() => folders.map((f) => treeFolderId(f.id)), [folders])
@@ -901,6 +1105,9 @@ export function useNotesApp({ user, onSignOut }: NotesAppProps) {
     treeSelectedIds,
     defaultExpandedFolderIds,
     selectedNote,
+    focusedFolder,
+    sidebarCollapsed,
+    toggleSidebar,
     dirtyByWorkspaceId,
     gitCommitMessage,
     setGitCommitMessage,
@@ -916,7 +1123,10 @@ export function useNotesApp({ user, onSignOut }: NotesAppProps) {
     commitFolderCreate,
     openSettings,
     openWorkspaceSettings,
-    closeWorkspaceSettings,
+    navigateToNotesRoot,
+    focusFolderInTree,
+    openWorkspaceSettingsForFolder,
+    selectNote,
     renameWorkspace,
     backToNotes,
     handleGitCommit,
@@ -936,6 +1146,7 @@ export function useNotesApp({ user, onSignOut }: NotesAppProps) {
     primaryGitFolderId: primaryGitFolder?.id ?? null,
     refreshWorkspaceGitStatuses,
     notesCount: notes.length,
+    syncTransport: useGithubApiSync ? ('github_api' as const) : ('git' as const),
   }
 }
 

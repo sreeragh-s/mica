@@ -9,7 +9,6 @@ export type WorkspaceSettingsPanelProps = {
   folder: WorkspaceFolder
   macElectron: boolean
   macTitlebarStyles: MacTitlebarStyles
-  onClose: () => void
   onRename: (name: string) => void
 }
 
@@ -17,7 +16,6 @@ export function WorkspaceSettingsPanel({
   folder,
   macElectron,
   macTitlebarStyles,
-  onClose,
   onRename,
 }: WorkspaceSettingsPanelProps): JSX.Element {
   const model = useWorkspaceSettings({
@@ -29,7 +27,6 @@ export function WorkspaceSettingsPanel({
       folder={folder}
       macElectron={macElectron}
       macTitlebarStyles={macTitlebarStyles}
-      onClose={onClose}
       {...model}
     />
   )

@@ -7,7 +7,7 @@
  * LICENSE file in the root directory of this source tree.
  *
  */
-import { useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext"
 import type { LexicalCommand, LexicalEditor, RangeSelection } from "lexical"
 import {
@@ -19,14 +19,14 @@ import {
   UNDO_COMMAND,
 } from "lexical"
 import { MicIcon } from "lucide-react"
+import { toast } from "sonner"
 
-import { useReport } from "@/components/editor/editor-hooks/use-report"
 import { CAN_USE_DOM } from "@/components/editor/shared/can-use-dom"
 import { Button } from "@/components/ui/button"
 import {
   Tooltip,
   TooltipContent,
-  TooltipTrigger, 
+  TooltipTrigger,
 } from "@/components/ui/tooltip"
 
 export const SPEECH_TO_TEXT_COMMAND: LexicalCommand<boolean> = createCommand(
@@ -56,88 +56,133 @@ export const SUPPORT_SPEECH_RECOGNITION: boolean =
 
 function SpeechToTextPluginImpl() {
   const [editor] = useLexicalComposerContext()
-  const [isEnabled, setIsEnabled] = useState<boolean>(false)
-  const [isSpeechToText, setIsSpeechToText] = useState<boolean>(false)
-  const SpeechRecognition =
-    // @ts-expect-error missing type
-    CAN_USE_DOM && (window.SpeechRecognition || window.webkitSpeechRecognition)
-  const recognition = useRef<typeof SpeechRecognition | null>(null)
-  const report = useReport()
+  const [isActive, setIsActive] = useState(false)
+  const listeningRef = useRef(false)
+  const recognitionRef = useRef<SpeechRecognition | null>(null)
 
   useEffect(() => {
-    if (isEnabled && recognition.current === null) {
-      recognition.current = new SpeechRecognition()
-      recognition.current.continuous = true
-      recognition.current.interimResults = true
-      recognition.current.addEventListener(
-        "result",
-        (event: typeof SpeechRecognition) => {
-          const resultItem = event.results.item(event.resultIndex)
-          const { transcript } = resultItem.item(0)
-          report(transcript)
-
-          if (!resultItem.isFinal) {
-            return
-          }
-
-          editor.update(() => {
-            const selection = $getSelection()
-
-            if ($isRangeSelection(selection)) {
-              const command = VOICE_COMMANDS[transcript.toLowerCase().trim()]
-
-              if (command) {
-                command({
-                  editor,
-                  selection,
-                })
-              } else if (transcript.match(/\s*\n\s*/)) {
-                selection.insertParagraph()
-              } else {
-                selection.insertText(transcript)
-              }
-            }
-          })
-        }
-      )
+    if (!CAN_USE_DOM) {
+      return
+    }
+    const Ctor = window.SpeechRecognition ?? window.webkitSpeechRecognition
+    if (!Ctor) {
+      return
     }
 
-    if (recognition.current) {
-      if (isEnabled) {
-        recognition.current.start()
-      } else {
-        recognition.current.stop()
+    const recognition = new Ctor()
+    recognition.continuous = true
+    recognition.interimResults = true
+    recognition.lang = navigator.language || "en-US"
+
+    recognition.addEventListener("result", (event: SpeechRecognitionEvent) => {
+      const resultItem = event.results.item(event.resultIndex)
+      const { transcript } = resultItem.item(0)
+
+      if (!resultItem.isFinal) {
+        return
       }
-    }
+
+      editor.update(() => {
+        const selection = $getSelection()
+
+        if ($isRangeSelection(selection)) {
+          const command = VOICE_COMMANDS[transcript.toLowerCase().trim()]
+
+          if (command) {
+            command({
+              editor,
+              selection,
+            })
+          } else if (transcript.match(/\s*\n\s*/)) {
+            selection.insertParagraph()
+          } else {
+            selection.insertText(transcript)
+          }
+        }
+      })
+    })
+
+    recognition.addEventListener("end", () => {
+      if (listeningRef.current) {
+        queueMicrotask(() => {
+          try {
+            recognition.start()
+          } catch {
+            // Already running or invalid state — ignore
+          }
+        })
+      }
+    })
+
+    recognition.addEventListener("error", (event: SpeechRecognitionErrorEvent) => {
+      if (event.error === "aborted" || event.error === "no-speech") {
+        return
+      }
+      if (event.error === "not-allowed") {
+        listeningRef.current = false
+        setIsActive(false)
+        toast.error("Microphone permission is required for speech to text.")
+        return
+      }
+      if (event.error === "network" || event.error === "service-not-allowed") {
+        toast.error(
+          "Speech recognition needs a network connection (browser engine uses a cloud service)."
+        )
+        listeningRef.current = false
+        setIsActive(false)
+        return
+      }
+      console.warn("[speech-to-text]", event.error)
+    })
+
+    recognitionRef.current = recognition
 
     return () => {
-      if (recognition.current !== null) {
-        recognition.current.stop()
-      }
+      listeningRef.current = false
+      recognitionRef.current = null
+      recognition.abort()
     }
-  }, [SpeechRecognition, editor, isEnabled, report])
+  }, [editor])
+
   useEffect(() => {
     return editor.registerCommand(
       SPEECH_TO_TEXT_COMMAND,
-      (_isEnabled: boolean) => {
-        setIsEnabled(_isEnabled)
+      (enabled: boolean) => {
+        listeningRef.current = enabled
+        setIsActive(enabled)
+        const rec = recognitionRef.current
+        if (!rec) {
+          return true
+        }
+        try {
+          if (enabled) {
+            rec.start()
+          } else {
+            rec.stop()
+          }
+        } catch {
+          listeningRef.current = false
+          setIsActive(false)
+          toast.error("Could not start speech recognition. Try again.")
+        }
         return true
       },
       COMMAND_PRIORITY_EDITOR
     )
   }, [editor])
 
+  const toggle = useCallback(() => {
+    editor.dispatchCommand(SPEECH_TO_TEXT_COMMAND, !listeningRef.current)
+  }, [editor])
+
   return (
     <Tooltip>
       <TooltipTrigger asChild>
         <Button
-          onClick={() => {
-            editor.dispatchCommand(SPEECH_TO_TEXT_COMMAND, !isSpeechToText)
-            setIsSpeechToText(!isSpeechToText)
-          }}
-          variant={isSpeechToText ? "secondary" : "ghost"}
+          onClick={toggle}
+          variant={isActive ? "secondary" : "ghost"}
           title="Speech To Text"
-          aria-label={`${isSpeechToText ? "Enable" : "Disable"} speech to text`}
+          aria-label={`${isActive ? "Disable" : "Enable"} speech to text`}
           className="p-2"
           size={"sm"}
         >

@@ -12,6 +12,15 @@ import { homedir } from 'node:os'
 import { dirname, join, relative, resolve, sep } from 'node:path'
 
 const LOG = '[gitnotes-workspace]'
+const MODE_FILE = '.gitnotes-mode'
+
+function allowWorkspaceFs(cwd: string): boolean {
+  const root = cwd?.trim() ?? ''
+  if (!root) return false
+  if (existsSync(join(root, '.git'))) return true
+  if (existsSync(join(root, MODE_FILE))) return true
+  return false
+}
 
 function isInsideRepoRoot(repoRoot: string, absolutePath: string): boolean {
   const rel = relative(repoRoot, absolutePath)
@@ -286,17 +295,44 @@ export function registerWorkspaceGitIpc(): void {
   ipcMain.handle(
     'workspace:ensure-data-root',
     async (): Promise<
-      | { ok: true; path: string }
+      | {
+          ok: true
+          path: string
+          gitAvailable: boolean
+          filesystemOnly: boolean
+        }
       | { ok: false; error: string }
     > => {
       try {
         const root = join(homedir(), '.gitnotes')
         mkdirSync(root, { recursive: true })
         const gitDir = join(root, '.git')
-        if (!existsSync(gitDir)) {
-          runGit(['init'], root)
-          runGit(['branch', '-M', 'main'], root)
+        const gitCheck = checkGitBinary()
+        const gitAvailable = gitCheck.ok
+        let filesystemOnly = false
+
+        if (gitAvailable) {
+          if (!existsSync(gitDir)) {
+            runGit(['init'], root)
+            runGit(['branch', '-M', 'main'], root)
+          }
+          const modePath = join(root, MODE_FILE)
+          if (existsSync(modePath)) {
+            unlinkSync(modePath)
+          }
+        } else {
+          filesystemOnly = true
+          const modePath = join(root, MODE_FILE)
+          writeFileSync(
+            modePath,
+            JSON.stringify({
+              allowFilesystemWithoutGit: true,
+              syncMode: 'no_git',
+            }),
+            'utf8'
+          )
         }
+
         const readmePath = join(root, 'README.md')
         if (!existsSync(readmePath)) {
           writeFileSync(
@@ -305,8 +341,8 @@ export function registerWorkspaceGitIpc(): void {
             'utf8'
           )
         }
-        console.info(LOG, 'data root', root)
-        return { ok: true, path: root }
+        console.info(LOG, 'data root', root, { gitAvailable, filesystemOnly })
+        return { ok: true, path: root, gitAvailable, filesystemOnly }
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e)
         console.error(LOG, 'ensure-data-root failed', msg)
@@ -314,9 +350,36 @@ export function registerWorkspaceGitIpc(): void {
           ok: false,
           error:
             msg.includes('ENOENT') || msg.includes('not found')
-              ? 'Git does not appear to be installed or is not on your PATH.'
+              ? 'Could not create the data folder. Check permissions.'
               : msg,
         }
+      }
+    }
+  )
+
+  ipcMain.handle(
+    'workspace:set-sync-mode',
+    async (
+      _evt,
+      payload: { cwd: string; syncMode: 'git' | 'github_api' | 'local' }
+    ): Promise<{ ok: true } | { ok: false; error: string }> => {
+      const cwd = typeof payload.cwd === 'string' ? payload.cwd.trim() : ''
+      const syncMode = payload.syncMode
+      if (!cwd || !syncMode) return { ok: false, error: 'missing_args' }
+      try {
+        const modePath = join(cwd, MODE_FILE)
+        writeFileSync(
+          modePath,
+          JSON.stringify({
+            allowFilesystemWithoutGit: true,
+            syncMode,
+          }),
+          'utf8'
+        )
+        return { ok: true }
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e)
+        return { ok: false, error: msg }
       }
     }
   )
@@ -366,8 +429,8 @@ export function registerWorkspaceGitIpc(): void {
     ): Promise<{ ok: true } | { ok: false; error: string }> => {
       const cwd = payload.cwd?.trim() ?? ''
       const workspaceId = payload.workspaceId?.trim() ?? ''
-      if (!cwd || !existsSync(join(cwd, '.git'))) {
-        return { ok: false, error: 'not_a_git_repo' }
+      if (!cwd || !allowWorkspaceFs(cwd)) {
+        return { ok: false, error: 'not_a_workspace' }
       }
       if (!workspaceId) {
         return { ok: false, error: 'missing_workspace' }
@@ -408,8 +471,8 @@ export function registerWorkspaceGitIpc(): void {
       | { ok: false; error: string }
     > => {
       const cwd = payload.cwd?.trim() ?? ''
-      if (!cwd || !existsSync(join(cwd, '.git'))) {
-        return { ok: false, error: 'not_a_git_repo' }
+      if (!cwd || !allowWorkspaceFs(cwd)) {
+        return { ok: false, error: 'not_a_workspace' }
       }
       try {
         const { workspaces, notes } = readGitnotesIndexImpl(cwd)
@@ -431,8 +494,8 @@ export function registerWorkspaceGitIpc(): void {
       const cwd = payload.cwd?.trim() ?? ''
       const rel = typeof payload.relativePath === 'string' ? payload.relativePath : ''
       const content = typeof payload.content === 'string' ? payload.content : ''
-      if (!cwd || !existsSync(join(cwd, '.git'))) {
-        return { ok: false, error: 'not_a_git_repo' }
+      if (!cwd || !allowWorkspaceFs(cwd)) {
+        return { ok: false, error: 'not_a_workspace' }
       }
       if (!rel.trim()) {
         return { ok: false, error: 'missing_path' }
@@ -457,8 +520,8 @@ export function registerWorkspaceGitIpc(): void {
       const cwd = payload.cwd?.trim() ?? ''
       const workspaceId = payload.workspaceId?.trim() ?? ''
       const noteId = payload.noteId?.trim() ?? ''
-      if (!cwd || !existsSync(join(cwd, '.git'))) {
-        return { ok: false, error: 'not_a_git_repo' }
+      if (!cwd || !allowWorkspaceFs(cwd)) {
+        return { ok: false, error: 'not_a_workspace' }
       }
       if (!workspaceId || !noteId) {
         return { ok: false, error: 'missing_ids' }

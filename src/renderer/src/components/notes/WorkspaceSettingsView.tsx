@@ -1,7 +1,5 @@
 import type { JSX } from 'react'
 
-import { ArrowLeft } from 'lucide-react'
-
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -13,14 +11,12 @@ export type WorkspaceSettingsViewProps = {
   folder: WorkspaceFolder
   macElectron: boolean
   macTitlebarStyles: MacTitlebarStyles
-  onClose: () => void
 } & WorkspaceSettingsModel
 
 export function WorkspaceSettingsView({
   folder,
   macElectron,
   macTitlebarStyles,
-  onClose,
   nameDraft,
   setNameDraft,
   handleSaveName,
@@ -31,15 +27,6 @@ export function WorkspaceSettingsView({
       style={macElectron ? macTitlebarStyles.noDrag : undefined}
     >
       <div className="flex flex-col gap-4">
-        <Button
-          type="button"
-          variant="ghost"
-          className="text-muted-foreground w-fit gap-2 px-2"
-          onClick={onClose}
-        >
-          <ArrowLeft className="size-4" aria-hidden />
-          Back to notes
-        </Button>
         <div>
           <h2 className="text-foreground text-xl font-semibold tracking-tight">
             Workspace settings

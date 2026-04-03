@@ -163,4 +163,46 @@ export function registerAuthIpc(): void {
       return { ok: false as const }
     }
   })
+
+  ipcMain.handle(
+    'auth:fetch',
+    async (
+      _evt,
+      url: string,
+      init?: {
+        method?: string
+        body?: string
+        headers?: Record<string, string>
+      }
+    ): Promise<{ ok: boolean; status: number; body: string }> => {
+      const base = baseUrl()
+      if (!base) {
+        return { ok: false, status: 0, body: 'missing_env' }
+      }
+      const u = typeof url === 'string' ? url.trim() : ''
+      if (!u) {
+        return { ok: false, status: 0, body: 'empty_url' }
+      }
+      try {
+        const origin = new URL(base).origin
+        const headers: Record<string, string> = {
+          Origin: origin,
+          ...(init?.headers ?? {}),
+        }
+        if (init?.body && (init.method ?? 'GET').toUpperCase() !== 'GET') {
+          headers['Content-Type'] = 'application/json'
+        }
+        const res = await authSession.fetch(u, {
+          method: init?.method ?? 'GET',
+          body: init?.body,
+          headers,
+        })
+        const text = await res.text()
+        return { ok: res.ok, status: res.status, body: text }
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e)
+        return { ok: false, status: 0, body: msg }
+      }
+    }
+  )
 }

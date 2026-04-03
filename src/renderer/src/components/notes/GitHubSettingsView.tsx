@@ -14,6 +14,8 @@ import { slugifyRepoSuggestion } from './notes-app-utils'
 export type GitHubSettingsViewProps = {
   macElectron: boolean
   macTitlebarStyles: MacTitlebarStyles
+  /** `github_api` when using the Worker + GitHub App; otherwise local `git`. */
+  syncTransport?: 'git' | 'github_api'
   folders: WorkspaceFolder[]
   githubRemoteUrl: string
   setGithubRemoteUrl: (v: string) => void
@@ -38,6 +40,7 @@ export type GitHubSettingsViewProps = {
 export function GitHubSettingsView({
   macElectron,
   macTitlebarStyles,
+  syncTransport = 'git',
   folders,
   githubRemoteUrl,
   setGithubRemoteUrl,
@@ -87,7 +90,16 @@ export function GitHubSettingsView({
       <div>
         <h2 className="text-foreground text-xl font-semibold tracking-tight">GitHub & Git</h2>
         <p className="text-muted-foreground mt-1 text-sm">
-          Connect <code className="text-xs">~/.gitnotes</code> to GitHub and commit or push changes.
+          {syncTransport === 'github_api' ? (
+            <>
+              Sync <code className="text-xs">~/.gitnotes</code> to your linked GitHub repository via the
+              GitHub API (no local Git required).
+            </>
+          ) : (
+            <>
+              Connect <code className="text-xs">~/.gitnotes</code> to GitHub and commit or push changes.
+            </>
+          )}
         </p>
       </div>
 
@@ -166,6 +178,7 @@ export function GitHubSettingsView({
           {gitDirtyGlobal || syncErrorVisible ? (
             <GitSyncToolbar
               folder={gitToolbarFolder}
+              syncTransport={syncTransport}
               dirty={gitDirtyGlobal}
               hasSyncError={syncErrorVisible}
               commitMessage={gitCommitMessage}

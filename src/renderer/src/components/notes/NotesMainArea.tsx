@@ -7,6 +7,8 @@ import { Button } from '@/components/ui/button'
 import { AccountSettingsView } from './AccountSettingsView'
 import { DebugSettingsView } from './DebugSettingsView'
 import { GitHubSettingsView } from './GitHubSettingsView'
+import { NotesLocationBar } from './NotesLocationBar'
+import { WorkspaceNotesList } from './WorkspaceNotesList'
 import { WorkspaceSettingsPanel } from './WorkspaceSettingsPanel'
 import type { NotesAppViewModel } from './useNotesApp'
 
@@ -38,38 +40,39 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
     gitHubMessage,
     gitToolbarFolder,
     gitDirtyGlobal,
+    syncTransport,
     primaryGitFolderId,
     refreshWorkspaceGitStatuses,
     folders,
     notesCount,
     workspaceSettingsFolder,
     workspaceSettingsFolderId,
-    closeWorkspaceSettings,
     renameWorkspace,
     user,
     onSignOut,
     selectedNote,
+    focusedFolder,
+    notesByFolder,
+    selectNote,
     handleSerializedChange,
     handleNewNote,
-    canCreateNote
+    canCreateNote,
   } = vm
 
   return (
     <div className="bg-background flex min-h-0 min-w-0 flex-1 flex-col">
-      {macElectron ? (
-        <div aria-hidden className="bg-background h-12 shrink-0" style={macTitlebarStyles.drag} />
-      ) : null}
       <main
-        className="bg-background flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto"
+        className="bg-background flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
         style={macElectron ? macTitlebarStyles.noDrag : undefined}
       >
+        <NotesLocationBar vm={vm} />
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto">
         {appMode === 'notes' && workspaceSettingsFolder && workspaceSettingsFolderId ? (
           <WorkspaceSettingsPanel
             key={workspaceSettingsFolderId}
             folder={workspaceSettingsFolder}
             macElectron={macElectron}
             macTitlebarStyles={macTitlebarStyles}
-            onClose={closeWorkspaceSettings}
             onRename={(name) => renameWorkspace(workspaceSettingsFolderId, name)}
           />
         ) : appMode === 'settings' && settingsSection === 'account' ? (
@@ -83,6 +86,7 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
           <GitHubSettingsView
             macElectron={macElectron}
             macTitlebarStyles={macTitlebarStyles}
+            syncTransport={syncTransport}
             folders={folders}
             githubRemoteUrl={githubRemoteUrl}
             setGithubRemoteUrl={setGithubRemoteUrl}
@@ -121,16 +125,28 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
             onSerializedChange={handleSerializedChange}
             className="min-h-0 flex-1"
           />
+        ) : appMode === 'notes' &&
+          !workspaceSettingsFolderId &&
+          !selectedNote &&
+          focusedFolder ? (
+          <WorkspaceNotesList
+            folder={focusedFolder}
+            notes={notesByFolder.get(focusedFolder.id) ?? []}
+            onSelectNote={selectNote}
+            onNewNote={handleNewNote}
+            canCreateNote={canCreateNote}
+          />
         ) : appMode === 'notes' ? (
           <div className="text-muted-foreground flex flex-1 flex-col items-center justify-center gap-4 p-8 text-center text-sm">
             <FileText className="size-14 opacity-30" aria-hidden />
-            <p>Select a note from the tree or create a new one.</p>
+            <p>Select a workspace or create a note to get started.</p>
             <Button type="button" onClick={handleNewNote} disabled={!canCreateNote}>
               <Plus className="size-4" aria-hidden />
               New note
             </Button>
           </div>
         ) : null}
+        </div>
       </main>
     </div>
   )
