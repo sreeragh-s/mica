@@ -14,7 +14,11 @@ export type NotesUser = {
 export type NotesAppProps = {
   /** Signed-in user (Electron + GitHub); shown on the account settings page. */
   user?: NotesUser | null
+  /** True when the user chose “Continue as guest” (no GitHub session yet). */
+  guestMode?: boolean
   onSignOut?: () => void
+  /** Open GitHub OAuth (e.g. from Account when guest). */
+  onConnectGitHub?: () => void | Promise<void>
 }
 
 export type AppMode = 'notes' | 'settings'

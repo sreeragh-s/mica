@@ -7,11 +7,12 @@ import { cn } from "@/lib/utils"
 
 type Props = {
   onGitHub: () => void
+  onGuest: () => void
   busy: boolean
   error: string | null
 }
 
-export function LoginScreen({ onGitHub, busy, error }: Props): JSX.Element {
+export function LoginScreen({ onGitHub, onGuest, busy, error }: Props): JSX.Element {
   const mac = isMacElectron()
 
   return (
@@ -24,19 +25,30 @@ export function LoginScreen({ onGitHub, busy, error }: Props): JSX.Element {
       >
         <h1 className="text-2xl font-semibold tracking-tight">gitnotes</h1>
         <p className="text-muted-foreground text-sm">
-          Sign in with GitHub to open your notes. Sessions are stored in this app.
+          Sign in with GitHub, or continue locally and add sync later in Settings.
         </p>
       </div>
-      <Button
-        type="button"
-        size="lg"
-        className="gap-2"
-        disabled={busy}
-        onClick={onGitHub}
-      >
-        {/* <Github className="size-5" aria-hidden /> */}
-        {busy ? "Opening GitHub…" : "Continue with GitHub"}
-      </Button>
+      <div className="flex w-full max-w-sm flex-col gap-3">
+        <Button
+          type="button"
+          size="lg"
+          className="gap-2 w-full"
+          disabled={busy}
+          onClick={onGitHub}
+        >
+          {busy ? "Opening GitHub…" : "Continue with GitHub"}
+        </Button>
+        <Button
+          type="button"
+          size="lg"
+          variant="secondary"
+          className="w-full"
+          disabled={busy}
+          onClick={onGuest}
+        >
+          Continue as guest
+        </Button>
+      </div>
       {error ? (
         <p className="text-destructive max-w-md text-center text-sm" role="alert">
           {error}

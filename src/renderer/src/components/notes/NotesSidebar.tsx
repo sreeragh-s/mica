@@ -87,7 +87,7 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
 
   return (
     <aside
-      className="bg-sidebar text-sidebar-foreground border-sidebar-border flex h-full min-h-0 w-[min(100%,320px)] shrink-0 flex-col border-r"
+      className="bg-sidebar text-sidebar-foreground border-sidebar-border flex h-full min-h-0 w-[min(100%,320px)] shrink-0 flex-col "
       aria-label={appMode === 'notes' ? 'Notes' : 'Settings'}
     >
       <div
@@ -114,10 +114,7 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
                 <ArrowLeft className="size-4" aria-hidden />
               </Button>
             </div>
-            <div
-              className="min-w-0 flex-1"
-              style={macElectron ? macTitlebarStyles.noDrag : undefined}
-            >
+            <div className="min-w-0 flex-1">
               <h1 className="text-sidebar-foreground truncate text-sm font-semibold leading-none tracking-tight">
                 Settings
               </h1>
@@ -125,11 +122,8 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
           </>
         ) : (
           <>
-            <div
-              className="min-w-0 flex-1"
-              style={macElectron ? macTitlebarStyles.noDrag : undefined}
-            >
-              <h1 className="text-sidebar-foreground truncate text-sm font-semibold leading-none tracking-tight">
+            <div className="min-w-0 flex-1">
+              <h1 className="text-sidebar-foreground truncate ml-2 text-sm font-semibold leading-none tracking-tight">
                 Notes
               </h1>
             </div>

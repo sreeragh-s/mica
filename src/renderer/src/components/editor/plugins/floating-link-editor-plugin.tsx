@@ -249,7 +249,7 @@ function FloatingLinkEditor({
           </Button>
         </div>
       ) : (
-        <div className="flex items-center justify-between rounded-md border p-1 pl-2">
+        <div className="flex items-center justify-between bg-background rounded-md border p-1 pl-2">
           <a
             href={sanitizeUrl(linkUrl)}
             target="_blank"

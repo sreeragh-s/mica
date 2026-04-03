@@ -1,4 +1,4 @@
-import type { JSX, ReactNode } from 'react'
+import type { CSSProperties, JSX, ReactNode } from 'react'
 
 import { ChevronDown, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
 
@@ -31,12 +31,20 @@ type NotesLocationBarProps = {
 function CrumbButton({
   children,
   onClick,
+  interactiveStyle,
 }: {
   children: ReactNode
   onClick: () => void
+  /** Electron: no-drag so the rest of the top bar remains a window drag region. */
+  interactiveStyle?: CSSProperties
 }): JSX.Element {
   return (
-    <button type="button" onClick={onClick} className="max-w-[14rem] truncate text-left">
+    <button
+      type="button"
+      onClick={onClick}
+      style={interactiveStyle}
+      className="max-w-[14rem] truncate text-left"
+    >
       {children}
     </button>
   )
@@ -74,13 +82,18 @@ export function NotesLocationBar({ vm }: NotesLocationBarProps): JSX.Element | n
     folderForNote &&
     (folders.length > 1 || totalNotesCount > 1)
 
+  const crumbInteractive = macElectron ? macTitlebarStyles.noDrag : undefined
+
   const crumbs: JSX.Element[] = []
 
   if (appMode === 'notes' && workspaceSettingsFolderId && workspaceSettingsFolder) {
     crumbs.push(
       <BreadcrumbItem key="ws">
         <BreadcrumbLink asChild>
-          <CrumbButton onClick={() => focusFolderInTree(workspaceSettingsFolder.id)}>
+          <CrumbButton
+            interactiveStyle={crumbInteractive}
+            onClick={() => focusFolderInTree(workspaceSettingsFolder.id)}
+          >
             {workspaceSettingsFolder.name}
           </CrumbButton>
         </BreadcrumbLink>
@@ -94,7 +107,9 @@ export function NotesLocationBar({ vm }: NotesLocationBarProps): JSX.Element | n
     crumbs.push(
       <BreadcrumbItem key="notes">
         <BreadcrumbLink asChild>
-          <CrumbButton onClick={backToNotes}>Notes</CrumbButton>
+          <CrumbButton interactiveStyle={crumbInteractive} onClick={backToNotes}>
+            Notes
+          </CrumbButton>
         </BreadcrumbLink>
       </BreadcrumbItem>,
       <BreadcrumbSeparator key="sep1" />,
@@ -106,13 +121,20 @@ export function NotesLocationBar({ vm }: NotesLocationBarProps): JSX.Element | n
     crumbs.push(
       <BreadcrumbItem key="notes">
         <BreadcrumbLink asChild>
-          <CrumbButton onClick={backToNotes}>Notes</CrumbButton>
+          <CrumbButton interactiveStyle={crumbInteractive} onClick={backToNotes}>
+            Notes
+          </CrumbButton>
         </BreadcrumbLink>
       </BreadcrumbItem>,
       <BreadcrumbSeparator key="sep1" />,
       <BreadcrumbItem key="settings">
         <BreadcrumbLink asChild>
-          <CrumbButton onClick={() => setSettingsSection('account')}>Settings</CrumbButton>
+          <CrumbButton
+            interactiveStyle={crumbInteractive}
+            onClick={() => setSettingsSection('account')}
+          >
+            Settings
+          </CrumbButton>
         </BreadcrumbLink>
       </BreadcrumbItem>,
       <BreadcrumbSeparator key="sep2" />,
@@ -124,13 +146,20 @@ export function NotesLocationBar({ vm }: NotesLocationBarProps): JSX.Element | n
     crumbs.push(
       <BreadcrumbItem key="notes">
         <BreadcrumbLink asChild>
-          <CrumbButton onClick={backToNotes}>Notes</CrumbButton>
+          <CrumbButton interactiveStyle={crumbInteractive} onClick={backToNotes}>
+            Notes
+          </CrumbButton>
         </BreadcrumbLink>
       </BreadcrumbItem>,
       <BreadcrumbSeparator key="sep1" />,
       <BreadcrumbItem key="settings">
         <BreadcrumbLink asChild>
-          <CrumbButton onClick={() => setSettingsSection('account')}>Settings</CrumbButton>
+          <CrumbButton
+            interactiveStyle={crumbInteractive}
+            onClick={() => setSettingsSection('account')}
+          >
+            Settings
+          </CrumbButton>
         </BreadcrumbLink>
       </BreadcrumbItem>,
       <BreadcrumbSeparator key="sep2" />,
@@ -158,7 +187,10 @@ export function NotesLocationBar({ vm }: NotesLocationBarProps): JSX.Element | n
     crumbs.push(
       <BreadcrumbItem key="folder">
         <BreadcrumbLink asChild>
-          <CrumbButton onClick={() => focusFolderInTree(folderForNote.id)}>
+          <CrumbButton
+            interactiveStyle={crumbInteractive}
+            onClick={() => focusFolderInTree(folderForNote.id)}
+          >
             {folderForNote.name}
           </CrumbButton>
         </BreadcrumbLink>
@@ -174,7 +206,7 @@ export function NotesLocationBar({ vm }: NotesLocationBarProps): JSX.Element | n
                   'text-foreground inline-flex max-w-full min-w-0 items-center gap-1 rounded-sm py-0.5 text-left font-normal',
                   'hover:bg-accent/60 focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-none',
                 )}
-                style={macElectron ? macTitlebarStyles.noDrag : undefined}
+                style={crumbInteractive}
                 aria-label="Switch note or workspace"
               >
                 <span className="min-w-0 truncate">{noteTitle}</span>
@@ -278,10 +310,7 @@ export function NotesLocationBar({ vm }: NotesLocationBarProps): JSX.Element | n
         </div>
       ) : null}
       {hasTextCrumbs ? (
-        <Breadcrumb
-          className="flex min-h-12 min-w-0 flex-1 items-center px-2 py-0"
-          style={macElectron ? macTitlebarStyles.noDrag : undefined}
-        >
+        <Breadcrumb className="flex min-h-12 min-w-0 flex-1 items-center px-2 py-0">
           <BreadcrumbList className="min-w-0 flex-nowrap gap-1 sm:gap-1.5">{crumbs}</BreadcrumbList>
         </Breadcrumb>
       ) : (
@@ -290,13 +319,6 @@ export function NotesLocationBar({ vm }: NotesLocationBarProps): JSX.Element | n
           aria-hidden={!macElectron}
         />
       )}
-      {macElectron ? (
-        <div
-          className={hasTextCrumbs ? 'min-h-12 min-w-[2rem] flex-1' : 'min-h-12 w-full flex-1'}
-          aria-hidden
-          style={macTitlebarStyles.drag}
-        />
-      ) : null}
     </div>
   )
 }

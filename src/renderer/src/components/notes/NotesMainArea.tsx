@@ -49,7 +49,9 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
     workspaceSettingsFolderId,
     renameWorkspace,
     user,
+    guestMode,
     onSignOut,
+    onConnectGitHub,
     selectedNote,
     focusedFolder,
     notesByFolder,
@@ -78,7 +80,9 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
         ) : appMode === 'settings' && settingsSection === 'account' ? (
           <AccountSettingsView
             user={user}
+            guestMode={guestMode}
             onSignOut={onSignOut}
+            onConnectGitHub={onConnectGitHub}
             macElectron={macElectron}
             macTitlebarStyles={macTitlebarStyles}
           />

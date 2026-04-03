@@ -25,6 +25,7 @@ import {
 import {
   buildMarkdownSyncPayload,
   buildNoteMarkdownDocument,
+  newWorkspaceFolderId,
   noteMarkdownRelativePath,
   workspaceReadmeMarkdown
 } from '@/lib/workspace-markdown-sync'
@@ -38,7 +39,7 @@ import {
 } from './notes-app-utils'
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type -- view-model shape is NotesAppViewModel below
-export function useNotesApp({ user, onSignOut }: NotesAppProps) {
+export function useNotesApp({ user, guestMode = false, onSignOut, onConnectGitHub }: NotesAppProps) {
   const macElectron = isMacElectron()
   const folderInputRef = useRef<HTMLInputElement>(null)
   const folderDraftRef = useRef('')
@@ -934,7 +935,7 @@ export function useNotesApp({ user, onSignOut }: NotesAppProps) {
       cancelFolderCreate()
       return
     }
-    const id = crypto.randomUUID()
+    const id = newWorkspaceFolderId(name)
     const root = dataRootRef.current
     setFolders((prev) => [...prev, { id, name, ...(root ? { localGitPath: root } : {}) }])
     cancelFolderCreate()
@@ -1060,6 +1061,36 @@ export function useNotesApp({ user, onSignOut }: NotesAppProps) {
 
   const canCreateNote = folders.length > 0
 
+  useEffect(() => {
+    const onKeyDown = (e: globalThis.KeyboardEvent) => {
+      const mod = e.metaKey || e.ctrlKey
+      if (!mod || e.altKey) return
+      if (e.repeat) return
+
+      const k = e.key.toLowerCase()
+      if (k === 'b') {
+        e.preventDefault()
+        e.stopPropagation()
+        toggleSidebar()
+        return
+      }
+      if (k === 'n') {
+        e.preventDefault()
+        e.stopPropagation()
+        if (appMode === 'settings') {
+          setAppMode('notes')
+        }
+        if (canCreateNote) {
+          handleNewNote()
+        }
+        return
+      }
+    }
+
+    window.addEventListener('keydown', onKeyDown, true)
+    return () => window.removeEventListener('keydown', onKeyDown, true)
+  }, [appMode, canCreateNote, handleNewNote, toggleSidebar])
+
   const startFolderCreate = useCallback(() => {
     setFolderCreateOpen(true)
     setFolderDraft('')
@@ -1082,7 +1113,9 @@ export function useNotesApp({ user, onSignOut }: NotesAppProps) {
 
   return {
     user,
+    guestMode,
     onSignOut,
+    onConnectGitHub,
     macElectron,
     macTitlebarStyles,
     appMode,

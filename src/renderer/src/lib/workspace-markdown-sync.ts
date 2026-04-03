@@ -13,6 +13,28 @@ function slugifyNoteFilenameSegment(title: string): string {
   return s || "note"
 }
 
+/** Slug for a workspace directory segment (ASCII, filesystem-safe). */
+function slugifyWorkspaceDirSegment(displayName: string): string {
+  const s = displayName
+    .trim()
+    .toLowerCase()
+    .replace(/['"`]/g, "")
+    .replace(/[^a-z0-9-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 48)
+  return s || "workspace"
+}
+
+/**
+ * Folder name under `gitnotes/workspaces/<id>/`.
+ * Uses a readable slug from the display name plus a short unique suffix (not a bare UUID).
+ */
+export function newWorkspaceFolderId(displayName: string): string {
+  const slug = slugifyWorkspaceDirSegment(displayName)
+  const hex = crypto.randomUUID().replace(/-/g, "")
+  return `${slug}--${hex.slice(0, 8)}`
+}
+
 export function workspaceReadmeMarkdown(folderName: string): string {
   return `# ${folderName}
 
@@ -41,7 +63,8 @@ export function noteMarkdownRelativePath(folderId: string, note: SavedNote): str
 
 /**
  * Markdown files to write under the repository root for one workspace.
- * Layout: `gitnotes/workspaces/<workspaceId>/README.md` and `<slug>--<noteId>.md` files.
+ * Layout: `gitnotes/workspaces/<workspace-folder-id>/README.md` and `<slug>--<noteId>.md` files.
+ * Workspace folder ids look like `my-workspace--a1b2c3d4` (name slug + unique suffix).
  */
 export function buildMarkdownSyncPayload(
   folder: WorkspaceFolder,

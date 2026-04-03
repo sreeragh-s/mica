@@ -5,7 +5,8 @@ import { LoginScreen } from '@/components/auth/LoginScreen'
 import { SetupScreen } from '@/components/setup/SetupScreen'
 import { NotesApp } from '@/components/notes/NotesApp'
 import { getApi, parseSession } from '@/lib/auth-bridge'
-import { loadSetupState } from '@/lib/setup-storage'
+import { clearGuestMode, isGuestMode, setGuestMode } from '@/lib/guest-session'
+import { loadSetupState, saveSetupState } from '@/lib/setup-storage'
 
 type AppPhase = 'loading' | 'auth' | 'setup' | 'app'
 
@@ -36,6 +37,7 @@ export default function App(): JSX.Element {
     }
     const parsed = parseSession(r.data)
     if (parsed?.user) {
+      clearGuestMode()
       setUser(parsed.user)
       const setup = loadSetupState()
       const setupKeyRaw = localStorage.getItem('gitnotes-setup')
@@ -57,6 +59,11 @@ export default function App(): JSX.Element {
       } else {
         setPhase('app')
       }
+    } else if (isGuestMode()) {
+      console.info('[gitnotes-app] session: guest mode — phase app (no GitHub session)')
+      setUser(null)
+      const setup = loadSetupState()
+      setPhase(!setup.complete ? 'setup' : 'app')
     } else {
       console.info('[gitnotes-app] session: no user in session — phase auth')
       setUser(null)
@@ -82,8 +89,20 @@ export default function App(): JSX.Element {
     }
   }, [api, refreshSession])
 
+  const handleContinueAsGuest = useCallback(() => {
+    setGuestMode(true)
+    saveSetupState({
+      complete: true,
+      syncMode: 'local',
+    })
+    setUser(null)
+    setPhase('app')
+    console.info('[gitnotes-app] guest: continuing without GitHub — finish setup in Settings')
+  }, [])
+
   const handleSignOut = useCallback(async () => {
     if (!api) return
+    clearGuestMode()
     await api.auth.signOut()
     setUser(null)
     setPhase('auth')
@@ -103,12 +122,26 @@ export default function App(): JSX.Element {
   }
 
   if (api && phase === 'auth') {
-    return <LoginScreen onGitHub={handleGitHub} busy={busy} error={loginError} />
+    return (
+      <LoginScreen
+        onGitHub={handleGitHub}
+        onGuest={handleContinueAsGuest}
+        busy={busy}
+        error={loginError}
+      />
+    )
   }
 
   if (api && phase === 'setup') {
     return <SetupScreen api={api} onDone={handleSetupDone} />
   }
 
-  return <NotesApp user={user ?? undefined} onSignOut={api ? handleSignOut : undefined} />
+  return (
+    <NotesApp
+      user={user ?? undefined}
+      guestMode={isGuestMode()}
+      onSignOut={api ? handleSignOut : undefined}
+      onConnectGitHub={api ? handleGitHub : undefined}
+    />
+  )
 }
