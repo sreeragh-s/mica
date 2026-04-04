@@ -70,6 +70,8 @@ export function NotesLocationBar({ vm }: NotesLocationBarProps): JSX.Element | n
     notesCount: totalNotesCount,
     sidebarCollapsed,
     toggleSidebar,
+    drawViewOpen,
+    closeDrawView,
   } = vm
 
   const folderForNote =
@@ -86,7 +88,25 @@ export function NotesLocationBar({ vm }: NotesLocationBarProps): JSX.Element | n
 
   const crumbs: JSX.Element[] = []
 
-  if (appMode === 'notes' && workspaceSettingsFolderId && workspaceSettingsFolder) {
+  if (
+    appMode === 'notes' &&
+    drawViewOpen &&
+    !workspaceSettingsFolderId
+  ) {
+    crumbs.push(
+      <BreadcrumbItem key="notes-root">
+        <BreadcrumbLink asChild>
+          <CrumbButton interactiveStyle={crumbInteractive} onClick={closeDrawView}>
+            Notes
+          </CrumbButton>
+        </BreadcrumbLink>
+      </BreadcrumbItem>,
+      <BreadcrumbSeparator key="draw-sep" />,
+      <BreadcrumbItem key="draw">
+        <BreadcrumbPage>Draw</BreadcrumbPage>
+      </BreadcrumbItem>
+    )
+  } else if (appMode === 'notes' && workspaceSettingsFolderId && workspaceSettingsFolder) {
     crumbs.push(
       <BreadcrumbItem key="ws">
         <BreadcrumbLink asChild>
@@ -140,6 +160,31 @@ export function NotesLocationBar({ vm }: NotesLocationBarProps): JSX.Element | n
       <BreadcrumbSeparator key="sep2" />,
       <BreadcrumbItem key="gh">
         <BreadcrumbPage>GitHub & Git</BreadcrumbPage>
+      </BreadcrumbItem>
+    )
+  } else if (appMode === 'settings' && settingsSection === 'shortcuts') {
+    crumbs.push(
+      <BreadcrumbItem key="notes">
+        <BreadcrumbLink asChild>
+          <CrumbButton interactiveStyle={crumbInteractive} onClick={backToNotes}>
+            Notes
+          </CrumbButton>
+        </BreadcrumbLink>
+      </BreadcrumbItem>,
+      <BreadcrumbSeparator key="sep1" />,
+      <BreadcrumbItem key="settings">
+        <BreadcrumbLink asChild>
+          <CrumbButton
+            interactiveStyle={crumbInteractive}
+            onClick={() => setSettingsSection('account')}
+          >
+            Settings
+          </CrumbButton>
+        </BreadcrumbLink>
+      </BreadcrumbItem>,
+      <BreadcrumbSeparator key="sep2" />,
+      <BreadcrumbItem key="shortcuts">
+        <BreadcrumbPage>Shortcuts</BreadcrumbPage>
       </BreadcrumbItem>
     )
   } else if (appMode === 'settings' && settingsSection === 'debug') {

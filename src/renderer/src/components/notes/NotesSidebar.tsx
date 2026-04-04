@@ -1,12 +1,14 @@
-import { useEffect, useRef, useState, type JSX } from 'react'
+import { useEffect, useRef, useState, type DragEvent, type JSX } from 'react'
 
 import {
   ArrowLeft,
   Bug,
   FileText,
+  Keyboard,
   Folder,
   FolderGit2,
   FolderPlus,
+  PenLine,
   Pencil,
   Settings,
   Settings2,
@@ -29,7 +31,7 @@ import {
 } from '@/components/ui/tree'
 import { cn } from '@/lib/utils'
 import { formatNoteTime } from '@/lib/notes-storage'
-import { treeFolderId, treeNoteId } from './notes-app-utils'
+import { NOTE_DRAG_MIME, treeFolderId, treeNoteId } from './notes-app-utils'
 import type { NotesAppViewModel } from './useNotesApp'
 
 export type NotesSidebarProps = {
@@ -65,7 +67,10 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
     onFolderDraftKeyDown,
     backToNotes,
     openSettings,
-    startFolderCreate
+    startFolderCreate,
+    drawViewOpen,
+    openDrawView,
+    closeDrawView
   } = vm
 
   const [renamingNoteId, setRenamingNoteId] = useState<string | null>(null)
@@ -121,51 +126,66 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
             </div>
           </>
         ) : (
-          <>
-            <div className="min-w-0 flex-1">
-              <h1 className="text-sidebar-foreground truncate ml-2 text-sm font-semibold leading-none tracking-tight">
-                Notes
-              </h1>
-            </div>
-            <div
-              className="flex shrink-0 items-center gap-0.5"
-              style={macElectron ? macTitlebarStyles.noDrag : undefined}
-            >
-              <Button
-                type="button"
-                size="sm"
-                variant="ghost"
-                className="text-muted-foreground size-8 shrink-0 p-0"
-                aria-label="New workspace folder"
-                onClick={startFolderCreate}
-              >
-                <FolderPlus className="size-4" aria-hidden />
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="ghost"
-                className="text-muted-foreground size-8 shrink-0 p-0"
-                aria-label="New note"
-                disabled={!canCreateNote}
-                onClick={handleNewNote}
-              >
-                <SquarePen className="size-4" aria-hidden />
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="ghost"
-                className="text-muted-foreground size-8 shrink-0 p-0"
-                aria-label="Settings"
-                onClick={openSettings}
-              >
-                <Settings className="size-4" aria-hidden />
-              </Button>
-            </div>
-          </>
+          <div className="min-w-0 flex-1">
+            <h1 className="text-sidebar-foreground truncate ml-2 text-sm font-semibold leading-none tracking-tight">
+              Notes
+            </h1>
+          </div>
         )}
       </div>
+      {appMode === 'notes' ? (
+        <div
+          className={cn(
+            'border-sidebar-border flex shrink-0 items-center justify-end gap-0.5 border-b px-2 py-1.5',
+            macElectron && 'pl-[76px]'
+          )}
+          style={macElectron ? macTitlebarStyles.noDrag : undefined}
+        >
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            className="text-muted-foreground size-8 shrink-0 p-0"
+            aria-label="New workspace folder"
+            onClick={startFolderCreate}
+          >
+            <FolderPlus className="size-4" aria-hidden />
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            className="text-muted-foreground size-8 shrink-0 p-0"
+            aria-label="New note"
+            disabled={!canCreateNote}
+            onClick={handleNewNote}
+          >
+            <SquarePen className="size-4" aria-hidden />
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant={drawViewOpen ? 'secondary' : 'ghost'}
+            className="text-muted-foreground size-8 shrink-0 p-0"
+            title={drawViewOpen ? 'Close draw' : 'Draw'}
+            aria-label={drawViewOpen ? 'Close draw' : 'Draw'}
+            aria-pressed={drawViewOpen}
+            onClick={() => (drawViewOpen ? closeDrawView() : openDrawView())}
+          >
+            <PenLine className="size-4" aria-hidden />
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            className="text-muted-foreground size-8 shrink-0 p-0"
+            aria-label="Settings"
+            onClick={openSettings}
+          >
+            <Settings className="size-4" aria-hidden />
+          </Button>
+        </div>
+      ) : null}
       <div className="min-h-0 flex-1 overflow-y-auto p-2">
         {appMode === 'settings' ? (
           <ul className="flex flex-col gap-0.5">
@@ -195,6 +215,20 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
               >
                 <FolderGit2 className="text-muted-foreground size-4 shrink-0" aria-hidden />
                 GitHub & Git
+              </button>
+            </li>
+            <li>
+              <button
+                type="button"
+                onClick={() => setSettingsSection('shortcuts')}
+                className={cn(
+                  'hover:bg-sidebar-accent hover:text-sidebar-accent-foreground flex w-full items-center gap-2 rounded-lg px-2.5 py-2.5 text-left text-sm transition-colors',
+                  settingsSection === 'shortcuts' &&
+                    'bg-sidebar-accent text-sidebar-accent-foreground'
+                )}
+              >
+                <Keyboard className="text-muted-foreground size-4 shrink-0" aria-hidden />
+                Shortcuts
               </button>
             </li>
             <li>
@@ -288,6 +322,11 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
                             isLast={isLastNote}
                           >
                             <TreeNodeTrigger
+                              draggable
+                              onDragStart={(e: DragEvent) => {
+                                e.dataTransfer.setData(NOTE_DRAG_MIME, note.id)
+                                e.dataTransfer.effectAllowed = 'copy'
+                              }}
                               className={cn(
                                 'hover:bg-sidebar-accent/50',
                                 selectedId === note.id &&

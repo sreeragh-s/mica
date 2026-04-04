@@ -23,6 +23,15 @@ import {
   saveNotesState
 } from '@/lib/notes-storage'
 import {
+  loadShortcutBindings,
+  resetShortcutBindings,
+  saveShortcutBindings,
+  keyboardEventMatchesBinding,
+  type ShortcutActionId,
+  type ShortcutBinding,
+  type ShortcutBindingsMap
+} from '@/lib/shortcuts-storage'
+import {
   buildMarkdownSyncPayload,
   buildNoteMarkdownDocument,
   newWorkspaceFolderId,
@@ -83,6 +92,17 @@ export function useNotesApp({ user, guestMode = false, onSignOut, onConnectGitHu
 
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
 
+  const [shortcutBindings, setShortcutBindings] =
+    useState<ShortcutBindingsMap>(loadShortcutBindings)
+  const shortcutBindingsRef = useRef(shortcutBindings)
+  shortcutBindingsRef.current = shortcutBindings
+  const shortcutsSuppressedRef = useRef(false)
+
+  const [splitViewOpen, setSplitViewOpen] = useState(false)
+  const [splitNoteId, setSplitNoteId] = useState<string | null>(null)
+
+  const [drawViewOpen, setDrawViewOpen] = useState(false)
+
   const selectedNote = useMemo(
     () => notes.find((n) => n.id === selectedId) ?? null,
     [notes, selectedId]
@@ -128,6 +148,12 @@ export function useNotesApp({ user, guestMode = false, onSignOut, onConnectGitHu
         ? (folders.find((f) => f.id === workspaceSettingsFolderId) ?? null)
         : null,
     [folders, workspaceSettingsFolderId]
+  )
+
+  const splitNote = useMemo(
+    () =>
+      splitNoteId ? (notes.find((n) => n.id === splitNoteId) ?? null) : null,
+    [notes, splitNoteId]
   )
 
   const foldersRef = useRef(folders)
@@ -814,9 +840,22 @@ export function useNotesApp({ user, guestMode = false, onSignOut, onConnectGitHu
     }
   }, [folders, workspaceSettingsFolderId])
 
+  useEffect(() => {
+    if (splitNoteId && !notes.some((n) => n.id === splitNoteId)) {
+      setSplitNoteId(null)
+    }
+  }, [notes, splitNoteId])
+
+  useEffect(() => {
+    if (selectedId && splitNoteId && selectedId === splitNoteId) {
+      setSplitNoteId(null)
+    }
+  }, [selectedId, splitNoteId])
+
   const handleTreeSelectionChange = useCallback(
     (ids: string[]) => {
       setWorkspaceSettingsFolderId(null)
+      setDrawViewOpen(false)
       const id = ids[0]
       if (!id) {
         setSelectedId(null)
@@ -842,6 +881,7 @@ export function useNotesApp({ user, guestMode = false, onSignOut, onConnectGitHu
   const handleNewNote = useCallback(() => {
     const fid = selectedNote?.folderId ?? focusedFolderId ?? folders[0]?.id
     if (!fid) return
+    setDrawViewOpen(false)
     const note = createEmptyNote(fid)
     setNotes((prev) => [note, ...prev])
     setSelectedId(note.id)
@@ -853,21 +893,20 @@ export function useNotesApp({ user, guestMode = false, onSignOut, onConnectGitHu
     }
   }, [selectedNote, focusedFolderId, folders, diskMode, scheduleNoteFlush])
 
-  const handleSerializedChange = useCallback(
-    (serialized: SerializedEditorState) => {
-      if (!selectedId) return
-      const current = notesRef.current.find((n) => n.id === selectedId)
+  const handleNoteSerializedChange = useCallback(
+    (noteId: string, serialized: SerializedEditorState) => {
+      const current = notesRef.current.find((n) => n.id === noteId)
       if (current && serializedEditorStatesEqual(current.content, serialized)) {
         return
       }
       setNotes((prev) =>
         prev.map((n) =>
-          n.id === selectedId ? { ...n, content: serialized, updatedAt: Date.now() } : n
+          n.id === noteId ? { ...n, content: serialized, updatedAt: Date.now() } : n
         )
       )
-      scheduleNoteFlush(selectedId)
+      scheduleNoteFlush(noteId)
     },
-    [selectedId, scheduleNoteFlush]
+    [scheduleNoteFlush]
   )
 
   const renameNote = useCallback(
@@ -907,6 +946,7 @@ export function useNotesApp({ user, guestMode = false, onSignOut, onConnectGitHu
           await refreshWorkspaceGitStatuses()
         }
         setNotes((prev) => prev.filter((n) => n.id !== noteId))
+        setSplitNoteId((sid) => (sid === noteId ? null : sid))
         if (snapshotSelected === noteId) {
           const next = snapshotNotes.filter((n) => n.id !== noteId)
           const nextSel = next[0]?.id ?? null
@@ -974,12 +1014,14 @@ export function useNotesApp({ user, guestMode = false, onSignOut, onConnectGitHu
 
   const openSettings = useCallback(() => {
     setWorkspaceSettingsFolderId(null)
+    setDrawViewOpen(false)
     setAppMode('settings')
     setSettingsSection('account')
   }, [])
 
   const openWorkspaceSettings = useCallback((folderId: string, e: MouseEvent) => {
     e.stopPropagation()
+    setDrawViewOpen(false)
     setAppMode('notes')
     setWorkspaceSettingsFolderId(folderId)
     setSelectedId(null)
@@ -992,10 +1034,12 @@ export function useNotesApp({ user, guestMode = false, onSignOut, onConnectGitHu
     setAppMode('notes')
     setWorkspaceSettingsFolderId(null)
     setSelectedId(null)
+    setDrawViewOpen(false)
   }, [])
 
   const focusFolderInTree = useCallback((folderId: string) => {
     setWorkspaceSettingsFolderId(null)
+    setDrawViewOpen(false)
     setAppMode('notes')
     setSelectedId(null)
     setFocusedFolderId(folderId)
@@ -1004,6 +1048,7 @@ export function useNotesApp({ user, guestMode = false, onSignOut, onConnectGitHu
   }, [])
 
   const openWorkspaceSettingsForFolder = useCallback((folderId: string) => {
+    setDrawViewOpen(false)
     setAppMode('notes')
     setWorkspaceSettingsFolderId(folderId)
     setSelectedId(null)
@@ -1016,6 +1061,7 @@ export function useNotesApp({ user, guestMode = false, onSignOut, onConnectGitHu
     const note = notesRef.current.find((n) => n.id === noteId)
     if (!note) return
     setWorkspaceSettingsFolderId(null)
+    setDrawViewOpen(false)
     setAppMode('notes')
     setSelectedId(noteId)
     setFocusedFolderId(note.folderId)
@@ -1050,11 +1096,68 @@ export function useNotesApp({ user, guestMode = false, onSignOut, onConnectGitHu
   )
 
   const backToNotes = useCallback(() => {
+    setDrawViewOpen(false)
     setAppMode('notes')
+  }, [])
+
+  const openDrawView = useCallback(() => {
+    setWorkspaceSettingsFolderId(null)
+    setSplitViewOpen(false)
+    setSplitNoteId(null)
+    setAppMode('notes')
+    setDrawViewOpen(true)
+  }, [])
+
+  const closeDrawView = useCallback(() => {
+    setDrawViewOpen(false)
   }, [])
 
   const toggleSidebar = useCallback(() => {
     setSidebarCollapsed((c) => !c)
+  }, [])
+
+  const toggleSplitView = useCallback(() => {
+    setSplitViewOpen((prev) => {
+      if (prev) {
+        setSplitNoteId(null)
+        return false
+      }
+      return true
+    })
+  }, [])
+
+  const closeSplitView = useCallback(() => {
+    setSplitViewOpen(false)
+    setSplitNoteId(null)
+  }, [])
+
+  const openSplitWithNote = useCallback(
+    (noteId: string) => {
+      if (noteId === selectedId) return
+      setSplitViewOpen(true)
+      setSplitNoteId(noteId)
+    },
+    [selectedId]
+  )
+
+  const setShortcutsCaptureActive = useCallback((active: boolean) => {
+    shortcutsSuppressedRef.current = active
+  }, [])
+
+  const updateShortcutBinding = useCallback(
+    (id: ShortcutActionId, binding: ShortcutBinding) => {
+      setShortcutBindings((prev) => {
+        const next = { ...prev, [id]: binding }
+        saveShortcutBindings(next)
+        return next
+      })
+    },
+    []
+  )
+
+  const resetShortcutsToDefaults = useCallback(() => {
+    const next = resetShortcutBindings()
+    setShortcutBindings(next)
   }, [])
 
   const defaultExpandedFolderIds = useMemo(() => folders.map((f) => treeFolderId(f.id)), [folders])
@@ -1063,18 +1166,16 @@ export function useNotesApp({ user, guestMode = false, onSignOut, onConnectGitHu
 
   useEffect(() => {
     const onKeyDown = (e: globalThis.KeyboardEvent) => {
-      const mod = e.metaKey || e.ctrlKey
-      if (!mod || e.altKey) return
+      if (shortcutsSuppressedRef.current) return
       if (e.repeat) return
-
-      const k = e.key.toLowerCase()
-      if (k === 'b') {
+      const map = shortcutBindingsRef.current
+      if (keyboardEventMatchesBinding(e, map.toggleSidebar)) {
         e.preventDefault()
         e.stopPropagation()
         toggleSidebar()
         return
       }
-      if (k === 'n') {
+      if (keyboardEventMatchesBinding(e, map.newNote)) {
         e.preventDefault()
         e.stopPropagation()
         if (appMode === 'settings') {
@@ -1085,11 +1186,16 @@ export function useNotesApp({ user, guestMode = false, onSignOut, onConnectGitHu
         }
         return
       }
+      if (keyboardEventMatchesBinding(e, map.toggleSplitView)) {
+        e.preventDefault()
+        e.stopPropagation()
+        toggleSplitView()
+      }
     }
 
     window.addEventListener('keydown', onKeyDown, true)
     return () => window.removeEventListener('keydown', onKeyDown, true)
-  }, [appMode, canCreateNote, handleNewNote, toggleSidebar])
+  }, [appMode, canCreateNote, handleNewNote, toggleSidebar, toggleSplitView])
 
   const startFolderCreate = useCallback(() => {
     setFolderCreateOpen(true)
@@ -1150,7 +1256,16 @@ export function useNotesApp({ user, guestMode = false, onSignOut, onConnectGitHu
     handleNewNote,
     renameNote,
     handleDeleteNote,
-    handleSerializedChange,
+    handleNoteSerializedChange,
+    splitViewOpen,
+    splitNoteId,
+    splitNote,
+    closeSplitView,
+    openSplitWithNote,
+    shortcutBindings,
+    updateShortcutBinding,
+    resetShortcutsToDefaults,
+    setShortcutsCaptureActive,
     onFolderDraftKeyDown,
     cancelFolderCreate,
     commitFolderCreate,
@@ -1162,6 +1277,9 @@ export function useNotesApp({ user, guestMode = false, onSignOut, onConnectGitHu
     selectNote,
     renameWorkspace,
     backToNotes,
+    drawViewOpen,
+    openDrawView,
+    closeDrawView,
     handleGitCommit,
     handleGitPull,
     handleGitPullThenPush,

@@ -36,6 +36,9 @@ export function treeNoteId(noteId: string): string {
   return `note:${noteId}`
 }
 
+/** DataTransfer type for dragging a note from the tree into split view. */
+export const NOTE_DRAG_MIME = 'application/x-gitnotes-note-id'
+
 export function slugifyRepoSuggestion(name: string): string {
   const s = name
     .trim()
