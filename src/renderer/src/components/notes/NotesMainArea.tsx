@@ -10,6 +10,7 @@ import { DebugSettingsView } from './DebugSettingsView'
 import { EmbeddingsSettingsView } from './EmbeddingsSettingsView'
 import { GitHubSettingsView } from './GitHubSettingsView'
 import { NotesGraphView } from './NotesGraphView'
+import { NotesChatSidebar } from './NotesChatSidebar'
 import { NoteTabStrip } from './NoteTabStrip'
 import { NotesPrimaryPane, getNoteDragId, isNoteDragEvent } from './NotesPrimaryPane'
 import { NotesSearchBar } from './NotesSearchBar'
@@ -456,12 +457,7 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
             ) : null}
           </div>
           </div>
-          {chatSidebarOpen && (
-            <aside
-              className="border-border bg-background flex min-h-0 w-[min(100%,440px)] shrink-0 flex-col border-l"
-              aria-label="Chat"
-            />
-          )}
+          <NotesChatSidebar open={chatSidebarOpen} />
         </div>
       </main>
 

@@ -1842,7 +1842,6 @@ export function useNotesApp({
     onSignOut,
     onConnectGitHub,
     macElectron,
-    /** True when main process attached `electron-liquid-glass` (macOS). */
     nativeLiquidGlassAttached,
     macTitlebarStyles,
     appMode,
