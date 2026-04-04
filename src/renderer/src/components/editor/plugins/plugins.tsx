@@ -40,6 +40,8 @@ import { TwitterPlugin } from "@/components/editor/plugins/embeds/twitter-plugin
 import { YouTubePlugin } from "@/components/editor/plugins/embeds/youtube-plugin"
 import { FloatingLinkEditorPlugin } from "@/components/editor/plugins/floating-link-editor-plugin"
 import { FloatingTextFormatToolbarPlugin } from "@/components/editor/plugins/floating-text-format-plugin"
+import { InternalNoteLinkClickPlugin } from "@/components/editor/plugins/internal-note-link-click-plugin"
+import { LinkHoverPreviewPlugin } from "@/components/editor/plugins/link-hover-preview-plugin"
 import { ImagesPlugin } from "@/components/editor/plugins/images-plugin"
 import { LinkPlugin } from "@/components/editor/plugins/link-plugin"
 import { ListMaxIndentLevelPlugin } from "@/components/editor/plugins/list-max-indent-level-plugin"
@@ -96,6 +98,8 @@ export function Plugins({}) {
         />
 
         <ClickableLinkPlugin />
+        <InternalNoteLinkClickPlugin />
+        <LinkHoverPreviewPlugin />
         <CheckListPlugin />
         <HorizontalRulePlugin />
         <TablePlugin />

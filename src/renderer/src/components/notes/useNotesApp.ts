@@ -1322,6 +1322,7 @@ export function useNotesApp({ user, guestMode = false, onSignOut, onConnectGitHu
     gitDirtyGlobal,
     primaryGitFolderId: primaryGitFolder?.id ?? null,
     refreshWorkspaceGitStatuses,
+    notes,
     notesCount: notes.length,
     syncTransport: useGithubApiSync ? ('github_api' as const) : ('git' as const),
   }

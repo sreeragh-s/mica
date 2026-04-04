@@ -81,6 +81,7 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
     primaryGitFolderId,
     refreshWorkspaceGitStatuses,
     folders,
+    notes,
     notesCount,
     workspaceSettingsFolder,
     workspaceSettingsFolderId,
@@ -178,6 +179,12 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
             editorSerializedState={selectedNote.content ?? undefined}
             onSerializedChange={(s) => handleNoteSerializedChange(selectedNote.id, s)}
             className="min-h-0 flex-1"
+            gitnotesEditor={{
+              notes,
+              folders,
+              currentNoteId: selectedNote.id,
+              onOpenInternalNote: selectNote,
+            }}
           />
         )
       ) : focusedFolder ? (
@@ -269,6 +276,12 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
                       handleNoteSerializedChange(splitNote.id, s)
                     }
                     className="min-h-0 flex-1"
+                    gitnotesEditor={{
+                      notes,
+                      folders,
+                      currentNoteId: splitNote.id,
+                      onOpenInternalNote: selectNote,
+                    }}
                   />
                 )
               ) : (

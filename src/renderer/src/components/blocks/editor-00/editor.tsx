@@ -11,8 +11,10 @@ import { editorTheme } from "@/components/editor/themes/editor-theme"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
 
+import { GitnotesEditorProvider } from "@/components/editor/gitnotes-editor-context"
 import { nodes } from "@/components/editor/nodes/nodes"
 import { Plugins } from "@/components/editor/plugins/plugins"
+import type { SavedNote, WorkspaceFolder } from "@/lib/notes-storage"
 
 const editorConfig: InitialConfigType = {
   namespace: "Editor",
@@ -29,12 +31,20 @@ export function Editor({
   onChange,
   onSerializedChange,
   className,
+  gitnotesEditor,
 }: {
   editorState?: EditorState
   editorSerializedState?: SerializedEditorState
   onChange?: (editorState: EditorState) => void
   onSerializedChange?: (editorSerializedState: SerializedEditorState) => void
   className?: string
+  /** When set, enables “link to note/drawing” in the floating toolbar and internal link navigation. */
+  gitnotesEditor?: {
+    notes: SavedNote[]
+    folders: WorkspaceFolder[]
+    currentNoteId: string
+    onOpenInternalNote: (noteId: string) => void
+  } | null
 }) {
   return (
     <div
@@ -52,19 +62,21 @@ export function Editor({
             : {}),
         }}
       >
-        <TooltipProvider>
-          <div className="flex h-full min-h-0 flex-1 flex-col">
-            <Plugins />
+        <GitnotesEditorProvider value={gitnotesEditor ?? null}>
+          <TooltipProvider>
+            <div className="flex h-full min-h-0 flex-1 flex-col">
+              <Plugins />
 
-            <OnChangePlugin
-              ignoreSelectionChange={true}
-              onChange={(editorState) => {
-                onChange?.(editorState)
-                onSerializedChange?.(editorState.toJSON())
-              }}
-            />
-          </div>
-        </TooltipProvider>
+              <OnChangePlugin
+                ignoreSelectionChange={true}
+                onChange={(editorState) => {
+                  onChange?.(editorState)
+                  onSerializedChange?.(editorState.toJSON())
+                }}
+              />
+            </div>
+          </TooltipProvider>
+        </GitnotesEditorProvider>
       </LexicalComposer>
     </div>
   )

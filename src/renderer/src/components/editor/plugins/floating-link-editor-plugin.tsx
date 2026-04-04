@@ -7,11 +7,21 @@
  * LICENSE file in the root directory of this source tree.
  *
  */
-import { Dispatch, JSX, useCallback, useEffect, useRef, useState } from "react"
+import {
+  Dispatch,
+  JSX,
+  SetStateAction,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react"
 import {
   $createLinkNode,
   $isAutoLinkNode,
   $isLinkNode,
+  $toggleLink,
   TOGGLE_LINK_COMMAND,
 } from "@lexical/link"
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext"
@@ -21,6 +31,7 @@ import {
   $isLineBreakNode,
   $isNodeSelection,
   $isRangeSelection,
+  $setSelection,
   BaseSelection,
   CLICK_COMMAND,
   COMMAND_PRIORITY_CRITICAL,
@@ -33,11 +44,29 @@ import {
 import { Check, Pencil, Trash, X } from "lucide-react"
 import { createPortal } from "react-dom"
 
+import { useGitnotesEditorContext } from "@/components/editor/gitnotes-editor-context"
+import {
+  filterLinkableNotes,
+  NoteLinkPickerList,
+} from "@/components/editor/note-link-picker"
 import { getSelectedNode } from "@/components/editor/utils/get-selected-node"
 import { setFloatingElemPositionForLinkEditor } from "@/components/editor/utils/set-floating-elem-position-for-link-editor"
 import { sanitizeUrl } from "@/components/editor/utils/url"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
+import {
+  ExternalUrlPreviewBody,
+  InternalNoteLinkIcon,
+  InternalNoteLinkPreviewBody,
+  LinkPreviewCardShell,
+  UrlFavicon,
+} from "@/components/editor/link-preview-card"
+import { buildInternalNoteLinkHref, parseInternalNoteIdFromHref } from "@/lib/internal-note-link"
 
 function FloatingLinkEditor({
   editor,
@@ -46,6 +75,8 @@ function FloatingLinkEditor({
   anchorElem,
   isLinkEditMode,
   setIsLinkEditMode,
+  internalNotePickerOpen,
+  setInternalNotePickerOpen,
 }: {
   editor: LexicalEditor
   isLink: boolean
@@ -53,12 +84,58 @@ function FloatingLinkEditor({
   anchorElem: HTMLElement
   isLinkEditMode: boolean
   setIsLinkEditMode: Dispatch<boolean>
+  internalNotePickerOpen: boolean
+  setInternalNotePickerOpen: Dispatch<SetStateAction<boolean>>
 }): JSX.Element {
   const editorRef = useRef<HTMLDivElement | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const [linkUrl, setLinkUrl] = useState("")
   const [editedLinkUrl, setEditedLinkUrl] = useState("https://")
   const [lastSelection, setLastSelection] = useState<BaseSelection | null>(null)
+  const [noteSearchPicker, setNoteSearchPicker] = useState("")
+
+  const gitnotesCtx = useGitnotesEditorContext()
+
+  const internalTargetId = useMemo(
+    () => (linkUrl ? parseInternalNoteIdFromHref(linkUrl) : null),
+    [linkUrl]
+  )
+
+  const resolvedNote = useMemo(() => {
+    if (!internalTargetId || !gitnotesCtx) return undefined
+    return gitnotesCtx.notes.find((n) => n.id === internalTargetId)
+  }, [internalTargetId, gitnotesCtx])
+
+  const isInternalNoteLink = internalTargetId !== null
+
+  const linkPickerNotes = useMemo(() => {
+    if (!gitnotesCtx) return []
+    return filterLinkableNotes(
+      gitnotesCtx,
+      noteSearchPicker,
+      gitnotesCtx.currentNoteId
+    )
+  }, [gitnotesCtx, noteSearchPicker])
+
+  const applyInternalLinkTarget = useCallback(
+    (noteId: string) => {
+      setInternalNotePickerOpen(false)
+      setNoteSearchPicker("")
+      editor.update(() => {
+        if (lastSelection !== null && $isRangeSelection(lastSelection)) {
+          $setSelection(lastSelection.clone())
+        }
+        $toggleLink(buildInternalNoteLinkHref(noteId))
+      })
+      setIsLinkEditMode(false)
+    },
+    [
+      editor,
+      lastSelection,
+      setIsLinkEditMode,
+      setInternalNotePickerOpen,
+    ]
+  )
 
   const $updateLinkEditor = useCallback(() => {
     const selection = $getSelection()
@@ -101,7 +178,10 @@ function FloatingLinkEditor({
         setFloatingElemPositionForLinkEditor(domRect, editorElem, anchorElem)
       }
       setLastSelection(selection)
-    } else if (!activeElement || activeElement.className !== "link-input") {
+    } else if (
+      !internalNotePickerOpen &&
+      (!activeElement || activeElement.className !== "link-input")
+    ) {
       if (rootElement !== null) {
         setFloatingElemPositionForLinkEditor(null, editorElem, anchorElem)
       }
@@ -111,7 +191,14 @@ function FloatingLinkEditor({
     }
 
     return true
-  }, [anchorElem, editor, setIsLinkEditMode, isLinkEditMode, linkUrl])
+  }, [
+    anchorElem,
+    editor,
+    setIsLinkEditMode,
+    isLinkEditMode,
+    linkUrl,
+    internalNotePickerOpen,
+  ])
 
   useEffect(() => {
     const scrollerElem = anchorElem.parentElement
@@ -218,16 +305,17 @@ function FloatingLinkEditor({
   return (
     <div
       ref={editorRef}
-      className="absolute top-0 left-0 w-full max-w-sm rounded-md opacity-0 shadow-md"
+      data-link-hover-ignore
+      className="absolute top-0 left-0 w-full max-w-lg opacity-0"
     >
-      {!isLink ? null : isLinkEditMode ? (
-        <div className="flex items-center space-x-2 rounded-md border p-1 pl-2">
+      {!isLink ? null : isLinkEditMode && !isInternalNoteLink ? (
+        <div className="bg-background flex items-center space-x-2 rounded-md border p-1 pl-2 shadow-sm">
           <Input
             ref={inputRef}
             value={editedLinkUrl}
             onChange={(event) => setEditedLinkUrl(event.target.value)}
             onKeyDown={monitorInputInteraction}
-            className="flex-grow"
+            className="link-input flex-grow"
           />
           <Button
             size="icon"
@@ -248,20 +336,90 @@ function FloatingLinkEditor({
             <Check className="h-4 w-4" />
           </Button>
         </div>
-      ) : (
-        <div className="flex items-center justify-between bg-background rounded-md border p-1 pl-2">
-          <a
-            href={sanitizeUrl(linkUrl)}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="overflow-hidden text-sm text-ellipsis whitespace-nowrap"
+      ) : isInternalNoteLink && gitnotesCtx ? (
+        <LinkPreviewCardShell className="items-start gap-3">
+          <InternalNoteLinkIcon />
+          <InternalNoteLinkPreviewBody
+            resolvedNote={resolvedNote}
+            gitnotesCtx={gitnotesCtx}
+          />
+          <div className="flex shrink-0 items-start gap-1 pt-0.5">
+            <Popover
+              modal={false}
+              open={internalNotePickerOpen}
+              onOpenChange={(open) => {
+                setInternalNotePickerOpen(open)
+                if (!open) setNoteSearchPicker("")
+              }}
+            >
+              <PopoverTrigger asChild>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-8 shrink-0 px-2 text-xs"
+                  onMouseDown={(e) => e.preventDefault()}
+                >
+                  Change
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent
+                className="z-[300] w-80 p-0"
+                align="end"
+                sideOffset={8}
+                onCloseAutoFocus={(e) => e.preventDefault()}
+              >
+                <NoteLinkPickerList
+                  noteSearch={noteSearchPicker}
+                  onNoteSearchChange={setNoteSearchPicker}
+                  linkableNotes={linkPickerNotes}
+                  gitnotesCtx={gitnotesCtx}
+                  onSelectNoteId={applyInternalLinkTarget}
+                />
+              </PopoverContent>
+            </Popover>
+            <Button
+              size="icon"
+              variant="destructive"
+              className="h-8 w-8 shrink-0"
+              type="button"
+              onClick={() => {
+                editor.dispatchCommand(TOGGLE_LINK_COMMAND, null)
+              }}
+            >
+              <Trash className="h-4 w-4" />
+            </Button>
+          </div>
+        </LinkPreviewCardShell>
+      ) : isInternalNoteLink ? (
+        <LinkPreviewCardShell className="items-start gap-3">
+          <InternalNoteLinkIcon />
+          <InternalNoteLinkPreviewBody
+            resolvedNote={undefined}
+            gitnotesCtx={null}
+          />
+          <Button
+            size="icon"
+            variant="destructive"
+            className="h-8 w-8 shrink-0"
+            type="button"
+            onClick={() => {
+              editor.dispatchCommand(TOGGLE_LINK_COMMAND, null)
+            }}
           >
-            {linkUrl}
-          </a>
-          <div className="flex">
+            <Trash className="h-4 w-4" />
+          </Button>
+        </LinkPreviewCardShell>
+      ) : (
+        <LinkPreviewCardShell className="items-start gap-3">
+          <UrlFavicon href={sanitizeUrl(linkUrl) || linkUrl} />
+          <ExternalUrlPreviewBody displayUrl={linkUrl} />
+          <div className="flex shrink-0 items-start gap-1">
             <Button
               size="icon"
               variant="ghost"
+              className="h-8 w-8"
+              type="button"
               onClick={() => {
                 setEditedLinkUrl(linkUrl)
                 setIsLinkEditMode(true)
@@ -272,6 +430,8 @@ function FloatingLinkEditor({
             <Button
               size="icon"
               variant="destructive"
+              className="h-8 w-8"
+              type="button"
               onClick={() => {
                 editor.dispatchCommand(TOGGLE_LINK_COMMAND, null)
               }}
@@ -279,7 +439,7 @@ function FloatingLinkEditor({
               <Trash className="h-4 w-4" />
             </Button>
           </div>
-        </div>
+        </LinkPreviewCardShell>
       )}
     </div>
   )
@@ -293,9 +453,14 @@ function useFloatingLinkEditorToolbar(
 ): JSX.Element | null {
   const [activeEditor, setActiveEditor] = useState(editor)
   const [isLink, setIsLink] = useState(false)
+  const [internalNotePickerOpen, setInternalNotePickerOpen] = useState(false)
 
   useEffect(() => {
     function $updateToolbar() {
+      if (internalNotePickerOpen) {
+        setIsLink(true)
+        return
+      }
       const selection = $getSelection()
       if ($isRangeSelection(selection)) {
         const focusNode = getSelectedNode(selection)
@@ -375,7 +540,7 @@ function useFloatingLinkEditorToolbar(
         COMMAND_PRIORITY_LOW
       )
     )
-  }, [editor])
+  }, [editor, internalNotePickerOpen])
 
   if (!anchorElem) {
     return null
@@ -389,6 +554,8 @@ function useFloatingLinkEditorToolbar(
       setIsLink={setIsLink}
       isLinkEditMode={isLinkEditMode}
       setIsLinkEditMode={setIsLinkEditMode}
+      internalNotePickerOpen={internalNotePickerOpen}
+      setInternalNotePickerOpen={setInternalNotePickerOpen}
     />,
     anchorElem
   )

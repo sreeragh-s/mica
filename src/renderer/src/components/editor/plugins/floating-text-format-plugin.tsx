@@ -7,10 +7,18 @@
  * LICENSE file in the root directory of this source tree.
  *
  */
-import { Dispatch, JSX, useCallback, useEffect, useRef, useState } from "react"
-import * as React from "react"
+import {
+  Dispatch,
+  JSX,
+  SetStateAction,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react"
 import { $isCodeHighlightNode } from "@lexical/code"
-import { $isLinkNode, TOGGLE_LINK_COMMAND } from "@lexical/link"
+import { $isLinkNode, $toggleLink, TOGGLE_LINK_COMMAND } from "@lexical/link"
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext"
 import { mergeRegister } from "@lexical/utils"
 import {
@@ -18,6 +26,8 @@ import {
   $isParagraphNode,
   $isRangeSelection,
   $isTextNode,
+  $setSelection,
+  BaseSelection,
   COMMAND_PRIORITY_LOW,
   FORMAT_TEXT_COMMAND,
   LexicalEditor,
@@ -28,15 +38,28 @@ import {
   CodeIcon,
   ItalicIcon,
   LinkIcon,
+  NotebookText,
   StrikethroughIcon,
   UnderlineIcon,
 } from "lucide-react"
 import { createPortal } from "react-dom"
 
+import { useGitnotesEditorContext } from "@/components/editor/gitnotes-editor-context"
+import {
+  filterLinkableNotes,
+  NoteLinkPickerList,
+} from "@/components/editor/note-link-picker"
 import { getDOMRangeRect } from "@/components/editor/utils/get-dom-range-rect"
 import { getSelectedNode } from "@/components/editor/utils/get-selected-node"
 import { setFloatingElemPosition } from "@/components/editor/utils/set-floating-elem-position"
+import { Button } from "@/components/ui/button"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
 import { Separator } from "@/components/ui/separator"
+import { buildInternalNoteLinkHref } from "@/lib/internal-note-link"
 import {
   ToggleGroup,
   ToggleGroupItem,
@@ -52,6 +75,8 @@ function FloatingTextFormat({
   isCode,
   isStrikethrough,
   setIsLinkEditMode,
+  noteLinkMenuOpen,
+  setNoteLinkMenuOpen,
 }: {
   editor: LexicalEditor
   anchorElem: HTMLElement
@@ -62,6 +87,8 @@ function FloatingTextFormat({
   isStrikethrough: boolean
   isUnderline: boolean
   setIsLinkEditMode: Dispatch<boolean>
+  noteLinkMenuOpen: boolean
+  setNoteLinkMenuOpen: Dispatch<SetStateAction<boolean>>
 }): JSX.Element {
   const popupCharStylesEditorRef = useRef<HTMLDivElement | null>(null)
 
@@ -74,6 +101,44 @@ function FloatingTextFormat({
       editor.dispatchCommand(TOGGLE_LINK_COMMAND, null)
     }
   }, [editor, isLink, setIsLinkEditMode])
+
+  const gitnotesCtx = useGitnotesEditorContext()
+  const [noteSearch, setNoteSearch] = useState("")
+  const savedSelectionRef = useRef<BaseSelection | null>(null)
+
+  const saveSelectionForNoteLink = useCallback(() => {
+    editor.getEditorState().read(() => {
+      const s = $getSelection()
+      savedSelectionRef.current =
+        s !== null && $isRangeSelection(s) ? s.clone() : null
+    })
+  }, [editor])
+
+  const linkableNotes = useMemo(() => {
+    if (!gitnotesCtx) return []
+    return filterLinkableNotes(
+      gitnotesCtx,
+      noteSearch,
+      gitnotesCtx.currentNoteId
+    )
+  }, [gitnotesCtx, noteSearch])
+
+  const applyInternalNoteLink = useCallback(
+    (noteId: string) => {
+      setNoteLinkMenuOpen(false)
+      setNoteSearch("")
+      editor.update(() => {
+        const saved = savedSelectionRef.current
+        if (saved !== null && $isRangeSelection(saved)) {
+          $setSelection(saved)
+        }
+        $toggleLink(buildInternalNoteLinkHref(noteId))
+      })
+      setIsLinkEditMode(false)
+      savedSelectionRef.current = null
+    },
+    [editor, setIsLinkEditMode, setNoteLinkMenuOpen]
+  )
 
   function mouseMoveListener(e: MouseEvent) {
     if (
@@ -92,7 +157,7 @@ function FloatingTextFormat({
       }
     }
   }
-  function mouseUpListener(e: MouseEvent) {
+  function mouseUpListener(_e: MouseEvent) {
     if (popupCharStylesEditorRef?.current) {
       if (popupCharStylesEditorRef.current.style.pointerEvents !== "auto") {
         popupCharStylesEditorRef.current.style.pointerEvents = "auto"
@@ -101,14 +166,15 @@ function FloatingTextFormat({
   }
 
   useEffect(() => {
-    if (popupCharStylesEditorRef?.current) {
-      document.addEventListener("mousemove", mouseMoveListener)
-      document.addEventListener("mouseup", mouseUpListener)
+    if (!popupCharStylesEditorRef?.current) {
+      return undefined
+    }
+    document.addEventListener("mousemove", mouseMoveListener)
+    document.addEventListener("mouseup", mouseUpListener)
 
-      return () => {
-        document.removeEventListener("mousemove", mouseMoveListener)
-        document.removeEventListener("mouseup", mouseUpListener)
-      }
+    return () => {
+      document.removeEventListener("mousemove", mouseMoveListener)
+      document.removeEventListener("mouseup", mouseUpListener)
     }
   }, [popupCharStylesEditorRef])
 
@@ -263,6 +329,52 @@ function FloatingTextFormat({
               <LinkIcon className="h-4 w-4" />
             </ToggleGroupItem>
           </ToggleGroup>
+          {gitnotesCtx ? (
+            <>
+              <Separator
+                orientation="vertical"
+                className="mx-0.5 h-6 self-center"
+              />
+              <Popover
+                modal={false}
+                open={noteLinkMenuOpen}
+                onOpenChange={(open) => {
+                  setNoteLinkMenuOpen(open)
+                  if (!open) setNoteSearch("")
+                }}
+              >
+                <PopoverTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 w-8 shrink-0 p-0"
+                    aria-label="Link to note or drawing"
+                    onPointerDown={saveSelectionForNoteLink}
+                    onMouseDown={(e) => {
+                      e.preventDefault()
+                    }}
+                  >
+                    <NotebookText className="h-4 w-4" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent
+                  className="z-[300] w-80 p-0"
+                  align="start"
+                  sideOffset={8}
+                  onCloseAutoFocus={(e) => e.preventDefault()}
+                >
+                  <NoteLinkPickerList
+                    noteSearch={noteSearch}
+                    onNoteSearchChange={setNoteSearch}
+                    linkableNotes={linkableNotes}
+                    gitnotesCtx={gitnotesCtx}
+                    onSelectNoteId={applyInternalNoteLink}
+                  />
+                </PopoverContent>
+              </Popover>
+            </>
+          ) : null}
         </>
       )}
     </div>
@@ -274,6 +386,7 @@ function useFloatingTextFormatToolbar(
   anchorElem: HTMLDivElement | null,
   setIsLinkEditMode: Dispatch<boolean>
 ): JSX.Element | null {
+  const [noteLinkMenuOpen, setNoteLinkMenuOpen] = useState(false)
   const [isText, setIsText] = useState(false)
   const [isLink, setIsLink] = useState(false)
   const [isBold, setIsBold] = useState(false)
@@ -360,7 +473,7 @@ function useFloatingTextFormatToolbar(
     )
   }, [editor, updatePopup])
 
-  if (!isText || !anchorElem) {
+  if ((!isText && !noteLinkMenuOpen) || !anchorElem) {
     return null
   }
 
@@ -375,6 +488,8 @@ function useFloatingTextFormatToolbar(
       isUnderline={isUnderline}
       isCode={isCode}
       setIsLinkEditMode={setIsLinkEditMode}
+      noteLinkMenuOpen={noteLinkMenuOpen}
+      setNoteLinkMenuOpen={setNoteLinkMenuOpen}
     />,
     anchorElem
   )
