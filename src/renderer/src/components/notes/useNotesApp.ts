@@ -234,17 +234,22 @@ export function useNotesApp({ user, guestMode = false, onSignOut, onConnectGitHu
         setFocusedFolderId(DEFAULT_WORKSPACE_ID)
         return
       }
+      /** Keep notes created in this session that are not in the index yet (e.g. before disk flush). */
+      const diskIds = new Set(mappedNotes.map((n) => n.id))
+      const localPending = notesRef.current.filter((n) => !diskIds.has(n.id))
+      const mergedNotes = [...localPending, ...mappedNotes]
+
       setFolders(mappedFolders)
-      setNotes(mappedNotes)
+      setNotes(mergedNotes)
       setSelectedId((sel) => {
-        if (sel && mappedNotes.some((x) => x.id === sel)) return sel
-        return mappedNotes.length > 0
-          ? [...mappedNotes].sort((a, b) => b.updatedAt - a.updatedAt)[0]!.id
+        if (sel && mergedNotes.some((x) => x.id === sel)) return sel
+        return mergedNotes.length > 0
+          ? [...mergedNotes].sort((a, b) => b.updatedAt - a.updatedAt)[0]!.id
           : null
       })
       setFocusedFolderId((fid) => {
         if (fid && mappedFolders.some((f) => f.id === fid)) return fid
-        const n = mappedNotes[0]
+        const n = mergedNotes[0]
         return n?.folderId ?? mappedFolders[0]?.id ?? null
       })
     },

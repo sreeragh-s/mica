@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type DragEvent, type JSX } from 'react'
+import { useEffect, useRef, useState, type JSX } from 'react'
 
 import {
   ArrowLeft,
@@ -323,9 +323,11 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
                           >
                             <TreeNodeTrigger
                               draggable
-                              onDragStart={(e: DragEvent) => {
-                                e.dataTransfer.setData(NOTE_DRAG_MIME, note.id)
-                                e.dataTransfer.effectAllowed = 'copy'
+                              onDragStart={(e) => {
+                                const drag = e as unknown as globalThis.DragEvent
+                                if (!drag.dataTransfer) return
+                                drag.dataTransfer.setData(NOTE_DRAG_MIME, note.id)
+                                drag.dataTransfer.effectAllowed = 'copy'
                               }}
                               className={cn(
                                 'hover:bg-sidebar-accent/50',
