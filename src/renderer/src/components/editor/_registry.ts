@@ -523,31 +523,7 @@ export const ui: Registry["items"] = [
       },
     ],
   },
-  {
-    name: "autocomplete-plugin",
-    type: "registry:ui",
-    title: "Autocomplete Plugin",
-    description: "A plugin for the autocomplete.",
-    dependencies: ["@lexical/utils", "@lexical/selection"],
-    registryDependencies: ["@shadcn-editor/rich-text-editor-plugin"],
-    files: [
-      {
-        path: "editor/plugins/autocomplete-plugin.tsx",
-        target: "components/editor/plugins/autocomplete-plugin.tsx",
-        type: "registry:component",
-      },
-      {
-        path: "editor/nodes/autocomplete-node.tsx",
-        target: "components/editor/nodes/autocomplete-node.tsx",
-        type: "registry:component",
-      },
-      {
-        path: "editor/utils/swipe.ts",
-        target: "components/editor/utils/swipe.ts",
-        type: "registry:component",
-      },
-    ],
-  },
+
   {
     name: "auto-embed-plugin",
     type: "registry:ui",

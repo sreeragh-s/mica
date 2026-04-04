@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils'
 import { AccountSettingsView } from './AccountSettingsView'
 import { AppearanceSettingsView } from './AppearanceSettingsView'
 import { DebugSettingsView } from './DebugSettingsView'
+import { EmbeddingsSettingsView } from './EmbeddingsSettingsView'
 import { GitHubSettingsView } from './GitHubSettingsView'
 import { NotesGraphView } from './NotesGraphView'
 import { NoteTabStrip } from './NoteTabStrip'
@@ -120,10 +121,19 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
     sidebarOverlayActive,
     tabOverviewOpen,
     openTabOverview,
-    closeTabOverview
+    closeTabOverview,
+    indexingStatus,
+    refreshIndexingStatus,
+    runIndexPending,
+    runReindexAll
   } = vm
 
   const [zenHintVisible, setZenHintVisible] = useState(false)
+  const [chatSidebarOpen, setChatSidebarOpen] = useState(false)
+
+  const toggleChatSidebar = useCallback(() => {
+    setChatSidebarOpen((open) => !open)
+  }, [])
 
   useEffect(() => {
     if (!zenMode) {
@@ -278,10 +288,32 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
       >
         <div
           className={cn(
-            'flex min-h-0 min-w-0 flex-1 flex-col bg-background',
+            'relative flex min-h-0 min-w-0 flex-1 flex-row bg-background',
             sidebarOverlayActive && 'pl-[min(100%,320px)]'
           )}
         >
+          {showNotes && !workspaceSettingsFolderId && !zenMode && (
+            <div
+              className={cn(
+                'pointer-events-none absolute z-30 flex h-12 items-center',
+                sidebarOverlayActive ? 'right-1.5' : 'right-2',
+                sidebarOverlayActive || macElectron ? 'top-2' : 'top-0'
+              )}
+              style={macTitlebarStyles.noDrag}
+            >
+              <div className="pointer-events-auto">
+                <NotesToolbarPill
+                  macTitlebarStyles={macTitlebarStyles}
+                  nativeLiquidGlassAttached={nativeLiquidGlassAttached}
+                  onOpenTabOverview={openTabOverview}
+                  onNewNote={handleNewNote}
+                  chatSidebarOpen={chatSidebarOpen}
+                  onToggleChatSidebar={toggleChatSidebar}
+                />
+              </div>
+            </div>
+          )}
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col">
           {!zenMode && (
             <div
               className={cn(
@@ -301,14 +333,7 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
                   nativeLiquidGlassAttached={nativeLiquidGlassAttached}
                   sidebarCollapsed={sidebarCollapsed}
                   toggleSidebar={toggleSidebar}
-                  trailing={
-                    <NotesToolbarPill
-                      macTitlebarStyles={macTitlebarStyles}
-                      nativeLiquidGlassAttached={nativeLiquidGlassAttached}
-                      onOpenTabOverview={openTabOverview}
-                      onNewNote={handleNewNote}
-                    />
-                  }
+                  reserveToolbarPillSpace
                 />
               ) : (
                 <div
@@ -415,10 +440,28 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
                 dirtyByWorkspaceId={dirtyByWorkspaceId}
                 onRefreshGitStatus={() => void refreshWorkspaceGitStatuses()}
               />
+            ) : appMode === 'settings' && settingsSection === 'indexing' ? (
+              <EmbeddingsSettingsView
+                macElectron={macElectron}
+                macTitlebarStyles={macTitlebarStyles}
+                guestMode={guestMode}
+                isLoggedIn={Boolean(user?.email || user?.name)}
+                indexingStatus={indexingStatus}
+                refreshIndexingStatus={refreshIndexingStatus}
+                runIndexPending={runIndexPending}
+                runReindexAll={runReindexAll}
+              />
             ) : appMode === 'notes' ? (
               notesContent
             ) : null}
           </div>
+          </div>
+          {chatSidebarOpen && (
+            <aside
+              className="border-border bg-background flex min-h-0 w-[min(100%,440px)] shrink-0 flex-col border-l"
+              aria-label="Chat"
+            />
+          )}
         </div>
       </main>
 

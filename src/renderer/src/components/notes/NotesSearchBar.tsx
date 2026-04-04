@@ -56,6 +56,8 @@ export type NotesSearchBarProps = {
   sidebarCollapsed: boolean
   toggleSidebar: () => void
   trailing?: ReactNode
+  /** Reserve right padding when the toolbar pill is absolutely positioned in the parent (same visual layout as flex trailing). */
+  reserveToolbarPillSpace?: boolean
 }
 
 export function NotesSearchBar({
@@ -68,7 +70,8 @@ export function NotesSearchBar({
   nativeLiquidGlassAttached,
   sidebarCollapsed,
   toggleSidebar,
-  trailing
+  trailing,
+  reserveToolbarPillSpace
 }: NotesSearchBarProps): JSX.Element {
   const nativeGlassUi = macElectron && nativeLiquidGlassAttached
   const [query, setQuery] = useState('')
@@ -138,7 +141,7 @@ export function NotesSearchBar({
       ref={wrapRef}
       className={cn(
         'flex h-12 w-full min-w-0 shrink-0 items-center gap-2 px-2',
-        sidebarOverlayActive && 'pr-1.5',
+        reserveToolbarPillSpace ? 'pr-32' : sidebarOverlayActive && 'pr-1.5',
         !sidebarOverlayActive && macElectron && sidebarCollapsed && 'pl-[92px]'
       )}
       style={macTitlebarStyles.noDrag}

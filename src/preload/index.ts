@@ -165,6 +165,60 @@ const api = {
       }
     },
   },
+  /**
+   * LanceDB runs only in the main process; the renderer calls these via IPC.
+   * Embed text in the renderer (or a future main-process pipeline), then send vectors here.
+   */
+  embeddings: {
+    getStatus: (): Promise<
+      | { ok: true; dbPath: string; tableExists: boolean }
+      | { ok: false; error: string }
+    > => ipcRenderer.invoke('lancedb:get-status'),
+    ensureTable: (): Promise<{ ok: true } | { ok: false; error: string }> =>
+      ipcRenderer.invoke('lancedb:ensure-table'),
+    getIndexedHashes: (): Promise<
+      | { ok: true; hashes: Record<string, { contentHash: string; workspaceId: string }> }
+      | { ok: false; error: string }
+    > => ipcRenderer.invoke('lancedb:get-indexed-hashes'),
+    indexNoteEmbeddings: (payload: {
+      workspaceId: string
+      noteId: string
+      contentHash: string
+      chunks: {
+        id?: string
+        chunkIndex: number
+        text: string
+        vector: number[] | Float32Array
+      }[]
+    }): Promise<
+      { ok: true; indexed: number } | { ok: false; error: string }
+    > => ipcRenderer.invoke('lancedb:index-note-embeddings', payload),
+    vectorSearch: (payload: {
+      queryVector: number[] | Float32Array
+      limit?: number
+      filterSql?: string
+    }): Promise<
+      | { ok: true; rows: Record<string, unknown>[] }
+      | { ok: false; error: string }
+    > => ipcRenderer.invoke('lancedb:vector-search', payload),
+    deleteNoteEmbeddings: (payload: {
+      workspaceId: string
+      noteId: string
+    }): Promise<
+      | { ok: true; deleted: boolean }
+      | { ok: false; error: string }
+    > => ipcRenderer.invoke('lancedb:delete-note-embeddings', payload),
+    deleteWorkspaceEmbeddings: (payload: {
+      workspaceId: string
+    }): Promise<
+      | { ok: true; deleted: boolean }
+      | { ok: false; error: string }
+    > => ipcRenderer.invoke('lancedb:delete-workspace-embeddings', payload),
+    dumpTable: (): Promise<
+      | { ok: true; rows: Record<string, unknown>[]; totalRows: number }
+      | { ok: false; error: string }
+    > => ipcRenderer.invoke('lancedb:dump-table'),
+  },
 }
 
 if (process.contextIsolated) {

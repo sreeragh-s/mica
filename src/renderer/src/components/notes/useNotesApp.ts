@@ -11,6 +11,12 @@ import type { SerializedEditorState } from 'lexical'
 
 import { backendFetchJson } from '@/lib/backend-api'
 import { getApi, getWindowApi } from '@/lib/auth-bridge'
+import {
+  buildIndexingStatus,
+  indexNote,
+  type IndexingNoteStatus,
+  type IndexingStatus
+} from '@/lib/embedding-pipeline'
 import { mergeGithubContentShas, loadGithubContentShas } from '@/lib/github-shas-storage'
 import { isMacElectron } from '@/lib/electron-env'
 import { loadSetupState } from '@/lib/setup-storage'
@@ -70,6 +76,15 @@ export function useNotesApp({
 
   const [appMode, setAppMode] = useState<AppMode>('notes')
   const [settingsSection, setSettingsSection] = useState<SettingsSection>('account')
+
+  const [indexingStatus, setIndexingStatus] = useState<IndexingStatus>({
+    notes: [],
+    pendingCount: 0,
+    indexedCount: 0,
+    running: false
+  })
+  /** Used to abort an in-progress indexing run when a new one starts. */
+  const indexingAbortRef = useRef(false)
 
   const initial = useMemo(() => loadNotesState(), [])
   const persistedSidebarFolderOrderRef = useRef<string[]>(
@@ -1300,6 +1315,12 @@ export function useNotesApp({
           if (useGithubApiSync) setGithubApiDirty(true)
           await refreshWorkspaceGitStatuses()
         }
+        if (deleted) {
+          void api?.embeddings?.deleteNoteEmbeddings({
+            workspaceId: deleted.folderId,
+            noteId
+          })
+        }
         setNotes((prev) => prev.filter((n) => n.id !== noteId))
         setOpenNoteTabIds((prev) => prev.filter((id) => id !== noteId))
         if (snapshotSelected === noteId) {
@@ -1447,6 +1468,7 @@ export function useNotesApp({
         console.error('[gitnotes] delete workspace failed', r.error)
         return
       }
+      void api?.embeddings?.deleteWorkspaceEmbeddings({ workspaceId: folderId })
 
       persistedSidebarFolderOrderRef.current = persistedSidebarFolderOrderRef.current.filter(
         (id) => id !== folderId
@@ -1476,6 +1498,144 @@ export function useNotesApp({
       useGithubApiSync
     ]
   )
+
+  /** Load all notes from disk and compare hashes to determine pending status. */
+  const refreshIndexingStatus = useCallback(async () => {
+    const api = getApi()
+    const cwd = dataRootRef.current
+    if (!cwd || !api?.workspace?.readGitnotesIndex) return
+    const idx = await api.workspace.readGitnotesIndex({ cwd })
+    if (!idx.ok) return
+    const allNotes = idx.notes.map((n) => ({
+      workspaceId: n.workspaceId,
+      noteId: n.noteId,
+      title: n.title,
+      content: n.markdownBody,
+      kind: n.kind
+    }))
+    const status = await buildIndexingStatus(allNotes)
+    setIndexingStatus((prev) => ({ ...status, running: prev.running }))
+  }, [])
+
+  /** Index only notes that are new or have changed content. */
+  const runIndexPending = useCallback(async () => {
+    const api = getApi()
+    const cwd = dataRootRef.current
+    if (!cwd || !api?.workspace?.readGitnotesIndex) return
+    indexingAbortRef.current = false
+    setIndexingStatus((prev) => ({ ...prev, running: true }))
+
+    const idx = await api.workspace.readGitnotesIndex({ cwd })
+    if (!idx.ok) {
+      setIndexingStatus((prev) => ({ ...prev, running: false }))
+      return
+    }
+
+    // Ensure table exists
+    await api.embeddings?.ensureTable()
+
+    // Fetch stored hashes once
+    const hashRes = await api.embeddings?.getIndexedHashes?.()
+    const storedHashes = hashRes?.ok ? hashRes.hashes : {}
+
+    const toIndex = idx.notes.filter((n) => {
+      const stored = storedHashes[n.noteId]
+      if (!stored) return true // not indexed yet
+      // Compare hash inline: mark pending if we can't confirm it's the same
+      // (full hash comparison happens inside indexNote)
+      return true // we'll let indexNote skip unchanged ones
+    })
+
+    const updated: Record<string, IndexingNoteStatus['state']> = {}
+
+    for (const n of toIndex) {
+      if (indexingAbortRef.current) break
+      setIndexingStatus((prev) => ({
+        ...prev,
+        notes: prev.notes.map((ns) =>
+          ns.noteId === n.noteId ? { ...ns, state: 'indexing' } : ns
+        )
+      }))
+      const result = await indexNote({
+        workspaceId: n.workspaceId,
+        noteId: n.noteId,
+        content: n.markdownBody,
+        kind: n.kind,
+        storedHash: storedHashes[n.noteId]?.contentHash
+      })
+      if (!result.ok) {
+        updated[n.noteId] = 'error'
+      } else if (result.skipped && result.reason === 'no indexable content') {
+        // No chunks → nothing to embed. buildIndexingStatus marks these as 'indexed' automatically.
+        updated[n.noteId] = 'indexed'
+      } else {
+        // Either embedded successfully or skipped because content was unchanged (still indexed).
+        updated[n.noteId] = 'indexed'
+      }
+    }
+
+    setIndexingStatus((prev) => ({
+      ...prev,
+      running: false,
+      notes: prev.notes.map((ns) =>
+        updated[ns.noteId] !== undefined ? { ...ns, state: updated[ns.noteId]! } : ns
+      ),
+      pendingCount: prev.notes.filter((ns) =>
+        updated[ns.noteId] !== undefined ? updated[ns.noteId] !== 'indexed' : ns.state === 'pending'
+      ).length,
+      indexedCount: prev.notes.filter((ns) =>
+        updated[ns.noteId] !== undefined ? updated[ns.noteId] === 'indexed' : ns.state === 'indexed'
+      ).length
+    }))
+  }, [])
+
+  /** Force re-embed all notes regardless of stored hashes. */
+  const runReindexAll = useCallback(async () => {
+    const api = getApi()
+    const cwd = dataRootRef.current
+    if (!cwd || !api?.workspace?.readGitnotesIndex) return
+    indexingAbortRef.current = false
+    setIndexingStatus((prev) => ({ ...prev, running: true }))
+
+    const idx = await api.workspace.readGitnotesIndex({ cwd })
+    if (!idx.ok) {
+      setIndexingStatus((prev) => ({ ...prev, running: false }))
+      return
+    }
+
+    await api.embeddings?.ensureTable()
+
+    const updated: Record<string, IndexingNoteStatus['state']> = {}
+
+    for (const n of idx.notes) {
+      if (indexingAbortRef.current) break
+      setIndexingStatus((prev) => ({
+        ...prev,
+        notes: prev.notes.map((ns) =>
+          ns.noteId === n.noteId ? { ...ns, state: 'indexing' } : ns
+        )
+      }))
+      // Pass no storedHash to force re-embed
+      const result = await indexNote({
+        workspaceId: n.workspaceId,
+        noteId: n.noteId,
+        content: n.markdownBody,
+        kind: n.kind
+      })
+      updated[n.noteId] = result.ok ? 'indexed' : 'error'
+      // Notes with no indexable content are treated as 'indexed' (buildIndexingStatus handles them)
+    }
+
+    setIndexingStatus((prev) => ({
+      ...prev,
+      running: false,
+      notes: prev.notes.map((ns) =>
+        updated[ns.noteId] !== undefined ? { ...ns, state: updated[ns.noteId]! } : ns
+      ),
+      pendingCount: 0,
+      indexedCount: prev.notes.filter((ns) => updated[ns.noteId] === 'indexed').length
+    }))
+  }, [])
 
   const backToNotes = useCallback(() => {
     setAppMode('notes')
@@ -1770,7 +1930,11 @@ export function useNotesApp({
     openTabOverview,
     closeTabOverview,
     notesCount: notes.length,
-    syncTransport: useGithubApiSync ? ('github_api' as const) : ('git' as const)
+    syncTransport: useGithubApiSync ? ('github_api' as const) : ('git' as const),
+    indexingStatus,
+    refreshIndexingStatus,
+    runIndexPending,
+    runReindexAll
   }
 }
 

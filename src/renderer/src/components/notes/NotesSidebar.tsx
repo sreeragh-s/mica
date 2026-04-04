@@ -15,6 +15,7 @@ import {
   Pencil,
   Settings,
   Settings2,
+  Sparkles,
   SquarePen,
   Trash2,
   User
@@ -391,6 +392,20 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
               >
                 <Bug className="text-muted-foreground size-3.5 shrink-0" aria-hidden />
                 Debug
+              </button>
+            </li>
+            <li>
+              <button
+                type="button"
+                data-sidebar-interactive=""
+                onClick={() => setSettingsSection('indexing')}
+                className={cn(
+                  'hover:bg-sidebar-accent hover:text-sidebar-accent-foreground flex h-8 w-full items-center gap-2 rounded-md px-2 text-left text-[13px] leading-tight transition-colors',
+                  settingsSection === 'indexing' && 'bg-sidebar-accent text-sidebar-accent-foreground'
+                )}
+              >
+                <Sparkles className="text-muted-foreground size-3.5 shrink-0" aria-hidden />
+                Indexing
               </button>
             </li>
           </ul>

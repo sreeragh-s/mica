@@ -1,6 +1,6 @@
 import type { JSX } from 'react'
 
-import { LayoutGrid, Plus } from 'lucide-react'
+import { LayoutGrid, MessageCircle, Plus } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { liquidGlassToolbarShellClass } from '@/lib/liquid-glass-toolbar'
@@ -13,13 +13,17 @@ export type NotesToolbarPillProps = {
   nativeLiquidGlassAttached: boolean
   onOpenTabOverview: () => void
   onNewNote: () => void
+  chatSidebarOpen: boolean
+  onToggleChatSidebar: () => void
 }
 
 export function NotesToolbarPill({
   macTitlebarStyles,
   nativeLiquidGlassAttached,
   onOpenTabOverview,
-  onNewNote
+  onNewNote,
+  chatSidebarOpen,
+  onToggleChatSidebar
 }: NotesToolbarPillProps): JSX.Element {
   return (
     <div className={liquidGlassToolbarShellClass(nativeLiquidGlassAttached)} style={macTitlebarStyles.noDrag}>
@@ -43,6 +47,22 @@ export function NotesToolbarPill({
         onClick={onOpenTabOverview}
       >
         <LayoutGrid className="size-4" aria-hidden />
+      </Button>
+      <span className="bg-border/80 h-5 w-px shrink-0" aria-hidden />
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        className={
+          chatSidebarOpen
+            ? 'bg-accent text-accent-foreground size-8 shrink-0 rounded-full'
+            : 'text-muted-foreground size-8 shrink-0 rounded-full'
+        }
+        aria-label={chatSidebarOpen ? 'Close chat panel' : 'Open chat panel'}
+        aria-pressed={chatSidebarOpen}
+        onClick={onToggleChatSidebar}
+      >
+        <MessageCircle className="size-4" aria-hidden />
       </Button>
     </div>
   )

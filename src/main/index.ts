@@ -32,6 +32,7 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { registerAuthIpc } from './auth'
 import { registerWorkspaceGitIpc } from './workspace-git'
+import { registerLancedbEmbeddingsIpc } from './lancedb-embeddings'
 
 /** Native liquid glass behind the web view (electron-liquid-glass, macOS). */
 async function attachMacNativeLiquidGlass(win: BrowserWindow): Promise<void> {
@@ -224,6 +225,7 @@ app.whenReady().then(() => {
 
   registerAuthIpc()
   registerWorkspaceGitIpc()
+  registerLancedbEmbeddingsIpc()
 
   createWindow()
 
