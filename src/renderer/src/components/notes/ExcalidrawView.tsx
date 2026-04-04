@@ -1,12 +1,4 @@
-import {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-  type JSX
-} from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from 'react'
 
 import {
   CaptureUpdateAction,
@@ -18,7 +10,9 @@ import '@excalidraw/excalidraw/index.css'
 import { useTheme } from 'next-themes'
 
 import { THEME_PRESET_CHANGED_EVENT } from '@/lib/theme-preset-apply'
-import { cn } from '@/lib/utils'
+
+/** Hides Excalidraw’s first-paint flash while the scene initializes (new note / switch). */
+const LOAD_MASK_MS = 200
 
 /** Same values as `globals.css` `:root` / `.dark` defaults (before preset overrides). */
 const BG_LIGHT = 'oklch(1 0 0)'
@@ -39,6 +33,10 @@ function resolveIsDark(resolvedTheme: string | undefined): boolean {
 
 function fallbackBackgroundFromClass(): string {
   return document.documentElement.classList.contains('dark') ? BG_DARK : BG_LIGHT
+}
+
+function fallbackBackground(resolvedTheme: string | undefined): string {
+  return resolveIsDark(resolvedTheme) ? BG_DARK : BG_LIGHT
 }
 
 /**
@@ -71,10 +69,6 @@ function readDocumentBackgroundCss(): string {
   return fallbackBackgroundFromClass()
 }
 
-function canvasBackgroundNow(): string {
-  return cssColorToCanvasColor(readDocumentBackgroundCss())
-}
-
 export type ExcalidrawViewProps = {
   noteId: string
   sceneJson: string | null
@@ -89,63 +83,46 @@ export function ExcalidrawView({
   const { resolvedTheme } = useTheme()
   const excalidrawTheme = resolveIsDark(resolvedTheme) ? 'dark' : 'light'
 
-  /** Kept in sync for theme toggles; deduped to avoid redundant canvas repaints. */
-  const [themeBackgroundColor, setThemeBackgroundColor] = useState(canvasBackgroundNow)
+  const [themeBackgroundColor, setThemeBackgroundColor] = useState(() =>
+    cssColorToCanvasColor(fallbackBackground(resolvedTheme))
+  )
 
-  const applyDocumentBackground = useCallback((): void => {
-    const next = canvasBackgroundNow()
-    setThemeBackgroundColor((prev) => (prev === next ? prev : next))
-  }, [])
-
-  /** Before paint: align with `--background` when theme flips (reduces one flash frame). */
-  useLayoutEffect(() => {
-    applyDocumentBackground()
-  }, [resolvedTheme, applyDocumentBackground])
+  const [loadMaskVisible, setLoadMaskVisible] = useState(true)
 
   useEffect(() => {
-    let raf = 0
-    const scheduleCatchUp = (): void => {
-      cancelAnimationFrame(raf)
-      raf = requestAnimationFrame(() => {
-        applyDocumentBackground()
-      })
-    }
-
-    applyDocumentBackground()
-    raf = requestAnimationFrame(() => {
-      applyDocumentBackground()
-    })
-
-    const el = document.documentElement
-    const obs = new MutationObserver(scheduleCatchUp)
-    obs.observe(el, { attributes: true, attributeFilter: ['class', 'style'] })
-
-    window.addEventListener(THEME_PRESET_CHANGED_EVENT, scheduleCatchUp)
-
-    return () => {
-      cancelAnimationFrame(raf)
-      obs.disconnect()
-      window.removeEventListener(THEME_PRESET_CHANGED_EVENT, scheduleCatchUp)
-    }
-  }, [applyDocumentBackground])
-
-  const debounceRef = useRef<number>(0)
-  const excalidrawApiRef = useRef<ExcalidrawImperativeAPI | null>(null)
-  const loadingUnsubRef = useRef<(() => void) | null>(null)
-
-  /** Cover Excalidraw until `initializeScene` finishes (spinner / partial scene blink). */
-  const [sceneReady, setSceneReady] = useState(false)
-
-  useEffect(() => {
-    setSceneReady(false)
+    setLoadMaskVisible(true)
+    const id = window.setTimeout(() => setLoadMaskVisible(false), LOAD_MASK_MS)
+    return () => window.clearTimeout(id)
   }, [noteId])
 
   useEffect(() => {
-    return () => {
-      loadingUnsubRef.current?.()
-      loadingUnsubRef.current = null
+    setThemeBackgroundColor(cssColorToCanvasColor(fallbackBackground(resolvedTheme)))
+
+    const sync = (): void => {
+      setThemeBackgroundColor(cssColorToCanvasColor(readDocumentBackgroundCss()))
     }
-  }, [])
+
+    sync()
+    const t = window.setTimeout(sync, 0)
+
+    const el = document.documentElement
+    const obs = new MutationObserver(sync)
+    obs.observe(el, { attributes: true, attributeFilter: ['class', 'style'] })
+
+    const onPresetChanged = (): void => {
+      sync()
+    }
+    window.addEventListener(THEME_PRESET_CHANGED_EVENT, onPresetChanged)
+
+    return () => {
+      window.clearTimeout(t)
+      obs.disconnect()
+      window.removeEventListener(THEME_PRESET_CHANGED_EVENT, onPresetChanged)
+    }
+  }, [resolvedTheme])
+
+  const debounceRef = useRef<number>(0)
+  const excalidrawApiRef = useRef<ExcalidrawImperativeAPI | null>(null)
 
   useEffect(() => {
     return () => window.clearTimeout(debounceRef.current)
@@ -158,17 +135,10 @@ export function ExcalidrawView({
     })
   }, [themeBackgroundColor])
 
-  /**
-   * Depends only on the note payload — not on `themeBackgroundColor` state — so opening
-   * a note does not rebuild `initialData` after the first frame (that double-apply was
-   * causing a visible blink). Background for the initial mount comes from the same read
-   * as `useState`, via `canvasBackgroundNow()` here.
-   */
   const initialData = useMemo(() => {
-    const viewBg = canvasBackgroundNow()
     const raw = sceneJson?.trim()
     if (!raw) {
-      return { appState: { viewBackgroundColor: viewBg } }
+      return { appState: { viewBackgroundColor: themeBackgroundColor } }
     }
     try {
       const parsed = JSON.parse(raw) as Record<string, unknown>
@@ -180,13 +150,13 @@ export function ExcalidrawView({
         ...parsed,
         appState: {
           ...prevApp,
-          viewBackgroundColor: viewBg
+          viewBackgroundColor: themeBackgroundColor
         }
       }
     } catch {
-      return { appState: { viewBackgroundColor: viewBg } }
+      return { appState: { viewBackgroundColor: themeBackgroundColor } }
     }
-  }, [noteId, sceneJson])
+  }, [noteId, sceneJson, themeBackgroundColor])
 
   const onChange = useCallback(
     (
@@ -203,41 +173,29 @@ export function ExcalidrawView({
     [onSceneJsonChange]
   )
 
-  /** If loading never clears (e.g. bad scene), avoid a permanent blank. */
-  useEffect(() => {
-    if (sceneReady) return
-    const t = window.setTimeout(() => {
-      setSceneReady(true)
-    }, 4000)
-    return () => window.clearTimeout(t)
-  }, [noteId, sceneReady])
-
   return (
     <div className="gitnotes-excalidraw-host relative min-h-0 w-full flex-1 [&_.excalidraw]:h-full">
-      <div
-        className={cn(
-          'absolute inset-0 z-[60] transition-opacity duration-150',
-          sceneReady ? 'pointer-events-none opacity-0' : 'pointer-events-auto opacity-100'
-        )}
-        style={{ backgroundColor: themeBackgroundColor }}
-        aria-hidden={sceneReady}
-      />
+      {loadMaskVisible ? (
+        <div
+          className="pointer-events-auto absolute inset-0 z-50"
+          style={{ backgroundColor: themeBackgroundColor }}
+          aria-hidden
+        />
+      ) : null}
       <Excalidraw
         key={noteId}
         theme={excalidrawTheme}
         initialData={initialData}
         excalidrawAPI={(api) => {
           excalidrawApiRef.current = api
-          loadingUnsubRef.current?.()
-          loadingUnsubRef.current = api.onChange((_elements, appState) => {
-            if (!appState.isLoading) {
-              setSceneReady(true)
-            }
-          })
           queueMicrotask(() => {
-            if (!api.getAppState().isLoading) {
-              setSceneReady(true)
-            }
+            const css = readDocumentBackgroundCss()
+            api.updateScene({
+              appState: {
+                viewBackgroundColor: cssColorToCanvasColor(css)
+              },
+              captureUpdate: CaptureUpdateAction.NEVER
+            })
           })
         }}
         onChange={onChange}
