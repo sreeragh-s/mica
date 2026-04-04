@@ -31,6 +31,8 @@ export type NotesGraphViewProps = {
   macElectron: boolean
   macTitlebarStyles: { noDrag: CSSProperties }
   onSelectNote: (noteId: string) => void
+  /** When true, only the canvas is rendered (use with an external split header). */
+  embedded?: boolean
 }
 
 export function NotesGraphView({
@@ -39,6 +41,7 @@ export function NotesGraphView({
   macElectron,
   macTitlebarStyles,
   onSelectNote,
+  embedded = false,
 }: NotesGraphViewProps): JSX.Element {
   const wrapRef = useRef<HTMLDivElement | null>(null)
   const svgRef = useRef<SVGSVGElement | null>(null)
@@ -205,21 +208,23 @@ export function NotesGraphView({
 
   return (
     <div className="bg-background flex min-h-0 min-w-0 flex-1 flex-col">
-      <div
-        className="border-border flex h-10 shrink-0 items-center border-b px-3"
-        style={macElectron ? macTitlebarStyles.noDrag : undefined}
-      >
-        <div className="min-w-0">
-          <h2 className="text-foreground truncate text-sm font-semibold">
-            Note graph
-          </h2>
-          <p className="text-muted-foreground truncate text-xs">
-            {notes.length} notes · {edgeCount} link
-            {edgeCount === 1 ? "" : "s"} · drag nodes · scroll to zoom · pick a
-            note in the sidebar to leave
-          </p>
+      {embedded ? null : (
+        <div
+          className="border-border flex h-10 shrink-0 items-center border-b px-3"
+          style={macElectron ? macTitlebarStyles.noDrag : undefined}
+        >
+          <div className="min-w-0">
+            <h2 className="text-foreground truncate text-sm font-semibold">
+              Note graph
+            </h2>
+            <p className="text-muted-foreground truncate text-xs">
+              {notes.length} notes · {edgeCount} link
+              {edgeCount === 1 ? "" : "s"} · drag nodes · scroll to zoom · pick a
+              note in the sidebar to leave
+            </p>
+          </div>
         </div>
-      </div>
+      )}
       <div
         ref={wrapRef}
         className={cn("min-h-0 min-w-0 flex-1", notes.length === 0 && "flex items-center justify-center")}

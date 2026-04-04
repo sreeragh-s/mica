@@ -23,18 +23,16 @@ export function WorkspaceSettingsView({
 }: WorkspaceSettingsViewProps): JSX.Element {
   return (
     <div
-      className="mx-auto flex w-full max-w-lg flex-col gap-8 p-6"
+      className="mx-auto flex w-full max-w-3xl flex-col gap-8 p-6"
       style={macElectron ? macTitlebarStyles.noDrag : undefined}
     >
-      <div className="flex flex-col gap-4">
-        <div>
-          <h2 className="text-foreground text-xl font-semibold tracking-tight">
-            Workspace settings
-          </h2>
-          <p className="text-muted-foreground mt-1 text-sm">
-            Rename this workspace. GitHub and Git live under Settings → GitHub & Git.
-          </p>
-        </div>
+      <div className="flex flex-col gap-1">
+        <h2 className="text-foreground text-lg font-semibold tracking-tight">
+          Workspace settings
+        </h2>
+        <p className="text-muted-foreground text-sm leading-relaxed">
+          Rename this workspace. GitHub and Git live under Settings → GitHub & Git.
+        </p>
       </div>
 
       <section className="flex flex-col gap-3">

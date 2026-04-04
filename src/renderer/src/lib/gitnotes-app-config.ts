@@ -1,11 +1,25 @@
 import { getApi } from "./auth-bridge"
-import type { GitnotesConfigFileV1, GitNotesSetupState } from "./gitnotes-config-schema"
+import type {
+  GitnotesConfigFileV1,
+  GitnotesThemeConfigV1,
+  GitNotesSetupState,
+} from "./gitnotes-config-schema"
 import { normalizeNotesStateFromStorage } from "./notes-state-normalize"
 import type { NotesState } from "./notes-types"
 import {
   SHORTCUT_DEFINITIONS,
   type ShortcutBindingsMap,
 } from "./shortcuts-definitions"
+import { defaultPresets } from "@/components/appearance/theme-presets"
+import {
+  buildThemeConfigFromPresetId,
+  isNonEmptyThemeConfig,
+  sanitizeThemeConfig,
+} from "./theme-config-utils"
+import {
+  CUSTOM_THEME_PRESET_ID,
+  DEFAULT_THEME_PRESET_ID,
+} from "./theme-preset-apply"
 import { UI_FONT_IDS } from "./ui-font-types"
 import type { UiFontId } from "./ui-font-types"
 
@@ -170,9 +184,52 @@ function schedulePersist(): void {
   persistTimer = setTimeout(() => void flushToDisk(), DEBOUNCE_MS)
 }
 
-function setCache(next: GitnotesConfigFileV1): void {
+function setCache(next: GitnotesConfigFileV1, immediatePersist = false): void {
   cache = { ...next, version: 1 }
-  schedulePersist()
+  if (immediatePersist) {
+    if (persistTimer != null) {
+      clearTimeout(persistTimer)
+      persistTimer = null
+    }
+    void flushToDisk()
+  } else {
+    schedulePersist()
+  }
+}
+
+function normalizeThemeCacheAfterLoad(): void {
+  let next: GitnotesConfigFileV1 = { ...cache, version: 1 }
+  if (next.themeConfig) {
+    const s = sanitizeThemeConfig(next.themeConfig)
+    if (s) {
+      next = { ...next, themeConfig: s, version: 1 }
+    } else {
+      const { themeConfig: _removed, ...rest } = next
+      next = { ...rest, version: 1 }
+    }
+  }
+
+  const pid = next.themePresetId ?? DEFAULT_THEME_PRESET_ID
+  let shouldFlush = false
+
+  /** Denormalized snapshot so gitnotes.config always lists full light/dark tokens for presets. */
+  if (pid !== CUSTOM_THEME_PRESET_ID) {
+    const sc = next.themeConfig
+      ? sanitizeThemeConfig(next.themeConfig)
+      : undefined
+    if (!isNonEmptyThemeConfig(sc)) {
+      const snap = buildThemeConfigFromPresetId(pid)
+      if (isNonEmptyThemeConfig(snap)) {
+        next = { ...next, themeConfig: snap, version: 1 }
+        shouldFlush = true
+      }
+    }
+  }
+
+  cache = next
+  if (shouldFlush) {
+    void flushToDisk()
+  }
 }
 
 /**
@@ -192,6 +249,7 @@ export async function hydrateAppConfig(dataRoot: string | null): Promise<void> {
         const parsed = parseConfigJson(r.content)
         if (parsed) {
           cache = { ...defaultCache(), ...parsed, version: 1 }
+          normalizeThemeCacheAfterLoad()
         } else {
           cache = {
             ...defaultCache(),
@@ -200,6 +258,7 @@ export async function hydrateAppConfig(dataRoot: string | null): Promise<void> {
           }
           await flushToDisk()
           clearLegacyLocalStorageKeys()
+          normalizeThemeCacheAfterLoad()
         }
       } else {
         const legacy = readLegacyLocalStorage()
@@ -217,6 +276,7 @@ export async function hydrateAppConfig(dataRoot: string | null): Promise<void> {
         } catch {
           /* ignore */
         }
+        normalizeThemeCacheAfterLoad()
       }
     } else {
       const browser = readBrowserBlob()
@@ -228,6 +288,7 @@ export async function hydrateAppConfig(dataRoot: string | null): Promise<void> {
       }
       await flushToDisk()
       clearLegacyLocalStorageKeys()
+      normalizeThemeCacheAfterLoad()
     }
     return
   }
@@ -235,12 +296,14 @@ export async function hydrateAppConfig(dataRoot: string | null): Promise<void> {
   const blob = readBrowserBlob()
   if (blob) {
     cache = { ...defaultCache(), ...blob, version: 1 }
+    normalizeThemeCacheAfterLoad()
     return
   }
   const legacy = readLegacyLocalStorage()
   cache = { ...defaultCache(), ...legacy, version: 1 }
   writeBrowserBlob(cache)
   clearLegacyLocalStorageKeys()
+  normalizeThemeCacheAfterLoad()
 }
 
 export function getSetupState(): GitNotesSetupState {
@@ -300,6 +363,57 @@ export function loadUiFont(): UiFontId {
 
 export function saveUiFont(id: UiFontId): void {
   setCache({ ...cache, version: 1, uiFont: id })
+}
+
+const VALID_THEME_PRESET_IDS = new Set<string>([
+  DEFAULT_THEME_PRESET_ID,
+  CUSTOM_THEME_PRESET_ID,
+  ...Object.keys(defaultPresets),
+])
+
+export function loadThemePresetId(): string {
+  const raw = cache.themePresetId
+  if (raw && VALID_THEME_PRESET_IDS.has(raw)) return raw
+  return DEFAULT_THEME_PRESET_ID
+}
+
+export function loadThemeConfig(): GitnotesThemeConfigV1 | null {
+  if (!cache.themeConfig) return null
+  const s = sanitizeThemeConfig(cache.themeConfig)
+  return s ?? null
+}
+
+export function saveThemeConfig(config: GitnotesThemeConfigV1): void {
+  const sanitized = sanitizeThemeConfig(config)
+  setCache(
+    {
+      ...cache,
+      version: 1,
+      themePresetId: CUSTOM_THEME_PRESET_ID,
+      themeConfig: sanitized ?? { light: {}, dark: {} },
+    },
+    true
+  )
+}
+
+export function saveThemePresetId(id: string): void {
+  const next =
+    id && VALID_THEME_PRESET_IDS.has(id) ? id : DEFAULT_THEME_PRESET_ID
+  if (next === CUSTOM_THEME_PRESET_ID) {
+    setCache({ ...cache, version: 1, themePresetId: next }, true)
+    return
+  }
+  /** Persist a full token snapshot alongside the preset id (readable in gitnotes.config). */
+  const snapshot = buildThemeConfigFromPresetId(next)
+  setCache(
+    {
+      ...cache,
+      version: 1,
+      themePresetId: next,
+      themeConfig: snapshot,
+    },
+    true
+  )
 }
 
 export function loadGithubContentShas(): Record<string, string> {

@@ -6,7 +6,17 @@ import { ThemeProvider } from 'next-themes'
 import { LoginScreen } from '@/components/auth/LoginScreen'
 import { SetupScreen } from '@/components/setup/SetupScreen'
 import { NotesApp } from '@/components/notes/NotesApp'
-import { applyUiFontToDocument, loadUiFont } from '@/lib/appearance-storage'
+import { ThemePresetRuntime } from '@/components/appearance/ThemePresetRuntime'
+import {
+  applyUiFontToDocument,
+  loadThemeConfig,
+  loadThemePresetId,
+  loadUiFont,
+} from '@/lib/appearance-storage'
+import {
+  applyThemeToDocument,
+  getResolvedAppearanceMode,
+} from '@/lib/theme-preset-apply'
 import { getApi, parseSession } from '@/lib/auth-bridge'
 import { hydrateAppConfig } from '@/lib/gitnotes-app-config'
 import { clearGuestMode, isGuestMode, setGuestMode } from '@/lib/guest-session'
@@ -87,6 +97,11 @@ export default function App(): JSX.Element {
       }
       await hydrateAppConfig(dataRoot)
       applyUiFontToDocument(loadUiFont())
+      applyThemeToDocument(
+        loadThemePresetId(),
+        getResolvedAppearanceMode(),
+        loadThemeConfig()
+      )
       await refreshSession()
     })()
   }, [refreshSession])
@@ -160,6 +175,7 @@ export default function App(): JSX.Element {
 
   return (
     <ThemeProvider attribute="class" defaultTheme="system" enableSystem storageKey="gitnotes-theme">
+      <ThemePresetRuntime />
       {content}
     </ThemeProvider>
   )

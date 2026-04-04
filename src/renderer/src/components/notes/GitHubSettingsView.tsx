@@ -84,12 +84,12 @@ export function GitHubSettingsView({
 
   return (
     <div
-      className="mx-auto flex w-full max-w-lg flex-col gap-8 p-6"
+      className="mx-auto flex w-full max-w-3xl flex-col gap-8 p-6"
       style={macElectron ? macTitlebarStyles.noDrag : undefined}
     >
-      <div>
-        <h2 className="text-foreground text-xl font-semibold tracking-tight">GitHub & Git</h2>
-        <p className="text-muted-foreground mt-1 text-sm">
+      <div className="flex flex-col gap-1">
+        <h2 className="text-foreground text-lg font-semibold tracking-tight">GitHub & Git</h2>
+        <p className="text-muted-foreground text-sm leading-relaxed">
           {syncTransport === 'github_api' ? (
             <>
               Sync <code className="text-xs">~/.gitnotes</code> to your linked GitHub repository via the

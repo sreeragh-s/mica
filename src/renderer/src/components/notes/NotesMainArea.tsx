@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type DragEvent, type JSX } from 'react'
 
-import { FileText, Plus, X } from 'lucide-react'
+import { FileText, PanelLeftOpen, Plus, X } from 'lucide-react'
 
 import { Editor } from '@/components/blocks/editor-00/editor'
 import { Button } from '@/components/ui/button'
@@ -9,7 +9,6 @@ import { AccountSettingsView } from './AccountSettingsView'
 import { AppearanceSettingsView } from './AppearanceSettingsView'
 import { DebugSettingsView } from './DebugSettingsView'
 import { GitHubSettingsView } from './GitHubSettingsView'
-import { NotesLocationBar } from './NotesLocationBar'
 import { ShortcutsSettingsView } from './ShortcutsSettingsView'
 import { WorkspaceNotesList } from './WorkspaceNotesList'
 import { WorkspaceSettingsPanel } from './WorkspaceSettingsPanel'
@@ -92,10 +91,15 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
     guestMode,
     onSignOut,
     onConnectGitHub,
+    selectedId,
     selectedNote,
     focusedFolder,
     notesByFolder,
     selectNote,
+    openNoteTabIds,
+    closeNoteTab,
+    sidebarCollapsed,
+    toggleSidebar,
     handleNoteSerializedChange,
     handleNewNote,
     handleExcalidrawSceneChange,
@@ -180,14 +184,18 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
 
   const onGraphSelectNote = useCallback(
     (noteId: string) => {
-      closeGraphView()
       selectNote(noteId)
     },
-    [closeGraphView, selectNote]
+    [selectNote]
   )
 
   const notesMainInner = (() => {
-    if (appMode === 'notes' && !workspaceSettingsFolderId && graphViewOpen) {
+    if (
+      appMode === 'notes' &&
+      !workspaceSettingsFolderId &&
+      graphViewOpen &&
+      (!selectedNote || selectedNote.kind === 'drawing')
+    ) {
       return (
         <div
           className="flex min-h-0 flex-1 flex-col"
@@ -301,6 +309,45 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
         </div>
       )
 
+      if (graphViewOpen && selectedNote && selectedNote.kind !== 'drawing') {
+        const primaryBarTitle = selectedNote.title.trim() || 'Untitled'
+        return (
+          <div className="flex min-h-0 flex-1 flex-row">
+            <div className="border-border flex min-h-0 min-w-0 flex-1 flex-col border-r">
+              <SplitPaneTopBar
+                title={primaryBarTitle}
+                macElectron={macElectron}
+                macTitlebarStyles={macTitlebarStyles}
+                onClose={closeGraphView}
+              />
+              <div
+                className="flex min-h-0 flex-1 flex-col"
+                onDragOver={onDragOverMain}
+                onDrop={onDropMain}
+              >
+                {primaryColumn}
+              </div>
+            </div>
+            <div className="border-border flex min-h-0 w-[min(100%,50%)] min-w-0 flex-1 flex-col border-l">
+              <SplitPaneTopBar
+                title="Note graph"
+                macElectron={macElectron}
+                macTitlebarStyles={macTitlebarStyles}
+                onClose={closeGraphView}
+              />
+              <NotesGraphView
+                notes={notes}
+                folders={folders}
+                macElectron={macElectron}
+                macTitlebarStyles={macTitlebarStyles}
+                onSelectNote={onGraphSelectNote}
+                embedded
+              />
+            </div>
+          </div>
+        )
+      }
+
       if (!splitViewOpen) {
         return (
           <div
@@ -398,7 +445,101 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
         className="bg-background flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
         style={macElectron ? macTitlebarStyles.noDrag : undefined}
       >
-        {zenMode ? null : <NotesLocationBar vm={vm} />}
+        {zenMode ? null : (
+          <div
+            className={cn(
+              'border-border bg-background flex h-12 shrink-0 items-stretch',
+              macElectron && sidebarCollapsed && 'pl-[76px]'
+            )}
+            style={macElectron ? macTitlebarStyles.drag : undefined}
+          >
+            {sidebarCollapsed ? (
+              <div
+                className="border-border flex h-12 shrink-0 items-center border-b border-border"
+                style={macElectron ? macTitlebarStyles.noDrag : undefined}
+              >
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="text-muted-foreground size-9 shrink-0"
+                  aria-label="Expand sidebar"
+                  aria-expanded={false}
+                  onClick={toggleSidebar}
+                >
+                  <PanelLeftOpen className="size-4" aria-hidden />
+                </Button>
+              </div>
+            ) : null}
+            {appMode === 'notes' && !workspaceSettingsFolderId && openNoteTabIds.length > 0 ? (
+              <div
+                className="bg-muted/50 flex h-12 min-w-0 flex-1 items-end overflow-x-auto [scrollbar-width:thin]"
+                role="tablist"
+                style={macElectron ? macTitlebarStyles.noDrag : undefined}
+              >
+                {openNoteTabIds.map((id) => {
+                  const n = notes.find((note) => note.id === id)
+                  if (!n) return null
+                  const title = n.title.trim() || 'Untitled'
+                  const active = id === selectedId
+                  return (
+                    <div
+                      key={id}
+                      role="tab"
+                      aria-selected={active}
+                      className={cn(
+                        'group flex h-12 min-w-[7rem] max-w-[14rem] shrink-0 items-stretch border-border',
+                        active
+                          ? 'bg-background text-foreground relative z-[1] border border-b-0 border-t border-l border-r'
+                          : 'text-muted-foreground hover:text-foreground border-b border-border border-r border-border/60 hover:bg-muted/70'
+                      )}
+                    >
+                      <button
+                        type="button"
+                        className="min-w-0 flex-1 truncate px-2.5 py-2 text-left text-sm leading-tight"
+                        title={title}
+                        onClick={() => selectNote(id)}
+                      >
+                        {title}
+                      </button>
+                      <div
+                        className={cn(
+                          'flex shrink-0 items-center pr-0.5 pl-0.5',
+                          active && 'border-border/60 border-l'
+                        )}
+                      >
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="ghost"
+                          className={cn(
+                            'size-7 shrink-0',
+                            active
+                              ? 'text-muted-foreground hover:text-foreground'
+                              : 'text-muted-foreground/70 opacity-0 hover:opacity-100 group-hover:opacity-100'
+                          )}
+                          aria-label={`Close tab ${title}`}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            closeNoteTab(id)
+                          }}
+                        >
+                          <X className="size-3.5" aria-hidden />
+                        </Button>
+                      </div>
+                    </div>
+                  )
+                })}
+                <div
+                  className="border-border h-12 min-w-[min(1.5rem,100%)] flex-1 border-b bg-muted/50"
+                  aria-hidden
+                />
+              </div>
+            ) : (
+              <div className="border-border h-12 min-w-0 flex-1 border-b" aria-hidden />
+            )}
+          </div>
+        )}
         <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto">
           {appMode === 'notes' && workspaceSettingsFolder && workspaceSettingsFolderId ? (
             <WorkspaceSettingsPanel

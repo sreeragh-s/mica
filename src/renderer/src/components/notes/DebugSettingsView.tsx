@@ -66,14 +66,14 @@ export function DebugSettingsView({
 
   return (
     <div
-      className="mx-auto flex w-full max-w-lg flex-col gap-6 p-6"
+      className="mx-auto flex w-full max-w-3xl flex-col gap-6 p-6"
       style={macElectron ? macTitlebarStyles.noDrag : undefined}
     >
       <div className="flex items-start gap-3">
         <Bug className="text-muted-foreground mt-0.5 size-5 shrink-0" aria-hidden />
-        <div>
-          <h2 className="text-foreground text-xl font-semibold tracking-tight">Debug</h2>
-          <p className="text-muted-foreground mt-1 text-sm">
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
+          <h2 className="text-foreground text-lg font-semibold tracking-tight">Debug</h2>
+          <p className="text-muted-foreground text-sm leading-relaxed">
             Environment and GitNotes integration details for troubleshooting.
           </p>
         </div>

@@ -81,16 +81,18 @@ export function Plugins({}) {
 
   return (
     <div className="relative flex h-full min-h-0 flex-col">
-      <div className="relative flex min-h-0 flex-1 flex-col">
+      <div className="relative flex min-h-0 w-full flex-1 flex-col">
         <AutoFocusPlugin />
         <RichTextPlugin
           contentEditable={
-            <div className="flex min-h-0 flex-1 flex-col">
-              <div className="flex min-h-0 flex-1 flex-col" ref={onRef}>
-                <ContentEditable
-                  placeholder={placeholder}
-                  className="ContentEditable__root relative block min-h-0 flex-1 overflow-auto px-8 py-4 focus:outline-none"
-                />
+            <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+              <div className="mx-auto min-h-full w-full max-w-3xl">
+                <div className="relative flex min-h-full flex-col" ref={onRef}>
+                  <ContentEditable
+                    placeholder={placeholder}
+                    className="ContentEditable__root relative block min-h-full px-8 py-4 focus:outline-none"
+                  />
+                </div>
               </div>
             </div>
           }

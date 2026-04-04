@@ -1,6 +1,6 @@
 import type { CSSProperties, JSX, ReactNode } from 'react'
 
-import { ChevronDown, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
+import { ChevronDown, PanelLeftOpen } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -322,7 +322,8 @@ export function NotesLocationBar({ vm }: NotesLocationBarProps): JSX.Element | n
   }
 
   const hasTextCrumbs = crumbs.length > 0
-  const showSidebarToggle = appMode === 'notes' || appMode === 'settings'
+  const showSidebarToggle =
+    (appMode === 'notes' || appMode === 'settings') && sidebarCollapsed
 
   if (!macElectron && !hasTextCrumbs && !showSidebarToggle) {
     return null
@@ -347,15 +348,11 @@ export function NotesLocationBar({ vm }: NotesLocationBarProps): JSX.Element | n
             variant="ghost"
             size="icon"
             className="text-muted-foreground size-9 shrink-0"
-            aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-            aria-expanded={!sidebarCollapsed}
+            aria-label="Expand sidebar"
+            aria-expanded={false}
             onClick={toggleSidebar}
           >
-            {sidebarCollapsed ? (
-              <PanelLeftOpen className="size-4" aria-hidden />
-            ) : (
-              <PanelLeftClose className="size-4" aria-hidden />
-            )}
+            <PanelLeftOpen className="size-4" aria-hidden />
           </Button>
         </div>
       ) : null}

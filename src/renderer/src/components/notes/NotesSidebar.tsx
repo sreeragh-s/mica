@@ -10,6 +10,7 @@ import {
   Folder,
   FolderGit2,
   FolderPlus,
+  PanelLeftClose,
   PenLine,
   Pencil,
   Settings,
@@ -73,7 +74,8 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
     handleNewDrawing,
     graphViewOpen,
     openGraphView,
-    closeGraphView
+    closeGraphView,
+    toggleSidebar
   } = vm
 
   const [renamingNoteId, setRenamingNoteId] = useState<string | null>(null)
@@ -100,34 +102,17 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
     >
       <div
         className={cn(
-          'border-sidebar-border flex h-12 shrink-0 items-center gap-2 border-b px-3',
+          'border-sidebar-border flex h-12 shrink-0 items-center gap-1 border-b px-2 pr-1',
           macElectron && 'pl-[76px]'
         )}
         style={macElectron ? macTitlebarStyles.drag : undefined}
       >
         {appMode === 'settings' ? (
-          <>
-            <div
-              className="flex shrink-0 items-center"
-              style={macElectron ? macTitlebarStyles.noDrag : undefined}
-            >
-              <Button
-                type="button"
-                size="sm"
-                variant="ghost"
-                className="text-muted-foreground size-8 shrink-0 p-0"
-                aria-label="Back to notes"
-                onClick={backToNotes}
-              >
-                <ArrowLeft className="size-4" aria-hidden />
-              </Button>
-            </div>
-            <div className="min-w-0 flex-1">
-              <h1 className="text-sidebar-foreground truncate text-sm font-semibold leading-none tracking-tight">
-                Settings
-              </h1>
-            </div>
-          </>
+          <div className="min-w-0 flex-1">
+            <h1 className="text-sidebar-foreground truncate ml-2 text-sm font-semibold leading-none tracking-tight">
+              Settings
+            </h1>
+          </div>
         ) : (
           <div className="min-w-0 flex-1">
             <h1 className="text-sidebar-foreground truncate ml-2 text-sm font-semibold leading-none tracking-tight">
@@ -135,11 +120,23 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
             </h1>
           </div>
         )}
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="text-muted-foreground size-9 shrink-0"
+          aria-label="Collapse sidebar"
+          aria-expanded={true}
+          onClick={toggleSidebar}
+          style={macElectron ? macTitlebarStyles.noDrag : undefined}
+        >
+          <PanelLeftClose className="size-4" aria-hidden />
+        </Button>
       </div>
       {appMode === 'notes' ? (
         <div
           className={cn(
-            'border-sidebar-border flex shrink-0 items-center justify-end gap-0.5 border-b px-2 py-1.5',
+            'border-sidebar-border flex w-full shrink-0 flex-row flex-nowrap items-center justify-start gap-0.5 border-b px-2 py-1.5',
             macElectron && 'pl-[76px]'
           )}
           style={macElectron ? macTitlebarStyles.noDrag : undefined}
@@ -204,6 +201,27 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
             onClick={openSettings}
           >
             <Settings className="size-4" aria-hidden />
+          </Button>
+        </div>
+      ) : appMode === 'settings' ? (
+        <div
+          className={cn(
+            'border-sidebar-border w-full shrink-0 border-b px-2 py-1.5',
+            macElectron 
+          )}
+          style={macElectron ? macTitlebarStyles.noDrag : undefined}
+        >
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            className="text-muted-foreground h-8 w-full min-w-0  gap-1.5 px-2.5 items-center justify-start "
+            onClick={backToNotes}
+          >
+            <ArrowLeft className="size-4 shrink-0" aria-hidden />
+            <span className="text-sidebar-foreground text-left text-sm font-medium">
+              Back to notes
+            </span>
           </Button>
         </div>
       ) : null}

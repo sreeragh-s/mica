@@ -65,12 +65,14 @@ export function ShortcutsSettingsView({
 
   return (
     <div
-      className="mx-auto flex w-full max-w-lg flex-col gap-6 p-6"
+      className="mx-auto flex w-full max-w-3xl flex-col gap-6 p-6"
       style={macElectron ? macTitlebarStyles.noDrag : undefined}
     >
       <div className="flex flex-col gap-1">
-        <h2 className="text-foreground text-lg font-semibold">Keyboard shortcuts</h2>
-        <p className="text-muted-foreground text-sm">
+        <h2 className="text-foreground text-lg font-semibold tracking-tight">
+          Keyboard shortcuts
+        </h2>
+        <p className="text-muted-foreground text-sm leading-relaxed">
           Shortcuts use {macElectron ? '⌘' : 'Ctrl'} as the main modifier. Click “Change” and press
           a new combination. Escape cancels recording.
         </p>
