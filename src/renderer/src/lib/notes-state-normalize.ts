@@ -10,21 +10,36 @@ import {
   type WorkspaceFolder,
 } from "./notes-types"
 
+function walkSerializedText(node: unknown): string {
+  if (node === null || node === undefined) return ""
+  if (typeof node !== "object") return ""
+  const o = node as Record<string, unknown>
+  if (o.type === "text" && typeof o.text === "string") return o.text
+  if (Array.isArray(o.children)) {
+    return o.children.map(walkSerializedText).join("")
+  }
+  return ""
+}
+
+/** Full plain text from Lexical JSON (for search). Empty string if no text nodes. */
+export function extractPlainTextFromSerialized(
+  serialized: SerializedEditorState | null,
+  maxLen?: number
+): string {
+  if (!serialized) return ""
+  const text = walkSerializedText(serialized.root).replace(/\s+/g, " ").trim()
+  if (!text) return ""
+  if (maxLen !== undefined && text.length > maxLen) {
+    return text.slice(0, maxLen)
+  }
+  return text
+}
+
 export function extractPreviewText(
   serialized: SerializedEditorState,
   maxLen = 72
 ): string {
-  function walk(node: unknown): string {
-    if (node === null || node === undefined) return ""
-    if (typeof node !== "object") return ""
-    const o = node as Record<string, unknown>
-    if (o.type === "text" && typeof o.text === "string") return o.text
-    if (Array.isArray(o.children)) {
-      return o.children.map(walk).join("")
-    }
-    return ""
-  }
-  const text = walk(serialized.root).replace(/\s+/g, " ").trim()
+  const text = walkSerializedText(serialized.root).replace(/\s+/g, " ").trim()
   if (!text) return "New note"
   return text.length > maxLen ? `${text.slice(0, maxLen)}…` : text
 }
@@ -102,9 +117,15 @@ export function normalizeNotesStateFromStorage(raw: unknown): NotesState {
     ) {
       const p = parsed as NotesStateV3
       const r = p.githubRemoteUrl
+      const rawOrder = p.sidebarFolderOrder
+      const sidebarFolderOrder =
+        Array.isArray(rawOrder) && rawOrder.every((x) => typeof x === "string")
+          ? rawOrder
+          : undefined
       return {
         version: 3,
         ...(typeof r === "string" && r.trim() ? { githubRemoteUrl: r.trim() } : {}),
+        ...(sidebarFolderOrder ? { sidebarFolderOrder } : {}),
       }
     }
     if (

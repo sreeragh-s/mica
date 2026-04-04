@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type DragEvent, type JSX } from 'react'
 
-import { FileText, PanelLeftOpen, Plus, X } from 'lucide-react'
+import { FileText, PanelLeftOpen, PenLine, Plus, X } from 'lucide-react'
 
 import { Editor } from '@/components/blocks/editor-00/editor'
 import { Button } from '@/components/ui/button'
@@ -14,6 +14,7 @@ import { WorkspaceNotesList } from './WorkspaceNotesList'
 import { WorkspaceSettingsPanel } from './WorkspaceSettingsPanel'
 import { ExcalidrawView } from './ExcalidrawView'
 import { NotesGraphView } from './NotesGraphView'
+import { NotesSearchBar } from './NotesSearchBar'
 import { NOTE_DRAG_MIME } from './notes-app-utils'
 import type { NotesAppViewModel } from './useNotesApp'
 
@@ -34,22 +35,28 @@ function SplitPaneTopBar({
 }): JSX.Element {
   return (
     <div
-      className="border-border flex h-10 shrink-0 items-center justify-between gap-2 px-3"
+      className="border-border grid h-10 shrink-0 grid-cols-[2rem_minmax(0,1fr)_2rem] items-center px-3"
       style={macElectron ? macTitlebarStyles.noDrag : undefined}
     >
-      <span className="text-foreground min-w-0 truncate text-sm font-medium" title={title}>
+      <div className="flex items-center justify-start">
+        <Button
+          type="button"
+          size="icon"
+          variant="ghost"
+          className="size-8 shrink-0"
+          aria-label="Close split view"
+          onClick={onClose}
+        >
+          <X className="size-4" aria-hidden />
+        </Button>
+      </div>
+      <span
+        className="text-foreground min-w-0 truncate px-1 text-center text-sm font-medium"
+        title={title}
+      >
         {title}
       </span>
-      <Button
-        type="button"
-        size="icon"
-        variant="ghost"
-        className="size-8 shrink-0"
-        aria-label="Close split view"
-        onClick={onClose}
-      >
-        <X className="size-4" aria-hidden />
-      </Button>
+      <span className="block w-full shrink-0" aria-hidden />
     </div>
   )
 }
@@ -114,12 +121,12 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
     setShortcutsCaptureActive,
     graphViewOpen,
     closeGraphView,
-    zenMode
+    zenMode,
+    sidebarOverlayActive
   } = vm
 
   const [splitDropActive, setSplitDropActive] = useState(false)
   const [zenHintVisible, setZenHintVisible] = useState(false)
-
   useEffect(() => {
     if (!zenMode) {
       setZenHintVisible(false)
@@ -440,100 +447,171 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
   })()
 
   return (
-    <div className="bg-background flex min-h-0 min-w-0 flex-1 flex-col">
+    <div
+      className={cn(
+        'bg-background flex min-h-0 min-w-0 flex-col',
+        sidebarOverlayActive ? 'absolute inset-0 z-0' : 'flex-1'
+      )}
+    >
       <main
-        className="bg-background flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
+        className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-transparent"
         style={macElectron ? macTitlebarStyles.noDrag : undefined}
       >
+        <div
+          className={cn(
+            'flex min-h-0 min-w-0 flex-1 flex-col bg-background',
+            sidebarOverlayActive && 'pl-[min(100%,320px)]'
+          )}
+        >
         {zenMode ? null : (
           <div
             className={cn(
-              'border-border bg-background flex h-12 shrink-0 items-stretch',
-              macElectron && sidebarCollapsed && 'pl-[76px]'
+              'bg-background flex shrink-0 flex-col',
+              sidebarOverlayActive && 'pt-2'
             )}
-            style={macElectron ? macTitlebarStyles.drag : undefined}
           >
-            {sidebarCollapsed ? (
-              <div
-                className="border-border flex h-12 shrink-0 items-center"
-                style={macElectron ? macTitlebarStyles.noDrag : undefined}
-              >
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="text-muted-foreground size-9 shrink-0"
-                  aria-label="Expand sidebar"
-                  aria-expanded={false}
-                  onClick={toggleSidebar}
-                >
-                  <PanelLeftOpen className="size-4" aria-hidden />
-                </Button>
-              </div>
-            ) : null}
-            {appMode === 'notes' && !workspaceSettingsFolderId && openNoteTabIds.length > 0 ? (
-              <div
-                className="bg-muted/50 flex h-12 min-w-0 flex-1 items-end overflow-x-auto [scrollbar-width:thin]"
-                role="tablist"
-                style={macElectron ? macTitlebarStyles.noDrag : undefined}
-              >
-                {openNoteTabIds.map((id) => {
-                  const n = notes.find((note) => note.id === id)
-                  if (!n) return null
-                  const title = n.title.trim() || 'Untitled'
-                  const active = id === selectedId
-                  return (
-                    <div
-                      key={id}
-                      role="tab"
-                      aria-selected={active}
-                      className={cn(
-                        'group flex h-12 min-w-[7rem] max-w-[min(14rem,calc(100vw-6rem))] shrink-0 items-center gap-0.5 border-border px-1.5',
-                        active
-                          ? 'bg-background text-foreground relative z-[1] border border-b-0 border-t border-l border-r'
-                          : 'text-muted-foreground hover:text-foreground border-r border-border/60 hover:bg-muted/70'
-                      )}
-                    >
-                      <button
-                        type="button"
-                        className="min-h-0 min-w-0 flex-1 overflow-hidden truncate py-2 pr-0 text-left text-sm leading-tight text-inherit"
-                        title={title}
-                        onClick={() => selectNote(id)}
-                      >
-                        {title}
-                      </button>
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        size="icon-xs"
-                        className={cn(
-                          'shrink-0',
-                          active
-                            ? 'text-muted-foreground'
-                            : 'text-muted-foreground opacity-0 hover:opacity-100 group-hover:opacity-100'
-                        )}
-                        aria-label={`Close tab ${title}`}
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          closeNoteTab(id)
-                        }}
-                      >
-                        <X className="size-3.5" aria-hidden />
-                      </Button>
-                    </div>
-                  )
-                })}
-                <div
-                  className="border-border h-12 min-w-[min(1.5rem,100%)] flex-1 bg-muted/50"
-                  aria-hidden
-                />
-              </div>
+            {/* Row 1: aligns with sidebar “Notes” title row (h-12) — centered glass search */}
+            {appMode === 'notes' && !workspaceSettingsFolderId ? (
+              <NotesSearchBar
+                notes={notes}
+                folders={folders}
+                onSelectNote={selectNote}
+                macTitlebarStyles={macTitlebarStyles}
+                sidebarOverlayActive={sidebarOverlayActive}
+                macElectron={macElectron}
+                sidebarCollapsed={sidebarCollapsed}
+              />
             ) : (
-              <div className="border-border h-12 min-w-0 flex-1" aria-hidden />
+              <div
+                className={cn(
+                  'h-12 shrink-0',
+                  sidebarOverlayActive && 'pr-1.5',
+                  !sidebarOverlayActive && macElectron && sidebarCollapsed && 'pl-[92px]'
+                )}
+                style={macElectron ? macTitlebarStyles.drag : undefined}
+                aria-hidden
+              />
             )}
+            {/* Row 2: aligns with sidebar toolbar; tabs span full width of main column */}
+            <div
+              className={cn(
+                'flex min-h-0 w-full min-w-0 shrink-0 items-center py-1.5',
+                !sidebarOverlayActive && macElectron && sidebarCollapsed && 'pl-[92px]'
+              )}
+              style={macElectron ? macTitlebarStyles.drag : undefined}
+            >
+              {sidebarCollapsed ? (
+                <div
+                  className="flex shrink-0 items-center px-1"
+                  style={macElectron ? macTitlebarStyles.noDrag : undefined}
+                >
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="text-muted-foreground size-9 shrink-0"
+                    aria-label="Expand sidebar"
+                    aria-expanded={false}
+                    onClick={toggleSidebar}
+                  >
+                    <PanelLeftOpen className="size-4" aria-hidden />
+                  </Button>
+                </div>
+              ) : null}
+              {appMode === 'notes' && !workspaceSettingsFolderId && openNoteTabIds.length > 0 ? (
+                <div
+                  className="flex min-h-0 w-full min-w-0 flex-1 items-center px-2"
+                  style={macElectron ? macTitlebarStyles.noDrag : undefined}
+                >
+                  <div
+                    className="bg-muted/35 text-foreground flex h-8 w-full min-w-0 flex-1 items-stretch overflow-hidden rounded-full shadow-[inset_0_1px_0_0_oklch(1_0_0/0.06)] backdrop-blur-xl dark:bg-white/[0.07] dark:shadow-[inset_0_1px_0_0_oklch(1_0_0/0.08)]"
+                    role="tablist"
+                  >
+                    <div className="flex min-h-0 min-w-0 flex-1 overflow-x-auto [scrollbar-width:thin]">
+                    {openNoteTabIds.map((id) => {
+                      const n = notes.find((note) => note.id === id)
+                      if (!n) return null
+                      const title = n.title.trim() || 'Untitled'
+                      const active = id === selectedId
+                      const isDrawing = n.kind === 'drawing'
+                      return (
+                        <div
+                          key={id}
+                          role="tab"
+                          aria-selected={active}
+                          tabIndex={active ? 0 : -1}
+                          className="group flex min-h-0 min-w-[5rem] flex-1 basis-0 items-center justify-center p-0.5"
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault()
+                              selectNote(id)
+                            }
+                          }}
+                        >
+                          <div
+                            role="presentation"
+                            className={cn(
+                              'grid h-full w-full min-w-0 max-w-full cursor-pointer grid-cols-[1.5rem_minmax(0,1fr)_1.5rem] items-center px-1 duration-150',
+                              active
+                                ? 'rounded-full bg-background/92 text-foreground shadow-sm transition-colors dark:bg-white/[0.14]'
+                                : 'rounded-none text-muted-foreground transition-[background-color,color,border-radius] hover:rounded-full hover:bg-black/[0.04] hover:text-foreground dark:hover:bg-white/[0.06]'
+                            )}
+                            onClick={() => selectNote(id)}
+                          >
+                            <div className="flex h-full items-center justify-start">
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon-xs"
+                                className={cn(
+                                  'size-6 shrink-0',
+                                  active
+                                    ? 'rounded-full text-muted-foreground  hover:bg-transparent'
+                                    : 'rounded-md text-muted-foreground opacity-0 hover:opacity-100 group-hover:opacity-100'
+                                )}
+                                aria-label={`Close tab ${title}`}
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  closeNoteTab(id)
+                                }}
+                              >
+                                <X className="size-3" aria-hidden />
+                              </Button>
+                            </div>
+                            <div className="flex min-h-0 min-w-0 items-center justify-center gap-1.5 px-0.5">
+                              {isDrawing ? (
+                                <PenLine
+                                  className="text-muted-foreground size-3.5 shrink-0 opacity-80"
+                                  aria-hidden
+                                />
+                              ) : (
+                                <FileText
+                                  className="text-muted-foreground size-3.5 shrink-0 opacity-80"
+                                  aria-hidden
+                                />
+                              )}
+                              <span
+                                className="min-h-0 min-w-0 max-w-[min(11rem,100%)] truncate py-1 text-center text-[13px] font-medium leading-tight tracking-tight"
+                                title={title}
+                              >
+                                {title}
+                              </span>
+                            </div>
+                            <span className="block w-full shrink-0" aria-hidden />
+                          </div>
+                        </div>
+                      )
+                    })}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="min-h-8 min-w-0 flex-1" aria-hidden />
+              )}
+            </div>
           </div>
         )}
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto bg-background">
           {appMode === 'notes' && workspaceSettingsFolder && workspaceSettingsFolderId ? (
             <WorkspaceSettingsPanel
               key={workspaceSettingsFolderId}
@@ -604,6 +682,7 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
           ) : appMode === 'notes' ? (
             notesMainInner
           ) : null}
+        </div>
         </div>
       </main>
     </div>

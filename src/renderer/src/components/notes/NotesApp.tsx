@@ -11,20 +11,44 @@ export type { NotesAppProps } from './notes-app-types'
 
 export function NotesApp(props: NotesAppProps): JSX.Element {
   const vm = useNotesApp(props)
-  const { sidebarCollapsed, zenMode } = vm
+  const { sidebarCollapsed, zenMode, macElectron, sidebarOverlayActive } = vm
   const sidebarHidden = sidebarCollapsed || zenMode
+
   return (
-    <div className="bg-background text-foreground flex h-screen w-full flex-row overflow-hidden">
-      <div
-        className={cn(
-          'border-sidebar-border shrink-0 overflow-hidden transition-[width] duration-300 ease-in-out',
-          sidebarHidden ? 'w-0 border-r-0' : 'w-[min(100%,320px)] border-r'
-        )}
-        aria-hidden={sidebarHidden}
-      >
-        <NotesSidebar vm={vm} />
-      </div>
+    <div
+      className={cn(
+        'bg-background text-foreground overflow-hidden',
+        sidebarOverlayActive ? 'relative h-screen w-full' : 'flex h-screen w-full flex-row'
+      )}
+    >
+      {!sidebarOverlayActive ? (
+        <div
+          className={cn(
+            'shrink-0 transition-[width] duration-300 ease-in-out',
+            sidebarHidden ? 'w-0 overflow-hidden border-r-0' : 'w-[min(100%,320px)] overflow-hidden',
+            !sidebarHidden && !macElectron && 'border-sidebar-border border-r',
+            !sidebarHidden && macElectron && 'relative box-border bg-background py-2 pl-2 pr-1.5'
+          )}
+          aria-hidden={sidebarHidden}
+        >
+          <NotesSidebar vm={vm} />
+        </div>
+      ) : null}
+
       <NotesMainArea vm={vm} />
+
+      {sidebarOverlayActive ? (
+        <div
+          className="pointer-events-none absolute inset-y-0 left-0 z-30 w-[min(100%,320px)] transition-[transform,opacity] duration-300 ease-in-out"
+          aria-hidden={false}
+        >
+          <div className="box-border flex h-full min-h-0 flex-col py-2 pl-2 pr-1.5">
+            <div className="pointer-events-auto flex h-full min-h-0 flex-1 flex-col">
+              <NotesSidebar vm={vm} />
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   )
 }

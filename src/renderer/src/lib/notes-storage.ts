@@ -46,6 +46,8 @@ export function extractPreviewText(
   return extractPreviewTextImpl(serialized, maxLen)
 }
 
+export { extractPlainTextFromSerialized } from "./notes-state-normalize"
+
 export function formatNoteTime(ts: number): string {
   return new Intl.DateTimeFormat(undefined, {
     month: "short",

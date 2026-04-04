@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type JSX } from 'react'
+import { useEffect, useRef, useState, type DragEvent, type JSX } from 'react'
 
 import {
   ArrowLeft,
@@ -34,7 +34,12 @@ import {
 } from '@/components/ui/tree'
 import { cn } from '@/lib/utils'
 import { formatNoteTime } from '@/lib/notes-storage'
-import { NOTE_DRAG_MIME, treeFolderId, treeNoteId } from './notes-app-utils'
+import {
+  FOLDER_DRAG_MIME,
+  NOTE_DRAG_MIME,
+  treeFolderId,
+  treeNoteId
+} from './notes-app-utils'
 import type { NotesAppViewModel } from './useNotesApp'
 
 export type NotesSidebarProps = {
@@ -66,6 +71,9 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
     handleNewNote,
     handleDeleteNote,
     renameNote,
+    moveNoteToFolder,
+    reorderWorkspaceFolders,
+    reorderWorkspaceFolderToEnd,
     openWorkspaceSettings,
     onFolderDraftKeyDown,
     backToNotes,
@@ -81,6 +89,67 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
   const [renamingNoteId, setRenamingNoteId] = useState<string | null>(null)
   const [renameDraft, setRenameDraft] = useState('')
   const renameInputRef = useRef<HTMLInputElement>(null)
+  const [dropTargetFolderId, setDropTargetFolderId] = useState<string | null>(null)
+  const [folderDropAtEnd, setFolderDropAtEnd] = useState(false)
+
+  useEffect(() => {
+    const clearDrop = (): void => {
+      setDropTargetFolderId(null)
+      setFolderDropAtEnd(false)
+    }
+    window.addEventListener('dragend', clearDrop)
+    return () => window.removeEventListener('dragend', clearDrop)
+  }, [])
+
+  const sidebarAcceptsDrop = (e: DragEvent): boolean => {
+    const types = [...e.dataTransfer.types]
+    return types.includes(NOTE_DRAG_MIME) || types.includes(FOLDER_DRAG_MIME)
+  }
+
+  const onFolderRowDragOver = (e: DragEvent, folderId: string): void => {
+    if (!sidebarAcceptsDrop(e)) return
+    e.preventDefault()
+    e.stopPropagation()
+    e.dataTransfer.dropEffect = 'move'
+    setDropTargetFolderId(folderId)
+    setFolderDropAtEnd(false)
+  }
+
+  const onFolderRowDrop = (e: DragEvent, folderId: string): void => {
+    if (!sidebarAcceptsDrop(e)) return
+    e.preventDefault()
+    e.stopPropagation()
+    setDropTargetFolderId(null)
+    setFolderDropAtEnd(false)
+
+    const noteId = e.dataTransfer.getData(NOTE_DRAG_MIME)
+    if (noteId) {
+      moveNoteToFolder(noteId, folderId)
+      return
+    }
+    const draggedFolderId = e.dataTransfer.getData(FOLDER_DRAG_MIME)
+    if (draggedFolderId && draggedFolderId !== folderId) {
+      reorderWorkspaceFolders(draggedFolderId, folderId)
+    }
+  }
+
+  const onFolderStripDragOver = (e: DragEvent): void => {
+    const types = [...e.dataTransfer.types]
+    if (!types.includes(FOLDER_DRAG_MIME)) return
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+    setFolderDropAtEnd(true)
+    setDropTargetFolderId(null)
+  }
+
+  const onFolderStripDrop = (e: DragEvent): void => {
+    const types = [...e.dataTransfer.types]
+    if (!types.includes(FOLDER_DRAG_MIME)) return
+    e.preventDefault()
+    setFolderDropAtEnd(false)
+    const draggedFolderId = e.dataTransfer.getData(FOLDER_DRAG_MIME)
+    if (draggedFolderId) reorderWorkspaceFolderToEnd(draggedFolderId)
+  }
 
   useEffect(() => {
     if (renamingNoteId) {
@@ -95,15 +164,22 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
     setRenamingNoteId(null)
   }
 
+  const liquidChrome = macElectron
+
   return (
     <aside
-      className="bg-sidebar text-sidebar-foreground border-sidebar-border flex h-full min-h-0 w-[min(100%,320px)] shrink-0 flex-col "
+      className={cn(
+        'text-sidebar-foreground flex h-full min-h-0 w-full shrink-0 flex-col',
+        liquidChrome
+          ? 'liquid-sidebar-inset relative z-10 rounded-2xl'
+          : 'bg-sidebar border-sidebar-border w-[min(100%,320px)] border-r'
+      )}
       aria-label={appMode === 'notes' ? 'Notes' : 'Settings'}
     >
       <div
         className={cn(
-          'border-sidebar-border flex h-12 shrink-0 items-center gap-1 border-b px-2 pr-1',
-          macElectron && 'pl-[76px]'
+          'flex h-12 shrink-0 items-center gap-1 px-2 pr-1',
+          macElectron && 'pl-[92px]'
         )}
         style={macElectron ? macTitlebarStyles.drag : undefined}
       >
@@ -136,8 +212,8 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
       {appMode === 'notes' ? (
         <div
           className={cn(
-            'border-sidebar-border flex w-full shrink-0 flex-row flex-nowrap items-center justify-start gap-0.5 border-b px-2 py-1.5',
-            macElectron && 'pl-[76px]'
+            'flex w-full shrink-0 flex-row flex-nowrap items-center justify-start gap-0.5 px-2 py-1.5',
+            macElectron 
           )}
           style={macElectron ? macTitlebarStyles.noDrag : undefined}
         >
@@ -205,10 +281,7 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
         </div>
       ) : appMode === 'settings' ? (
         <div
-          className={cn(
-            'border-sidebar-border w-full shrink-0 border-b px-2 py-1.5',
-            macElectron 
-          )}
+          className="w-full shrink-0 px-2 py-1.5"
           style={macElectron ? macTitlebarStyles.noDrag : undefined}
         >
           <Button
@@ -336,8 +409,19 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
                 return (
                   <TreeNode key={folder.id} nodeId={treeFolderId(folder.id)} isLast={isLastFolder}>
                     <TreeNodeTrigger
+                      draggable
+                      onDragStart={(e) => {
+                        const ev = e as unknown as globalThis.DragEvent
+                        if (!ev.dataTransfer) return
+                        ev.dataTransfer.setData(FOLDER_DRAG_MIME, folder.id)
+                        ev.dataTransfer.effectAllowed = 'move'
+                      }}
+                      onDragOver={(e) => onFolderRowDragOver(e as unknown as DragEvent, folder.id)}
+                      onDrop={(e) => onFolderRowDrop(e as unknown as DragEvent, folder.id)}
                       className={cn(
                         'hover:bg-sidebar-accent/50',
+                        dropTargetFolderId === folder.id &&
+                          'bg-sidebar-accent/30 ring-primary/40 ring-1 ring-inset',
                         !selectedId &&
                           focusedFolderId === folder.id &&
                           '!bg-sidebar-accent !text-sidebar-accent-foreground'
@@ -375,12 +459,12 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
                             isLast={isLastNote}
                           >
                             <TreeNodeTrigger
-                              draggable
+                              draggable={!isRenaming}
                               onDragStart={(e) => {
                                 const drag = e as unknown as globalThis.DragEvent
                                 if (!drag.dataTransfer) return
                                 drag.dataTransfer.setData(NOTE_DRAG_MIME, note.id)
-                                drag.dataTransfer.effectAllowed = 'copy'
+                                drag.dataTransfer.effectAllowed = 'copyMove'
                               }}
                               className={cn(
                                 'hover:bg-sidebar-accent/50',
@@ -473,9 +557,27 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
                 )
               })}
 
+              {folders.length > 0 ? (
+                <div
+                  className={cn(
+                    'mx-1 mt-0.5 min-h-[6px] rounded-md transition-colors',
+                    folderDropAtEnd && 'bg-sidebar-accent/25 ring-primary/40 ring-1 ring-inset'
+                  )}
+                  onDragOver={(e) => onFolderStripDragOver(e)}
+                  onDragLeave={() => setFolderDropAtEnd(false)}
+                  onDrop={(e) => onFolderStripDrop(e)}
+                  aria-hidden
+                />
+              ) : null}
+
               {folderCreateOpen ? (
                 <div
-                  className="border-sidebar-border mx-1 mt-1 flex items-center gap-2 rounded-md border border-dashed px-3 py-2"
+                  className={cn(
+                    'mx-1 mt-1 flex items-center gap-2 rounded-md border border-dashed px-3 py-2',
+                    liquidChrome
+                      ? 'border-sidebar-border/45 dark:border-white/15'
+                      : 'border-sidebar-border'
+                  )}
                   style={macElectron ? macTitlebarStyles.noDrag : undefined}
                 >
                   <div className="mr-1 h-4 w-4 shrink-0" aria-hidden />

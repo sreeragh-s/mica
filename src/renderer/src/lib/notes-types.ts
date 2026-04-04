@@ -41,6 +41,8 @@ export type NotesStateV2 = {
 export type NotesStateV3 = {
   version: 3
   githubRemoteUrl?: string
+  /** Preferred sidebar order of workspace folder ids (persists across reloads). */
+  sidebarFolderOrder?: string[]
 }
 
 export type NotesState = NotesStateV2 | NotesStateV3

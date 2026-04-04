@@ -43,6 +43,9 @@ import {
   createEmptyDrawing,
   createEmptyNote,
   macTitlebarStyles,
+  mergeFolderOrder,
+  reorderFolderIdsBeforeTarget,
+  reorderFolderIdsToEnd,
   serializedEditorStatesEqual,
   treeFolderId,
   treeNoteId
@@ -59,6 +62,11 @@ export function useNotesApp({ user, guestMode = false, onSignOut, onConnectGitHu
   const [settingsSection, setSettingsSection] = useState<SettingsSection>('account')
 
   const initial = useMemo(() => loadNotesState(), [])
+  const persistedSidebarFolderOrderRef = useRef<string[]>(
+    initial.version === 3 && Array.isArray(initial.sidebarFolderOrder)
+      ? initial.sidebarFolderOrder
+      : []
+  )
   const initialFolders =
     initial.version === 3 ? [] : initial.folders
   const initialNotes = initial.version === 3 ? [] : initial.notes
@@ -260,6 +268,7 @@ export function useNotesApp({ user, guestMode = false, onSignOut, onConnectGitHu
         setFolders([
           { id: DEFAULT_WORKSPACE_ID, name: 'Notes', localGitPath: cwd },
         ])
+        persistedSidebarFolderOrderRef.current = [DEFAULT_WORKSPACE_ID]
         setNotes([])
         setSelectedId(null)
         setOpenNoteTabIds([])
@@ -271,7 +280,12 @@ export function useNotesApp({ user, guestMode = false, onSignOut, onConnectGitHu
       const localPending = notesRef.current.filter((n) => !diskIds.has(n.id))
       const mergedNotes = [...localPending, ...mappedNotes]
 
-      setFolders(mappedFolders)
+      const orderedFolders = mergeFolderOrder(
+        mappedFolders,
+        persistedSidebarFolderOrderRef.current
+      )
+      persistedSidebarFolderOrderRef.current = orderedFolders.map((f) => f.id)
+      setFolders(orderedFolders)
       setNotes(mergedNotes)
       setSelectedId((sel) => {
         if (sel && mergedNotes.some((x) => x.id === sel)) return sel
@@ -408,6 +422,45 @@ export function useNotesApp({ user, guestMode = false, onSignOut, onConnectGitHu
         })
         if (!wr.ok) {
           console.error('[gitnotes] write note failed', wr.error)
+        }
+        if (useGithubApiSync) {
+          setGithubApiDirty(true)
+        }
+        await refreshWorkspaceGitStatuses()
+      } finally {
+        pendingDiskWrites.current.delete(noteId)
+      }
+    },
+    [refreshWorkspaceGitStatuses, useGithubApiSync]
+  )
+
+  const flushNoteMoveToDisk = useCallback(
+    async (noteId: string, fromFolderId: string) => {
+      const api = getApi()
+      const cwd = dataRootRef.current
+      if (!cwd || !api?.workspace?.writeNoteFile || !api.workspace.deleteNoteFiles) return
+      const note = notesRef.current.find((n) => n.id === noteId)
+      if (!note || note.folderId === fromFolderId) return
+      const folder = foldersRef.current.find((f) => f.id === note.folderId)
+      if (!folder?.localGitPath) return
+      pendingDiskWrites.current.add(noteId)
+      try {
+        const del = await api.workspace.deleteNoteFiles({
+          cwd,
+          workspaceId: fromFolderId,
+          noteId,
+        })
+        if (!del.ok) {
+          console.error('[gitnotes] delete note files after move failed', del.error)
+        }
+        const rel = noteMarkdownRelativePath(note.folderId, note)
+        const wr = await api.workspace.writeNoteFile({
+          cwd,
+          relativePath: rel,
+          content: buildNoteMarkdownDocument(note),
+        })
+        if (!wr.ok) {
+          console.error('[gitnotes] write note after move failed', wr.error)
         }
         if (useGithubApiSync) {
           setGithubApiDirty(true)
@@ -724,6 +777,7 @@ export function useNotesApp({ user, guestMode = false, onSignOut, onConnectGitHu
         saveNotesState({
           version: 3,
           ...(remote ? { githubRemoteUrl: remote } : {}),
+          sidebarFolderOrder: folders.map((f) => f.id),
         })
         return
       }
@@ -1037,6 +1091,63 @@ export function useNotesApp({ user, guestMode = false, onSignOut, onConnectGitHu
     [scheduleNoteFlush]
   )
 
+  const moveNoteToFolder = useCallback(
+    (noteId: string, targetFolderId: string) => {
+      const note = notesRef.current.find((n) => n.id === noteId)
+      if (!note || note.folderId === targetFolderId) return
+      if (!foldersRef.current.some((f) => f.id === targetFolderId)) return
+
+      const fromFolderId = note.folderId
+      setGraphViewOpen(false)
+      setNotes((prev) =>
+        prev.map((n) =>
+          n.id === noteId
+            ? { ...n, folderId: targetFolderId, updatedAt: Date.now() }
+            : n
+        )
+      )
+      setFocusedFolderId(targetFolderId)
+      setTreeExpandIds([treeFolderId(targetFolderId)])
+      setTreeExpandNonce((n) => n + 1)
+
+      const tid = noteFlushTimers.current.get(noteId)
+      if (tid !== undefined) window.clearTimeout(tid)
+      noteFlushTimers.current.delete(noteId)
+
+      if (diskMode) {
+        void flushNoteMoveToDisk(noteId, fromFolderId)
+      } else if (useGithubApiSync) {
+        setGithubApiDirty(true)
+      }
+    },
+    [diskMode, flushNoteMoveToDisk, useGithubApiSync]
+  )
+
+  const reorderWorkspaceFolders = useCallback((draggedFolderId: string, targetFolderId: string) => {
+    if (draggedFolderId === targetFolderId) return
+    setFolders((prev) => {
+      const ids = prev.map((f) => f.id)
+      const nextIds = reorderFolderIdsBeforeTarget(ids, draggedFolderId, targetFolderId)
+      if (!nextIds) return prev
+      const byId = new Map(prev.map((f) => [f.id, f]))
+      persistedSidebarFolderOrderRef.current = nextIds
+      return nextIds.map((id) => byId.get(id)!).filter(Boolean) as WorkspaceFolder[]
+    })
+    setTreeExpandNonce((n) => n + 1)
+  }, [])
+
+  const reorderWorkspaceFolderToEnd = useCallback((draggedFolderId: string) => {
+    setFolders((prev) => {
+      const ids = prev.map((f) => f.id)
+      const nextIds = reorderFolderIdsToEnd(ids, draggedFolderId)
+      if (!nextIds) return prev
+      const byId = new Map(prev.map((f) => [f.id, f]))
+      persistedSidebarFolderOrderRef.current = nextIds
+      return nextIds.map((id) => byId.get(id)!).filter(Boolean) as WorkspaceFolder[]
+    })
+    setTreeExpandNonce((n) => n + 1)
+  }, [])
+
   const handleDeleteNote = useCallback(
     (noteId: string, e: MouseEvent) => {
       e.stopPropagation()
@@ -1094,7 +1205,11 @@ export function useNotesApp({ user, guestMode = false, onSignOut, onConnectGitHu
     }
     const id = newWorkspaceFolderId(name)
     const root = dataRootRef.current
-    setFolders((prev) => [...prev, { id, name, ...(root ? { localGitPath: root } : {}) }])
+    setFolders((prev) => {
+      const next = [...prev, { id, name, ...(root ? { localGitPath: root } : {}) }]
+      persistedSidebarFolderOrderRef.current = next.map((f) => f.id)
+      return next
+    })
     cancelFolderCreate()
     if (diskMode && root) {
       const api = getApi()
@@ -1297,6 +1412,12 @@ export function useNotesApp({ user, guestMode = false, onSignOut, onConnectGitHu
 
   const canCreateNote = folders.length > 0
 
+  /** macOS: liquid sidebar overlays full-bleed main so glass blurs --background from the editor column. */
+  const sidebarOverlayActive = useMemo(
+    () => macElectron && !sidebarCollapsed && !zenMode,
+    [macElectron, sidebarCollapsed, zenMode]
+  )
+
   useEffect(() => {
     if (!zenMode) return
     if (
@@ -1442,6 +1563,7 @@ export function useNotesApp({ user, guestMode = false, onSignOut, onConnectGitHu
     selectedNote,
     focusedFolder,
     sidebarCollapsed,
+    sidebarOverlayActive,
     zenMode,
     toggleSidebar,
     dirtyByWorkspaceId,
@@ -1454,6 +1576,9 @@ export function useNotesApp({ user, guestMode = false, onSignOut, onConnectGitHu
     handleNewDrawing,
     handleExcalidrawSceneChange,
     renameNote,
+    moveNoteToFolder,
+    reorderWorkspaceFolders,
+    reorderWorkspaceFolderToEnd,
     handleDeleteNote,
     handleNoteSerializedChange,
     splitViewOpen,

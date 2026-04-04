@@ -41,7 +41,8 @@ function createWindow(): void {
     ...(process.platform === 'darwin'
       ? {
           titleBarStyle: 'hiddenInset' as const,
-          trafficLightPosition: { x: 12, y: 16 },
+          /** Inset from window edge; 12/16 sat too tight in the corner. */
+          trafficLightPosition: { x: 22, y: 20 },
         }
       : {}),
     webPreferences: {
