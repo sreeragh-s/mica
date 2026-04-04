@@ -210,7 +210,7 @@ export function NotesGraphView({
     <div className="bg-background flex min-h-0 min-w-0 flex-1 flex-col">
       {embedded ? null : (
         <div
-          className="border-border flex h-10 shrink-0 items-center border-b px-3"
+          className="border-border flex h-10 shrink-0 items-center px-3"
           style={macElectron ? macTitlebarStyles.noDrag : undefined}
         >
           <div className="min-w-0">

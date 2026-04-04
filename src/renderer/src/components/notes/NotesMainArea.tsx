@@ -34,7 +34,7 @@ function SplitPaneTopBar({
 }): JSX.Element {
   return (
     <div
-      className="border-border flex h-10 shrink-0 items-center justify-between gap-2 border-b px-3"
+      className="border-border flex h-10 shrink-0 items-center justify-between gap-2 px-3"
       style={macElectron ? macTitlebarStyles.noDrag : undefined}
     >
       <span className="text-foreground min-w-0 truncate text-sm font-medium" title={title}>
@@ -455,7 +455,7 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
           >
             {sidebarCollapsed ? (
               <div
-                className="border-border flex h-12 shrink-0 items-center border-b border-border"
+                className="border-border flex h-12 shrink-0 items-center"
                 style={macElectron ? macTitlebarStyles.noDrag : undefined}
               >
                 <Button
@@ -488,55 +488,48 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
                       role="tab"
                       aria-selected={active}
                       className={cn(
-                        'group flex h-12 min-w-[7rem] max-w-[14rem] shrink-0 items-stretch border-border',
+                        'group flex h-12 min-w-[7rem] max-w-[min(14rem,calc(100vw-6rem))] shrink-0 items-center gap-0.5 border-border px-1.5',
                         active
                           ? 'bg-background text-foreground relative z-[1] border border-b-0 border-t border-l border-r'
-                          : 'text-muted-foreground hover:text-foreground border-b border-border border-r border-border/60 hover:bg-muted/70'
+                          : 'text-muted-foreground hover:text-foreground border-r border-border/60 hover:bg-muted/70'
                       )}
                     >
                       <button
                         type="button"
-                        className="min-w-0 flex-1 truncate px-2.5 py-2 text-left text-sm leading-tight"
+                        className="min-h-0 min-w-0 flex-1 overflow-hidden truncate py-2 pr-0 text-left text-sm leading-tight text-inherit"
                         title={title}
                         onClick={() => selectNote(id)}
                       >
                         {title}
                       </button>
-                      <div
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="icon-xs"
                         className={cn(
-                          'flex shrink-0 items-center pr-0.5 pl-0.5',
-                          active && 'border-border/60 border-l'
+                          'shrink-0',
+                          active
+                            ? 'text-muted-foreground'
+                            : 'text-muted-foreground opacity-0 hover:opacity-100 group-hover:opacity-100'
                         )}
+                        aria-label={`Close tab ${title}`}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          closeNoteTab(id)
+                        }}
                       >
-                        <Button
-                          type="button"
-                          size="icon"
-                          variant="ghost"
-                          className={cn(
-                            'size-7 shrink-0',
-                            active
-                              ? 'text-muted-foreground hover:text-foreground'
-                              : 'text-muted-foreground/70 opacity-0 hover:opacity-100 group-hover:opacity-100'
-                          )}
-                          aria-label={`Close tab ${title}`}
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            closeNoteTab(id)
-                          }}
-                        >
-                          <X className="size-3.5" aria-hidden />
-                        </Button>
-                      </div>
+                        <X className="size-3.5" aria-hidden />
+                      </Button>
                     </div>
                   )
                 })}
                 <div
-                  className="border-border h-12 min-w-[min(1.5rem,100%)] flex-1 border-b bg-muted/50"
+                  className="border-border h-12 min-w-[min(1.5rem,100%)] flex-1 bg-muted/50"
                   aria-hidden
                 />
               </div>
             ) : (
-              <div className="border-border h-12 min-w-0 flex-1 border-b" aria-hidden />
+              <div className="border-border h-12 min-w-0 flex-1" aria-hidden />
             )}
           </div>
         )}

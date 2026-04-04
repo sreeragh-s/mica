@@ -219,7 +219,7 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
             onClick={backToNotes}
           >
             <ArrowLeft className="size-4 shrink-0" aria-hidden />
-            <span className="text-sidebar-foreground text-left text-sm font-medium">
+            <span className="text-muted-foreground text-left text-sm font-medium">
               Back to notes
             </span>
           </Button>

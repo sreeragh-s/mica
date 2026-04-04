@@ -49,7 +49,7 @@ export function Editor({
   return (
     <div
       className={cn(
-        "bg-background flex min-h-0 flex-1 flex-col overflow-hidden",
+        "bg-background flex min-h-0 flex-1 flex-col overflow-hidden mt-10",
         className
       )}
     >
