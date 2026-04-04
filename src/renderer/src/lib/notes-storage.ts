@@ -14,15 +14,21 @@ export type WorkspaceFolder = {
   localGitPath?: string
 }
 
+export type NoteKind = "note" | "drawing"
+
 export type SavedNote = {
   id: string
   updatedAt: number
-  /** Lexical document; null until the user types (new note). */
+  /** Lexical document; null until the user types (new note). Unused when kind is drawing. */
   content: SerializedEditorState | null
   /** Workspace folder containing this note. */
   folderId: string
   /** Sidebar label and base name for the synced Markdown file. */
   title: string
+  /** Defaults to note. Drawings use Excalidraw scene JSON in excalidrawScene. */
+  kind?: NoteKind
+  /** Serialized Excalidraw document (serializeAsJSON) when kind is drawing. */
+  excalidrawScene?: string | null
 }
 
 export type NotesStateV2 = {
@@ -54,8 +60,10 @@ function isSavedNote(n: unknown): n is Omit<SavedNote, "title"> & { title?: stri
 function deriveNoteTitle(n: {
   content: SerializedEditorState | null
   title?: string
+  kind?: NoteKind
 }): string {
   if (typeof n.title === "string" && n.title.trim()) return n.title.trim()
+  if (n.kind === "drawing") return "New drawing"
   if (n.content != null) return extractPreviewText(n.content, 200)
   return "New note"
 }

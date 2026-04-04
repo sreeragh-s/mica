@@ -175,6 +175,7 @@ function parseGitnotesNoteFile(content: string): {
   title: string
   updatedAtMs: number
   body: string
+  kind: 'note' | 'drawing'
 } | null {
   if (!content.startsWith('---')) return null
   const endFm = content.indexOf('\n---', 3)
@@ -194,13 +195,17 @@ function parseGitnotesNoteFile(content: string): {
       title = raw.replace(/^["']|["']$/g, '')
     }
   }
+  let kind: 'note' | 'drawing' = 'note'
+  const kindLine = /^gitnotes_kind:\s*(drawing|note)\s*$/m.exec(fm)
+  if (kindLine && kindLine[1] === 'drawing') kind = 'drawing'
+
   let updatedAtMs = Date.now()
   const upM = /^updated_at:\s*["']?([^"'\s]+)/m.exec(fm)
   if (upM) {
     const t = Date.parse(upM[1]!)
     if (!Number.isNaN(t)) updatedAtMs = t
   }
-  return { id, title, updatedAtMs, body }
+  return { id, title, updatedAtMs, body, kind }
 }
 
 function writeGitnotesFile(
@@ -239,6 +244,7 @@ function readGitnotesIndexImpl(cwd: string): {
     title: string
     updatedAtMs: number
     markdownBody: string
+    kind: 'note' | 'drawing'
   }[]
 } {
   const workspaces: { id: string; name: string }[] = []
@@ -248,6 +254,7 @@ function readGitnotesIndexImpl(cwd: string): {
     title: string
     updatedAtMs: number
     markdownBody: string
+    kind: 'note' | 'drawing'
   }[] = []
   const root = join(cwd, 'gitnotes', 'workspaces')
   if (!existsSync(root)) return { workspaces, notes }
@@ -275,6 +282,7 @@ function readGitnotesIndexImpl(cwd: string): {
         title: parsed.title,
         updatedAtMs: parsed.updatedAtMs,
         markdownBody: parsed.body,
+        kind: parsed.kind,
       })
     }
   }
@@ -466,6 +474,7 @@ export function registerWorkspaceGitIpc(): void {
             title: string
             updatedAtMs: number
             markdownBody: string
+            kind: 'note' | 'drawing'
           }[]
         }
       | { ok: false; error: string }

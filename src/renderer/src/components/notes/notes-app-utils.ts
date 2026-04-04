@@ -24,8 +24,25 @@ export function createEmptyNote(folderId: string): SavedNote {
     updatedAt: Date.now(),
     content: null,
     folderId,
-    title: 'New note'
+    title: 'New note',
+    kind: 'note'
   }
+}
+
+export function createEmptyDrawing(folderId: string): SavedNote {
+  return {
+    id: crypto.randomUUID(),
+    updatedAt: Date.now(),
+    content: null,
+    folderId,
+    title: 'New drawing',
+    kind: 'drawing',
+    excalidrawScene: null
+  }
+}
+
+export function isDrawingNote(note: SavedNote): boolean {
+  return note.kind === 'drawing'
 }
 
 export function treeFolderId(folderId: string): string {

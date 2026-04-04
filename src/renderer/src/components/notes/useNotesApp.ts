@@ -40,6 +40,7 @@ import {
 } from '@/lib/workspace-markdown-sync'
 import type { AppMode, NotesAppProps, SettingsSection } from './notes-app-types'
 import {
+  createEmptyDrawing,
   createEmptyNote,
   macTitlebarStyles,
   serializedEditorStatesEqual,
@@ -100,8 +101,6 @@ export function useNotesApp({ user, guestMode = false, onSignOut, onConnectGitHu
 
   const [splitViewOpen, setSplitViewOpen] = useState(false)
   const [splitNoteId, setSplitNoteId] = useState<string | null>(null)
-
-  const [drawViewOpen, setDrawViewOpen] = useState(false)
 
   const selectedNote = useMemo(
     () => notes.find((n) => n.id === selectedId) ?? null,
@@ -208,6 +207,7 @@ export function useNotesApp({ user, guestMode = false, onSignOut, onConnectGitHu
       title: string
       updatedAtMs: number
       markdownBody: string
+      kind?: 'note' | 'drawing'
     }[]
   }
 
@@ -218,13 +218,28 @@ export function useNotesApp({ user, guestMode = false, onSignOut, onConnectGitHu
         name: w.name,
         localGitPath: cwd,
       }))
-      const mappedNotes: SavedNote[] = idx.notes.map((n) => ({
-        id: n.noteId,
-        folderId: n.workspaceId,
-        title: n.title,
-        updatedAt: n.updatedAtMs,
-        content: diskBodyToContent(n.markdownBody),
-      }))
+      const mappedNotes: SavedNote[] = idx.notes.map((n) => {
+        const kind = n.kind ?? 'note'
+        if (kind === 'drawing') {
+          return {
+            id: n.noteId,
+            folderId: n.workspaceId,
+            title: n.title,
+            updatedAt: n.updatedAtMs,
+            content: null,
+            kind: 'drawing' as const,
+            excalidrawScene: n.markdownBody.trim() || null
+          }
+        }
+        return {
+          id: n.noteId,
+          folderId: n.workspaceId,
+          title: n.title,
+          updatedAt: n.updatedAtMs,
+          content: diskBodyToContent(n.markdownBody),
+          kind: 'note' as const
+        }
+      })
       if (mappedFolders.length === 0) {
         setFolders([
           { id: DEFAULT_WORKSPACE_ID, name: 'Notes', localGitPath: cwd },
@@ -860,7 +875,6 @@ export function useNotesApp({ user, guestMode = false, onSignOut, onConnectGitHu
   const handleTreeSelectionChange = useCallback(
     (ids: string[]) => {
       setWorkspaceSettingsFolderId(null)
-      setDrawViewOpen(false)
       const id = ids[0]
       if (!id) {
         setSelectedId(null)
@@ -886,7 +900,6 @@ export function useNotesApp({ user, guestMode = false, onSignOut, onConnectGitHu
   const handleNewNote = useCallback(() => {
     const fid = selectedNote?.folderId ?? focusedFolderId ?? folders[0]?.id
     if (!fid) return
-    setDrawViewOpen(false)
     const note = createEmptyNote(fid)
     setNotes((prev) => [note, ...prev])
     setSelectedId(note.id)
@@ -907,6 +920,34 @@ export function useNotesApp({ user, guestMode = false, onSignOut, onConnectGitHu
       setNotes((prev) =>
         prev.map((n) =>
           n.id === noteId ? { ...n, content: serialized, updatedAt: Date.now() } : n
+        )
+      )
+      scheduleNoteFlush(noteId)
+    },
+    [scheduleNoteFlush]
+  )
+
+  const handleNewDrawing = useCallback(() => {
+    const fid = selectedNote?.folderId ?? focusedFolderId ?? folders[0]?.id
+    if (!fid) return
+    const note = createEmptyDrawing(fid)
+    setNotes((prev) => [note, ...prev])
+    setSelectedId(note.id)
+    setFocusedFolderId(fid)
+    setTreeExpandIds([treeFolderId(fid)])
+    setTreeExpandNonce((n) => n + 1)
+    if (diskMode) {
+      window.setTimeout(() => scheduleNoteFlush(note.id), 0)
+    }
+  }, [selectedNote, focusedFolderId, folders, diskMode, scheduleNoteFlush])
+
+  const handleExcalidrawSceneChange = useCallback(
+    (noteId: string, json: string) => {
+      setNotes((prev) =>
+        prev.map((n) =>
+          n.id === noteId && n.kind === 'drawing'
+            ? { ...n, excalidrawScene: json, updatedAt: Date.now() }
+            : n
         )
       )
       scheduleNoteFlush(noteId)
@@ -1019,14 +1060,12 @@ export function useNotesApp({ user, guestMode = false, onSignOut, onConnectGitHu
 
   const openSettings = useCallback(() => {
     setWorkspaceSettingsFolderId(null)
-    setDrawViewOpen(false)
     setAppMode('settings')
     setSettingsSection('account')
   }, [])
 
   const openWorkspaceSettings = useCallback((folderId: string, e: MouseEvent) => {
     e.stopPropagation()
-    setDrawViewOpen(false)
     setAppMode('notes')
     setWorkspaceSettingsFolderId(folderId)
     setSelectedId(null)
@@ -1039,12 +1078,10 @@ export function useNotesApp({ user, guestMode = false, onSignOut, onConnectGitHu
     setAppMode('notes')
     setWorkspaceSettingsFolderId(null)
     setSelectedId(null)
-    setDrawViewOpen(false)
   }, [])
 
   const focusFolderInTree = useCallback((folderId: string) => {
     setWorkspaceSettingsFolderId(null)
-    setDrawViewOpen(false)
     setAppMode('notes')
     setSelectedId(null)
     setFocusedFolderId(folderId)
@@ -1053,7 +1090,6 @@ export function useNotesApp({ user, guestMode = false, onSignOut, onConnectGitHu
   }, [])
 
   const openWorkspaceSettingsForFolder = useCallback((folderId: string) => {
-    setDrawViewOpen(false)
     setAppMode('notes')
     setWorkspaceSettingsFolderId(folderId)
     setSelectedId(null)
@@ -1066,7 +1102,6 @@ export function useNotesApp({ user, guestMode = false, onSignOut, onConnectGitHu
     const note = notesRef.current.find((n) => n.id === noteId)
     if (!note) return
     setWorkspaceSettingsFolderId(null)
-    setDrawViewOpen(false)
     setAppMode('notes')
     setSelectedId(noteId)
     setFocusedFolderId(note.folderId)
@@ -1101,20 +1136,7 @@ export function useNotesApp({ user, guestMode = false, onSignOut, onConnectGitHu
   )
 
   const backToNotes = useCallback(() => {
-    setDrawViewOpen(false)
     setAppMode('notes')
-  }, [])
-
-  const openDrawView = useCallback(() => {
-    setWorkspaceSettingsFolderId(null)
-    setSplitViewOpen(false)
-    setSplitNoteId(null)
-    setAppMode('notes')
-    setDrawViewOpen(true)
-  }, [])
-
-  const closeDrawView = useCallback(() => {
-    setDrawViewOpen(false)
   }, [])
 
   const toggleSidebar = useCallback(() => {
@@ -1259,6 +1281,8 @@ export function useNotesApp({ user, guestMode = false, onSignOut, onConnectGitHu
     gitSyncError,
     handleTreeSelectionChange,
     handleNewNote,
+    handleNewDrawing,
+    handleExcalidrawSceneChange,
     renameNote,
     handleDeleteNote,
     handleNoteSerializedChange,
@@ -1282,9 +1306,6 @@ export function useNotesApp({ user, guestMode = false, onSignOut, onConnectGitHu
     selectNote,
     renameWorkspace,
     backToNotes,
-    drawViewOpen,
-    openDrawView,
-    closeDrawView,
     handleGitCommit,
     handleGitPull,
     handleGitPullThenPush,

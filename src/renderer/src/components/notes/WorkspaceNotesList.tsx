@@ -1,6 +1,6 @@
 import type { JSX } from 'react'
 
-import { FileText, Plus } from 'lucide-react'
+import { FileText, PenLine, Plus } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { formatNoteTime, type SavedNote, type WorkspaceFolder } from '@/lib/notes-storage'
@@ -70,10 +70,21 @@ export function WorkspaceNotesList({
                   type="button"
                   onClick={() => onSelectNote(note.id)}
                   className={cn(
-                    'hover:bg-accent/70 focus-visible:ring-ring flex w-full rounded-lg px-3 py-3 text-left transition-colors',
+                    'hover:bg-accent/70 focus-visible:ring-ring flex w-full items-start gap-2 rounded-lg px-3 py-3 text-left transition-colors',
                     'focus-visible:ring-2 focus-visible:outline-none'
                   )}
                 >
+                  {note.kind === 'drawing' ? (
+                    <PenLine
+                      className="text-muted-foreground mt-0.5 size-4 shrink-0"
+                      aria-hidden
+                    />
+                  ) : (
+                    <FileText
+                      className="text-muted-foreground mt-0.5 size-4 shrink-0"
+                      aria-hidden
+                    />
+                  )}
                   <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                     <span className="text-foreground truncate font-medium leading-snug">
                       {note.title.trim() || 'Untitled'}

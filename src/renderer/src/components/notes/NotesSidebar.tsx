@@ -68,9 +68,7 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
     backToNotes,
     openSettings,
     startFolderCreate,
-    drawViewOpen,
-    openDrawView,
-    closeDrawView
+    handleNewDrawing
   } = vm
 
   const [renamingNoteId, setRenamingNoteId] = useState<string | null>(null)
@@ -165,12 +163,12 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
           <Button
             type="button"
             size="sm"
-            variant={drawViewOpen ? 'secondary' : 'ghost'}
+            variant="ghost"
             className="text-muted-foreground size-8 shrink-0 p-0"
-            title={drawViewOpen ? 'Close draw' : 'Draw'}
-            aria-label={drawViewOpen ? 'Close draw' : 'Draw'}
-            aria-pressed={drawViewOpen}
-            onClick={() => (drawViewOpen ? closeDrawView() : openDrawView())}
+            title="New drawing"
+            aria-label="New drawing"
+            disabled={!canCreateNote}
+            onClick={handleNewDrawing}
           >
             <PenLine className="size-4" aria-hidden />
           </Button>
@@ -338,7 +336,13 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
                               <TreeExpander hasChildren={false} />
                               <TreeIcon
                                 hasChildren={false}
-                                icon={<FileText className="text-muted-foreground h-4 w-4" />}
+                                icon={
+                                  note.kind === 'drawing' ? (
+                                    <PenLine className="text-muted-foreground h-4 w-4" />
+                                  ) : (
+                                    <FileText className="text-muted-foreground h-4 w-4" />
+                                  )
+                                }
                               />
                               <TreeLabel className="flex min-w-0 flex-1 flex-col items-start gap-0.5 text-left">
                                 {isRenaming ? (

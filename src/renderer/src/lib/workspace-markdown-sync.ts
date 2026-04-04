@@ -43,7 +43,19 @@ Synced from **GitNotes**. Each note is a Markdown file with YAML front matter in
 }
 
 export function buildNoteMarkdownDocument(note: SavedNote): string {
-  const title = note.title.trim() || "New note"
+  const title = note.title.trim() || (note.kind === "drawing" ? "New drawing" : "New note")
+  if (note.kind === "drawing") {
+    const scene = note.excalidrawScene?.trim() ?? ""
+    const front = `---
+gitnotes_note_id: "${note.id}"
+updated_at: "${new Date(note.updatedAt).toISOString()}"
+title: ${JSON.stringify(title)}
+gitnotes_kind: drawing
+---
+
+`
+    return front + (scene ? `${scene}\n` : "{}\n")
+  }
   const body = serializedStateToMarkdown(note.content)
   const front = `---
 gitnotes_note_id: "${note.id}"

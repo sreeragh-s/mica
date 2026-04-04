@@ -95,6 +95,7 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
     selectNote,
     handleNoteSerializedChange,
     handleNewNote,
+    handleExcalidrawSceneChange,
     canCreateNote,
     splitViewOpen,
     splitNote,
@@ -103,8 +104,7 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
     shortcutBindings,
     updateShortcutBinding,
     resetShortcutsToDefaults,
-    setShortcutsCaptureActive,
-    drawViewOpen
+    setShortcutsCaptureActive
   } = vm
 
   const [splitDropActive, setSplitDropActive] = useState(false)
@@ -162,26 +162,24 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
   )
 
   const notesMainInner = (() => {
-    if (appMode === 'notes' && !workspaceSettingsFolderId && drawViewOpen) {
-      return (
-        <div
-          className="flex min-h-0 flex-1 flex-col"
-          onDragOver={onDragOverMain}
-          onDrop={onDropMain}
-        >
-          <ExcalidrawView />
-        </div>
-      )
-    }
-
     if (appMode === 'notes' && !workspaceSettingsFolderId) {
       const primaryColumn = selectedNote ? (
-        <Editor
-          key={selectedNote.id}
-          editorSerializedState={selectedNote.content ?? undefined}
-          onSerializedChange={(s) => handleNoteSerializedChange(selectedNote.id, s)}
-          className="min-h-0 flex-1"
-        />
+        selectedNote.kind === 'drawing' ? (
+          <ExcalidrawView
+            noteId={selectedNote.id}
+            sceneJson={selectedNote.excalidrawScene ?? null}
+            onSceneJsonChange={(json) =>
+              handleExcalidrawSceneChange(selectedNote.id, json)
+            }
+          />
+        ) : (
+          <Editor
+            key={selectedNote.id}
+            editorSerializedState={selectedNote.content ?? undefined}
+            onSerializedChange={(s) => handleNoteSerializedChange(selectedNote.id, s)}
+            className="min-h-0 flex-1"
+          />
+        )
       ) : focusedFolder ? (
         <WorkspaceNotesList
           folder={focusedFolder}
@@ -255,12 +253,24 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
               onDrop={onDropSplitPane}
             >
               {splitNote ? (
-                <Editor
-                  key={splitNote.id}
-                  editorSerializedState={splitNote.content ?? undefined}
-                  onSerializedChange={(s) => handleNoteSerializedChange(splitNote.id, s)}
-                  className="min-h-0 flex-1"
-                />
+                splitNote.kind === 'drawing' ? (
+                  <ExcalidrawView
+                    noteId={splitNote.id}
+                    sceneJson={splitNote.excalidrawScene ?? null}
+                    onSceneJsonChange={(json) =>
+                      handleExcalidrawSceneChange(splitNote.id, json)
+                    }
+                  />
+                ) : (
+                  <Editor
+                    key={splitNote.id}
+                    editorSerializedState={splitNote.content ?? undefined}
+                    onSerializedChange={(s) =>
+                      handleNoteSerializedChange(splitNote.id, s)
+                    }
+                    className="min-h-0 flex-1"
+                  />
+                )
               ) : (
                 <div className="text-muted-foreground flex flex-1 flex-col items-center justify-center gap-2 px-6 text-center text-sm">
                   <p>Select a note from the sidebar to open split view, or drag a note here.</p>

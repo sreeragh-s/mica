@@ -70,8 +70,6 @@ export function NotesLocationBar({ vm }: NotesLocationBarProps): JSX.Element | n
     notesCount: totalNotesCount,
     sidebarCollapsed,
     toggleSidebar,
-    drawViewOpen,
-    closeDrawView,
   } = vm
 
   const folderForNote =
@@ -88,25 +86,7 @@ export function NotesLocationBar({ vm }: NotesLocationBarProps): JSX.Element | n
 
   const crumbs: JSX.Element[] = []
 
-  if (
-    appMode === 'notes' &&
-    drawViewOpen &&
-    !workspaceSettingsFolderId
-  ) {
-    crumbs.push(
-      <BreadcrumbItem key="notes-root">
-        <BreadcrumbLink asChild>
-          <CrumbButton interactiveStyle={crumbInteractive} onClick={closeDrawView}>
-            Notes
-          </CrumbButton>
-        </BreadcrumbLink>
-      </BreadcrumbItem>,
-      <BreadcrumbSeparator key="draw-sep" />,
-      <BreadcrumbItem key="draw">
-        <BreadcrumbPage>Draw</BreadcrumbPage>
-      </BreadcrumbItem>
-    )
-  } else if (appMode === 'notes' && workspaceSettingsFolderId && workspaceSettingsFolder) {
+  if (appMode === 'notes' && workspaceSettingsFolderId && workspaceSettingsFolder) {
     crumbs.push(
       <BreadcrumbItem key="ws">
         <BreadcrumbLink asChild>

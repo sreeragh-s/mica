@@ -60,6 +60,7 @@ const api = {
             title: string
             updatedAtMs: number
             markdownBody: string
+            kind: 'note' | 'drawing'
           }[]
         }
       | { ok: false; error: string }
