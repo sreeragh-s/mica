@@ -1,7 +1,6 @@
 export type ShortcutActionId =
   | "toggleSidebar"
   | "newNote"
-  | "toggleSplitView"
   | "toggleZenMode"
 
 export type ShortcutBinding = {
@@ -30,13 +29,6 @@ export const SHORTCUT_DEFINITIONS: readonly {
     label: "New note",
     description: "Create a note in the focused workspace.",
     defaultBinding: { mod: true, key: "n" },
-  },
-  {
-    id: "toggleSplitView",
-    label: "Toggle split view",
-    description:
-      "Open or close the second editor pane. Drag a note into the pane or pick one after opening.",
-    defaultBinding: { mod: true, code: "Backslash" },
   },
   {
     id: "toggleZenMode",

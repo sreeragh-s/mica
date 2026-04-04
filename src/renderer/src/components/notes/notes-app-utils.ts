@@ -53,7 +53,7 @@ export function treeNoteId(noteId: string): string {
   return `note:${noteId}`
 }
 
-/** DataTransfer type for dragging a note from the tree into split view. */
+/** DataTransfer type for dragging a note from the tree into the main editor area. */
 export const NOTE_DRAG_MIME = 'application/x-gitnotes-note-id'
 
 /** DataTransfer type for reordering workspace folders in the sidebar. */

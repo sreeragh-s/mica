@@ -5,6 +5,7 @@ import {
   mkdirSync,
   readFileSync,
   readdirSync,
+  rmSync,
   rmdirSync,
   unlinkSync,
   writeFileSync,
@@ -13,6 +14,8 @@ import { homedir } from 'node:os'
 import { dirname, join, relative, resolve, sep } from 'node:path'
 
 const LOG = '[gitnotes-workspace]'
+/** Virtual inbox id; not a directory under `gitnotes/workspaces/`. */
+const DEFAULT_WORKSPACE_ID = 'default'
 const MODE_FILE = '.gitnotes-mode'
 /** App settings JSON: <dataRoot>/gitnotes.config (data root is already ~/.gitnotes). */
 const APP_CONFIG_FILENAME = 'gitnotes.config'
@@ -254,18 +257,35 @@ function writeGitnotesFile(
   writeFileSync(abs, content, 'utf8')
 }
 
+function normalizeRelativePathForCompare(p: string): string {
+  return p.trim().replace(/\\/g, '/').replace(/\/+/g, '/')
+}
+
+/**
+ * Removes on-disk note files for `noteId`. If `exceptRelativePath` is set, that
+ * path is skipped (used when we will overwrite the same file — avoids noisy
+ * delete+rewrite logs and redundant unlinks).
+ */
 function deleteNoteFilesForId(
   cwd: string,
   workspaceId: string,
-  noteId: string
+  noteId: string,
+  exceptRelativePath?: string
 ): void {
   const wsDir = join(cwd, 'gitnotes', 'workspaces', workspaceId)
   if (!existsSync(wsDir)) return
+  const exceptNorm = exceptRelativePath
+    ? normalizeRelativePathForCompare(exceptRelativePath)
+    : null
   const suffix = `--${noteId}.md`
   const legacy = `${noteId}.md`
   for (const ent of readdirSync(wsDir, { withFileTypes: true })) {
     if (!ent.isFile() || ent.name === 'README.md') continue
     if (ent.name.endsWith(suffix) || ent.name === legacy) {
+      const rel = `gitnotes/workspaces/${workspaceId}/${ent.name}`
+      if (exceptNorm && normalizeRelativePathForCompare(rel) === exceptNorm) {
+        continue
+      }
       unlinkSync(join(wsDir, ent.name))
       console.info(LOG, 'deleted note file', ent.name)
     }
@@ -458,7 +478,7 @@ export function registerWorkspaceGitIpc(): void {
         const body = `${JSON.stringify(payload.config, null, 2)}\n`
         writeFileSync(path, body, 'utf8')
         removeLegacyAppConfigTree(cwd)
-        console.info(LOG, 'write-app-config', path)
+        console.debug(LOG, 'write-app-config', path)
         return { ok: true }
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e)
@@ -624,14 +644,62 @@ export function registerWorkspaceGitIpc(): void {
   )
 
   ipcMain.handle(
+    'workspace:delete-workspace-folder',
+    async (
+      _evt,
+      payload: { cwd: string; workspaceId: string }
+    ): Promise<{ ok: true } | { ok: false; error: string }> => {
+      const cwd = payload.cwd?.trim() ?? ''
+      const workspaceId = payload.workspaceId?.trim() ?? ''
+      if (!cwd || !allowWorkspaceFs(cwd)) {
+        return { ok: false, error: 'not_a_workspace' }
+      }
+      if (
+        !workspaceId ||
+        workspaceId === DEFAULT_WORKSPACE_ID ||
+        workspaceId.includes('..') ||
+        /[/\\]/.test(workspaceId)
+      ) {
+        return { ok: false, error: 'invalid_workspace' }
+      }
+      const workspacesRoot = resolve(join(cwd, 'gitnotes', 'workspaces'))
+      const resolvedWs = resolve(workspacesRoot, workspaceId)
+      if (dirname(resolvedWs) !== workspacesRoot) {
+        return { ok: false, error: 'invalid_workspace' }
+      }
+      if (!existsSync(resolvedWs)) {
+        return { ok: false, error: 'missing_workspace' }
+      }
+      try {
+        rmSync(resolvedWs, { recursive: true, force: true })
+        console.info(LOG, 'deleted workspace folder', workspaceId)
+        return { ok: true }
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e)
+        console.error(LOG, 'delete-workspace-folder', msg)
+        return { ok: false, error: msg }
+      }
+    }
+  )
+
+  ipcMain.handle(
     'workspace:delete-note-files',
     async (
       _evt,
-      payload: { cwd: string; workspaceId: string; noteId: string }
+      payload: {
+        cwd: string
+        workspaceId: string
+        noteId: string
+        exceptRelativePath?: string
+      }
     ): Promise<{ ok: true } | { ok: false; error: string }> => {
       const cwd = payload.cwd?.trim() ?? ''
       const workspaceId = payload.workspaceId?.trim() ?? ''
       const noteId = payload.noteId?.trim() ?? ''
+      const exceptRel =
+        typeof payload.exceptRelativePath === 'string'
+          ? payload.exceptRelativePath.trim()
+          : undefined
       if (!cwd || !allowWorkspaceFs(cwd)) {
         return { ok: false, error: 'not_a_workspace' }
       }
@@ -639,7 +707,7 @@ export function registerWorkspaceGitIpc(): void {
         return { ok: false, error: 'missing_ids' }
       }
       try {
-        deleteNoteFilesForId(cwd, workspaceId, noteId)
+        deleteNoteFilesForId(cwd, workspaceId, noteId, exceptRel)
         return { ok: true }
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e)

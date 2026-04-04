@@ -1,4 +1,5 @@
 import {
+  DEFAULT_WORKSPACE_ID,
   extractPlainTextFromSerialized,
   type SavedNote,
   type WorkspaceFolder
@@ -165,7 +166,8 @@ export function searchNotes(
   const q = query.trim()
   if (!q) return []
 
-  const folderName = (id: string): string => folders.find((f) => f.id === id)?.name ?? 'Workspace'
+  const folderName = (id: string): string =>
+    id === DEFAULT_WORKSPACE_ID ? 'Root' : (folders.find((f) => f.id === id)?.name ?? 'Workspace')
 
   const limit = options?.limit ?? 50
   const scored: NoteSearchResult[] = []

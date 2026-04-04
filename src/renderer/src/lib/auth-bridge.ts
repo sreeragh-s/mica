@@ -10,6 +10,11 @@ export type GitNotesWindowApi = {
   onZenShortcutFromMain: (callback: () => void) => () => void
   setZenPresentation: (enabled: boolean) => Promise<{ ok: boolean }>
   onNativeFullScreenExit: (callback: () => void) => () => void
+  /** Main-process `electron-liquid-glass` attach state (macOS Electron). */
+  getLiquidGlassState?: () => Promise<{ attached: boolean; glassSupported: boolean }>
+  onLiquidGlassState?: (
+    callback: (state: { attached: boolean; glassSupported: boolean }) => void
+  ) => () => void
 }
 
 export function getWindowApi(): GitNotesWindowApi | null {
@@ -91,6 +96,11 @@ export type GitNotesApi = {
       cwd: string
       workspaceId: string
       noteId: string
+      exceptRelativePath?: string
+    }) => Promise<{ ok: true } | { ok: false; error: string }>
+    deleteWorkspaceFolder: (payload: {
+      cwd: string
+      workspaceId: string
     }) => Promise<{ ok: true } | { ok: false; error: string }>
     gitStatus: (payload: {
       cwd: string

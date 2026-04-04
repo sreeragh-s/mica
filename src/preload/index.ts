@@ -75,8 +75,14 @@ const api = {
       cwd: string
       workspaceId: string
       noteId: string
+      exceptRelativePath?: string
     }): Promise<{ ok: true } | { ok: false; error: string }> =>
       ipcRenderer.invoke('workspace:delete-note-files', payload),
+    deleteWorkspaceFolder: (payload: {
+      cwd: string
+      workspaceId: string
+    }): Promise<{ ok: true } | { ok: false; error: string }> =>
+      ipcRenderer.invoke('workspace:delete-workspace-folder', payload),
     gitStatus: (
       payload: { cwd: string }
     ): Promise<
@@ -135,6 +141,23 @@ const api = {
       const channel = 'window:left-full-screen'
       const handler = (): void => {
         callback()
+      }
+      ipcRenderer.on(channel, handler)
+      return () => {
+        ipcRenderer.removeListener(channel, handler)
+      }
+    },
+    getLiquidGlassState: (): Promise<{ attached: boolean; glassSupported: boolean }> =>
+      ipcRenderer.invoke('window:get-liquid-glass-state'),
+    onLiquidGlassState: (
+      callback: (state: { attached: boolean; glassSupported: boolean }) => void
+    ): (() => void) => {
+      const channel = 'gitnotes:liquid-glass-state'
+      const handler = (
+        _event: unknown,
+        state: { attached: boolean; glassSupported: boolean }
+      ): void => {
+        callback(state)
       }
       ipcRenderer.on(channel, handler)
       return () => {

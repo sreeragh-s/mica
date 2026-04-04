@@ -10,6 +10,8 @@ export type WorkspaceSettingsPanelProps = {
   macElectron: boolean
   macTitlebarStyles: MacTitlebarStyles
   onRename: (name: string) => void
+  canDelete: boolean
+  onDeleteWorkspace: () => Promise<void>
 }
 
 export function WorkspaceSettingsPanel({
@@ -17,10 +19,14 @@ export function WorkspaceSettingsPanel({
   macElectron,
   macTitlebarStyles,
   onRename,
+  canDelete,
+  onDeleteWorkspace,
 }: WorkspaceSettingsPanelProps): JSX.Element {
   const model = useWorkspaceSettings({
     folder,
     onRename,
+    canDelete,
+    onDelete: onDeleteWorkspace,
   })
   return (
     <WorkspaceSettingsView

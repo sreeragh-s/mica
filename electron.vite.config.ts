@@ -13,6 +13,12 @@ export default defineConfig(({ mode }) => {
       define: {
         __APP_AUTH_URL__: JSON.stringify(authUrl),
       },
+      build: {
+        rollupOptions: {
+          /** Native addon + `import.meta.url` — must load from node_modules at runtime */
+          external: ['electron-liquid-glass'],
+        },
+      },
     },
     preload: {},
     renderer: {

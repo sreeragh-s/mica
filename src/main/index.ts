@@ -1,4 +1,8 @@
 import { app, shell, BrowserWindow, ipcMain, session, type WebContents } from 'electron'
+
+type MacLiquidGlassState = { attached: boolean; glassSupported: boolean }
+
+const macLiquidGlassStateByWebContents = new WeakMap<WebContents, MacLiquidGlassState>()
 import type { Input } from 'electron'
 
 /** Serialized shortcut (same shape as renderer `ShortcutBinding`). */
@@ -29,6 +33,31 @@ import icon from '../../resources/icon.png?asset'
 import { registerAuthIpc } from './auth'
 import { registerWorkspaceGitIpc } from './workspace-git'
 
+/** Native liquid glass behind the web view (electron-liquid-glass, macOS). */
+async function attachMacNativeLiquidGlass(win: BrowserWindow): Promise<void> {
+  if (process.platform !== 'darwin') return
+  const state: MacLiquidGlassState = { attached: false, glassSupported: false }
+  try {
+    const { default: liquidGlass } = await import('electron-liquid-glass')
+    if (win.isDestroyed()) return
+    state.glassSupported = liquidGlass.isGlassSupported()
+    const glassId = liquidGlass.addView(win.getNativeWindowHandle(), {
+      cornerRadius: 16,
+      opaque: false
+    })
+    state.attached = glassId >= 0
+    if (glassId >= 0) {
+      liquidGlass.unstable_setVariant(glassId, liquidGlass.GlassMaterialVariant.sidebar)
+    }
+  } catch (e) {
+    console.warn('[gitnotes] electron-liquid-glass failed to attach:', e)
+  }
+  if (!win.isDestroyed()) {
+    macLiquidGlassStateByWebContents.set(win.webContents, state)
+    win.webContents.send('gitnotes:liquid-glass-state', state)
+  }
+}
+
 function createWindow(): void {
   // Create the browser window.
   const mainWindow = new BrowserWindow({
@@ -40,9 +69,16 @@ function createWindow(): void {
     ...(process.platform === 'linux' ? { icon } : {}),
     ...(process.platform === 'darwin'
       ? {
-          titleBarStyle: 'hiddenInset' as const,
-          /** Inset from window edge; 12/16 sat too tight in the corner. */
-          trafficLightPosition: { x: 22, y: 20 },
+          /** `hidden` avoids the extra inset strip that often reads as a separate “top bar”. */
+          titleBarStyle: 'hidden' as const,
+          /** Match sidebar toolbar row (`pl-[92px]`); keep in sync with renderer. */
+          trafficLightPosition: { x: 22, y: 18 },
+          /**
+           * Required for electron-liquid-glass (do not enable `vibrancy` — it overrides the effect).
+           * @see https://github.com/Meridius-Labs/electron-liquid-glass
+           */
+          transparent: true,
+          backgroundColor: '#00000000'
         }
       : {}),
     webPreferences: {
@@ -51,8 +87,37 @@ function createWindow(): void {
     }
   })
 
+  const trafficLightsMac: { x: number; y: number } = { x: 22, y: 18 }
+
+  /** macOS often restores the title strip / button layout after zoom-to-fill (not native fullscreen). */
+  const syncMacTitleChrome = (): void => {
+    if (mainWindow.isDestroyed()) return
+    mainWindow.setTitle('')
+    mainWindow.setWindowButtonVisibility(true)
+    mainWindow.setWindowButtonPosition(trafficLightsMac)
+  }
+
   mainWindow.on('ready-to-show', () => {
+    if (process.platform === 'darwin') {
+      syncMacTitleChrome()
+    }
     mainWindow.show()
+  })
+
+  if (process.platform === 'darwin') {
+    mainWindow.on('enter-full-screen', syncMacTitleChrome)
+    /** Green “zoom” / edge-tile fills the desktop without `enter-full-screen`; re-apply chrome after. */
+    mainWindow.on('maximize', syncMacTitleChrome)
+    mainWindow.on('unmaximize', syncMacTitleChrome)
+    mainWindow.on('resized', syncMacTitleChrome)
+    mainWindow.on('restore', syncMacTitleChrome)
+  }
+
+  mainWindow.on('leave-full-screen', () => {
+    if (process.platform === 'darwin') {
+      syncMacTitleChrome()
+    }
+    mainWindow.webContents.send('window:left-full-screen')
   })
 
   /** Chromium often eats Cmd+J (and similar) before keydown reaches the page; handle zen here. */
@@ -65,10 +130,6 @@ function createWindow(): void {
     mainWindow.webContents.send('gitnotes:zen-shortcut')
   })
 
-  mainWindow.on('leave-full-screen', () => {
-    mainWindow.webContents.send('window:left-full-screen')
-  })
-
   mainWindow.webContents.setWindowOpenHandler((details) => {
     shell.openExternal(details.url)
     return { action: 'deny' }
@@ -76,6 +137,10 @@ function createWindow(): void {
 
   // HMR for renderer base on electron-vite cli.
   // Load the remote URL for development or the local html file for production.
+  mainWindow.webContents.once('did-finish-load', () => {
+    void attachMacNativeLiquidGlass(mainWindow)
+  })
+
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
     mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
   } else {
@@ -109,13 +174,17 @@ app.whenReady().then(() => {
   // IPC test
   ipcMain.on('ping', () => console.log('pong'))
 
-  ipcMain.handle(
-    'window:set-zen-shortcut-binding',
-    (event, binding: ZenShortcutBinding | null) => {
-      zenShortcutBindings.set(event.sender, binding)
-      return { ok: true as const }
+  ipcMain.handle('window:set-zen-shortcut-binding', (event, binding: ZenShortcutBinding | null) => {
+    zenShortcutBindings.set(event.sender, binding)
+    return { ok: true as const }
+  })
+
+  ipcMain.handle('window:get-liquid-glass-state', (event) => {
+    return macLiquidGlassStateByWebContents.get(event.sender) ?? {
+      attached: false,
+      glassSupported: false
     }
-  )
+  })
 
   ipcMain.handle('window:set-zen-presentation', (event, enabled: boolean) => {
     const win = BrowserWindow.fromWebContents(event.sender)
@@ -123,20 +192,29 @@ app.whenReady().then(() => {
       return { ok: false as const }
     }
     try {
+      const traffic: { x: number; y: number } = { x: 22, y: 18 }
       if (enabled) {
         win.setFullScreen(true)
         if (process.platform === 'darwin') {
-          setTimeout(() => {
-            if (!win.isDestroyed()) {
-              win.setWindowButtonVisibility(false)
-            }
-          }, 0)
+          /** Keep native traffic lights (same as sidebar chrome); hiding them often leaves a blank title strip. */
+          const applyLights = (): void => {
+            if (win.isDestroyed()) return
+            win.setWindowButtonVisibility(true)
+            win.setWindowButtonPosition(traffic)
+          }
+          setTimeout(applyLights, 0)
+          win.once('enter-full-screen', applyLights)
         }
       } else {
-        if (process.platform === 'darwin') {
-          win.setWindowButtonVisibility(true)
-        }
         win.setFullScreen(false)
+        if (process.platform === 'darwin') {
+          const applyLights = (): void => {
+            if (win.isDestroyed()) return
+            win.setWindowButtonVisibility(true)
+            win.setWindowButtonPosition(traffic)
+          }
+          setTimeout(applyLights, 0)
+        }
       }
       return { ok: true as const }
     } catch {

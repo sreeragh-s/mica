@@ -108,9 +108,9 @@
 
 @layer components {
   /**
-   * macOS-like liquid glass sidebar (Electron).
-   * Main column is painted full-width under this panel; blur samples editor --background.
-   * Tint is translucent var(--sidebar).
+   * macOS liquid sidebar (Electron): native glass via `electron-liquid-glass` in the main process
+   * plus this panel tint / backdrop blur so the strip blurs the editor painted underneath.
+   * @see https://github.com/Meridius-Labs/electron-liquid-glass
    */
   .liquid-sidebar-inset {
     position: relative;
@@ -126,6 +126,11 @@
     border-width: 1px;
     border-style: solid;
     border-color: color-mix(in oklch, var(--sidebar-border) 42%, transparent);
+  }
+
+  .liquid-sidebar-inset[data-native-liquid-glass] {
+    -webkit-backdrop-filter: blur(22px) saturate(1.5);
+    backdrop-filter: blur(22px) saturate(1.5);
   }
 
   .dark .liquid-sidebar-inset {

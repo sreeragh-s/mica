@@ -72,6 +72,11 @@ type GitNotesApi = {
       cwd: string
       workspaceId: string
       noteId: string
+      exceptRelativePath?: string
+    }) => Promise<{ ok: true } | { ok: false; error: string }>
+    deleteWorkspaceFolder: (payload: {
+      cwd: string
+      workspaceId: string
     }) => Promise<{ ok: true } | { ok: false; error: string }>
     gitStatus: (payload: {
       cwd: string

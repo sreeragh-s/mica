@@ -1,4 +1,4 @@
-/** True when running in Electron on macOS (hidden-inset title bar + traffic lights). */
+/** True when running in Electron on macOS (hidden title bar + traffic lights). */
 export function isMacElectron(): boolean {
   return (
     typeof window !== "undefined" &&
