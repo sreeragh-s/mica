@@ -54,6 +54,8 @@ export function DebugSettingsView({
         gitCommit: typeof w.gitCommit === 'function',
         gitPull: typeof w.gitPull === 'function',
         gitPush: typeof w.gitPush === 'function',
+        readAppConfig: typeof w.readAppConfig === 'function',
+        writeAppConfig: typeof w.writeAppConfig === 'function',
       }
     : null
 
@@ -85,6 +87,14 @@ export function DebugSettingsView({
         <Row label="Notes" value={String(notesCount)} />
         <Row label="Saved remote URL" value={githubRemoteUrl.trim() || '(none)'} />
         <Row label="Local Git path" value={localGitPath ?? '(none)'} />
+        <Row
+          label="App config file"
+          value={
+            localGitPath
+              ? `${localGitPath}/gitnotes.config`
+              : '(set when ~/.gitnotes is available)'
+          }
+        />
         <Row
           label="Dirty by workspace"
           value={

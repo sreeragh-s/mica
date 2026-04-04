@@ -1,10 +1,14 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { JSX } from 'react'
 
+import { ThemeProvider } from 'next-themes'
+
 import { LoginScreen } from '@/components/auth/LoginScreen'
 import { SetupScreen } from '@/components/setup/SetupScreen'
 import { NotesApp } from '@/components/notes/NotesApp'
+import { applyUiFontToDocument, loadUiFont } from '@/lib/appearance-storage'
 import { getApi, parseSession } from '@/lib/auth-bridge'
+import { hydrateAppConfig } from '@/lib/gitnotes-app-config'
 import { clearGuestMode, isGuestMode, setGuestMode } from '@/lib/guest-session'
 import { loadSetupState, saveSetupState } from '@/lib/setup-storage'
 
@@ -42,17 +46,19 @@ export default function App(): JSX.Element {
       const setup = loadSetupState()
       const setupKeyRaw = localStorage.getItem('gitnotes-setup')
       const hasNotesKey = localStorage.getItem('gitnotes-notes') != null
+      const hasConfigBlob = localStorage.getItem('gitnotes-config-v1') != null
       const nextPhase: AppPhase = !setup.complete ? 'setup' : 'app'
       console.info('[gitnotes-app] session: signed in', {
         setupKeyInStorage: setupKeyRaw != null,
         setupComplete: setup.complete,
         setupSyncMode: setup.syncMode ?? null,
         hasNotesKey,
+        hasConfigBlob,
         nextPhase,
         reason:
           nextPhase === 'setup'
             ? 'setup.complete is false — show SetupScreen until Get started or GitHub flow completes'
-            : 'setup.complete is true (from gitnotes-setup) — go to notes',
+            : 'setup.complete is true (hydrated from ~/.gitnotes/gitnotes.config or localStorage) — go to notes'
       })
       if (!setup.complete) {
         setPhase('setup')
@@ -72,7 +78,17 @@ export default function App(): JSX.Element {
   }, [api])
 
   useEffect(() => {
-    void refreshSession()
+    void (async () => {
+      const api = getApi()
+      let dataRoot: string | null = null
+      if (api?.workspace?.ensureDataRoot) {
+        const r = await api.workspace.ensureDataRoot()
+        if (r.ok) dataRoot = r.path
+      }
+      await hydrateAppConfig(dataRoot)
+      applyUiFontToDocument(loadUiFont())
+      await refreshSession()
+    })()
   }, [refreshSession])
 
   const handleGitHub = useCallback(async () => {
@@ -93,7 +109,7 @@ export default function App(): JSX.Element {
     setGuestMode(true)
     saveSetupState({
       complete: true,
-      syncMode: 'local',
+      syncMode: 'local'
     })
     setUser(null)
     setPhase('app')
@@ -113,16 +129,15 @@ export default function App(): JSX.Element {
     setPhase('app')
   }, [])
 
+  let content: JSX.Element
   if (phase === 'loading') {
-    return (
+    content = (
       <div className="bg-background text-muted-foreground flex h-screen items-center justify-center text-sm">
         Loading…
       </div>
     )
-  }
-
-  if (api && phase === 'auth') {
-    return (
+  } else if (api && phase === 'auth') {
+    content = (
       <LoginScreen
         onGitHub={handleGitHub}
         onGuest={handleContinueAsGuest}
@@ -130,18 +145,22 @@ export default function App(): JSX.Element {
         error={loginError}
       />
     )
-  }
-
-  if (api && phase === 'setup') {
-    return <SetupScreen api={api} onDone={handleSetupDone} />
+  } else if (api && phase === 'setup') {
+    content = <SetupScreen api={api} onDone={handleSetupDone} />
+  } else {
+    content = (
+      <NotesApp
+        user={user ?? undefined}
+        guestMode={isGuestMode()}
+        onSignOut={api ? handleSignOut : undefined}
+        onConnectGitHub={api ? handleGitHub : undefined}
+      />
+    )
   }
 
   return (
-    <NotesApp
-      user={user ?? undefined}
-      guestMode={isGuestMode()}
-      onSignOut={api ? handleSignOut : undefined}
-      onConnectGitHub={api ? handleGitHub : undefined}
-    />
+    <ThemeProvider attribute="class" defaultTheme="system" enableSystem storageKey="gitnotes-theme">
+      {content}
+    </ThemeProvider>
   )
 }

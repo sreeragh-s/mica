@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, type JSX } from 'react'
 
 import { Excalidraw, serializeAsJSON } from '@excalidraw/excalidraw'
 import '@excalidraw/excalidraw/index.css'
+import { useTheme } from 'next-themes'
 
 export type ExcalidrawViewProps = {
   noteId: string
@@ -14,6 +15,10 @@ export function ExcalidrawView({
   sceneJson,
   onSceneJsonChange
 }: ExcalidrawViewProps): JSX.Element {
+  const { resolvedTheme } = useTheme()
+  /** Excalidraw uses its own theme state; wire it to next-themes (not document class). */
+  const excalidrawTheme = resolvedTheme === 'dark' ? 'dark' : 'light'
+
   const debounceRef = useRef<number>(0)
 
   useEffect(() => {
@@ -47,7 +52,12 @@ export function ExcalidrawView({
 
   return (
     <div className="excalidraw relative min-h-0 w-full flex-1 [&_.excalidraw]:h-full">
-      <Excalidraw key={noteId} initialData={initialData ?? undefined} onChange={onChange} />
+      <Excalidraw
+        key={noteId}
+        theme={excalidrawTheme}
+        initialData={initialData ?? undefined}
+        onChange={onChange}
+      />
     </div>
   )
 }

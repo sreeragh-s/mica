@@ -102,6 +102,45 @@ const api = {
       | { ok: true; stdout: string }
       | { ok: false; error: string }
     > => ipcRenderer.invoke('workspace:git-push', payload),
+    readAppConfig: (
+      payload: { cwd: string }
+    ): Promise<
+      | { ok: true; content: string | null }
+      | { ok: false; error: string }
+    > => ipcRenderer.invoke('workspace:read-app-config', payload),
+    writeAppConfig: (payload: {
+      cwd: string
+      config: unknown
+    }): Promise<{ ok: true } | { ok: false; error: string }> =>
+      ipcRenderer.invoke('workspace:write-app-config', payload),
+  },
+  window: {
+    setZenShortcutBinding: (
+      binding: { mod: boolean; key?: string; code?: string } | null
+    ): Promise<{ ok: boolean }> =>
+      ipcRenderer.invoke('window:set-zen-shortcut-binding', binding),
+    onZenShortcutFromMain: (callback: () => void): (() => void) => {
+      const channel = 'gitnotes:zen-shortcut'
+      const handler = (): void => {
+        callback()
+      }
+      ipcRenderer.on(channel, handler)
+      return () => {
+        ipcRenderer.removeListener(channel, handler)
+      }
+    },
+    setZenPresentation: (enabled: boolean): Promise<{ ok: boolean }> =>
+      ipcRenderer.invoke('window:set-zen-presentation', enabled),
+    onNativeFullScreenExit: (callback: () => void): (() => void) => {
+      const channel = 'window:left-full-screen'
+      const handler = (): void => {
+        callback()
+      }
+      ipcRenderer.on(channel, handler)
+      return () => {
+        ipcRenderer.removeListener(channel, handler)
+      }
+    },
   },
 }
 

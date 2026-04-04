@@ -1,3 +1,6 @@
+@import "@fontsource-variable/inter/wght.css";
+@import "@fontsource-variable/source-serif-4/wght.css";
+@import "@fontsource/jetbrains-mono/latin-400.css";
 @import "tailwindcss";
 @import "tw-animate-css";
 
@@ -64,7 +67,7 @@
   --chart-3: oklch(0.769 0.188 70.08);
   --chart-4: oklch(0.627 0.265 303.9);
   --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.205 0 0);
+  --sidebar: oklch(0.145 0 0);
   --sidebar-foreground: oklch(0.985 0 0);
   --sidebar-primary: oklch(0.488 0.243 264.376);
   --sidebar-primary-foreground: oklch(0.985 0 0);
@@ -121,5 +124,105 @@
   }
   body {
     @apply bg-background text-foreground;
+  }
+
+  html[data-font='system'],
+  html[data-font='system'] body {
+    font-family:
+      ui-sans-serif,
+      system-ui,
+      sans-serif,
+      'Apple Color Emoji',
+      'Segoe UI Emoji',
+      'Segoe UI Symbol',
+      'Noto Color Emoji';
+  }
+
+  html[data-font='inter'],
+  html[data-font='inter'] body {
+    font-family:
+      'Inter Variable',
+      Inter,
+      ui-sans-serif,
+      system-ui,
+      sans-serif;
+  }
+
+  html[data-font='humanist'],
+  html[data-font='humanist'] body {
+    font-family:
+      'Segoe UI',
+      Roboto,
+      'Helvetica Neue',
+      Arial,
+      sans-serif,
+      'Apple Color Emoji',
+      'Segoe UI Emoji';
+  }
+
+  html[data-font='neo'],
+  html[data-font='neo'] body {
+    font-family:
+      'Helvetica Neue',
+      Helvetica,
+      Arial,
+      sans-serif,
+      'Apple Color Emoji',
+      'Segoe UI Emoji';
+  }
+
+  html[data-font='serif'],
+  html[data-font='serif'] body {
+    font-family: ui-serif, Georgia, Cambria, 'Times New Roman', Times, serif;
+  }
+
+  html[data-font='literary'],
+  html[data-font='literary'] body {
+    font-family:
+      Charter,
+      'Bitstream Charter',
+      'Sitka Text',
+      Cambria,
+      Georgia,
+      serif;
+  }
+
+  html[data-font='source-serif'],
+  html[data-font='source-serif'] body {
+    font-family:
+      'Source Serif 4 Variable',
+      'Source Serif 4',
+      Georgia,
+      ui-serif,
+      serif;
+  }
+
+  html[data-font='slab'],
+  html[data-font='slab'] body {
+    font-family:
+      Rockwell,
+      'Rockwell Nova',
+      'Courier New',
+      Courier,
+      Georgia,
+      serif;
+  }
+
+  html[data-font='mono'],
+  html[data-font='mono'] body {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New',
+      monospace;
+  }
+
+  html[data-font='jetbrains'],
+  html[data-font='jetbrains'] body {
+    font-family:
+      'JetBrains Mono',
+      ui-monospace,
+      SFMono-Regular,
+      Menlo,
+      Monaco,
+      Consolas,
+      monospace;
   }
 }

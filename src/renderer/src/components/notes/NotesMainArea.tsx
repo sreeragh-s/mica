@@ -1,4 +1,4 @@
-import { useCallback, useState, type DragEvent, type JSX } from 'react'
+import { useCallback, useEffect, useState, type DragEvent, type JSX } from 'react'
 
 import { FileText, Plus, X } from 'lucide-react'
 
@@ -6,6 +6,7 @@ import { Editor } from '@/components/blocks/editor-00/editor'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { AccountSettingsView } from './AccountSettingsView'
+import { AppearanceSettingsView } from './AppearanceSettingsView'
 import { DebugSettingsView } from './DebugSettingsView'
 import { GitHubSettingsView } from './GitHubSettingsView'
 import { NotesLocationBar } from './NotesLocationBar'
@@ -108,10 +109,22 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
     resetShortcutsToDefaults,
     setShortcutsCaptureActive,
     graphViewOpen,
-    closeGraphView
+    closeGraphView,
+    zenMode
   } = vm
 
   const [splitDropActive, setSplitDropActive] = useState(false)
+  const [zenHintVisible, setZenHintVisible] = useState(false)
+
+  useEffect(() => {
+    if (!zenMode) {
+      setZenHintVisible(false)
+      return
+    }
+    setZenHintVisible(true)
+    const id = window.setTimeout(() => setZenHintVisible(false), 4500)
+    return () => clearTimeout(id)
+  }, [zenMode])
 
   const acceptNoteDrag = useCallback((e: DragEvent) => {
     return [...e.dataTransfer.types].includes(NOTE_DRAG_MIME)
@@ -187,6 +200,59 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
             macElectron={macElectron}
             macTitlebarStyles={macTitlebarStyles}
             onSelectNote={onGraphSelectNote}
+          />
+        </div>
+      )
+    }
+
+    if (
+      appMode === 'notes' &&
+      !workspaceSettingsFolderId &&
+      zenMode &&
+      (!selectedNote || selectedNote.kind === 'drawing')
+    ) {
+      return (
+        <div className="text-muted-foreground flex min-h-0 flex-1 flex-col items-center justify-center px-6 text-center text-sm">
+          Exiting zen mode…
+        </div>
+      )
+    }
+
+    if (
+      appMode === 'notes' &&
+      !workspaceSettingsFolderId &&
+      zenMode &&
+      selectedNote &&
+      selectedNote.kind !== 'drawing'
+    ) {
+      return (
+        <div
+          className="relative flex min-h-0 flex-1 flex-col"
+          onDragOver={onDragOverMain}
+          onDrop={onDropMain}
+        >
+          {zenHintVisible ? (
+            <div
+              className="pointer-events-none absolute left-0 right-0 top-3 z-10 flex justify-center px-4"
+              role="status"
+              aria-live="polite"
+            >
+              <div className="bg-muted/95 text-muted-foreground border-border pointer-events-auto rounded-md border px-3 py-2 text-center text-xs shadow-md">
+                Double-press Esc to exit zen mode
+              </div>
+            </div>
+          ) : null}
+          <Editor
+            key={selectedNote.id}
+            editorSerializedState={selectedNote.content ?? undefined}
+            onSerializedChange={(s) => handleNoteSerializedChange(selectedNote.id, s)}
+            className="min-h-0 flex-1"
+            gitnotesEditor={{
+              notes,
+              folders,
+              currentNoteId: selectedNote.id,
+              onOpenInternalNote: selectNote,
+            }}
           />
         </div>
       )
@@ -332,7 +398,7 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
         className="bg-background flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
         style={macElectron ? macTitlebarStyles.noDrag : undefined}
       >
-        <NotesLocationBar vm={vm} />
+        {zenMode ? null : <NotesLocationBar vm={vm} />}
         <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto">
           {appMode === 'notes' && workspaceSettingsFolder && workspaceSettingsFolderId ? (
             <WorkspaceSettingsPanel
@@ -375,6 +441,11 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
               onGitPullThenPush={handleGitPullThenPush}
               onGitPush={handleGitPush}
               onGitCommitAndPush={handleGitCommitAndPush}
+            />
+          ) : appMode === 'settings' && settingsSection === 'appearance' ? (
+            <AppearanceSettingsView
+              macElectron={macElectron}
+              macTitlebarStyles={macTitlebarStyles}
             />
           ) : appMode === 'settings' && settingsSection === 'shortcuts' ? (
             <ShortcutsSettingsView

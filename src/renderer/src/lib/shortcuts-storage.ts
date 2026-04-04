@@ -1,86 +1,35 @@
-const STORAGE_KEY = 'gitnotes-shortcuts-v1'
+import {
+  loadShortcutBindings as loadFromConfig,
+  saveShortcutBindings as saveToConfig,
+} from "./gitnotes-app-config"
+import {
+  SHORTCUT_DEFINITIONS,
+  type ShortcutActionId,
+  type ShortcutBinding,
+  type ShortcutBindingsMap,
+} from "./shortcuts-definitions"
 
-export type ShortcutActionId = 'toggleSidebar' | 'newNote' | 'toggleSplitView'
+export type {
+  ShortcutActionId,
+  ShortcutBinding,
+  ShortcutBindingsMap,
+} from "./shortcuts-definitions"
+export { SHORTCUT_DEFINITIONS } from "./shortcuts-definitions"
 
-export type ShortcutBinding = {
-  /** Cmd on macOS, Ctrl on Windows/Linux (same as existing app shortcuts). */
-  mod: boolean
-  /** Single character from KeyboardEvent.key (normalized lowercase for letters). */
-  key?: string
-  /** Prefer KeyboardEvent.code for punctuation (layout-independent). */
-  code?: string
+export function loadShortcutBindings(): ShortcutBindingsMap {
+  return loadFromConfig()
 }
 
-export const SHORTCUT_DEFINITIONS: readonly {
-  id: ShortcutActionId
-  label: string
-  description: string
-  defaultBinding: ShortcutBinding
-}[] = [
-  {
-    id: 'toggleSidebar',
-    label: 'Toggle sidebar',
-    description: 'Show or hide the notes sidebar.',
-    defaultBinding: { mod: true, key: 'b' }
-  },
-  {
-    id: 'newNote',
-    label: 'New note',
-    description: 'Create a note in the focused workspace.',
-    defaultBinding: { mod: true, key: 'n' }
-  },
-  {
-    id: 'toggleSplitView',
-    label: 'Toggle split view',
-    description:
-      'Open or close the second editor pane. Drag a note into the pane or pick one after opening.',
-    defaultBinding: { mod: true, code: 'Backslash' }
-  }
-] as const
+export function saveShortcutBindings(map: ShortcutBindingsMap): void {
+  saveToConfig(map)
+}
 
-export type ShortcutBindingsMap = Record<ShortcutActionId, ShortcutBinding>
-
-function defaultBindingsMap(): ShortcutBindingsMap {
+export function resetShortcutBindings(): ShortcutBindingsMap {
   const m = {} as ShortcutBindingsMap
   for (const d of SHORTCUT_DEFINITIONS) {
     m[d.id] = { ...d.defaultBinding }
   }
-  return m
-}
-
-export function loadShortcutBindings(): ShortcutBindingsMap {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return defaultBindingsMap()
-    const parsed = JSON.parse(raw) as Partial<ShortcutBindingsMap>
-    const base = defaultBindingsMap()
-    for (const d of SHORTCUT_DEFINITIONS) {
-      const b = parsed[d.id]
-      if (b && typeof b === 'object' && typeof b.mod === 'boolean') {
-        base[d.id] = {
-          mod: b.mod,
-          ...(typeof b.key === 'string' ? { key: b.key } : {}),
-          ...(typeof b.code === 'string' ? { code: b.code } : {})
-        }
-      }
-    }
-    return base
-  } catch {
-    return defaultBindingsMap()
-  }
-}
-
-export function saveShortcutBindings(map: ShortcutBindingsMap): void {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(map))
-  } catch {
-    /* ignore quota */
-  }
-}
-
-export function resetShortcutBindings(): ShortcutBindingsMap {
-  const m = defaultBindingsMap()
-  saveShortcutBindings(m)
+  saveToConfig(m)
   return m
 }
 
@@ -99,7 +48,7 @@ export function keyboardEventMatchesBinding(e: KeyboardEvent, b: ShortcutBinding
 }
 
 function bindingKeyForLookup(b: ShortcutBinding): string {
-  return `${b.mod ? 1 : 0}|k:${b.key ?? ''}|c:${b.code ?? ''}`
+  return `${b.mod ? 1 : 0}|k:${b.key ?? ""}|c:${b.code ?? ""}`
 }
 
 /** Returns duplicate action ids that share the same binding, if any. */
@@ -115,8 +64,8 @@ export function findDuplicateShortcutBindings(map: ShortcutBindingsMap): Shortcu
 }
 
 export function formatBindingLabel(b: ShortcutBinding, mac: boolean): string {
-  const mod = b.mod ? (mac ? '⌘' : 'Ctrl+') : ''
-  if (b.code === 'Backslash') {
+  const mod = b.mod ? (mac ? "⌘" : "Ctrl+") : ""
+  if (b.code === "Backslash") {
     return `${mod}\\`
   }
   if (b.key) {
@@ -126,7 +75,7 @@ export function formatBindingLabel(b: ShortcutBinding, mac: boolean): string {
   if (b.code) {
     return `${mod}${b.code}`
   }
-  return mod || '—'
+  return mod || "—"
 }
 
 /** Capture next keydown into a binding (mod required). */
@@ -135,8 +84,8 @@ export function bindingFromKeyboardEvent(e: KeyboardEvent): ShortcutBinding | nu
   e.preventDefault()
   e.stopPropagation()
   const mod = true
-  if (e.code === 'Backslash' || e.key === '\\') {
-    return { mod, code: 'Backslash' }
+  if (e.code === "Backslash" || e.key === "\\") {
+    return { mod, code: "Backslash" }
   }
   if (e.key.length === 1 && /[a-zA-Z0-9]/.test(e.key)) {
     return { mod, key: e.key.toLowerCase() }

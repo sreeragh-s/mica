@@ -11,15 +11,16 @@ export type { NotesAppProps } from './notes-app-types'
 
 export function NotesApp(props: NotesAppProps): JSX.Element {
   const vm = useNotesApp(props)
-  const { sidebarCollapsed } = vm
+  const { sidebarCollapsed, zenMode } = vm
+  const sidebarHidden = sidebarCollapsed || zenMode
   return (
     <div className="bg-background text-foreground flex h-screen w-full flex-row overflow-hidden">
       <div
         className={cn(
           'border-sidebar-border shrink-0 overflow-hidden transition-[width] duration-300 ease-in-out',
-          sidebarCollapsed ? 'w-0 border-r-0' : 'w-[min(100%,320px)] border-r'
+          sidebarHidden ? 'w-0 border-r-0' : 'w-[min(100%,320px)] border-r'
         )}
-        aria-hidden={sidebarCollapsed}
+        aria-hidden={sidebarHidden}
       >
         <NotesSidebar vm={vm} />
       </div>

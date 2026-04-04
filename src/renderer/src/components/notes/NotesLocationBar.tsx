@@ -142,6 +142,31 @@ export function NotesLocationBar({ vm }: NotesLocationBarProps): JSX.Element | n
         <BreadcrumbPage>GitHub & Git</BreadcrumbPage>
       </BreadcrumbItem>
     )
+  } else if (appMode === 'settings' && settingsSection === 'appearance') {
+    crumbs.push(
+      <BreadcrumbItem key="notes">
+        <BreadcrumbLink asChild>
+          <CrumbButton interactiveStyle={crumbInteractive} onClick={backToNotes}>
+            Notes
+          </CrumbButton>
+        </BreadcrumbLink>
+      </BreadcrumbItem>,
+      <BreadcrumbSeparator key="sep1" />,
+      <BreadcrumbItem key="settings">
+        <BreadcrumbLink asChild>
+          <CrumbButton
+            interactiveStyle={crumbInteractive}
+            onClick={() => setSettingsSection('account')}
+          >
+            Settings
+          </CrumbButton>
+        </BreadcrumbLink>
+      </BreadcrumbItem>,
+      <BreadcrumbSeparator key="sep2" />,
+      <BreadcrumbItem key="appearance">
+        <BreadcrumbPage>Appearance</BreadcrumbPage>
+      </BreadcrumbItem>
+    )
   } else if (appMode === 'settings' && settingsSection === 'shortcuts') {
     crumbs.push(
       <BreadcrumbItem key="notes">

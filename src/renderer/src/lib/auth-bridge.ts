@@ -2,7 +2,24 @@ export type AuthSessionPayload =
   | { session: unknown; user: unknown }
   | null
 
+/** OS window chrome (Electron); optional so browser dev still type-checks. */
+export type GitNotesWindowApi = {
+  setZenShortcutBinding: (
+    binding: { mod: boolean; key?: string; code?: string } | null
+  ) => Promise<{ ok: boolean }>
+  onZenShortcutFromMain: (callback: () => void) => () => void
+  setZenPresentation: (enabled: boolean) => Promise<{ ok: boolean }>
+  onNativeFullScreenExit: (callback: () => void) => () => void
+}
+
+export function getWindowApi(): GitNotesWindowApi | null {
+  if (typeof window === 'undefined') return null
+  const w = window as Window & { api?: { window?: GitNotesWindowApi } }
+  return w.api?.window ?? null
+}
+
 export type GitNotesApi = {
+  window?: GitNotesWindowApi
   auth: {
     getSession: () => Promise<
       | { ok: true; data: AuthSessionPayload }
@@ -99,6 +116,16 @@ export type GitNotesApi = {
       | { ok: true; stdout: string }
       | { ok: false; error: string }
     >
+    readAppConfig?: (payload: {
+      cwd: string
+    }) => Promise<
+      | { ok: true; content: string | null }
+      | { ok: false; error: string }
+    >
+    writeAppConfig?: (payload: {
+      cwd: string
+      config: unknown
+    }) => Promise<{ ok: true } | { ok: false; error: string }>
   }
 }
 

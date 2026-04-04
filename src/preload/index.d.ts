@@ -97,6 +97,16 @@ type GitNotesApi = {
       | { ok: true; stdout: string }
       | { ok: false; error: string }
     >
+    readAppConfig: (payload: {
+      cwd: string
+    }) => Promise<
+      | { ok: true; content: string | null }
+      | { ok: false; error: string }
+    >
+    writeAppConfig: (payload: {
+      cwd: string
+      config: unknown
+    }) => Promise<{ ok: true } | { ok: false; error: string }>
   }
 }
 

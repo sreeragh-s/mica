@@ -10,7 +10,7 @@ import {
 import type { SerializedEditorState } from 'lexical'
 
 import { backendFetchJson } from '@/lib/backend-api'
-import { getApi } from '@/lib/auth-bridge'
+import { getApi, getWindowApi } from '@/lib/auth-bridge'
 import { mergeGithubContentShas, loadGithubContentShas } from '@/lib/github-shas-storage'
 import { isMacElectron } from '@/lib/electron-env'
 import { loadSetupState } from '@/lib/setup-storage'
@@ -92,6 +92,11 @@ export function useNotesApp({ user, guestMode = false, onSignOut, onConnectGitHu
   const [treeExpandIds, setTreeExpandIds] = useState<string[]>([])
 
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [zenMode, setZenMode] = useState(false)
+  const zenModeRef = useRef(false)
+  zenModeRef.current = zenMode
+  const sidebarCollapsedBeforeZenRef = useRef<boolean | null>(null)
+  const lastZenEscPressRef = useRef(0)
 
   const [shortcutBindings, setShortcutBindings] =
     useState<ShortcutBindingsMap>(loadShortcutBindings)
@@ -1148,6 +1153,37 @@ export function useNotesApp({ user, guestMode = false, onSignOut, onConnectGitHu
     setSidebarCollapsed((c) => !c)
   }, [])
 
+  const exitZenMode = useCallback(() => {
+    lastZenEscPressRef.current = 0
+    setZenMode(false)
+    const prev = sidebarCollapsedBeforeZenRef.current
+    sidebarCollapsedBeforeZenRef.current = null
+    if (prev !== null) {
+      setSidebarCollapsed(prev)
+    }
+  }, [])
+
+  const enterZenMode = useCallback(() => {
+    if (appMode !== 'notes' || workspaceSettingsFolderId) return
+    if (!selectedNote || selectedNote.kind === 'drawing') return
+    if (zenModeRef.current) return
+    lastZenEscPressRef.current = 0
+    sidebarCollapsedBeforeZenRef.current = sidebarCollapsed
+    setSidebarCollapsed(true)
+    if (graphViewOpen) {
+      setGraphViewOpen(false)
+    }
+    setZenMode(true)
+  }, [appMode, workspaceSettingsFolderId, selectedNote, sidebarCollapsed, graphViewOpen])
+
+  const toggleZenMode = useCallback(() => {
+    if (zenModeRef.current) {
+      exitZenMode()
+    } else {
+      enterZenMode()
+    }
+  }, [exitZenMode, enterZenMode])
+
   const toggleSplitView = useCallback(() => {
     setSplitViewOpen((prev) => {
       if (prev) {
@@ -1209,8 +1245,63 @@ export function useNotesApp({ user, guestMode = false, onSignOut, onConnectGitHu
   const canCreateNote = folders.length > 0
 
   useEffect(() => {
+    if (!zenMode) return
+    if (
+      appMode !== 'notes' ||
+      workspaceSettingsFolderId ||
+      !selectedNote ||
+      selectedNote.kind === 'drawing'
+    ) {
+      exitZenMode()
+    }
+  }, [appMode, workspaceSettingsFolderId, selectedNote, zenMode, exitZenMode])
+
+  useEffect(() => {
+    const win = getWindowApi()
+    if (!win) return
+    void win.setZenPresentation(zenMode)
+  }, [zenMode])
+
+  useEffect(() => {
+    const win = getWindowApi()
+    if (!win?.onNativeFullScreenExit) return
+    return win.onNativeFullScreenExit(() => {
+      if (zenModeRef.current) {
+        exitZenMode()
+      }
+    })
+  }, [exitZenMode])
+
+  useEffect(() => {
+    const win = getWindowApi()
+    if (!win?.setZenShortcutBinding) return
+    void win.setZenShortcutBinding(shortcutBindings.toggleZenMode)
+  }, [shortcutBindings.toggleZenMode])
+
+  useEffect(() => {
+    const win = getWindowApi()
+    if (!win?.onZenShortcutFromMain) return
+    return win.onZenShortcutFromMain(() => {
+      if (shortcutsSuppressedRef.current) return
+      toggleZenMode()
+    })
+  }, [toggleZenMode])
+
+  useEffect(() => {
     const onKeyDown = (e: globalThis.KeyboardEvent) => {
       if (shortcutsSuppressedRef.current) return
+      if (zenModeRef.current && e.key === 'Escape' && !e.repeat) {
+        const now = Date.now()
+        if (now - lastZenEscPressRef.current < 500) {
+          e.preventDefault()
+          e.stopPropagation()
+          lastZenEscPressRef.current = 0
+          exitZenMode()
+        } else {
+          lastZenEscPressRef.current = now
+        }
+        return
+      }
       if (e.repeat) return
       const map = shortcutBindingsRef.current
       if (keyboardEventMatchesBinding(e, map.toggleSidebar)) {
@@ -1234,12 +1325,18 @@ export function useNotesApp({ user, guestMode = false, onSignOut, onConnectGitHu
         e.preventDefault()
         e.stopPropagation()
         toggleSplitView()
+        return
+      }
+      if (keyboardEventMatchesBinding(e, map.toggleZenMode)) {
+        e.preventDefault()
+        e.stopPropagation()
+        toggleZenMode()
       }
     }
 
     window.addEventListener('keydown', onKeyDown, true)
     return () => window.removeEventListener('keydown', onKeyDown, true)
-  }, [appMode, canCreateNote, handleNewNote, toggleSidebar, toggleSplitView])
+  }, [appMode, canCreateNote, handleNewNote, toggleSidebar, toggleSplitView, toggleZenMode, exitZenMode])
 
   const startFolderCreate = useCallback(() => {
     setFolderCreateOpen(true)
@@ -1290,6 +1387,7 @@ export function useNotesApp({ user, guestMode = false, onSignOut, onConnectGitHu
     selectedNote,
     focusedFolder,
     sidebarCollapsed,
+    zenMode,
     toggleSidebar,
     dirtyByWorkspaceId,
     gitCommitMessage,

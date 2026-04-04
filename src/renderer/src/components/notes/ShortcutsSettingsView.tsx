@@ -162,6 +162,12 @@ export function ShortcutsSettingsView({
             </span>{' '}
             — Toggle split view
           </li>
+          <li>
+            <span className="text-foreground font-mono">
+              {formatBindingLabel(bindings.toggleZenMode, macElectron)}
+            </span>{' '}
+            — Toggle zen mode (full-screen editor; double-press Esc to exit)
+          </li>
           <li className="pt-1">
             Drag a note from the sidebar into the main area or split pane to open it beside the
             current note.

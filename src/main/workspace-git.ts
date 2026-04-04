@@ -5,6 +5,7 @@ import {
   mkdirSync,
   readFileSync,
   readdirSync,
+  rmdirSync,
   unlinkSync,
   writeFileSync,
 } from 'node:fs'
@@ -13,6 +14,41 @@ import { dirname, join, relative, resolve, sep } from 'node:path'
 
 const LOG = '[gitnotes-workspace]'
 const MODE_FILE = '.gitnotes-mode'
+/** App settings JSON: <dataRoot>/gitnotes.config (data root is already ~/.gitnotes). */
+const APP_CONFIG_FILENAME = 'gitnotes.config'
+/** Older layout mistakenly nested another `.gitnotes/` inside the repo. */
+const LEGACY_APP_CONFIG_DIR = '.gitnotes'
+
+function assertGitnotesDataRoot(cwd: string): boolean {
+  const root = cwd?.trim() ?? ''
+  if (!root) return false
+  const expected = resolve(join(homedir(), '.gitnotes'))
+  return resolve(root) === expected
+}
+
+function appConfigFilePath(cwd: string): string {
+  return join(cwd, APP_CONFIG_FILENAME)
+}
+
+function legacyAppConfigFilePath(cwd: string): string {
+  return join(cwd, LEGACY_APP_CONFIG_DIR, APP_CONFIG_FILENAME)
+}
+
+/** Remove ~/.gitnotes/.gitnotes/gitnotes.config if present (after migrating to repo root). */
+function removeLegacyAppConfigTree(cwd: string): void {
+  const legacyFile = legacyAppConfigFilePath(cwd)
+  if (!existsSync(legacyFile)) return
+  try {
+    unlinkSync(legacyFile)
+    const legacyDir = join(cwd, LEGACY_APP_CONFIG_DIR)
+    if (existsSync(legacyDir)) {
+      const rest = readdirSync(legacyDir)
+      if (rest.length === 0) rmdirSync(legacyDir)
+    }
+  } catch (e) {
+    console.warn(LOG, 'remove legacy app config path', e)
+  }
+}
 
 function allowWorkspaceFs(cwd: string): boolean {
   const root = cwd?.trim() ?? ''
@@ -361,6 +397,73 @@ export function registerWorkspaceGitIpc(): void {
               ? 'Could not create the data folder. Check permissions.'
               : msg,
         }
+      }
+    }
+  )
+
+  ipcMain.handle(
+    'workspace:read-app-config',
+    async (
+      _evt,
+      payload: { cwd: string }
+    ): Promise<
+      { ok: true; content: string | null } | { ok: false; error: string }
+    > => {
+      const cwd = payload.cwd?.trim() ?? ''
+      if (!cwd || !assertGitnotesDataRoot(cwd)) {
+        return { ok: false, error: 'invalid_data_root' }
+      }
+      try {
+        const primary = appConfigFilePath(cwd)
+        const legacy = legacyAppConfigFilePath(cwd)
+        if (existsSync(primary)) {
+          const content = readFileSync(primary, 'utf8')
+          removeLegacyAppConfigTree(cwd)
+          return { ok: true, content: content.trim() ? content : null }
+        }
+        if (existsSync(legacy)) {
+          const content = readFileSync(legacy, 'utf8')
+          if (content.trim()) {
+            try {
+              writeFileSync(primary, content, 'utf8')
+              console.info(LOG, 'migrated app config', legacy, '->', primary)
+            } catch (e) {
+              console.warn(LOG, 'migrate app config copy failed', e)
+            }
+          }
+          removeLegacyAppConfigTree(cwd)
+          return { ok: true, content: content.trim() ? content : null }
+        }
+        return { ok: true, content: null }
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e)
+        console.error(LOG, 'read-app-config', msg)
+        return { ok: false, error: msg }
+      }
+    }
+  )
+
+  ipcMain.handle(
+    'workspace:write-app-config',
+    async (
+      _evt,
+      payload: { cwd: string; config: unknown }
+    ): Promise<{ ok: true } | { ok: false; error: string }> => {
+      const cwd = payload.cwd?.trim() ?? ''
+      if (!cwd || !assertGitnotesDataRoot(cwd)) {
+        return { ok: false, error: 'invalid_data_root' }
+      }
+      try {
+        const path = appConfigFilePath(cwd)
+        const body = `${JSON.stringify(payload.config, null, 2)}\n`
+        writeFileSync(path, body, 'utf8')
+        removeLegacyAppConfigTree(cwd)
+        console.info(LOG, 'write-app-config', path)
+        return { ok: true }
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e)
+        console.error(LOG, 'write-app-config', msg)
+        return { ok: false, error: msg }
       }
     }
   )

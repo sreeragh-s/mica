@@ -5,6 +5,7 @@ import {
   Bug,
   FileText,
   Keyboard,
+  Palette,
   Network,
   Folder,
   FolderGit2,
@@ -235,6 +236,20 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
               >
                 <FolderGit2 className="text-muted-foreground size-4 shrink-0" aria-hidden />
                 GitHub & Git
+              </button>
+            </li>
+            <li>
+              <button
+                type="button"
+                onClick={() => setSettingsSection('appearance')}
+                className={cn(
+                  'hover:bg-sidebar-accent hover:text-sidebar-accent-foreground flex w-full items-center gap-2 rounded-lg px-2.5 py-2.5 text-left text-sm transition-colors',
+                  settingsSection === 'appearance' &&
+                    'bg-sidebar-accent text-sidebar-accent-foreground'
+                )}
+              >
+                <Palette className="text-muted-foreground size-4 shrink-0" aria-hidden />
+                Appearance
               </button>
             </li>
             <li>
