@@ -13,6 +13,7 @@ import { ShortcutsSettingsView } from './ShortcutsSettingsView'
 import { WorkspaceNotesList } from './WorkspaceNotesList'
 import { WorkspaceSettingsPanel } from './WorkspaceSettingsPanel'
 import { ExcalidrawView } from './ExcalidrawView'
+import { NotesGraphView } from './NotesGraphView'
 import { NOTE_DRAG_MIME } from './notes-app-utils'
 import type { NotesAppViewModel } from './useNotesApp'
 
@@ -105,7 +106,9 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
     shortcutBindings,
     updateShortcutBinding,
     resetShortcutsToDefaults,
-    setShortcutsCaptureActive
+    setShortcutsCaptureActive,
+    graphViewOpen,
+    closeGraphView
   } = vm
 
   const [splitDropActive, setSplitDropActive] = useState(false)
@@ -162,7 +165,33 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
     [openSplitWithNote]
   )
 
+  const onGraphSelectNote = useCallback(
+    (noteId: string) => {
+      closeGraphView()
+      selectNote(noteId)
+    },
+    [closeGraphView, selectNote]
+  )
+
   const notesMainInner = (() => {
+    if (appMode === 'notes' && !workspaceSettingsFolderId && graphViewOpen) {
+      return (
+        <div
+          className="flex min-h-0 flex-1 flex-col"
+          onDragOver={onDragOverMain}
+          onDrop={onDropMain}
+        >
+          <NotesGraphView
+            notes={notes}
+            folders={folders}
+            macElectron={macElectron}
+            macTitlebarStyles={macTitlebarStyles}
+            onSelectNote={onGraphSelectNote}
+          />
+        </div>
+      )
+    }
+
     if (appMode === 'notes' && !workspaceSettingsFolderId) {
       const primaryColumn = selectedNote ? (
         selectedNote.kind === 'drawing' ? (

@@ -101,6 +101,7 @@ export function useNotesApp({ user, guestMode = false, onSignOut, onConnectGitHu
 
   const [splitViewOpen, setSplitViewOpen] = useState(false)
   const [splitNoteId, setSplitNoteId] = useState<string | null>(null)
+  const [graphViewOpen, setGraphViewOpen] = useState(false)
 
   const selectedNote = useMemo(
     () => notes.find((n) => n.id === selectedId) ?? null,
@@ -874,6 +875,7 @@ export function useNotesApp({ user, guestMode = false, onSignOut, onConnectGitHu
 
   const handleTreeSelectionChange = useCallback(
     (ids: string[]) => {
+      setGraphViewOpen(false)
       setWorkspaceSettingsFolderId(null)
       const id = ids[0]
       if (!id) {
@@ -900,6 +902,7 @@ export function useNotesApp({ user, guestMode = false, onSignOut, onConnectGitHu
   const handleNewNote = useCallback(() => {
     const fid = selectedNote?.folderId ?? focusedFolderId ?? folders[0]?.id
     if (!fid) return
+    setGraphViewOpen(false)
     const note = createEmptyNote(fid)
     setNotes((prev) => [note, ...prev])
     setSelectedId(note.id)
@@ -930,6 +933,7 @@ export function useNotesApp({ user, guestMode = false, onSignOut, onConnectGitHu
   const handleNewDrawing = useCallback(() => {
     const fid = selectedNote?.folderId ?? focusedFolderId ?? folders[0]?.id
     if (!fid) return
+    setGraphViewOpen(false)
     const note = createEmptyDrawing(fid)
     setNotes((prev) => [note, ...prev])
     setSelectedId(note.id)
@@ -1060,6 +1064,7 @@ export function useNotesApp({ user, guestMode = false, onSignOut, onConnectGitHu
 
   const openSettings = useCallback(() => {
     setWorkspaceSettingsFolderId(null)
+    setGraphViewOpen(false)
     setAppMode('settings')
     setSettingsSection('account')
   }, [])
@@ -1156,6 +1161,18 @@ export function useNotesApp({ user, guestMode = false, onSignOut, onConnectGitHu
   const closeSplitView = useCallback(() => {
     setSplitViewOpen(false)
     setSplitNoteId(null)
+  }, [])
+
+  const closeGraphView = useCallback(() => {
+    setGraphViewOpen(false)
+  }, [])
+
+  const openGraphView = useCallback(() => {
+    setSplitViewOpen(false)
+    setSplitNoteId(null)
+    setWorkspaceSettingsFolderId(null)
+    setAppMode('notes')
+    setGraphViewOpen(true)
   }, [])
 
   const openSplitWithNote = useCallback(
@@ -1323,6 +1340,9 @@ export function useNotesApp({ user, guestMode = false, onSignOut, onConnectGitHu
     primaryGitFolderId: primaryGitFolder?.id ?? null,
     refreshWorkspaceGitStatuses,
     notes,
+    graphViewOpen,
+    openGraphView,
+    closeGraphView,
     notesCount: notes.length,
     syncTransport: useGithubApiSync ? ('github_api' as const) : ('git' as const),
   }

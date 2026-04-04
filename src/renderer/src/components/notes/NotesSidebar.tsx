@@ -5,6 +5,7 @@ import {
   Bug,
   FileText,
   Keyboard,
+  Network,
   Folder,
   FolderGit2,
   FolderPlus,
@@ -68,7 +69,10 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
     backToNotes,
     openSettings,
     startFolderCreate,
-    handleNewDrawing
+    handleNewDrawing,
+    graphViewOpen,
+    openGraphView,
+    closeGraphView
   } = vm
 
   const [renamingNoteId, setRenamingNoteId] = useState<string | null>(null)
@@ -171,6 +175,24 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
             onClick={handleNewDrawing}
           >
             <PenLine className="size-4" aria-hidden />
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant={graphViewOpen ? 'secondary' : 'ghost'}
+            className={cn(
+              'size-8 shrink-0 p-0',
+              graphViewOpen
+                ? 'text-foreground'
+                : 'text-muted-foreground'
+            )}
+            title="Note link graph"
+            aria-label="Note link graph"
+            aria-pressed={graphViewOpen}
+            disabled={!canCreateNote}
+            onClick={() => (graphViewOpen ? closeGraphView() : openGraphView())}
+          >
+            <Network className="size-4" aria-hidden />
           </Button>
           <Button
             type="button"
