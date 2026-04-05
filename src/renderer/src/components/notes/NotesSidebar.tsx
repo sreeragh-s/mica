@@ -36,7 +36,13 @@ import {
 import { cn } from '@/lib/utils'
 import { liquidGlassControlPillClass } from '@/lib/liquid-glass-toolbar'
 import { DEFAULT_WORKSPACE_ID, formatNoteTime } from '@/lib/notes-storage'
-import { FOLDER_DRAG_MIME, NOTE_DRAG_MIME, treeFolderId, treeNoteId } from './notes-app-utils'
+import {
+  FOLDER_DRAG_MIME,
+  NOTE_DRAG_MIME,
+  macDragDebugNoDragSurfaceClass,
+  treeFolderId,
+  treeNoteId
+} from './notes-app-utils'
 import { MacSidebarLeadingToolbarIcon } from './MacSidebarToolbarIcon'
 import type { NotesAppViewModel } from './useNotesApp'
 
@@ -183,6 +189,7 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
       data-native-liquid-glass={liquidChrome && nativeLiquidGlassAttached ? true : undefined}
       className={cn(
         'text-sidebar-foreground flex h-full min-h-0 w-full min-w-0 shrink-0 flex-col',
+        macElectron && 'pointer-events-none',
         liquidChrome
           ? 'liquid-sidebar-inset relative z-10 rounded-2xl'
           : 'bg-sidebar border-sidebar-border border-r'
@@ -193,26 +200,19 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
         clearSidebarWorkspaceIntent()
       }}
     >
-      {/*
-        macOS: traffic-light inset (pl-[92px]) + strip beside collapse must be -webkit-app-region: drag.
-        Outer row + flex-1 shim both use drag; only the collapse pill is no-drag so it stays clickable.
-      */}
+      {/* macOS: unified drag band is in NotesApp; rows are pointer-events-none except controls. */}
       <div
         className={cn(
-          'flex h-12 w-full shrink-0 items-center gap-1',
-          macElectron ? 'pl-[92px] pr-2' : 'px-2'
+          'relative z-10 flex h-12 w-full shrink-0 items-center gap-1',
+          macElectron ? 'pointer-events-none pr-2' : 'px-2'
         )}
-        style={macElectron ? macTitlebarStyles.drag : undefined}
       >
-        {macElectron ? (
-          <div
-            aria-hidden
-            className="min-h-12 min-w-0 flex-1 self-stretch"
-            style={macTitlebarStyles.drag}
-          />
-        ) : null}
         <div
-          className={liquidGlassControlPillClass(nativeGlassUi)}
+          className={cn(
+            'pointer-events-auto',
+            liquidGlassControlPillClass(nativeGlassUi),
+            macDragDebugNoDragSurfaceClass(macElectron)
+          )}
           style={macElectron ? macTitlebarStyles.noDrag : undefined}
           data-sidebar-interactive=""
         >
@@ -224,6 +224,7 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
             aria-label="Collapse sidebar"
             aria-expanded={true}
             onClick={toggleSidebar}
+            style={macElectron ? macTitlebarStyles.noDrag : undefined}
           >
             {liquidChrome ? (
               <MacSidebarLeadingToolbarIcon
@@ -239,91 +240,105 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
       {appMode === 'notes' ? (
         <div
           className={cn(
-            'flex w-full shrink-0 flex-row flex-nowrap items-center justify-start gap-0.5 px-2 py-1.5',
-            macElectron
+            'relative z-10 flex w-full shrink-0 flex-row flex-nowrap items-stretch justify-start gap-0.5 px-2 py-1.5',
+            macElectron && 'pointer-events-none'
           )}
-          style={macElectron ? macTitlebarStyles.drag : undefined}
         >
-          <Button
-            type="button"
-            size="sm"
-            variant="ghost"
-            className="text-muted-foreground size-8 shrink-0 p-0"
-            aria-label="New workspace folder"
-            onClick={startFolderCreate}
-            data-sidebar-interactive=""
-            style={macElectron ? macTitlebarStyles.noDrag : undefined}
-          >
-            <FolderPlus className="size-4" aria-hidden />
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant="ghost"
-            className="text-muted-foreground size-8 shrink-0 p-0"
-            aria-label="New note"
-            disabled={!canCreateNote}
-            onClick={handleNewNote}
-            data-sidebar-interactive=""
-            style={macElectron ? macTitlebarStyles.noDrag : undefined}
-          >
-            <SquarePen className="size-4" aria-hidden />
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant="ghost"
-            className="text-muted-foreground size-8 shrink-0 p-0"
-            title="New drawing"
-            aria-label="New drawing"
-            disabled={!canCreateNote}
-            onClick={handleNewDrawing}
-            data-sidebar-interactive=""
-            style={macElectron ? macTitlebarStyles.noDrag : undefined}
-          >
-            <PenLine className="size-4" aria-hidden />
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant={graphViewOpen ? 'secondary' : 'ghost'}
+          <div
             className={cn(
-              'size-8 shrink-0 p-0',
-              graphViewOpen ? 'text-foreground' : 'text-muted-foreground'
+              'pointer-events-auto flex min-w-0 flex-none flex-nowrap items-center gap-0.5',
+              macDragDebugNoDragSurfaceClass(macElectron)
             )}
-            title="Note link graph"
-            aria-label="Note link graph"
-            aria-pressed={graphViewOpen}
-            disabled={!canCreateNote}
-            onClick={() => (graphViewOpen ? closeGraphView() : openGraphView())}
-            data-sidebar-interactive=""
             style={macElectron ? macTitlebarStyles.noDrag : undefined}
           >
-            <Network className="size-4" aria-hidden />
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant="ghost"
-            className="text-muted-foreground size-8 shrink-0 p-0"
-            aria-label="Settings"
-            onClick={openSettings}
-            data-sidebar-interactive=""
-            style={macElectron ? macTitlebarStyles.noDrag : undefined}
-          >
-            <Settings className="size-4" aria-hidden />
-          </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              className="text-muted-foreground size-8 shrink-0 p-0"
+              aria-label="New workspace folder"
+              onClick={startFolderCreate}
+              data-sidebar-interactive=""
+              style={macElectron ? macTitlebarStyles.noDrag : undefined}
+            >
+              <FolderPlus className="size-4" aria-hidden />
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              className="text-muted-foreground size-8 shrink-0 p-0"
+              aria-label="New note"
+              disabled={!canCreateNote}
+              onClick={handleNewNote}
+              data-sidebar-interactive=""
+              style={macElectron ? macTitlebarStyles.noDrag : undefined}
+            >
+              <SquarePen className="size-4" aria-hidden />
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              className="text-muted-foreground size-8 shrink-0 p-0"
+              title="New drawing"
+              aria-label="New drawing"
+              disabled={!canCreateNote}
+              onClick={handleNewDrawing}
+              data-sidebar-interactive=""
+              style={macElectron ? macTitlebarStyles.noDrag : undefined}
+            >
+              <PenLine className="size-4" aria-hidden />
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant={graphViewOpen ? 'secondary' : 'ghost'}
+              className={cn(
+                'size-8 shrink-0 p-0',
+                graphViewOpen ? 'text-foreground' : 'text-muted-foreground'
+              )}
+              title="Note link graph"
+              aria-label="Note link graph"
+              aria-pressed={graphViewOpen}
+              disabled={!canCreateNote}
+              onClick={() => (graphViewOpen ? closeGraphView() : openGraphView())}
+              data-sidebar-interactive=""
+              style={macElectron ? macTitlebarStyles.noDrag : undefined}
+            >
+              <Network className="size-4" aria-hidden />
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              className="text-muted-foreground size-8 shrink-0 p-0"
+              aria-label="Settings"
+              onClick={openSettings}
+              data-sidebar-interactive=""
+              style={macElectron ? macTitlebarStyles.noDrag : undefined}
+            >
+              <Settings className="size-4" aria-hidden />
+            </Button>
+          </div>
         </div>
       ) : appMode === 'settings' ? (
         <div
-          className="w-full shrink-0 px-2 py-1.5"
-          style={macElectron ? macTitlebarStyles.drag : undefined}
+          className={cn(
+            'relative z-10 flex w-full shrink-0 items-stretch px-2 py-1.5',
+            macElectron && 'pointer-events-none',
+            macDragDebugNoDragSurfaceClass(macElectron)
+          )}
+          style={macElectron ? macTitlebarStyles.noDrag : undefined}
         >
           <Button
             type="button"
             size="sm"
             variant="ghost"
-            className="text-muted-foreground h-8 w-full min-w-0  gap-1.5 px-2.5 items-center justify-start "
+            className={cn(
+              'text-muted-foreground h-8 w-full min-w-0 gap-1.5 px-2.5 items-center justify-start',
+              macElectron && 'pointer-events-auto'
+            )}
             onClick={backToNotes}
             data-sidebar-interactive=""
             style={macElectron ? macTitlebarStyles.noDrag : undefined}
@@ -335,7 +350,12 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
           </Button>
         </div>
       ) : null}
-      <div className="min-h-0 flex-1 overflow-y-auto p-2">
+      <div
+        className={cn(
+          'min-h-0 flex-1 overflow-y-auto p-2',
+          macElectron && 'pointer-events-auto'
+        )}
+      >
         {appMode === 'settings' ? (
           <ul className="flex flex-col gap-0">
             <li>

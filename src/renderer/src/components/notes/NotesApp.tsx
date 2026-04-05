@@ -3,6 +3,7 @@ import type { JSX } from 'react'
 import { cn } from '@/lib/utils'
 
 import type { NotesAppProps } from './notes-app-types'
+import { macDragDebugSurfaceClass, macTitlebarStyles } from './notes-app-utils'
 import { NotesMainArea } from './NotesMainArea'
 import { NotesSidebar } from './NotesSidebar'
 import { useNotesApp } from './useNotesApp'
@@ -17,10 +18,21 @@ export function NotesApp(props: NotesAppProps): JSX.Element {
   return (
     <div
       className={cn(
-        'bg-background text-foreground overflow-hidden',
-        sidebarOverlayActive ? 'relative h-screen w-full' : 'flex h-screen w-full flex-row'
+        'bg-background text-foreground relative overflow-hidden',
+        sidebarOverlayActive ? 'h-screen w-full' : 'flex h-screen w-full flex-row'
       )}
     >
+      {/*
+        Single macOS drag band: full width, flush to window top. Interactive controls use
+        pointer-events-auto + no-drag in each column; rows use pointer-events-none so gaps hit this layer.
+      */}
+      {macElectron && (
+        <div
+          aria-hidden
+          className={cn('fixed inset-x-0 top-0 z-[1] h-14', macDragDebugSurfaceClass(macElectron))}
+          style={macTitlebarStyles.drag}
+        />
+      )}
       {/*
         Single sidebar column (always mounted) so width/opacity transitions run on every platform.
         macOS expanded: overlay slot (absolute). Otherwise: flex sibling. min-w-0 avoids flex
@@ -28,12 +40,15 @@ export function NotesApp(props: NotesAppProps): JSX.Element {
       */}
       <div
         className={cn(
-          'flex min-h-0 min-w-0 shrink-0 overflow-hidden transition-[width] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] will-change-[width]',
+          'relative z-[2] flex min-h-0 min-w-0 shrink-0 overflow-hidden transition-[width] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] will-change-[width]',
           sidebarOverlayActive
             ? 'pointer-events-none absolute inset-y-0 left-0 z-30'
-            : 'relative',
+            : '',
           sidebarHidden ? 'w-0 border-r-0' : 'w-[min(100%,320px)]',
-          !sidebarHidden && macElectron && !sidebarOverlayActive && 'box-border bg-background py-2 pl-2 pr-1.5'
+          !sidebarHidden &&
+            macElectron &&
+            !sidebarOverlayActive &&
+            'pointer-events-none box-border bg-background pb-2 pl-2 pr-1.5 pt-0'
         )}
         aria-hidden={sidebarHidden}
       >
@@ -48,13 +63,14 @@ export function NotesApp(props: NotesAppProps): JSX.Element {
           <div
             className={cn(
               'flex h-full min-h-0 min-w-0 flex-col',
-              macElectron && !sidebarHidden && sidebarOverlayActive && 'box-border py-2 pl-2 pr-1.5'
+              macElectron && !sidebarHidden && sidebarOverlayActive && 'box-border pb-2 pl-2 pr-1.5 pt-0'
             )}
           >
             <div
               className={cn(
                 'flex min-h-0 min-w-0 flex-1 flex-col',
-                sidebarOverlayActive && 'pointer-events-auto h-full'
+                (sidebarOverlayActive || (macElectron && !sidebarHidden)) &&
+                  'pointer-events-auto h-full'
               )}
             >
               <NotesSidebar vm={vm} />
@@ -63,7 +79,14 @@ export function NotesApp(props: NotesAppProps): JSX.Element {
         </div>
       </div>
 
-      <NotesMainArea vm={vm} />
+      <div
+        className={cn(
+          'relative z-[2] min-h-0 min-w-0',
+          sidebarOverlayActive ? 'absolute inset-0' : 'flex min-h-0 flex-1 flex-col'
+        )}
+      >
+        <NotesMainArea vm={vm} />
+      </div>
     </div>
   )
 }

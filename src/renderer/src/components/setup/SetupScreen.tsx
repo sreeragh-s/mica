@@ -5,7 +5,7 @@ import { Check, ExternalLink, Loader2, RefreshCw, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { backendFetchJson } from '@/lib/backend-api'
+import { serverFetchJson } from '@/lib/server-api'
 import type { NotelabApi } from '@/lib/auth-bridge'
 import { isMacElectron } from '@/lib/electron-env'
 import { saveSetupState } from '@/lib/setup-storage'
@@ -73,7 +73,7 @@ export function SetupScreen({ api, onDone }: Props): JSX.Element {
   }, [runDataRoot])
 
   const loadStatus = useCallback(async () => {
-    const r = await backendFetchJson<{
+    const r = await serverFetchJson<{
       hasInstallation?: boolean
       linkedRepo?: { fullName: string } | null
     }>('/api/github/status')
@@ -93,7 +93,7 @@ export function SetupScreen({ api, onDone }: Props): JSX.Element {
     setInstallBusy(true)
     setStatusMsg(null)
     try {
-      const r = await backendFetchJson<{ url?: string }>('/api/github/install-url')
+      const r = await serverFetchJson<{ url?: string }>('/api/github/install-url')
       if (!r.ok || !r.data?.url) {
         setStatusMsg(r.ok ? 'No install URL returned.' : r.message)
         return
@@ -113,7 +113,7 @@ export function SetupScreen({ api, onDone }: Props): JSX.Element {
     setRefreshBusy(true)
     setStatusMsg(null)
     try {
-      const r = await backendFetchJson<{ ok?: boolean; installationId?: string }>(
+      const r = await serverFetchJson<{ ok?: boolean; installationId?: string }>(
         '/api/github/refresh-installation',
         { method: 'POST' }
       )
@@ -125,7 +125,7 @@ export function SetupScreen({ api, onDone }: Props): JSX.Element {
       setHasInstallation(true)
       setStatusMsg('GitHub App linked. You can list repositories below.')
       await loadStatus()
-      const lr = await backendFetchJson<{
+      const lr = await serverFetchJson<{
         repositories: { fullName: string; defaultBranch: string }[]
       }>('/api/github/repos?page=1')
       if (lr.ok && lr.data?.repositories) {
@@ -137,7 +137,7 @@ export function SetupScreen({ api, onDone }: Props): JSX.Element {
   }, [loadStatus])
 
   const loadRepos = useCallback(async () => {
-    const lr = await backendFetchJson<{
+    const lr = await serverFetchJson<{
       repositories: { fullName: string; defaultBranch: string }[]
     }>('/api/github/repos?page=1')
     if (lr.ok && lr.data?.repositories) {
@@ -170,7 +170,7 @@ export function SetupScreen({ api, onDone }: Props): JSX.Element {
         setValidateError('Enter owner and repository name, or pick from the list.')
         return
       }
-      const v = await backendFetchJson<{ ok?: boolean; reason?: string }>(
+      const v = await serverFetchJson<{ ok?: boolean; reason?: string }>(
         '/api/github/validate-repo',
         { method: 'POST', body: { owner, repo: name } }
       )
@@ -183,7 +183,7 @@ export function SetupScreen({ api, onDone }: Props): JSX.Element {
         setValidateError(data?.reason ?? 'This repository is not valid for notelab.io.')
         return
       }
-      const link = await backendFetchJson<{ ok?: boolean; fullName?: string; reason?: string }>(
+      const link = await serverFetchJson<{ ok?: boolean; fullName?: string; reason?: string }>(
         '/api/github/link-repo',
         { method: 'POST', body: { owner, repo: name } }
       )
@@ -214,7 +214,7 @@ export function SetupScreen({ api, onDone }: Props): JSX.Element {
     setValidateError(null)
     try {
       const n = newRepoName.trim() || slugifyRepoSuggestion('notelab')
-      const r = await backendFetchJson<{ ok?: boolean; fullName?: string }>(
+      const r = await serverFetchJson<{ ok?: boolean; fullName?: string }>(
         '/api/github/repos/create',
         { method: 'POST', body: { name: n, private: false } }
       )

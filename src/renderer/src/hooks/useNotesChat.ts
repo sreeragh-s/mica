@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { backendFetchJson } from '@/lib/backend-api'
+import { serverFetchJson } from '@/lib/server-api'
 import type { SavedNote, WorkspaceFolder } from '@/lib/notes-storage'
 
 const LOG = '[useNotesChat]'
@@ -207,7 +207,7 @@ export function useNotesChat({
       // 1. Embed the query
       // -----------------------------------------------------------------------
       console.info(LOG, 'embedding query…')
-      const embedRes = await backendFetchJson<{ embeddings: number[][]; dimension: number }>(
+      const embedRes = await serverFetchJson<{ embeddings: number[][]; dimension: number }>(
         '/api/embeddings',
         { method: 'POST', body: { texts: [trimmedQuery] } }
       )

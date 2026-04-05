@@ -60,7 +60,7 @@ import {
 } from '@/lib/notes-search'
 import { cn } from '@/lib/utils'
 import type { SavedNote, WorkspaceFolder } from '@/lib/notes-storage'
-import { macTitlebarStyles } from './notes-app-utils'
+import { macDragDebugNoDragSurfaceClass, macTitlebarStyles } from './notes-app-utils'
 import type { ChatHistoryMeta } from '@/hooks/useNotesChat'
 import { useNotesChat } from '@/hooks/useNotesChat'
 
@@ -126,6 +126,7 @@ export function NotesChatSidebar({
       aria-hidden={!open}
       className={cn(
         'flex min-h-0 shrink-0 self-stretch overflow-hidden transition-[width] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] will-change-[width]',
+        open && 'pointer-events-auto',
         open ? 'w-[min(100%,440px)]' : 'w-0'
       )}
     >
@@ -231,8 +232,10 @@ function NotesChatSidebarInner({
   const pillSpacer = (
     <div
       aria-hidden
-      className={cn('shrink-0', macElectron || sidebarOverlayActive ? 'h-14' : 'h-12')}
-      style={macElectron ? macTitlebarStyles.drag : undefined}
+      className={cn(
+        'pointer-events-none shrink-0',
+        macElectron || sidebarOverlayActive ? 'h-14' : 'h-14'
+      )}
     />
   )
 
@@ -472,12 +475,17 @@ function ChatToolbarRow({
 }): JSX.Element {
   return (
     <div
-      className="border-border flex min-h-9 shrink-0 items-center gap-2 border-b px-3 py-2"
-      style={macElectron ? macTitlebarStyles.drag : undefined}
+      className={cn(
+        'relative z-10 border-border flex min-h-9 shrink-0 items-center gap-2 border-b px-3 ',
+        macElectron && 'pointer-events-none'
+      )}
     >
       {showHistory ? (
         <div
-          className="relative min-w-0 flex-1"
+          className={cn(
+            'pointer-events-auto relative min-w-0 flex-1',
+            macDragDebugNoDragSurfaceClass(macElectron ?? false)
+          )}
           style={macElectron ? macTitlebarStyles.noDrag : undefined}
         >
           <Search
@@ -495,7 +503,10 @@ function ChatToolbarRow({
         </div>
       ) : folders.length > 0 ? (
         <div
-          className="min-w-0 flex-1"
+          className={cn(
+            'pointer-events-auto min-w-0 flex-1',
+            macDragDebugNoDragSurfaceClass(macElectron ?? false)
+          )}
           style={macElectron ? macTitlebarStyles.noDrag : undefined}
         >
           <Select
@@ -519,7 +530,10 @@ function ChatToolbarRow({
         <div className="min-w-0 flex-1" />
       )}
       <div
-        className="flex shrink-0 items-center gap-0.5"
+        className={cn(
+          'pointer-events-auto flex shrink-0 items-center gap-0.5',
+          macDragDebugNoDragSurfaceClass(macElectron ?? false)
+        )}
         style={macElectron ? macTitlebarStyles.noDrag : undefined}
       >
         <TooltipProvider>

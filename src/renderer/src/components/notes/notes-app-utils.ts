@@ -18,6 +18,20 @@ export const macTitlebarStyles: MacTitlebarStyles = {
   noDrag: { WebkitAppRegion: 'no-drag' } as CSSProperties
 }
 
+/** Main window drag uses a single full-width band in `NotesApp` (macOS Electron); avoid extra `drag` rows. */
+
+/** Dev-only: tint `-webkit-app-region: drag` surfaces (macOS Electron). */
+export function macDragDebugSurfaceClass(macElectron: boolean): string {
+  if (!macElectron || !import.meta.env.DEV) return ''
+  return 'bg-red-500/20 ring-1 ring-inset ring-red-500/45'
+}
+
+/** Dev-only: tint `-webkit-app-region: no-drag` interactive chrome (macOS Electron). */
+export function macDragDebugNoDragSurfaceClass(macElectron: boolean): string {
+  if (!macElectron || !import.meta.env.DEV) return ''
+  return 'bg-emerald-500/15 ring-1 ring-inset ring-emerald-500/35'
+}
+
 export function createEmptyNote(folderId: string): SavedNote {
   return {
     id: crypto.randomUUID(),

@@ -9,7 +9,7 @@ import {
 } from 'react'
 import type { SerializedEditorState } from 'lexical'
 
-import { backendFetchJson } from '@/lib/backend-api'
+import { serverFetchJson } from '@/lib/server-api'
 import { getApi, getWindowApi } from '@/lib/auth-bridge'
 import {
   buildIndexingStatus,
@@ -390,7 +390,7 @@ export function useNotesApp({
     setGitSyncBusy(true)
     setGitSyncError(null)
     try {
-      const r = await backendFetchJson<{
+      const r = await serverFetchJson<{
         files: { path: string; content: string; sha?: string }[]
         commitSha?: string | null
       }>('/api/github/sync/pull', { method: 'POST' })
@@ -462,7 +462,7 @@ export function useNotesApp({
           })
         }
       }
-      const r = await backendFetchJson<{ ok?: boolean; commitSha?: string | null }>(
+      const r = await serverFetchJson<{ ok?: boolean; commitSha?: string | null }>(
         '/api/github/sync/push',
         {
           method: 'POST',

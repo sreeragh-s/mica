@@ -13,7 +13,7 @@ Renderer (React)
   ├─ embedding-pipeline.ts    Orchestrates chunk → embed → store
   │
   ▼  window.api.auth.fetch (IPC, session cookies)
-Backend (Cloudflare Worker)
+Server (Cloudflare Worker)
   │
   └─ POST /api/embeddings     Validates session → bge-m3 → returns number[][]
   
@@ -27,7 +27,7 @@ Main process
 
 ## Files changed / created
 
-### Backend (`backend/`)
+### Server (`server/`)
 
 | File | Change |
 |------|--------|
@@ -66,19 +66,19 @@ Main process
 
 ## How to initialize
 
-### 1. Backend — enable the AI binding
+### 1. Server — enable the AI binding
 
-In `backend/wrangler.jsonc` the `"ai"` binding is already added. No extra sign-up is needed; Workers AI is enabled on any Cloudflare account. For local dev with `wrangler dev`, Workers AI runs remotely (requires `--remote` or an active internet connection).
+In `server/wrangler.jsonc` the `"ai"` binding is already added. No extra sign-up is needed; Workers AI is enabled on any Cloudflare account. For local dev with `wrangler dev`, Workers AI runs remotely (requires `--remote` or an active internet connection).
 
 ```bash
-cd backend
+cd server
 npx wrangler dev --remote   # AI binding requires remote execution
 ```
 
-### 2. Backend — deploy (production)
+### 2. Server — deploy (production)
 
 ```bash
-cd backend
+cd server
 npx wrangler deploy
 ```
 
@@ -92,7 +92,7 @@ No manual migration is needed.
 
 ### 4. notelab.io — environment variable
 
-The Electron renderer calls the backend via `VITE_AUTH_URL`. Make sure your app’s `.env` (or `.env.local`) has:
+The Electron renderer calls the server via `VITE_AUTH_URL`. Make sure your app’s `.env` (or `.env.local`) has:
 
 ```
 VITE_AUTH_URL=https://your-worker.workers.dev
@@ -111,8 +111,8 @@ VITE_AUTH_URL=https://your-tunnel.trycloudflare.com
 ### Development
 
 ```bash
-# Terminal 1 — backend (remote AI binding required)
-cd backend
+# Terminal 1 — server (remote AI binding required)
+cd server
 npx wrangler dev --remote
 
 # Terminal 2 — Electron app (from this repo’s root directory)
@@ -205,8 +205,8 @@ The `content_hash` is used to skip re-embedding notes whose content hasn't chang
 The IPC `window.api.embeddings.vectorSearch` is already wired and ready. When AI chat is implemented, the query flow will be:
 
 ```ts
-// 1. Embed the query (same backend endpoint)
-const res = await backendFetchJson<{ embeddings: number[][] }>(
+// 1. Embed the query (same server endpoint)
+const res = await serverFetchJson<{ embeddings: number[][] }>(
   '/api/embeddings',
   { method: 'POST', body: { texts: [queryText] } }
 )

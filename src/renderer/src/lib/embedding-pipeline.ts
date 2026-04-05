@@ -1,18 +1,18 @@
 /**
- * Embedding pipeline: chunk → embed via backend API → store in LanceDB.
+ * Embedding pipeline: chunk → embed via server API → store in LanceDB.
  *
- * All backend calls are authenticated via the Electron auth session (auth:fetch IPC).
+ * All server calls are authenticated via the Electron auth session (auth:fetch IPC).
  * Only works when the user is signed in (non-guest mode).
  */
 
-import { backendFetchJson } from '@/lib/backend-api'
+import { serverFetchJson } from '@/lib/server-api'
 import { getApi } from '@/lib/auth-bridge'
 import { chunkMarkdown, extractExcalidrawText } from '@/lib/markdown-chunker'
 
-/** Must match EMBEDDING_DIMENSION in backend/src/embeddings.ts */
+/** Must match EMBEDDING_DIMENSION in server/src/embeddings.ts */
 export const EMBEDDING_DIMENSION = 1024
 
-/** Max chunks sent to backend per API call (matches backend MAX_TEXTS_PER_REQUEST). */
+/** Max chunks sent to server per API call (matches server MAX_TEXTS_PER_REQUEST). */
 const BATCH_SIZE = 50
 
 const LOG = '[embedding-pipeline]'
@@ -47,7 +47,7 @@ export function chunkNoteContent(
 }
 
 /**
- * Embed an array of text strings via the backend `/api/embeddings` endpoint.
+ * Embed an array of text strings via the server `/api/embeddings` endpoint.
  * Batches automatically if texts.length > BATCH_SIZE.
  */
 async function embedTexts(texts: string[]): Promise<number[][] | null> {
@@ -58,12 +58,12 @@ async function embedTexts(texts: string[]): Promise<number[][] | null> {
   for (let i = 0; i < texts.length; i += BATCH_SIZE) {
     const batch = texts.slice(i, i + BATCH_SIZE)
     console.info(LOG, `embedTexts: sending batch of ${batch.length} text(s)`)
-    const result = await backendFetchJson<{ embeddings: number[][] }>(
+    const result = await serverFetchJson<{ embeddings: number[][] }>(
       '/api/embeddings',
       { method: 'POST', body: { texts: batch } }
     )
     if (!result.ok) {
-      console.error(LOG, `embedTexts: backend returned error (status ${result.status}):`, result.message)
+      console.error(LOG, `embedTexts: server returned error (status ${result.status}):`, result.message)
       return null
     }
     console.info(LOG, `embedTexts: got ${result.data.embeddings.length} embeddings back`)
@@ -84,7 +84,7 @@ export type IndexNoteResult =
  * 2. If hash matches stored hash, skip (content unchanged).
  * 3. Chunk content.
  * 4. If no chunks (empty note), delete old embeddings and skip.
- * 5. Embed chunks via backend.
+ * 5. Embed chunks via server.
  * 6. Store in LanceDB with the hash.
  */
 export async function indexNote(opts: {
@@ -122,7 +122,7 @@ export async function indexNote(opts: {
 
   const embeddings = await embedTexts(chunks)
   if (!embeddings) {
-    return { ok: false, error: 'Failed to get embeddings from backend' }
+    return { ok: false, error: 'Failed to get embeddings from server' }
   }
 
   if (embeddings.length !== chunks.length) {

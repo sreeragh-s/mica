@@ -3,11 +3,15 @@ import type { JSX } from 'react'
 import { LayoutGrid, MessageCircle, Plus } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 import { liquidGlassToolbarShellClass } from '@/lib/liquid-glass-toolbar'
 
+import { macDragDebugNoDragSurfaceClass } from './notes-app-utils'
 import type { MacTitlebarStyles } from './notes-app-types'
 
 export type NotesToolbarPillProps = {
+  /** When true, dev tint applies to this no-drag shell (macOS Electron). */
+  macElectron?: boolean
   macTitlebarStyles: MacTitlebarStyles
   /** Main-process `electron-liquid-glass` attached (macOS). */
   nativeLiquidGlassAttached: boolean
@@ -18,6 +22,7 @@ export type NotesToolbarPillProps = {
 }
 
 export function NotesToolbarPill({
+  macElectron = false,
   macTitlebarStyles,
   nativeLiquidGlassAttached,
   onOpenTabOverview,
@@ -26,7 +31,14 @@ export function NotesToolbarPill({
   onToggleChatSidebar
 }: NotesToolbarPillProps): JSX.Element {
   return (
-    <div className={liquidGlassToolbarShellClass(nativeLiquidGlassAttached)} style={macTitlebarStyles.noDrag}>
+    <div
+      className={cn(
+        liquidGlassToolbarShellClass(nativeLiquidGlassAttached),
+        macDragDebugNoDragSurfaceClass(macElectron),
+        macElectron && 'mt-2'
+      )}
+      style={macTitlebarStyles.noDrag}
+    >
       <Button
         type="button"
         variant="ghost"

@@ -22,7 +22,7 @@ import type { SavedNote, WorkspaceFolder } from '@/lib/notes-storage'
 import { liquidGlassControlPillClass, liquidGlassSearchShellClass } from '@/lib/liquid-glass-toolbar'
 
 import { MacSidebarLeadingToolbarIcon } from './MacSidebarToolbarIcon'
-import { isDrawingNote } from './notes-app-utils'
+import { isDrawingNote, macDragDebugNoDragSurfaceClass } from './notes-app-utils'
 import type { MacTitlebarStyles } from './notes-app-types'
 
 function SearchHighlight({ segments }: { segments: SearchMatchSegment[] }): JSX.Element {
@@ -140,147 +140,174 @@ export function NotesSearchBar({
     <div
       ref={wrapRef}
       className={cn(
-        'relative z-0 flex h-12 w-full min-w-0 shrink-0 items-center gap-2 px-2',
-        reserveToolbarPillSpace ? 'pr-32' : sidebarOverlayActive && 'pr-1.5',
+        'relative z-10 flex h-12 w-full min-w-0 shrink-0 items-center gap-2 px-2 mt-1',
+        macElectron && 'pointer-events-none',
+        !reserveToolbarPillSpace && sidebarOverlayActive && 'pr-1.5',
         !sidebarOverlayActive && macElectron && sidebarCollapsed && 'pl-[92px]'
       )}
-      style={macElectron ? macTitlebarStyles.drag : undefined}
     >
-      {sidebarCollapsed ? (
-        <div className={liquidGlassControlPillClass(nativeGlassUi)} style={macTitlebarStyles.noDrag}>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="text-muted-foreground size-8 shrink-0 rounded-full"
-            aria-label="Expand sidebar"
-            aria-expanded={false}
-            onClick={toggleSidebar}
-          >
-            {macElectron ? (
-              <MacSidebarLeadingToolbarIcon
-                className="size-[15px]"
-                nativeLiquidGlassActive={nativeGlassUi}
-              />
-            ) : (
-              <PanelLeftOpen className="size-4" aria-hidden />
+      {/* macOS: window drag is one full-width band in NotesApp; this row is pointer-events-none except controls. */}
+      <div className="flex min-h-0 min-w-0 flex-1 items-center gap-2">
+        {sidebarCollapsed ? (
+          <div
+            className={cn(
+              'pointer-events-auto',
+              liquidGlassControlPillClass(nativeGlassUi),
+              macDragDebugNoDragSurfaceClass(macElectron)
             )}
-          </Button>
-        </div>
-      ) : null}
-      <div className="flex min-h-0 min-w-0 flex-1 justify-center">
-        <Popover
-          open={showPopover}
-          onOpenChange={(next) => {
-            if (!next) setOpen(false)
-          }}
-        >
-          <PopoverAnchor asChild>
+            style={macTitlebarStyles.noDrag}
+          >
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="text-muted-foreground size-8 shrink-0 rounded-full"
+              aria-label="Expand sidebar"
+              aria-expanded={false}
+              onClick={toggleSidebar}
+            >
+              {macElectron ? (
+                <MacSidebarLeadingToolbarIcon
+                  className="size-[15px]"
+                  nativeLiquidGlassActive={nativeGlassUi}
+                />
+              ) : (
+                <PanelLeftOpen className="size-4" aria-hidden />
+              )}
+            </Button>
+          </div>
+        ) : null}
+        <div className="flex min-h-0 min-w-0 flex-1 justify-center">
+          <Popover
+            open={showPopover}
+            onOpenChange={(next) => {
+              if (!next) setOpen(false)
+            }}
+          >
+            <PopoverAnchor asChild>
             <div
-              className={liquidGlassSearchShellClass(nativeGlassUi)}
+              className={cn(
+                'pointer-events-auto',
+                liquidGlassSearchShellClass(nativeGlassUi),
+                macDragDebugNoDragSurfaceClass(macElectron)
+              )}
               style={macElectron ? macTitlebarStyles.noDrag : undefined}
             >
-              <Search
-                className="text-muted-foreground pointer-events-none absolute left-3 top-1/2 z-10 size-4 -translate-y-1/2 opacity-70"
-                aria-hidden
-              />
-              <Input
-                ref={inputRef}
-                type="search"
-                value={query}
-                onChange={(e) => {
-                  setQuery(e.target.value)
-                  setSelected(0)
-                  setOpen(true)
-                }}
-                onFocus={() => setOpen(true)}
-                onBlur={() => {
-                  window.setTimeout(() => {
-                    if (!wrapRef.current?.contains(document.activeElement)) {
-                      setOpen(false)
-                    }
-                  }, 0)
-                }}
-                onKeyDown={onKeyDown}
-                placeholder="Search notes…"
-                className="border-0 bg-transparent text-foreground placeholder:text-muted-foreground h-8 w-full rounded-full pl-9 pr-3 text-sm ring-0 focus-visible:ring-4 focus-visible:ring-ring/35"
-                aria-label="Search notes"
-                aria-autocomplete="list"
-                aria-expanded={showPopover}
-                role="combobox"
-              />
-            </div>
-          </PopoverAnchor>
-          <PopoverContent
-            align="center"
-            sideOffset={6}
-            className="border-border bg-popover text-popover-foreground max-h-[min(50vh,340px)] w-[min(28rem,calc(100vw-2rem))] overflow-hidden p-0 shadow-lg"
-            onOpenAutoFocus={(e) => e.preventDefault()}
-            onCloseAutoFocus={(e) => e.preventDefault()}
-          >
-            <div
-              ref={listRef}
-              className="max-h-[min(50vh,340px)] overflow-y-auto p-1"
-              role="listbox"
-              aria-label="Search results"
+                <Search
+                  className="text-muted-foreground pointer-events-none absolute left-3 top-1/2 z-10 size-4 -translate-y-1/2 opacity-70"
+                  aria-hidden
+                />
+                <Input
+                  ref={inputRef}
+                  type="search"
+                  value={query}
+                  onChange={(e) => {
+                    setQuery(e.target.value)
+                    setSelected(0)
+                    setOpen(true)
+                  }}
+                  onFocus={() => setOpen(true)}
+                  onBlur={() => {
+                    window.setTimeout(() => {
+                      if (!wrapRef.current?.contains(document.activeElement)) {
+                        setOpen(false)
+                      }
+                    }, 0)
+                  }}
+                  onKeyDown={onKeyDown}
+                  placeholder="Search notes…"
+                  className="border-0 bg-transparent text-foreground placeholder:text-muted-foreground h-8 w-full rounded-full pl-9 pr-3 text-sm ring-0 focus-visible:ring-4 focus-visible:ring-ring/35"
+                  aria-label="Search notes"
+                  aria-autocomplete="list"
+                  aria-expanded={showPopover}
+                  role="combobox"
+                />
+              </div>
+            </PopoverAnchor>
+            <PopoverContent
+              align="center"
+              sideOffset={6}
+              className="border-border bg-popover text-popover-foreground max-h-[min(50vh,340px)] w-[min(28rem,calc(100vw-2rem))] overflow-hidden p-0 shadow-lg"
+              onOpenAutoFocus={(e) => e.preventDefault()}
+              onCloseAutoFocus={(e) => e.preventDefault()}
             >
-              {results.length === 0 ? (
-                <p className="text-muted-foreground px-3 py-6 text-center text-sm">
-                  No matching notes.
-                </p>
-              ) : (
-                results.map((r, i) => {
-                  const drawing = isDrawingNote(r.note)
-                  return (
-                    <Button
-                      key={r.note.id}
-                      type="button"
-                      variant="ghost"
-                      role="option"
-                      data-search-result-index={i}
-                      aria-selected={i === activeIndex}
-                      className={cn(
-                        'h-auto min-h-0 w-full flex-col items-stretch gap-1 rounded-md px-2.5 py-2 text-left font-normal',
-                        i === activeIndex && 'bg-accent text-accent-foreground'
-                      )}
-                      onMouseEnter={() => setSelected(i)}
-                      onMouseDown={(e) => e.preventDefault()}
-                      onClick={() => pick(r)}
-                    >
-                      <div className="flex min-w-0 items-center gap-2">
-                        {drawing ? (
-                          <PenLine
-                            className="text-muted-foreground size-4 shrink-0 opacity-90"
-                            aria-hidden
-                          />
-                        ) : (
-                          <FileText
-                            className="text-muted-foreground size-4 shrink-0 opacity-90"
-                            aria-hidden
-                          />
+              <div
+                ref={listRef}
+                className="max-h-[min(50vh,340px)] overflow-y-auto p-1"
+                role="listbox"
+                aria-label="Search results"
+              >
+                {results.length === 0 ? (
+                  <p className="text-muted-foreground px-3 py-6 text-center text-sm">
+                    No matching notes.
+                  </p>
+                ) : (
+                  results.map((r, i) => {
+                    const drawing = isDrawingNote(r.note)
+                    return (
+                      <Button
+                        key={r.note.id}
+                        type="button"
+                        variant="ghost"
+                        role="option"
+                        data-search-result-index={i}
+                        aria-selected={i === activeIndex}
+                        className={cn(
+                          'h-auto min-h-0 w-full flex-col items-stretch gap-1 rounded-md px-2.5 py-2 text-left font-normal',
+                          i === activeIndex && 'bg-accent text-accent-foreground'
                         )}
-                        <span className="min-w-0 flex-1 truncate text-[13px] font-semibold leading-tight">
-                          <SearchHighlight segments={r.titleSegments} />
-                        </span>
-                      </div>
-                      <div className="text-muted-foreground pl-6 text-xs leading-snug">
-                        <span className="line-clamp-2">
-                          <SearchHighlight segments={r.snippetSegments} />
-                        </span>
-                        <span className="mt-0.5 block opacity-80">{r.folderName}</span>
-                      </div>
-                    </Button>
-                  )
-                })
-              )}
-            </div>
-          </PopoverContent>
-        </Popover>
-      </div>
-      {trailing != null ? (
-        <div className="shrink-0" style={macElectron ? macTitlebarStyles.noDrag : undefined}>
-          {trailing}
+                        onMouseEnter={() => setSelected(i)}
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => pick(r)}
+                      >
+                        <div className="flex min-w-0 items-center gap-2">
+                          {drawing ? (
+                            <PenLine
+                              className="text-muted-foreground size-4 shrink-0 opacity-90"
+                              aria-hidden
+                            />
+                          ) : (
+                            <FileText
+                              className="text-muted-foreground size-4 shrink-0 opacity-90"
+                              aria-hidden
+                            />
+                          )}
+                          <span className="min-w-0 flex-1 truncate text-[13px] font-semibold leading-tight">
+                            <SearchHighlight segments={r.titleSegments} />
+                          </span>
+                        </div>
+                        <div className="text-muted-foreground pl-6 text-xs leading-snug">
+                          <span className="line-clamp-2">
+                            <SearchHighlight segments={r.snippetSegments} />
+                          </span>
+                          <span className="mt-0.5 block opacity-80">{r.folderName}</span>
+                        </div>
+                      </Button>
+                    )
+                  })
+                )}
+              </div>
+            </PopoverContent>
+          </Popover>
         </div>
+        {trailing != null ? (
+          <div
+            className={cn(
+              'pointer-events-auto shrink-0',
+              macDragDebugNoDragSurfaceClass(macElectron)
+            )}
+            style={macElectron ? macTitlebarStyles.noDrag : undefined}
+          >
+            {trailing}
+          </div>
+        ) : null}
+      </div>
+      {reserveToolbarPillSpace ? (
+        <div
+          className="pointer-events-none h-full w-32 min-w-[8rem] shrink-0"
+          style={macElectron ? macTitlebarStyles.noDrag : undefined}
+          aria-hidden
+        />
       ) : null}
     </div>
   )

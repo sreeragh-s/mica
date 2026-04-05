@@ -13,7 +13,7 @@ import { homedir } from 'node:os'
 import { dirname, join, relative, resolve, sep } from 'node:path'
 
 const LOG = '[notelab-workspace]'
-/** In-repo synced notes (must match backend `/api/github`). */
+/** In-repo synced notes (must match server `/api/github`). */
 const REPO_APP_ROOT = 'notelab.io'
 /** Virtual inbox id; not a directory under `notelab.io/workspaces/`. */
 const DEFAULT_WORKSPACE_ID = 'default'

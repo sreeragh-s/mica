@@ -5,7 +5,7 @@ function baseUrl(): string {
   return u.replace(/\/$/, '')
 }
 
-export async function backendFetchJson<T>(
+export async function serverFetchJson<T>(
   path: string,
   init?: { method?: string; body?: unknown }
 ): Promise<

@@ -199,9 +199,7 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
           onDragOver={onDragOverMain}
           onDrop={onDropPrimaryPane}
         >
-          {macElectron && (
-            <div className="h-12 shrink-0" style={macTitlebarStyles.drag} aria-hidden />
-          )}
+          {macElectron && <div className="h-12 shrink-0 pointer-events-none" aria-hidden />}
           {zenHintVisible && (
             <div
               className="pointer-events-none absolute left-0 right-0 top-3 z-10 flex justify-center px-4"
@@ -282,48 +280,29 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
     <div
       className={cn(
         'bg-background flex min-h-0 min-w-0 flex-col',
-        sidebarOverlayActive ? 'absolute inset-0 z-0' : 'flex-1'
+        sidebarOverlayActive ? 'absolute inset-0 z-0' : 'flex-1',
+        macElectron && 'pointer-events-none'
       )}
     >
-      <main
-        className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-transparent"
-        style={macElectron ? macTitlebarStyles.noDrag : undefined}
-      >
+      {/*
+        Do not set no-drag on <main>: Electron applies it to the whole surface and kills the fixed
+        titlebar drag layer underneath. Use pointer-events-none here and pointer-events-auto on
+        scroll/interactive regions only so empty chrome passes through to NotesApp’s drag strip.
+      */}
+      <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-transparent">
         <div
           className={cn(
             'relative flex min-h-0 min-w-0 flex-1 flex-row bg-background',
             sidebarOverlayActive && 'pl-[min(100%,320px)]'
           )}
         >
-          {showNotes && !workspaceSettingsFolderId && !zenMode && (
-            <div
-              className={cn(
-                // Above the full-width search row (later sibling) so the pill stays clickable.
-                'pointer-events-none absolute z-50 flex h-12 items-center',
-                sidebarOverlayActive ? 'right-1.5' : 'right-2',
-                sidebarOverlayActive || macElectron ? 'top-2' : 'top-0'
-              )}
-            >
-              <div className="pointer-events-auto" style={macElectron ? macTitlebarStyles.noDrag : undefined}>
-                <NotesToolbarPill
-                  macTitlebarStyles={macTitlebarStyles}
-                  nativeLiquidGlassAttached={nativeLiquidGlassAttached}
-                  onOpenTabOverview={openTabOverview}
-                  onNewNote={handleNewNote}
-                  chatSidebarOpen={chatSidebarOpen}
-                  onToggleChatSidebar={toggleChatSidebar}
-                />
-              </div>
-            </div>
-          )}
           <div className="relative z-0 flex min-h-0 min-w-0 flex-1 flex-col">
           {!zenMode && (
             <div
               className={cn(
-                'bg-background relative z-0 flex shrink-0 flex-col',
-                (sidebarOverlayActive || macElectron) && 'pt-2'
+                'bg-background relative z-10 flex shrink-0 flex-col',
+                macElectron && 'pointer-events-none'
               )}
-              style={macElectron ? macTitlebarStyles.drag : undefined}
             >
               {/* Search bar row */}
               {showNotes && !workspaceSettingsFolderId ? (
@@ -341,8 +320,11 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
                 />
               ) : (
                 <div
-                  className={cn('h-12 shrink-0', sidebarOverlayActive && 'pr-1.5')}
-                  style={macElectron ? macTitlebarStyles.drag : undefined}
+                  className={cn(
+                    'h-12 shrink-0',
+                    sidebarOverlayActive && 'pr-1.5',
+                    macElectron && 'pointer-events-none'
+                  )}
                   aria-hidden
                 />
               )}
@@ -351,9 +333,9 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
               <div
                 className={cn(
                   'flex min-h-0 w-full min-w-0 shrink-0 items-center py-1.5',
-                  !sidebarOverlayActive && macElectron && sidebarCollapsed
+                  !sidebarOverlayActive && macElectron && sidebarCollapsed,
+                  macElectron && 'pointer-events-none'
                 )}
-                style={macElectron ? macTitlebarStyles.drag : undefined}
               >
                 {showTabs ? (
                   <NoteTabStrip
@@ -373,8 +355,8 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
             </div>
           )}
 
-          {/* Main content */}
-          <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto bg-background">
+          {/* Main content — re-enable hits below the titlebar chrome (search/tabs are pointer-events-none). */}
+          <div className="pointer-events-auto flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto bg-background">
             {workspaceSettingsFolderId && workspaceSettingsFolder ? (
               <WorkspaceSettingsPanel
                 key={workspaceSettingsFolderId}
@@ -470,6 +452,27 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
               macElectron={macElectron}
               sidebarOverlayActive={sidebarOverlayActive}
             />
+          )}
+          {/* After chat in DOM + z-index above chat: open chat uses transform layers that stack above earlier siblings. */}
+          {showNotes && !workspaceSettingsFolderId && !zenMode && (
+            <div
+              className={cn(
+                'pointer-events-auto absolute z-[100] flex h-12 items-center',
+                sidebarOverlayActive ? 'right-1.5' : 'right-2',
+                'top-0'
+              )}
+              style={macElectron ? macTitlebarStyles.noDrag : undefined}
+            >
+              <NotesToolbarPill
+                macElectron={macElectron}
+                macTitlebarStyles={macTitlebarStyles}
+                nativeLiquidGlassAttached={nativeLiquidGlassAttached}
+                onOpenTabOverview={openTabOverview}
+                onNewNote={handleNewNote}
+                chatSidebarOpen={chatSidebarOpen}
+                onToggleChatSidebar={toggleChatSidebar}
+              />
+            </div>
           )}
         </div>
       </main>
