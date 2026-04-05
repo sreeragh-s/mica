@@ -36,13 +36,7 @@ import {
 import { cn } from '@/lib/utils'
 import { liquidGlassControlPillClass } from '@/lib/liquid-glass-toolbar'
 import { DEFAULT_WORKSPACE_ID, formatNoteTime } from '@/lib/notes-storage'
-import {
-  FOLDER_DRAG_MIME,
-  NOTE_DRAG_MIME,
-  macDragDebugNoDragSurfaceClass,
-  treeFolderId,
-  treeNoteId
-} from './notes-app-utils'
+import { FOLDER_DRAG_MIME, NOTE_DRAG_MIME, treeFolderId, treeNoteId } from './notes-app-utils'
 import { MacSidebarLeadingToolbarIcon } from './MacSidebarToolbarIcon'
 import type { NotesAppViewModel } from './useNotesApp'
 
@@ -203,16 +197,12 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
       {/* macOS: unified drag band is in NotesApp; rows are pointer-events-none except controls. */}
       <div
         className={cn(
-          'relative z-10 flex h-12 w-full shrink-0 items-center gap-1',
+          'relative z-10 flex h-12 w-full shrink-0 items-center justify-end gap-1',
           macElectron ? 'pointer-events-none pr-2' : 'px-2'
         )}
       >
         <div
-          className={cn(
-            'pointer-events-auto',
-            liquidGlassControlPillClass(nativeGlassUi),
-            macDragDebugNoDragSurfaceClass(macElectron)
-          )}
+          className={cn('pointer-events-auto', liquidGlassControlPillClass(nativeGlassUi))}
           style={macElectron ? macTitlebarStyles.noDrag : undefined}
           data-sidebar-interactive=""
         >
@@ -240,15 +230,14 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
       {appMode === 'notes' ? (
         <div
           className={cn(
-            'relative z-10 flex w-full shrink-0 flex-row flex-nowrap items-stretch justify-start gap-0.5 px-2 py-1.5',
-            macElectron && 'pointer-events-none'
+            'relative z-10 flex w-full shrink-0 flex-row flex-nowrap items-stretch justify-start gap-0.5 py-1.5',
+            macElectron
+              ? 'pointer-events-none pl-[92px] pr-2'
+              : 'px-2'
           )}
         >
           <div
-            className={cn(
-              'pointer-events-auto flex min-w-0 flex-none flex-nowrap items-center gap-0.5',
-              macDragDebugNoDragSurfaceClass(macElectron)
-            )}
+            className="pointer-events-auto flex min-w-0 flex-none flex-nowrap items-center gap-0.5"
             style={macElectron ? macTitlebarStyles.noDrag : undefined}
           >
             <Button
@@ -325,9 +314,8 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
       ) : appMode === 'settings' ? (
         <div
           className={cn(
-            'relative z-10 flex w-full shrink-0 items-stretch px-2 py-1.5',
-            macElectron && 'pointer-events-none',
-            macDragDebugNoDragSurfaceClass(macElectron)
+            'relative z-10 flex w-full shrink-0 items-stretch py-1.5',
+            macElectron ? 'pointer-events-none pl-[92px] pr-2' : 'px-2'
           )}
           style={macElectron ? macTitlebarStyles.noDrag : undefined}
         >

@@ -60,7 +60,7 @@ import {
 } from '@/lib/notes-search'
 import { cn } from '@/lib/utils'
 import type { SavedNote, WorkspaceFolder } from '@/lib/notes-storage'
-import { macDragDebugNoDragSurfaceClass, macTitlebarStyles } from './notes-app-utils'
+import { macTitlebarStyles } from './notes-app-utils'
 import type { ChatHistoryMeta } from '@/hooks/useNotesChat'
 import { useNotesChat } from '@/hooks/useNotesChat'
 
@@ -482,10 +482,7 @@ function ChatToolbarRow({
     >
       {showHistory ? (
         <div
-          className={cn(
-            'pointer-events-auto relative min-w-0 flex-1',
-            macDragDebugNoDragSurfaceClass(macElectron ?? false)
-          )}
+          className="pointer-events-auto relative min-w-0 flex-1"
           style={macElectron ? macTitlebarStyles.noDrag : undefined}
         >
           <Search
@@ -503,10 +500,7 @@ function ChatToolbarRow({
         </div>
       ) : folders.length > 0 ? (
         <div
-          className={cn(
-            'pointer-events-auto min-w-0 flex-1',
-            macDragDebugNoDragSurfaceClass(macElectron ?? false)
-          )}
+          className="pointer-events-auto min-w-0 flex-1"
           style={macElectron ? macTitlebarStyles.noDrag : undefined}
         >
           <Select
@@ -530,10 +524,7 @@ function ChatToolbarRow({
         <div className="min-w-0 flex-1" />
       )}
       <div
-        className={cn(
-          'pointer-events-auto flex shrink-0 items-center gap-0.5',
-          macDragDebugNoDragSurfaceClass(macElectron ?? false)
-        )}
+        className="pointer-events-auto flex shrink-0 items-center gap-0.5"
         style={macElectron ? macTitlebarStyles.noDrag : undefined}
       >
         <TooltipProvider>

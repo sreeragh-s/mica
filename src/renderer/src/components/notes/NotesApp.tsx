@@ -3,7 +3,7 @@ import type { JSX } from 'react'
 import { cn } from '@/lib/utils'
 
 import type { NotesAppProps } from './notes-app-types'
-import { macDragDebugSurfaceClass, macTitlebarStyles } from './notes-app-utils'
+import { macTitlebarStyles } from './notes-app-utils'
 import { NotesMainArea } from './NotesMainArea'
 import { NotesSidebar } from './NotesSidebar'
 import { useNotesApp } from './useNotesApp'
@@ -29,7 +29,7 @@ export function NotesApp(props: NotesAppProps): JSX.Element {
       {macElectron && (
         <div
           aria-hidden
-          className={cn('fixed inset-x-0 top-0 z-[1] h-14', macDragDebugSurfaceClass(macElectron))}
+          className="fixed inset-x-0 top-0 z-[1] h-14"
           style={macTitlebarStyles.drag}
         />
       )}

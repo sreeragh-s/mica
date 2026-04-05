@@ -22,7 +22,7 @@ import type { SavedNote, WorkspaceFolder } from '@/lib/notes-storage'
 import { liquidGlassControlPillClass, liquidGlassSearchShellClass } from '@/lib/liquid-glass-toolbar'
 
 import { MacSidebarLeadingToolbarIcon } from './MacSidebarToolbarIcon'
-import { isDrawingNote, macDragDebugNoDragSurfaceClass } from './notes-app-utils'
+import { isDrawingNote } from './notes-app-utils'
 import type { MacTitlebarStyles } from './notes-app-types'
 
 function SearchHighlight({ segments }: { segments: SearchMatchSegment[] }): JSX.Element {
@@ -150,11 +150,7 @@ export function NotesSearchBar({
       <div className="flex min-h-0 min-w-0 flex-1 items-center gap-2">
         {sidebarCollapsed ? (
           <div
-            className={cn(
-              'pointer-events-auto',
-              liquidGlassControlPillClass(nativeGlassUi),
-              macDragDebugNoDragSurfaceClass(macElectron)
-            )}
+            className={cn('pointer-events-auto', liquidGlassControlPillClass(nativeGlassUi))}
             style={macTitlebarStyles.noDrag}
           >
             <Button
@@ -186,11 +182,7 @@ export function NotesSearchBar({
           >
             <PopoverAnchor asChild>
             <div
-              className={cn(
-                'pointer-events-auto',
-                liquidGlassSearchShellClass(nativeGlassUi),
-                macDragDebugNoDragSurfaceClass(macElectron)
-              )}
+              className={cn('pointer-events-auto', liquidGlassSearchShellClass(nativeGlassUi))}
               style={macElectron ? macTitlebarStyles.noDrag : undefined}
             >
                 <Search
@@ -292,10 +284,7 @@ export function NotesSearchBar({
         </div>
         {trailing != null ? (
           <div
-            className={cn(
-              'pointer-events-auto shrink-0',
-              macDragDebugNoDragSurfaceClass(macElectron)
-            )}
+            className="pointer-events-auto shrink-0"
             style={macElectron ? macTitlebarStyles.noDrag : undefined}
           >
             {trailing}

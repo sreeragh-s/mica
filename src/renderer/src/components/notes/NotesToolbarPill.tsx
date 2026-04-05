@@ -6,11 +6,9 @@ import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { liquidGlassToolbarShellClass } from '@/lib/liquid-glass-toolbar'
 
-import { macDragDebugNoDragSurfaceClass } from './notes-app-utils'
 import type { MacTitlebarStyles } from './notes-app-types'
 
 export type NotesToolbarPillProps = {
-  /** When true, dev tint applies to this no-drag shell (macOS Electron). */
   macElectron?: boolean
   macTitlebarStyles: MacTitlebarStyles
   /** Main-process `electron-liquid-glass` attached (macOS). */
@@ -34,7 +32,6 @@ export function NotesToolbarPill({
     <div
       className={cn(
         liquidGlassToolbarShellClass(nativeLiquidGlassAttached),
-        macDragDebugNoDragSurfaceClass(macElectron),
         macElectron && 'mt-2'
       )}
       style={macTitlebarStyles.noDrag}

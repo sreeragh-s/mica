@@ -12,7 +12,6 @@ import { motion } from 'motion/react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import type { SavedNote } from '@/lib/notes-storage'
-import { macDragDebugNoDragSurfaceClass } from './notes-app-utils'
 import type { MacTitlebarStyles } from './notes-app-types'
 
 /** Spring for other tabs sliding into position. */
@@ -193,8 +192,7 @@ export function NoteTabStrip({
     <div
       className={cn(
         'relative z-10 flex min-h-0 w-full min-w-0 flex-1 items-center px-2',
-        macElectron && 'pointer-events-auto',
-        macDragDebugNoDragSurfaceClass(macElectron)
+        macElectron && 'pointer-events-auto'
       )}
       style={macElectron ? macTitlebarStyles.noDrag : undefined}
     >
