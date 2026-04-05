@@ -12,7 +12,7 @@ export type NotelabSetupState = {
   lastRemoteCommitSha?: string
 }
 
-/** Persisted at ~/.notelab.io/notelab.config (Electron). */
+/** Persisted at ~/.notelab/notelab.config (Electron). */
 export type NotelabConfigFileV1 = {
   version: 1
   setup?: NotelabSetupState

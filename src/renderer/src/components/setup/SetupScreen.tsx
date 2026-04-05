@@ -364,7 +364,7 @@ export function SetupScreen({ api, onDone }: Props): JSX.Element {
           <section className="border-border space-y-2 rounded-lg border px-3 py-2.5">
             <h2 className="text-foreground text-sm font-semibold">Import a repository</h2>
             <p className="text-muted-foreground text-xs leading-snug">
-              <span className="font-mono">notelab.io/workspaces/</span> or empty repo.
+              <span className="font-mono">data/</span> (workspace folders) or empty repo.
             </p>
             {repoList.length > 0 ? (
               <div className="space-y-1.5">

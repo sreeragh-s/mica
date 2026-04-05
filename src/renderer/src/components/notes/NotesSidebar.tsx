@@ -232,7 +232,7 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
           className={cn(
             'relative z-10 flex w-full shrink-0 flex-row flex-nowrap items-stretch justify-start gap-0.5 py-1.5',
             macElectron
-              ? 'pointer-events-none pl-[92px] pr-2'
+              ? 'pointer-events-none px-4 pr-2'
               : 'px-2'
           )}
         >
@@ -315,7 +315,7 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
         <div
           className={cn(
             'relative z-10 flex w-full shrink-0 items-stretch py-1.5',
-            macElectron ? 'pointer-events-none pl-[92px] pr-2' : 'px-2'
+            macElectron ? 'pointer-events-none px-2' : 'px-2'
           )}
           style={macElectron ? macTitlebarStyles.noDrag : undefined}
         >

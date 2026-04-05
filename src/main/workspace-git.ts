@@ -5,6 +5,7 @@ import {
   mkdirSync,
   readFileSync,
   readdirSync,
+  renameSync,
   rmSync,
   unlinkSync,
   writeFileSync,
@@ -13,23 +14,69 @@ import { homedir } from 'node:os'
 import { dirname, join, relative, resolve, sep } from 'node:path'
 
 const LOG = '[notelab-workspace]'
-/** In-repo synced notes (must match server `/api/github`). */
-const REPO_APP_ROOT = 'notelab.io'
-/** Virtual inbox id; not a directory under `notelab.io/workspaces/`. */
+/** Git + markdown live under ~/.notelab (legacy name was ~/.notelab.io). */
+const NOTELAB_HOME_DIR = '.notelab'
+const LEGACY_NOTELAB_HOME_DIR = '.notelab.io'
+/** Markdown and workspace folders live under `data/<workspaceId>/` relative to ~/.notelab. */
+const DATA_DIR = 'data'
+/** Virtual inbox id; not a directory under `data/`. */
 const DEFAULT_WORKSPACE_ID = 'default'
 const MODE_FILE = '.notelab-mode'
-/** App settings JSON: <dataRoot>/notelab.config (data root is ~/.notelab.io). */
+/** App settings JSON: <dataRoot>/notelab.config (data root is ~/.notelab). */
 const APP_CONFIG_FILENAME = 'notelab.config'
+
+/** Renames ~/.notelab.io → ~/.notelab when the new path does not exist yet. */
+function migrateNotelabHomeDirIfNeeded(): void {
+  const home = homedir()
+  const next = join(home, NOTELAB_HOME_DIR)
+  const prev = join(home, LEGACY_NOTELAB_HOME_DIR)
+  if (existsSync(next)) return
+  if (!existsSync(prev)) return
+  renameSync(prev, next)
+  console.info(LOG, 'migrated data root', prev, '→', next)
+}
 
 function assertNotelabDataRoot(cwd: string): boolean {
   const root = cwd?.trim() ?? ''
   if (!root) return false
-  const expected = resolve(join(homedir(), '.notelab.io'))
+  const expected = resolve(join(homedir(), NOTELAB_HOME_DIR))
   return resolve(root) === expected
 }
 
 function appConfigFilePath(cwd: string): string {
   return join(cwd, APP_CONFIG_FILENAME)
+}
+
+/**
+ * One-time move from legacy `notelab.io/workspaces/<id>/` to `data/<id>/`.
+ */
+function migrateLegacyDataLayout(root: string): void {
+  const legacyWs = join(root, 'notelab.io', 'workspaces')
+  if (!existsSync(legacyWs)) return
+  const dataRoot = join(root, DATA_DIR)
+  mkdirSync(dataRoot, { recursive: true })
+  for (const ent of readdirSync(legacyWs, { withFileTypes: true })) {
+    if (!ent.isDirectory()) continue
+    const src = join(legacyWs, ent.name)
+    const dst = join(dataRoot, ent.name)
+    if (existsSync(dst)) {
+      console.warn(LOG, 'skip migrate workspace', ent.name, 'data path exists')
+      continue
+    }
+    renameSync(src, dst)
+    console.info(LOG, 'migrated workspace', ent.name, '→', DATA_DIR)
+  }
+  try {
+    if (existsSync(legacyWs) && readdirSync(legacyWs).length === 0) {
+      rmSync(legacyWs, { recursive: true })
+      const legacyApp = join(root, 'notelab.io')
+      if (existsSync(legacyApp) && readdirSync(legacyApp).length === 0) {
+        rmSync(legacyApp, { recursive: true })
+      }
+    }
+  } catch (e) {
+    console.warn(LOG, 'legacy path cleanup', e)
+  }
 }
 
 function allowWorkspaceFs(cwd: string): boolean {
@@ -174,9 +221,9 @@ function syncMarkdownFilesToDisk(
 
   if (!pruneOrphanNoteFiles) return
 
-  const wsDir = join(cwd, REPO_APP_ROOT, 'workspaces', workspaceId)
+  const wsDir = join(cwd, DATA_DIR, workspaceId)
   if (!existsSync(wsDir)) return
-  const prefix = `${REPO_APP_ROOT}/workspaces/${workspaceId}/`.replace(/\\/g, '/')
+  const prefix = `data/${workspaceId}/`.replace(/\\/g, '/')
   for (const ent of readdirSync(wsDir, { withFileTypes: true })) {
     if (!ent.isFile() || ent.name === 'README.md') continue
     if (!ent.name.endsWith('.md')) continue
@@ -251,14 +298,14 @@ function deleteNoteFilesForId(
   noteId: string,
   exceptRelativePath?: string
 ): void {
-  const wsDir = join(cwd, REPO_APP_ROOT, 'workspaces', workspaceId)
+  const wsDir = join(cwd, DATA_DIR, workspaceId)
   if (!existsSync(wsDir)) return
   const exceptNorm = exceptRelativePath
     ? normalizeRelativePathForCompare(exceptRelativePath)
     : null
   const suffix = `--${noteId}.md`
   const legacy = `${noteId}.md`
-  const relBase = `${REPO_APP_ROOT}/workspaces/${workspaceId}/`
+  const relBase = `data/${workspaceId}/`
   for (const ent of readdirSync(wsDir, { withFileTypes: true })) {
     if (!ent.isFile() || ent.name === 'README.md') continue
     if (ent.name.endsWith(suffix) || ent.name === legacy) {
@@ -292,7 +339,7 @@ function readNotelabIndexImpl(cwd: string): {
     markdownBody: string
     kind: 'note' | 'drawing'
   }[] = []
-  const root = join(cwd, REPO_APP_ROOT, 'workspaces')
+  const root = join(cwd, DATA_DIR)
   if (!existsSync(root)) return { workspaces, notes }
   for (const ent of readdirSync(root, { withFileTypes: true })) {
     if (!ent.isDirectory()) continue
@@ -348,8 +395,10 @@ export function registerWorkspaceGitIpc(): void {
       | { ok: false; error: string }
     > => {
       try {
-        const root = join(homedir(), '.notelab.io')
+        migrateNotelabHomeDirIfNeeded()
+        const root = join(homedir(), NOTELAB_HOME_DIR)
         mkdirSync(root, { recursive: true })
+        migrateLegacyDataLayout(root)
         const gitDir = join(root, '.git')
         const gitCheck = checkGitBinary()
         const gitAvailable = gitCheck.ok
@@ -381,7 +430,7 @@ export function registerWorkspaceGitIpc(): void {
         if (!existsSync(readmePath)) {
           writeFileSync(
             readmePath,
-            '# notelab.io\n\nYour workspaces and notes are stored under `notelab.io/workspaces/`.\n',
+            '# notelab\n\nYour notes are stored under `data/<workspace>/` in this folder. Config is `notelab.config`.\n',
             'utf8'
           )
         }
@@ -626,7 +675,7 @@ export function registerWorkspaceGitIpc(): void {
       ) {
         return { ok: false, error: 'invalid_workspace' }
       }
-      const workspacesRoot = resolve(join(cwd, REPO_APP_ROOT, 'workspaces'))
+      const workspacesRoot = resolve(join(cwd, DATA_DIR))
       const resolvedWs = resolve(workspacesRoot, workspaceId)
       if (dirname(resolvedWs) !== workspacesRoot) {
         return { ok: false, error: 'invalid_workspace' }
@@ -781,7 +830,7 @@ export function registerWorkspaceGitIpc(): void {
         return {
           ok: false,
           error:
-            'No remote named origin. Add your GitHub URL in Settings → GitHub & Git and click “Apply remote to ~/.notelab.io”.',
+            'No remote named origin. Add your GitHub URL in Settings → GitHub & Git and click “Apply remote to ~/.notelab”.',
         }
       }
       const br = getCurrentBranchName(cwd)

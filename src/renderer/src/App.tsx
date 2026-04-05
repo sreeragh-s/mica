@@ -68,7 +68,7 @@ export default function App(): JSX.Element {
         reason:
           nextPhase === 'setup'
             ? 'setup.complete is false — show SetupScreen until Get started or GitHub flow completes'
-            : 'setup.complete is true (hydrated from ~/.notelab.io/notelab.config or localStorage) — go to notes'
+            : 'setup.complete is true (hydrated from ~/.notelab/notelab.config or localStorage) — go to notes'
       })
       if (!setup.complete) {
         setPhase('setup')

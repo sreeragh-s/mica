@@ -98,7 +98,7 @@ export function useNotesApp({
   const [notes, setNotes] = useState<SavedNote[]>(initialNotes)
   const [githubRemoteUrl, setGithubRemoteUrl] = useState(() => initial.githubRemoteUrl ?? '')
   const [diskMode, setDiskMode] = useState(false)
-  /** Data root (~/.notelab.io); used when `folders` omits the default workspace but Git still runs at repo root. */
+  /** Data root (~/.notelab); used when `folders` omits the default workspace but Git still runs at repo root. */
   const [dataRootPath, setDataRootPath] = useState<string | null>(null)
 
   const [selectedId, setSelectedId] = useState<string | null>(() => {
@@ -895,7 +895,7 @@ export function useNotesApp({
     if (!primaryGitFolder?.localGitPath) return null
     return {
       id: 'app-git',
-      name: '~/.notelab.io',
+      name: '~/.notelab',
       localGitPath: primaryGitFolder.localGitPath,
       githubRemoteUrl: githubRemoteUrl.trim() || primaryGitFolder.githubRemoteUrl
     }
@@ -929,7 +929,7 @@ export function useNotesApp({
     if (r.ok) {
       setGithubRemoteUrl(url)
       setFolders((prev) => prev.map((f) => ({ ...f, githubRemoteUrl: url })))
-      setGitHubMessage('Remote origin set on ~/.notelab.io.')
+      setGitHubMessage('Remote origin set on ~/.notelab.')
     } else {
       setGitHubMessage(r.error)
     }
@@ -1102,7 +1102,7 @@ export function useNotesApp({
         const api = getApi()
         if (api?.workspace?.writeNoteFile) {
           void (async () => {
-            const rel = `notelab.io/workspaces/${id}/README.md`
+            const rel = `data/${id}/README.md`
             const wr = await api.workspace!.writeNoteFile!({
               cwd: root,
               relativePath: rel,
@@ -1429,7 +1429,7 @@ export function useNotesApp({
         const api = getApi()
         if (api?.workspace?.writeNoteFile) {
           void (async () => {
-            const rel = `notelab.io/workspaces/${folderId}/README.md`
+            const rel = `data/${folderId}/README.md`
             const wr = await api.workspace!.writeNoteFile!({
               cwd: root,
               relativePath: rel,

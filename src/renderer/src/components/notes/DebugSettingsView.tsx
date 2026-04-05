@@ -184,7 +184,7 @@ export function DebugSettingsView({
           value={
             localGitPath
               ? `${localGitPath}/notelab.config`
-              : '(set when ~/.notelab.io is available)'
+              : '(set when ~/.notelab is available)'
           }
         />
         <Row

@@ -26,7 +26,7 @@ function slugifyWorkspaceDirSegment(displayName: string): string {
 }
 
 /**
- * Folder name under `notelab.io/workspaces/<id>/`.
+ * Folder name under `data/<id>/` (relative to ~/.notelab).
  * Uses a readable slug from the display name plus a short unique suffix (not a bare UUID).
  */
 export function newWorkspaceFolderId(displayName: string): string {
@@ -70,19 +70,19 @@ title: ${JSON.stringify(title)}
 export function noteMarkdownRelativePath(folderId: string, note: SavedNote): string {
   const title = note.title.trim() || "New note"
   const fileBase = `${slugifyNoteFilenameSegment(title)}--${note.id}.md`
-  return `notelab.io/workspaces/${folderId}/${fileBase}`
+  return `data/${folderId}/${fileBase}`
 }
 
 /**
  * Markdown files to write under the repository root for one workspace.
- * Layout: `notelab.io/workspaces/<workspace-folder-id>/README.md` and `<slug>--<noteId>.md` files.
+ * Layout: `data/<workspace-folder-id>/README.md` and `<slug>--<noteId>.md` files.
  * Workspace folder ids look like `my-workspace--a1b2c3d4` (name slug + unique suffix).
  */
 export function buildMarkdownSyncPayload(
   folder: WorkspaceFolder,
   notes: SavedNote[]
 ): { relativePath: string; content: string }[] {
-  const base = `notelab.io/workspaces/${folder.id}`
+  const base = `data/${folder.id}`
   const files: { relativePath: string; content: string }[] = []
 
   files.push({

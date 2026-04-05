@@ -70,7 +70,7 @@ export function GitHubSettingsView({
     const q = new URLSearchParams()
     const n = repoNameDraft.trim() || slugifyRepoSuggestion(folders[0]?.name ?? 'notelab')
     q.set('name', n)
-    q.set('description', 'notelab.io — notes synced from ~/.notelab.io'.slice(0, 350))
+    q.set('description', 'notelab.io — notes synced from ~/.notelab'.slice(0, 350))
     const url = `https://github.com/new?${q.toString()}`
     const api = getApi()
     if (api?.workspace?.openExternal) {
@@ -92,12 +92,12 @@ export function GitHubSettingsView({
         <p className="text-muted-foreground text-sm leading-relaxed">
           {syncTransport === 'github_api' ? (
             <>
-              Sync <code className="text-xs">~/.notelab.io</code> to your linked GitHub repository via the
+              Sync <code className="text-xs">~/.notelab</code> to your linked GitHub repository via the
               GitHub API (no local Git required).
             </>
           ) : (
             <>
-              Connect <code className="text-xs">~/.notelab.io</code> to GitHub and commit or push changes.
+              Connect <code className="text-xs">~/.notelab</code> to GitHub and commit or push changes.
             </>
           )}
         </p>
@@ -110,7 +110,7 @@ export function GitHubSettingsView({
         </h3>
         <ol className="text-muted-foreground list-decimal space-y-2 pl-5 text-sm">
           <li>Create a new empty repository on GitHub (no README required).</li>
-          <li>Paste the repository URL below and apply it to your local ~/.notelab.io clone.</li>
+          <li>Paste the repository URL below and apply it to your local ~/.notelab clone.</li>
         </ol>
         <div className="space-y-2">
           <Label htmlFor="settings-gh-repo-name">Suggested repository name</Label>
@@ -148,7 +148,7 @@ export function GitHubSettingsView({
             </Button>
             {localPath ? (
               <Button type="button" onClick={() => void onApplyRemote()} disabled={gitHubBusy}>
-                Apply remote to ~/.notelab.io
+                Apply remote to ~/.notelab
               </Button>
             ) : null}
           </div>
@@ -157,7 +157,7 @@ export function GitHubSettingsView({
           <p className="text-muted-foreground text-xs break-all">Local repository: {localPath}</p>
         ) : (
           <p className="text-muted-foreground text-xs">
-            The desktop app creates <code className="text-xs">~/.notelab.io</code> when it starts. If
+            The desktop app creates <code className="text-xs">~/.notelab</code> when it starts. If
             no path appears here, wait a moment or restart (Git must be installed).
           </p>
         )}
@@ -171,7 +171,7 @@ export function GitHubSettingsView({
           <div className="space-y-1">
             <h3 className="text-foreground text-sm font-semibold tracking-tight">Sync to Git</h3>
             <p className="text-muted-foreground text-xs">
-              Commit message and actions apply to your local <code className="text-xs">~/.notelab.io</code>{' '}
+              Commit message and actions apply to your local <code className="text-xs">~/.notelab</code>{' '}
               repository.
             </p>
           </div>
