@@ -1,4 +1,4 @@
-# LanceDB in gitnotes (Electron)
+# LanceDB in notelab.io (Electron)
 
 This app stores local vector embeddings with [LanceDB](https://lancedb.github.io/lancedb/) **only in the Electron main process**. The renderer (React) never imports `@lancedb/lancedb`; it calls a small IPC surface exposed on `window.api.embeddings`.
 
@@ -13,7 +13,7 @@ The database directory is:
 
 `{app.getPath('userData')}/lancedb`
 
-On macOS this is typically under `~/Library/Application Support/gitnotes/lancedb`. It is user-writable and survives app updates.
+On macOS this is typically under `~/Library/Application Support/notelab.io/lancedb`. It is user-writable and survives app updates.
 
 ## IPC API (preload → main)
 

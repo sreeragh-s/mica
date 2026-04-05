@@ -18,7 +18,7 @@ import {
   getResolvedAppearanceMode,
 } from '@/lib/theme-preset-apply'
 import { getApi, parseSession } from '@/lib/auth-bridge'
-import { hydrateAppConfig } from '@/lib/gitnotes-app-config'
+import { hydrateAppConfig } from '@/lib/notelab-app-config'
 import { clearGuestMode, isGuestMode, setGuestMode } from '@/lib/guest-session'
 import { loadSetupState, saveSetupState } from '@/lib/setup-storage'
 
@@ -37,14 +37,14 @@ export default function App(): JSX.Element {
 
   const refreshSession = useCallback(async () => {
     if (!api) {
-      console.info('[gitnotes-app] session: no preload API — phase app (dev/browser)')
+      console.info('[notelab-app] session: no preload API — phase app (dev/browser)')
       setPhase('app')
       setUser(null)
       return
     }
     const r = await api.auth.getSession()
     if (!r.ok) {
-      console.info('[gitnotes-app] session: get-session failed', r)
+      console.info('[notelab-app] session: get-session failed', r)
       setPhase('auth')
       setUser(null)
       return
@@ -54,11 +54,11 @@ export default function App(): JSX.Element {
       clearGuestMode()
       setUser(parsed.user)
       const setup = loadSetupState()
-      const setupKeyRaw = localStorage.getItem('gitnotes-setup')
-      const hasNotesKey = localStorage.getItem('gitnotes-notes') != null
-      const hasConfigBlob = localStorage.getItem('gitnotes-config-v1') != null
+      const setupKeyRaw = localStorage.getItem('notelab-setup')
+      const hasNotesKey = localStorage.getItem('notelab-notes') != null
+      const hasConfigBlob = localStorage.getItem('notelab-config-v1') != null
       const nextPhase: AppPhase = !setup.complete ? 'setup' : 'app'
-      console.info('[gitnotes-app] session: signed in', {
+      console.info('[notelab-app] session: signed in', {
         setupKeyInStorage: setupKeyRaw != null,
         setupComplete: setup.complete,
         setupSyncMode: setup.syncMode ?? null,
@@ -68,7 +68,7 @@ export default function App(): JSX.Element {
         reason:
           nextPhase === 'setup'
             ? 'setup.complete is false — show SetupScreen until Get started or GitHub flow completes'
-            : 'setup.complete is true (hydrated from ~/.gitnotes/gitnotes.config or localStorage) — go to notes'
+            : 'setup.complete is true (hydrated from ~/.notelab.io/notelab.config or localStorage) — go to notes'
       })
       if (!setup.complete) {
         setPhase('setup')
@@ -76,12 +76,12 @@ export default function App(): JSX.Element {
         setPhase('app')
       }
     } else if (isGuestMode()) {
-      console.info('[gitnotes-app] session: guest mode — phase app (no GitHub session)')
+      console.info('[notelab-app] session: guest mode — phase app (no GitHub session)')
       setUser(null)
       const setup = loadSetupState()
       setPhase(!setup.complete ? 'setup' : 'app')
     } else {
-      console.info('[gitnotes-app] session: no user in session — phase auth')
+      console.info('[notelab-app] session: no user in session — phase auth')
       setUser(null)
       setPhase('auth')
     }
@@ -128,7 +128,7 @@ export default function App(): JSX.Element {
     })
     setUser(null)
     setPhase('app')
-    console.info('[gitnotes-app] guest: continuing without GitHub — finish setup in Settings')
+    console.info('[notelab-app] guest: continuing without GitHub — finish setup in Settings')
   }, [])
 
   const handleSignOut = useCallback(async () => {
@@ -140,7 +140,7 @@ export default function App(): JSX.Element {
   }, [api])
 
   const handleSetupDone = useCallback(() => {
-    console.info('[gitnotes-app] setup: finished — phase app', loadSetupState())
+    console.info('[notelab-app] setup: finished — phase app', loadSetupState())
     setPhase('app')
   }, [])
 
@@ -174,7 +174,7 @@ export default function App(): JSX.Element {
   }
 
   return (
-    <ThemeProvider attribute="class" defaultTheme="system" enableSystem storageKey="gitnotes-theme">
+    <ThemeProvider attribute="class" defaultTheme="system" enableSystem storageKey="notelab-theme">
       <ThemePresetRuntime />
       {content}
     </ThemeProvider>

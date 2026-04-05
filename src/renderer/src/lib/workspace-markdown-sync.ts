@@ -26,7 +26,7 @@ function slugifyWorkspaceDirSegment(displayName: string): string {
 }
 
 /**
- * Folder name under `gitnotes/workspaces/<id>/`.
+ * Folder name under `notelab.io/workspaces/<id>/`.
  * Uses a readable slug from the display name plus a short unique suffix (not a bare UUID).
  */
 export function newWorkspaceFolderId(displayName: string): string {
@@ -38,7 +38,7 @@ export function newWorkspaceFolderId(displayName: string): string {
 export function workspaceReadmeMarkdown(folderName: string): string {
   return `# ${folderName}
 
-Synced from **GitNotes**. Each note is a Markdown file with YAML front matter in this folder.
+Synced from **notelab.io**. Each note is a Markdown file with YAML front matter in this folder.
 `
 }
 
@@ -47,10 +47,10 @@ export function buildNoteMarkdownDocument(note: SavedNote): string {
   if (note.kind === "drawing") {
     const scene = note.excalidrawScene?.trim() ?? ""
     const front = `---
-gitnotes_note_id: "${note.id}"
+notelab_note_id: "${note.id}"
 updated_at: "${new Date(note.updatedAt).toISOString()}"
 title: ${JSON.stringify(title)}
-gitnotes_kind: drawing
+notelab_kind: drawing
 ---
 
 `
@@ -58,7 +58,7 @@ gitnotes_kind: drawing
   }
   const body = serializedStateToMarkdown(note.content)
   const front = `---
-gitnotes_note_id: "${note.id}"
+notelab_note_id: "${note.id}"
 updated_at: "${new Date(note.updatedAt).toISOString()}"
 title: ${JSON.stringify(title)}
 ---
@@ -70,19 +70,19 @@ title: ${JSON.stringify(title)}
 export function noteMarkdownRelativePath(folderId: string, note: SavedNote): string {
   const title = note.title.trim() || "New note"
   const fileBase = `${slugifyNoteFilenameSegment(title)}--${note.id}.md`
-  return `gitnotes/workspaces/${folderId}/${fileBase}`
+  return `notelab.io/workspaces/${folderId}/${fileBase}`
 }
 
 /**
  * Markdown files to write under the repository root for one workspace.
- * Layout: `gitnotes/workspaces/<workspace-folder-id>/README.md` and `<slug>--<noteId>.md` files.
+ * Layout: `notelab.io/workspaces/<workspace-folder-id>/README.md` and `<slug>--<noteId>.md` files.
  * Workspace folder ids look like `my-workspace--a1b2c3d4` (name slug + unique suffix).
  */
 export function buildMarkdownSyncPayload(
   folder: WorkspaceFolder,
   notes: SavedNote[]
 ): { relativePath: string; content: string }[] {
-  const base = `gitnotes/workspaces/${folder.id}`
+  const base = `notelab.io/workspaces/${folder.id}`
   const files: { relativePath: string; content: string }[] = []
 
   files.push({

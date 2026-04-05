@@ -1,6 +1,6 @@
 import { defaultPresets } from "@/components/appearance/theme-presets"
 import type { ThemeStyleProps } from "@/components/appearance/theme-presets"
-import type { GitnotesThemeConfigV1 } from "@/lib/gitnotes-config-schema"
+import type { NotelabThemeConfigV1 } from "@/lib/notelab-config-schema"
 import {
   CUSTOM_THEME_PRESET_ID,
   DEFAULT_THEME_PRESET_ID,
@@ -23,7 +23,7 @@ function sanitizePartial(
 
 export function sanitizeThemeConfig(
   raw: unknown
-): GitnotesThemeConfigV1 | undefined {
+): NotelabThemeConfigV1 | undefined {
   if (!raw || typeof raw !== "object") return undefined
   const o = raw as Record<string, unknown>
   const light = sanitizePartial(o.light as Record<string, unknown>)
@@ -35,7 +35,7 @@ export function sanitizeThemeConfig(
 }
 
 export function isNonEmptyThemeConfig(
-  c: GitnotesThemeConfigV1 | undefined | null
+  c: NotelabThemeConfigV1 | undefined | null
 ): boolean {
   if (!c) return false
   return (
@@ -44,7 +44,7 @@ export function isNonEmptyThemeConfig(
 }
 
 export function countThemeConfigKeys(
-  c: GitnotesThemeConfigV1 | undefined | null
+  c: NotelabThemeConfigV1 | undefined | null
 ): { light: number; dark: number } {
   if (!c) return { light: 0, dark: 0 }
   return {
@@ -54,7 +54,7 @@ export function countThemeConfigKeys(
 }
 
 /** Seed a full custom config from a built-in preset (or a neutral template for default). */
-export function buildThemeConfigFromPresetId(presetId: string): GitnotesThemeConfigV1 {
+export function buildThemeConfigFromPresetId(presetId: string): NotelabThemeConfigV1 {
   if (
     presetId === DEFAULT_THEME_PRESET_ID ||
     presetId === CUSTOM_THEME_PRESET_ID

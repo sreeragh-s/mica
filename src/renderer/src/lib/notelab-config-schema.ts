@@ -1,34 +1,34 @@
 import type { ThemeStyleProps } from "../components/appearance/theme-presets"
 
-export type GitNotesSyncMode = "git" | "github_api" | "local"
+export type NotelabSyncMode = "git" | "github_api" | "local"
 
-export type GitNotesSetupState = {
+export type NotelabSetupState = {
   /** User finished first-run setup (or chose skip). */
   complete: boolean
-  syncMode?: GitNotesSyncMode
+  syncMode?: NotelabSyncMode
   /** `owner/repo` when using GitHub API sync */
   githubRepoFullName?: string
   /** Last known default branch tip on remote (API sync) */
   lastRemoteCommitSha?: string
 }
 
-/** Persisted at ~/.gitnotes/gitnotes.config (Electron). */
-export type GitnotesConfigFileV1 = {
+/** Persisted at ~/.notelab.io/notelab.config (Electron). */
+export type NotelabConfigFileV1 = {
   version: 1
-  setup?: GitNotesSetupState
+  setup?: NotelabSetupState
   shortcuts?: Record<string, { mod: boolean; key?: string; code?: string }>
   /** @see appearance-storage UiFontId */
   uiFont?: string
   /** Built-in color theme preset id, `"default"`, or `"custom"` when `themeConfig` is used. */
   themePresetId?: string
   /** Full editable light/dark design tokens; used when `themePresetId` is `"custom"`. */
-  themeConfig?: GitnotesThemeConfigV1
+  themeConfig?: NotelabThemeConfigV1
   /** Serialized notes index / remote cache (see notes-types NotesState). */
   notes?: unknown
   githubContentShas?: Record<string, string>
 }
 
-export type GitnotesThemeConfigV1 = {
+export type NotelabThemeConfigV1 = {
   light: Partial<ThemeStyleProps>
   dark: Partial<ThemeStyleProps>
 }

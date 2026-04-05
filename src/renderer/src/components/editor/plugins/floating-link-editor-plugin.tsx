@@ -44,7 +44,7 @@ import {
 import { Check, Pencil, Trash, X } from "lucide-react"
 import { createPortal } from "react-dom"
 
-import { useGitnotesEditorContext } from "@/components/editor/gitnotes-editor-context"
+import { useNotelabEditorContext } from "@/components/editor/notelab-editor-context"
 import {
   filterLinkableNotes,
   NoteLinkPickerList,
@@ -94,7 +94,7 @@ function FloatingLinkEditor({
   const [lastSelection, setLastSelection] = useState<BaseSelection | null>(null)
   const [noteSearchPicker, setNoteSearchPicker] = useState("")
 
-  const gitnotesCtx = useGitnotesEditorContext()
+  const notelabCtx = useNotelabEditorContext()
 
   const internalTargetId = useMemo(
     () => (linkUrl ? parseInternalNoteIdFromHref(linkUrl) : null),
@@ -102,20 +102,20 @@ function FloatingLinkEditor({
   )
 
   const resolvedNote = useMemo(() => {
-    if (!internalTargetId || !gitnotesCtx) return undefined
-    return gitnotesCtx.notes.find((n) => n.id === internalTargetId)
-  }, [internalTargetId, gitnotesCtx])
+    if (!internalTargetId || !notelabCtx) return undefined
+    return notelabCtx.notes.find((n) => n.id === internalTargetId)
+  }, [internalTargetId, notelabCtx])
 
   const isInternalNoteLink = internalTargetId !== null
 
   const linkPickerNotes = useMemo(() => {
-    if (!gitnotesCtx) return []
+    if (!notelabCtx) return []
     return filterLinkableNotes(
-      gitnotesCtx,
+      notelabCtx,
       noteSearchPicker,
-      gitnotesCtx.currentNoteId
+      notelabCtx.currentNoteId
     )
-  }, [gitnotesCtx, noteSearchPicker])
+  }, [notelabCtx, noteSearchPicker])
 
   const applyInternalLinkTarget = useCallback(
     (noteId: string) => {
@@ -336,12 +336,12 @@ function FloatingLinkEditor({
             <Check className="h-4 w-4" />
           </Button>
         </div>
-      ) : isInternalNoteLink && gitnotesCtx ? (
+      ) : isInternalNoteLink && notelabCtx ? (
         <LinkPreviewCardShell className="items-start gap-3">
           <InternalNoteLinkIcon />
           <InternalNoteLinkPreviewBody
             resolvedNote={resolvedNote}
-            gitnotesCtx={gitnotesCtx}
+            notelabCtx={notelabCtx}
           />
           <div className="flex shrink-0 items-start gap-1 pt-0.5">
             <Popover
@@ -373,7 +373,7 @@ function FloatingLinkEditor({
                   noteSearch={noteSearchPicker}
                   onNoteSearchChange={setNoteSearchPicker}
                   linkableNotes={linkPickerNotes}
-                  gitnotesCtx={gitnotesCtx}
+                  notelabCtx={notelabCtx}
                   onSelectNoteId={applyInternalLinkTarget}
                 />
               </PopoverContent>
@@ -396,7 +396,7 @@ function FloatingLinkEditor({
           <InternalNoteLinkIcon />
           <InternalNoteLinkPreviewBody
             resolvedNote={undefined}
-            gitnotesCtx={null}
+            notelabCtx={null}
           />
           <Button
             size="icon"

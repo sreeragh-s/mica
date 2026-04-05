@@ -1,9 +1,9 @@
 import { getApi } from "./auth-bridge"
 import type {
-  GitnotesConfigFileV1,
-  GitnotesThemeConfigV1,
-  GitNotesSetupState,
-} from "./gitnotes-config-schema"
+  NotelabConfigFileV1,
+  NotelabThemeConfigV1,
+  NotelabSetupState,
+} from "./notelab-config-schema"
 import { normalizeNotesStateFromStorage } from "./notes-state-normalize"
 import type { NotesState } from "./notes-types"
 import {
@@ -23,128 +23,39 @@ import {
 import { UI_FONT_IDS } from "./ui-font-types"
 import type { UiFontId } from "./ui-font-types"
 
-const BROWSER_CONFIG_KEY = "gitnotes-config-v1"
-
-const LEGACY_KEYS = [
-  "gitnotes-setup",
-  "gitnotes-notes",
-  "gitnotes-shortcuts-v1",
-  "gitnotes-ui-font-v1",
-  "gitnotes-github-content-shas",
-] as const
+const BROWSER_CONFIG_KEY = "notelab-config-v1"
 
 let dataRootPath: string | null = null
-/** True when using ~/.gitnotes/gitnotes.config (Electron). */
+/** True when using ~/.notelab.io/notelab.config (Electron). */
 let persistToFile = false
-let cache: GitnotesConfigFileV1 = { version: 1 }
+let cache: NotelabConfigFileV1 = { version: 1 }
 let persistTimer: ReturnType<typeof setTimeout> | null = null
 const DEBOUNCE_MS = 300
 
-function defaultSetup(): GitNotesSetupState {
+function defaultSetup(): NotelabSetupState {
   return { complete: false }
 }
 
-function defaultCache(): GitnotesConfigFileV1 {
+function defaultCache(): NotelabConfigFileV1 {
   return {
     version: 1,
     setup: defaultSetup(),
   }
 }
 
-function parseConfigJson(raw: string): GitnotesConfigFileV1 | null {
+function parseConfigJson(raw: string): NotelabConfigFileV1 | null {
   try {
     const p = JSON.parse(raw) as unknown
     if (typeof p !== "object" || p === null) return null
     const o = p as Record<string, unknown>
     if (o.version !== 1) return null
-    return p as GitnotesConfigFileV1
+    return p as NotelabConfigFileV1
   } catch {
     return null
   }
 }
 
-function readLegacyLocalStorage(): Partial<GitnotesConfigFileV1> {
-  const out: Partial<GitnotesConfigFileV1> = {}
-  try {
-    const setupRaw = localStorage.getItem("gitnotes-setup")
-    if (setupRaw) {
-      const parsed = JSON.parse(setupRaw) as unknown
-      if (typeof parsed === "object" && parsed !== null) {
-        const o = parsed as Record<string, unknown>
-        out.setup = {
-          complete: o.complete === true,
-          ...(typeof o.syncMode === "string" &&
-          (o.syncMode === "git" ||
-            o.syncMode === "github_api" ||
-            o.syncMode === "local")
-            ? { syncMode: o.syncMode }
-            : {}),
-          ...(typeof o.githubRepoFullName === "string" && o.githubRepoFullName.trim()
-            ? { githubRepoFullName: o.githubRepoFullName.trim() }
-            : {}),
-          ...(typeof o.lastRemoteCommitSha === "string" && o.lastRemoteCommitSha.trim()
-            ? { lastRemoteCommitSha: o.lastRemoteCommitSha.trim() }
-            : {}),
-        }
-      }
-    }
-  } catch {
-    /* ignore */
-  }
-  try {
-    const notesRaw = localStorage.getItem("gitnotes-notes")
-    if (notesRaw) {
-      out.notes = JSON.parse(notesRaw) as unknown
-    }
-  } catch {
-    /* ignore */
-  }
-  try {
-    const scRaw = localStorage.getItem("gitnotes-shortcuts-v1")
-    if (scRaw) {
-      const parsed = JSON.parse(scRaw) as Record<string, unknown>
-      out.shortcuts = parsed as GitnotesConfigFileV1["shortcuts"]
-    }
-  } catch {
-    /* ignore */
-  }
-  try {
-    const fontRaw = localStorage.getItem("gitnotes-ui-font-v1")
-    if (fontRaw && UI_FONT_IDS.has(fontRaw)) {
-      out.uiFont = fontRaw
-    }
-  } catch {
-    /* ignore */
-  }
-  try {
-    const shasRaw = localStorage.getItem("gitnotes-github-content-shas")
-    if (shasRaw) {
-      const p = JSON.parse(shasRaw) as unknown
-      if (typeof p === "object" && p !== null) {
-        const m: Record<string, string> = {}
-        for (const [k, v] of Object.entries(p as Record<string, unknown>)) {
-          if (typeof v === "string" && v.length > 0) m[k] = v
-        }
-        out.githubContentShas = m
-      }
-    }
-  } catch {
-    /* ignore */
-  }
-  return out
-}
-
-function clearLegacyLocalStorageKeys(): void {
-  for (const k of LEGACY_KEYS) {
-    try {
-      localStorage.removeItem(k)
-    } catch {
-      /* ignore */
-    }
-  }
-}
-
-function readBrowserBlob(): GitnotesConfigFileV1 | null {
+function readBrowserBlob(): NotelabConfigFileV1 | null {
   try {
     const raw = localStorage.getItem(BROWSER_CONFIG_KEY)
     if (!raw) return null
@@ -154,11 +65,11 @@ function readBrowserBlob(): GitnotesConfigFileV1 | null {
   }
 }
 
-function writeBrowserBlob(c: GitnotesConfigFileV1): void {
+function writeBrowserBlob(c: NotelabConfigFileV1): void {
   try {
     localStorage.setItem(BROWSER_CONFIG_KEY, JSON.stringify(c))
   } catch (e) {
-    console.error("[gitnotes] Failed to persist config blob", e)
+    console.error("[notelab] Failed to persist config blob", e)
   }
 }
 
@@ -172,7 +83,7 @@ async function flushToDisk(): Promise<void> {
       config: cache,
     })
     if (!r.ok) {
-      console.error("[gitnotes] writeAppConfig failed", r.error)
+      console.error("[notelab] writeAppConfig failed", r.error)
     }
     return
   }
@@ -184,7 +95,7 @@ function schedulePersist(): void {
   persistTimer = setTimeout(() => void flushToDisk(), DEBOUNCE_MS)
 }
 
-function setCache(next: GitnotesConfigFileV1, immediatePersist = false): void {
+function setCache(next: NotelabConfigFileV1, immediatePersist = false): void {
   cache = { ...next, version: 1 }
   if (immediatePersist) {
     if (persistTimer != null) {
@@ -198,7 +109,7 @@ function setCache(next: GitnotesConfigFileV1, immediatePersist = false): void {
 }
 
 function normalizeThemeCacheAfterLoad(): void {
-  let next: GitnotesConfigFileV1 = { ...cache, version: 1 }
+  let next: NotelabConfigFileV1 = { ...cache, version: 1 }
   if (next.themeConfig) {
     const s = sanitizeThemeConfig(next.themeConfig)
     if (s) {
@@ -212,7 +123,7 @@ function normalizeThemeCacheAfterLoad(): void {
   const pid = next.themePresetId ?? DEFAULT_THEME_PRESET_ID
   let shouldFlush = false
 
-  /** Denormalized snapshot so gitnotes.config always lists full light/dark tokens for presets. */
+  /** Denormalized snapshot so notelab.config lists full light/dark tokens for presets. */
   if (pid !== CUSTOM_THEME_PRESET_ID) {
     const sc = next.themeConfig
       ? sanitizeThemeConfig(next.themeConfig)
@@ -233,9 +144,8 @@ function normalizeThemeCacheAfterLoad(): void {
 }
 
 /**
- * Load persisted settings from ~/.gitnotes/gitnotes.config (Electron)
- * or from a single localStorage blob (browser). Migrates legacy keys once.
- * Call after ensureDataRoot in Electron; pass data root path or null in browser.
+ * Load persisted settings from ~/.notelab.io/notelab.config (Electron)
+ * or from a single localStorage blob (browser).
  */
 export async function hydrateAppConfig(dataRoot: string | null): Promise<void> {
   dataRootPath = dataRoot
@@ -251,43 +161,20 @@ export async function hydrateAppConfig(dataRoot: string | null): Promise<void> {
           cache = { ...defaultCache(), ...parsed, version: 1 }
           normalizeThemeCacheAfterLoad()
         } else {
-          cache = {
-            ...defaultCache(),
-            ...readLegacyLocalStorage(),
-            version: 1,
-          }
+          cache = defaultCache()
           await flushToDisk()
-          clearLegacyLocalStorageKeys()
           normalizeThemeCacheAfterLoad()
         }
       } else {
-        const legacy = readLegacyLocalStorage()
         const browser = readBrowserBlob()
-        cache = {
-          ...defaultCache(),
-          ...legacy,
-          ...(browser ?? {}),
-          version: 1,
-        }
+        cache = { ...defaultCache(), ...(browser ?? {}), version: 1 }
         await flushToDisk()
-        clearLegacyLocalStorageKeys()
-        try {
-          localStorage.removeItem(BROWSER_CONFIG_KEY)
-        } catch {
-          /* ignore */
-        }
         normalizeThemeCacheAfterLoad()
       }
     } else {
       const browser = readBrowserBlob()
-      cache = {
-        ...defaultCache(),
-        ...readLegacyLocalStorage(),
-        ...(browser ?? {}),
-        version: 1,
-      }
+      cache = { ...defaultCache(), ...(browser ?? {}), version: 1 }
       await flushToDisk()
-      clearLegacyLocalStorageKeys()
       normalizeThemeCacheAfterLoad()
     }
     return
@@ -299,18 +186,16 @@ export async function hydrateAppConfig(dataRoot: string | null): Promise<void> {
     normalizeThemeCacheAfterLoad()
     return
   }
-  const legacy = readLegacyLocalStorage()
-  cache = { ...defaultCache(), ...legacy, version: 1 }
+  cache = defaultCache()
   writeBrowserBlob(cache)
-  clearLegacyLocalStorageKeys()
   normalizeThemeCacheAfterLoad()
 }
 
-export function getSetupState(): GitNotesSetupState {
+export function getSetupState(): NotelabSetupState {
   return cache.setup ?? defaultSetup()
 }
 
-export function setSetupState(state: GitNotesSetupState): void {
+export function setSetupState(state: NotelabSetupState): void {
   setCache({ ...cache, version: 1, setup: { ...state } })
 }
 
@@ -351,7 +236,7 @@ export function saveShortcutBindings(map: ShortcutBindingsMap): void {
   setCache({
     ...cache,
     version: 1,
-    shortcuts: map as GitnotesConfigFileV1["shortcuts"],
+    shortcuts: map as NotelabConfigFileV1["shortcuts"],
   })
 }
 
@@ -377,13 +262,13 @@ export function loadThemePresetId(): string {
   return DEFAULT_THEME_PRESET_ID
 }
 
-export function loadThemeConfig(): GitnotesThemeConfigV1 | null {
+export function loadThemeConfig(): NotelabThemeConfigV1 | null {
   if (!cache.themeConfig) return null
   const s = sanitizeThemeConfig(cache.themeConfig)
   return s ?? null
 }
 
-export function saveThemeConfig(config: GitnotesThemeConfigV1): void {
+export function saveThemeConfig(config: NotelabThemeConfigV1): void {
   const sanitized = sanitizeThemeConfig(config)
   setCache(
     {
@@ -403,7 +288,6 @@ export function saveThemePresetId(id: string): void {
     setCache({ ...cache, version: 1, themePresetId: next }, true)
     return
   }
-  /** Persist a full token snapshot alongside the preset id (readable in gitnotes.config). */
   const snapshot = buildThemeConfigFromPresetId(next)
   setCache(
     {

@@ -1,15 +1,15 @@
 import {
   getSetupState,
   setSetupState,
-} from "./gitnotes-app-config"
-import type { GitNotesSetupState } from "./gitnotes-config-schema"
+} from "./notelab-app-config"
+import type { NotelabSetupState } from "./notelab-config-schema"
 
-export type { GitNotesSetupState, GitNotesSyncMode } from "./gitnotes-config-schema"
+export type { NotelabSetupState, NotelabSyncMode } from "./notelab-config-schema"
 
-export function loadSetupState(): GitNotesSetupState {
+export function loadSetupState(): NotelabSetupState {
   return getSetupState()
 }
 
-export function saveSetupState(state: GitNotesSetupState): void {
+export function saveSetupState(state: NotelabSetupState): void {
   setSetupState(state)
 }

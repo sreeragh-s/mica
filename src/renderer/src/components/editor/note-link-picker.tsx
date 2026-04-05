@@ -10,11 +10,11 @@ import {
   CommandList,
 } from "@/components/ui/command"
 import { isDrawingNote } from "@/components/notes/notes-app-utils"
-import type { GitnotesEditorContextValue } from "@/components/editor/gitnotes-editor-context"
+import type { NotelabEditorContextValue } from "@/components/editor/notelab-editor-context"
 import type { SavedNote } from "@/lib/notes-storage"
 
 export function filterLinkableNotes(
-  ctx: GitnotesEditorContextValue,
+  ctx: NotelabEditorContextValue,
   query: string,
   excludeNoteId?: string
 ): SavedNote[] {
@@ -33,7 +33,7 @@ export type NoteLinkPickerListProps = {
   noteSearch: string
   onNoteSearchChange: (value: string) => void
   linkableNotes: SavedNote[]
-  gitnotesCtx: GitnotesEditorContextValue
+  notelabCtx: NotelabEditorContextValue
   onSelectNoteId: (noteId: string) => void
 }
 
@@ -41,7 +41,7 @@ export function NoteLinkPickerList({
   noteSearch,
   onNoteSearchChange,
   linkableNotes,
-  gitnotesCtx,
+  notelabCtx,
   onSelectNoteId,
 }: NoteLinkPickerListProps): JSX.Element {
   return (
@@ -56,7 +56,7 @@ export function NoteLinkPickerList({
         <CommandGroup heading="Workspace">
           {linkableNotes.map((note) => {
             const folderName =
-              gitnotesCtx.folders.find((f) => f.id === note.folderId)?.name ??
+              notelabCtx.folders.find((f) => f.id === note.folderId)?.name ??
               "Workspace"
             const label = note.title?.trim() || "Untitled"
             const kind = isDrawingNote(note) ? "Drawing" : "Note"

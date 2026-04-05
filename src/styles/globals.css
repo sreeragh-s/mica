@@ -154,7 +154,7 @@
    * `viewBackgroundColor`, so a dark fill looks light and never matches app `--background`.
    * We paint the canvas with the real theme color from JS; drop the filter here only.
    */
-  .gitnotes-excalidraw-host .excalidraw.theme--dark canvas {
+  .notelab-excalidraw-host .excalidraw.theme--dark canvas {
     filter: none !important;
   }
 }

@@ -23,7 +23,7 @@ export function LoginScreen({ onGitHub, onGuest, busy, error }: Props): JSX.Elem
           mac && "pt-6"
         )}
       >
-        <h1 className="text-2xl font-semibold tracking-tight">gitnotes</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">notelab.io</h1>
         <p className="text-muted-foreground text-sm">
           Sign in with GitHub, or continue locally and add sync later in Settings.
         </p>

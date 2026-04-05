@@ -36,7 +36,7 @@ Main process
 | `src/embeddings.ts` | **New** — `POST /api/embeddings` handler |
 | `src/index.ts` | Routed `/api/embeddings` |
 
-### Electron main (`gitnotes/src/main/`)
+### Electron main (`<notelab.io repo>/src/main/`)
 
 | File | Change |
 |------|--------|
@@ -50,7 +50,7 @@ Main process
 | `src/preload/index.d.ts` | Mirrors above |
 | `src/renderer/src/lib/auth-bridge.ts` | Mirrors above |
 
-### Renderer (`gitnotes/src/renderer/src/`)
+### Renderer (`<notelab.io repo>/src/renderer/src/`)
 
 | File | Change |
 |------|--------|
@@ -90,9 +90,9 @@ On the first launch after updating, the main process detects that the existing `
 
 No manual migration is needed.
 
-### 4. Gitnotes — environment variable
+### 4. notelab.io — environment variable
 
-The Electron renderer calls the backend via `VITE_AUTH_URL`. Make sure `gitnotes/.env` (or `.env.local`) has:
+The Electron renderer calls the backend via `VITE_AUTH_URL`. Make sure your app’s `.env` (or `.env.local`) has:
 
 ```
 VITE_AUTH_URL=https://your-worker.workers.dev
@@ -115,8 +115,7 @@ VITE_AUTH_URL=https://your-tunnel.trycloudflare.com
 cd backend
 npx wrangler dev --remote
 
-# Terminal 2 — Electron app
-cd gitnotes
+# Terminal 2 — Electron app (from this repo’s root directory)
 npm install          # rebuilds native deps (LanceDB) for Electron ABI
 npm run dev
 ```

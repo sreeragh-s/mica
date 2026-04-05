@@ -1,6 +1,6 @@
 import { defaultPresets } from "@/components/appearance/theme-presets"
 import type { ThemeStyleProps } from "@/components/appearance/theme-presets"
-import type { GitnotesThemeConfigV1 } from "@/lib/gitnotes-config-schema"
+import type { NotelabThemeConfigV1 } from "@/lib/notelab-config-schema"
 import {
   CUSTOM_THEME_PRESET_ID,
   DEFAULT_THEME_PRESET_ID,
@@ -43,7 +43,7 @@ export function getThemePresetSwatchColors(
 /** Swatches for the palette row; prefers persisted `themeConfig.light` when present. */
 export function getThemeSwatchColors(
   presetId: string,
-  themeConfig?: GitnotesThemeConfigV1 | null
+  themeConfig?: NotelabThemeConfigV1 | null
 ): readonly [string, string, string, string] {
   /** Default palette does not apply a preset snapshot to the document (stylesheet tokens only).
    *  Config may still store a seeded snapshot for editing — ignore it so swatches match the UI. */

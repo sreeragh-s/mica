@@ -1,8 +1,8 @@
 import { defaultPresets } from "@/components/appearance/theme-presets"
-import type { GitnotesThemeConfigV1 } from "@/lib/gitnotes-config-schema"
+import type { NotelabThemeConfigV1 } from "@/lib/notelab-config-schema"
 
 /** Dispatched after theme preset or theme config changes. */
-export const THEME_PRESET_CHANGED_EVENT = "gitnotes-theme-preset-changed"
+export const THEME_PRESET_CHANGED_EVENT = "notelab-theme-preset-changed"
 
 export const DEFAULT_THEME_PRESET_ID = "default" as const
 export const CUSTOM_THEME_PRESET_ID = "custom" as const
@@ -80,7 +80,7 @@ function applyStylePartial(
 export function applyThemeToDocument(
   presetId: string,
   mode: "light" | "dark",
-  themeConfig: GitnotesThemeConfigV1 | null | undefined
+  themeConfig: NotelabThemeConfigV1 | null | undefined
 ): void {
   const el = document.documentElement
   clearThemePresetInlineVars()

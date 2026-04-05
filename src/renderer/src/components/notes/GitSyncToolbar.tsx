@@ -66,7 +66,7 @@ export function GitSyncToolbar({
     return null
   }
 
-  const msgId = `gitnotes-commit-msg-${folder.id}`
+  const msgId = `notelab-commit-msg-${folder.id}`
   const showCommitFields = dirty
 
   return (

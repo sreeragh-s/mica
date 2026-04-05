@@ -5,7 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext"
 
-import { useGitnotesEditorContext } from "@/components/editor/gitnotes-editor-context"
+import { useNotelabEditorContext } from "@/components/editor/notelab-editor-context"
 import {
   InternalNoteLinkIcon,
   InternalNoteLinkPreviewBody,
@@ -36,7 +36,7 @@ function clamp(n: number, min: number, max: number): number {
 
 export function LinkHoverPreviewPlugin(): JSX.Element | null {
   const [editor] = useLexicalComposerContext()
-  const gitnotesCtx = useGitnotesEditorContext()
+  const notelabCtx = useNotelabEditorContext()
   const [hover, setHover] = useState<HoverPayload | null>(null)
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const showTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -143,13 +143,13 @@ export function LinkHoverPreviewPlugin(): JSX.Element | null {
         rootEl.removeEventListener("scroll", onScroll, { capture: true })
       }
     })
-  }, [editor, gitnotesCtx, clearTimers, scheduleHide])
+  }, [editor, notelabCtx, clearTimers, scheduleHide])
 
   if (!hover) return null
 
   const resolvedNote =
-    hover.kind === "internal" && gitnotesCtx
-      ? gitnotesCtx.notes.find((n) => n.id === hover.noteId)
+    hover.kind === "internal" && notelabCtx
+      ? notelabCtx.notes.find((n) => n.id === hover.noteId)
       : undefined
 
   let top = hover.rect.bottom + GAP
@@ -178,7 +178,7 @@ export function LinkHoverPreviewPlugin(): JSX.Element | null {
           <InternalNoteLinkIcon />
           <InternalNoteLinkPreviewBody
             resolvedNote={resolvedNote}
-            gitnotesCtx={gitnotesCtx}
+            notelabCtx={notelabCtx}
           />
         </LinkPreviewCardShell>
       ) : (

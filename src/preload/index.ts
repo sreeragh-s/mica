@@ -2,6 +2,10 @@ import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 
 const api = {
+  clipboard: {
+    writeText: (text: string): Promise<{ ok: true } | { ok: false; error: string }> =>
+      ipcRenderer.invoke('clipboard:write-text', text),
+  },
   auth: {
     getSession: (): Promise<unknown> => ipcRenderer.invoke('auth:get-session'),
     signInWithGithub: (): Promise<{ user: unknown }> =>
@@ -16,6 +20,68 @@ const api = {
       }
     ): Promise<{ ok: boolean; status: number; body: string }> =>
       ipcRenderer.invoke('auth:fetch', url, init),
+    /**
+     * Streaming fetch via SSE. Sends `auth:stream` to main, receives chunks via IPC events.
+     * Returns a cleanup function to remove all listeners.
+     */
+    streamFetch: (
+      url: string,
+      init: { method?: string; body?: string; headers?: Record<string, string> },
+      callbacks: {
+        onChunk: (chunk: string) => void
+        onEnd: () => void
+        onError: (message: string) => void
+      }
+    ): (() => void) => {
+      const requestId = `${Date.now()}-${Math.random().toString(36).slice(2)}`
+
+      const chunkHandler = (_: unknown, rid: string, chunk: string): void => {
+        if (rid === requestId) callbacks.onChunk(chunk)
+      }
+      const endHandler = (_: unknown, rid: string): void => {
+        if (rid === requestId) {
+          cleanup()
+          callbacks.onEnd()
+        }
+      }
+      const errorHandler = (_: unknown, rid: string, msg: string): void => {
+        if (rid === requestId) {
+          cleanup()
+          callbacks.onError(msg)
+        }
+      }
+
+      ipcRenderer.on('auth:stream:chunk', chunkHandler)
+      ipcRenderer.on('auth:stream:end', endHandler)
+      ipcRenderer.on('auth:stream:error', errorHandler)
+
+      function cleanup(): void {
+        ipcRenderer.removeListener('auth:stream:chunk', chunkHandler)
+        ipcRenderer.removeListener('auth:stream:end', endHandler)
+        ipcRenderer.removeListener('auth:stream:error', errorHandler)
+      }
+
+      ipcRenderer.send('auth:stream', requestId, url, init)
+
+      return cleanup
+    },
+  },
+  chatHistory: {
+    write: (payload: {
+      sessionId: string
+      title: string
+      createdAt: number
+      messages: { role: 'user' | 'assistant'; content: string; timestamp: number }[]
+    }): Promise<{ ok: true } | { ok: false; error: string }> =>
+      ipcRenderer.invoke('chat-history:write', payload),
+    list: (): Promise<
+      | { ok: true; sessions: { sessionId: string; title: string; createdAt: number; messageCount: number }[] }
+      | { ok: false; error: string }
+    > => ipcRenderer.invoke('chat-history:list'),
+    read: (sessionId: string): Promise<
+      | { ok: true; content: string }
+      | { ok: false; error: string }
+    > => ipcRenderer.invoke('chat-history:read', sessionId),
   },
   workspace: {
     checkGit: (): Promise<
@@ -48,7 +114,7 @@ const api = {
       pruneOrphanNoteFiles?: boolean
     }): Promise<{ ok: true } | { ok: false; error: string }> =>
       ipcRenderer.invoke('workspace:sync-markdown', payload),
-    readGitnotesIndex: (
+    readNotelabIndex: (
       payload: { cwd: string }
     ): Promise<
       | {
@@ -64,7 +130,7 @@ const api = {
           }[]
         }
       | { ok: false; error: string }
-    > => ipcRenderer.invoke('workspace:read-gitnotes-index', payload),
+    > => ipcRenderer.invoke('workspace:read-notelab-index', payload),
     writeNoteFile: (payload: {
       cwd: string
       relativePath: string
@@ -126,7 +192,7 @@ const api = {
     ): Promise<{ ok: boolean }> =>
       ipcRenderer.invoke('window:set-zen-shortcut-binding', binding),
     onZenShortcutFromMain: (callback: () => void): (() => void) => {
-      const channel = 'gitnotes:zen-shortcut'
+      const channel = 'notelab:zen-shortcut'
       const handler = (): void => {
         callback()
       }
@@ -152,7 +218,7 @@ const api = {
     onLiquidGlassState: (
       callback: (state: { attached: boolean; glassSupported: boolean }) => void
     ): (() => void) => {
-      const channel = 'gitnotes:liquid-glass-state'
+      const channel = 'notelab:liquid-glass-state'
       const handler = (
         _event: unknown,
         state: { attached: boolean; glassSupported: boolean }

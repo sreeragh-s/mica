@@ -11,7 +11,7 @@ import { editorTheme } from "@/components/editor/themes/editor-theme"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
 
-import { GitnotesEditorProvider } from "@/components/editor/gitnotes-editor-context"
+import { NotelabEditorProvider } from "@/components/editor/notelab-editor-context"
 import { nodes } from "@/components/editor/nodes/nodes"
 import { Plugins } from "@/components/editor/plugins/plugins"
 import type { SavedNote, WorkspaceFolder } from "@/lib/notes-storage"
@@ -31,7 +31,7 @@ export function Editor({
   onChange,
   onSerializedChange,
   className,
-  gitnotesEditor,
+  notelabEditor,
 }: {
   editorState?: EditorState
   editorSerializedState?: SerializedEditorState
@@ -39,7 +39,7 @@ export function Editor({
   onSerializedChange?: (editorSerializedState: SerializedEditorState) => void
   className?: string
   /** When set, enables “link to note/drawing” in the floating toolbar and internal link navigation. */
-  gitnotesEditor?: {
+  notelabEditor?: {
     notes: SavedNote[]
     folders: WorkspaceFolder[]
     currentNoteId: string
@@ -62,7 +62,7 @@ export function Editor({
             : {}),
         }}
       >
-        <GitnotesEditorProvider value={gitnotesEditor ?? null}>
+        <NotelabEditorProvider value={notelabEditor ?? null}>
           <TooltipProvider>
             <div className="flex h-full min-h-0 flex-1 flex-col">
               <Plugins />
@@ -76,7 +76,7 @@ export function Editor({
               />
             </div>
           </TooltipProvider>
-        </GitnotesEditorProvider>
+        </NotelabEditorProvider>
       </LexicalComposer>
     </div>
   )

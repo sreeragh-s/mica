@@ -35,6 +35,6 @@ export function validateUrl(url: string): boolean {
   // TODO Fix UI for link insertion; it should never default to an invalid URL such as https://.
   // Maybe show a dialog where they user can type the URL before inserting it.
   if (url === "https://") return true
-  if (/^#gitnotes\/note\/.+/.test(url)) return true
+  if (/^#notelab\/note\/.+/.test(url)) return true
   return urlRegExp.test(url)
 }

@@ -45,7 +45,7 @@ import {
   CUSTOM_THEME_PRESET_ID,
   DEFAULT_THEME_PRESET_ID,
 } from '@/lib/theme-preset-apply'
-import type { GitnotesThemeConfigV1 } from '@/lib/gitnotes-config-schema'
+import type { NotelabThemeConfigV1 } from '@/lib/notelab-config-schema'
 import type { MacTitlebarStyles } from './notes-app-types'
 
 function ThemeSwatchStrip({
@@ -101,7 +101,7 @@ export function AppearanceSettingsView({
   }, [])
 
   const [themePresetId, setThemePresetId] = useState(appearanceInit.preset)
-  const [themeConfig, setThemeConfig] = useState<GitnotesThemeConfigV1 | null>(
+  const [themeConfig, setThemeConfig] = useState<NotelabThemeConfigV1 | null>(
     appearanceInit.config
   )
 
@@ -130,7 +130,7 @@ export function AppearanceSettingsView({
     }
   }, [])
 
-  const scheduleSaveThemeConfig = useCallback((next: GitnotesThemeConfigV1) => {
+  const scheduleSaveThemeConfig = useCallback((next: NotelabThemeConfigV1) => {
     setThemeConfig(next)
     if (saveDebounceRef.current) clearTimeout(saveDebounceRef.current)
     saveDebounceRef.current = setTimeout(() => {
@@ -249,7 +249,7 @@ export function AppearanceSettingsView({
           Color palette
         </Label>
         <p className="text-muted-foreground text-xs">
-          Palette and token snapshots are saved in gitnotes.config. Use Edit
+          Palette and token snapshots are saved in notelab.config. Use Edit
           theme to change colors, radius, and shadows.
         </p>
         <div className="flex flex-wrap items-center gap-2">

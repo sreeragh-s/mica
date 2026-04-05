@@ -2,7 +2,7 @@ import {
   loadGithubContentShas as loadFromConfig,
   mergeGithubContentShas as mergeFromConfig,
   saveGithubContentShas as saveToConfig,
-} from "./gitnotes-app-config"
+} from "./notelab-app-config"
 
 export function loadGithubContentShas(): Record<string, string> {
   return loadFromConfig()

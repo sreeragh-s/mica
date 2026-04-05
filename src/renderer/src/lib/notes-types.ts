@@ -33,11 +33,11 @@ export type NotesStateV2 = {
   version: 2
   folders: WorkspaceFolder[]
   notes: SavedNote[]
-  /** Shared Git remote URL for ~/.gitnotes (optional). */
+  /** Shared Git remote URL for ~/.notelab.io (optional). */
   githubRemoteUrl?: string
 }
 
-/** Electron: note bodies live on disk under ~/.gitnotes; only remote URL is cached here. */
+/** Electron: note bodies live on disk under ~/.notelab.io; only remote URL is cached here. */
 export type NotesStateV3 = {
   version: 3
   githubRemoteUrl?: string

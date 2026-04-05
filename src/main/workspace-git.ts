@@ -6,51 +6,30 @@ import {
   readFileSync,
   readdirSync,
   rmSync,
-  rmdirSync,
   unlinkSync,
   writeFileSync,
 } from 'node:fs'
 import { homedir } from 'node:os'
 import { dirname, join, relative, resolve, sep } from 'node:path'
 
-const LOG = '[gitnotes-workspace]'
-/** Virtual inbox id; not a directory under `gitnotes/workspaces/`. */
+const LOG = '[notelab-workspace]'
+/** In-repo synced notes (must match backend `/api/github`). */
+const REPO_APP_ROOT = 'notelab.io'
+/** Virtual inbox id; not a directory under `notelab.io/workspaces/`. */
 const DEFAULT_WORKSPACE_ID = 'default'
-const MODE_FILE = '.gitnotes-mode'
-/** App settings JSON: <dataRoot>/gitnotes.config (data root is already ~/.gitnotes). */
-const APP_CONFIG_FILENAME = 'gitnotes.config'
-/** Older layout mistakenly nested another `.gitnotes/` inside the repo. */
-const LEGACY_APP_CONFIG_DIR = '.gitnotes'
+const MODE_FILE = '.notelab-mode'
+/** App settings JSON: <dataRoot>/notelab.config (data root is ~/.notelab.io). */
+const APP_CONFIG_FILENAME = 'notelab.config'
 
-function assertGitnotesDataRoot(cwd: string): boolean {
+function assertNotelabDataRoot(cwd: string): boolean {
   const root = cwd?.trim() ?? ''
   if (!root) return false
-  const expected = resolve(join(homedir(), '.gitnotes'))
+  const expected = resolve(join(homedir(), '.notelab.io'))
   return resolve(root) === expected
 }
 
 function appConfigFilePath(cwd: string): string {
   return join(cwd, APP_CONFIG_FILENAME)
-}
-
-function legacyAppConfigFilePath(cwd: string): string {
-  return join(cwd, LEGACY_APP_CONFIG_DIR, APP_CONFIG_FILENAME)
-}
-
-/** Remove ~/.gitnotes/.gitnotes/gitnotes.config if present (after migrating to repo root). */
-function removeLegacyAppConfigTree(cwd: string): void {
-  const legacyFile = legacyAppConfigFilePath(cwd)
-  if (!existsSync(legacyFile)) return
-  try {
-    unlinkSync(legacyFile)
-    const legacyDir = join(cwd, LEGACY_APP_CONFIG_DIR)
-    if (existsSync(legacyDir)) {
-      const rest = readdirSync(legacyDir)
-      if (rest.length === 0) rmdirSync(legacyDir)
-    }
-  } catch (e) {
-    console.warn(LOG, 'remove legacy app config path', e)
-  }
 }
 
 function allowWorkspaceFs(cwd: string): boolean {
@@ -195,9 +174,9 @@ function syncMarkdownFilesToDisk(
 
   if (!pruneOrphanNoteFiles) return
 
-  const wsDir = join(cwd, 'gitnotes', 'workspaces', workspaceId)
+  const wsDir = join(cwd, REPO_APP_ROOT, 'workspaces', workspaceId)
   if (!existsSync(wsDir)) return
-  const prefix = `gitnotes/workspaces/${workspaceId}/`.replace(/\\/g, '/')
+  const prefix = `${REPO_APP_ROOT}/workspaces/${workspaceId}/`.replace(/\\/g, '/')
   for (const ent of readdirSync(wsDir, { withFileTypes: true })) {
     if (!ent.isFile() || ent.name === 'README.md') continue
     if (!ent.name.endsWith('.md')) continue
@@ -209,7 +188,7 @@ function syncMarkdownFilesToDisk(
   }
 }
 
-function parseGitnotesNoteFile(content: string): {
+function parseNotelabNoteFile(content: string): {
   id: string
   title: string
   updatedAtMs: number
@@ -221,7 +200,7 @@ function parseGitnotesNoteFile(content: string): {
   if (endFm === -1) return null
   const fm = content.slice(3, endFm).trim()
   const body = content.slice(endFm + 4).replace(/^\n+/, '')
-  const idM = /^gitnotes_note_id:\s*["']?([^"'\s]+)/m.exec(fm)
+  const idM = /^notelab_note_id:\s*["']?([^"'\s]+)/m.exec(fm)
   if (!idM) return null
   const id = idM[1]!
   let title = 'New note'
@@ -235,7 +214,7 @@ function parseGitnotesNoteFile(content: string): {
     }
   }
   let kind: 'note' | 'drawing' = 'note'
-  const kindLine = /^gitnotes_kind:\s*(drawing|note)\s*$/m.exec(fm)
+  const kindLine = /^notelab_kind:\s*(drawing|note)\s*$/m.exec(fm)
   if (kindLine && kindLine[1] === 'drawing') kind = 'drawing'
 
   let updatedAtMs = Date.now()
@@ -247,7 +226,7 @@ function parseGitnotesNoteFile(content: string): {
   return { id, title, updatedAtMs, body, kind }
 }
 
-function writeGitnotesFile(
+function writeNotelabFile(
   cwd: string,
   relativePath: string,
   content: string
@@ -272,17 +251,18 @@ function deleteNoteFilesForId(
   noteId: string,
   exceptRelativePath?: string
 ): void {
-  const wsDir = join(cwd, 'gitnotes', 'workspaces', workspaceId)
+  const wsDir = join(cwd, REPO_APP_ROOT, 'workspaces', workspaceId)
   if (!existsSync(wsDir)) return
   const exceptNorm = exceptRelativePath
     ? normalizeRelativePathForCompare(exceptRelativePath)
     : null
   const suffix = `--${noteId}.md`
   const legacy = `${noteId}.md`
+  const relBase = `${REPO_APP_ROOT}/workspaces/${workspaceId}/`
   for (const ent of readdirSync(wsDir, { withFileTypes: true })) {
     if (!ent.isFile() || ent.name === 'README.md') continue
     if (ent.name.endsWith(suffix) || ent.name === legacy) {
-      const rel = `gitnotes/workspaces/${workspaceId}/${ent.name}`
+      const rel = `${relBase}${ent.name}`
       if (exceptNorm && normalizeRelativePathForCompare(rel) === exceptNorm) {
         continue
       }
@@ -292,7 +272,7 @@ function deleteNoteFilesForId(
   }
 }
 
-function readGitnotesIndexImpl(cwd: string): {
+function readNotelabIndexImpl(cwd: string): {
   workspaces: { id: string; name: string }[]
   notes: {
     workspaceId: string
@@ -312,7 +292,7 @@ function readGitnotesIndexImpl(cwd: string): {
     markdownBody: string
     kind: 'note' | 'drawing'
   }[] = []
-  const root = join(cwd, 'gitnotes', 'workspaces')
+  const root = join(cwd, REPO_APP_ROOT, 'workspaces')
   if (!existsSync(root)) return { workspaces, notes }
   for (const ent of readdirSync(root, { withFileTypes: true })) {
     if (!ent.isDirectory()) continue
@@ -330,7 +310,7 @@ function readGitnotesIndexImpl(cwd: string): {
         continue
       const full = join(wsPath, f.name)
       const content = readFileSync(full, 'utf8')
-      const parsed = parseGitnotesNoteFile(content)
+      const parsed = parseNotelabNoteFile(content)
       if (!parsed) continue
       notes.push({
         workspaceId: id,
@@ -368,7 +348,7 @@ export function registerWorkspaceGitIpc(): void {
       | { ok: false; error: string }
     > => {
       try {
-        const root = join(homedir(), '.gitnotes')
+        const root = join(homedir(), '.notelab.io')
         mkdirSync(root, { recursive: true })
         const gitDir = join(root, '.git')
         const gitCheck = checkGitBinary()
@@ -401,7 +381,7 @@ export function registerWorkspaceGitIpc(): void {
         if (!existsSync(readmePath)) {
           writeFileSync(
             readmePath,
-            '# GitNotes\n\nYour workspaces and notes are stored under `gitnotes/workspaces/`.\n',
+            '# notelab.io\n\nYour workspaces and notes are stored under `notelab.io/workspaces/`.\n',
             'utf8'
           )
         }
@@ -430,28 +410,13 @@ export function registerWorkspaceGitIpc(): void {
       { ok: true; content: string | null } | { ok: false; error: string }
     > => {
       const cwd = payload.cwd?.trim() ?? ''
-      if (!cwd || !assertGitnotesDataRoot(cwd)) {
+      if (!cwd || !assertNotelabDataRoot(cwd)) {
         return { ok: false, error: 'invalid_data_root' }
       }
       try {
         const primary = appConfigFilePath(cwd)
-        const legacy = legacyAppConfigFilePath(cwd)
         if (existsSync(primary)) {
           const content = readFileSync(primary, 'utf8')
-          removeLegacyAppConfigTree(cwd)
-          return { ok: true, content: content.trim() ? content : null }
-        }
-        if (existsSync(legacy)) {
-          const content = readFileSync(legacy, 'utf8')
-          if (content.trim()) {
-            try {
-              writeFileSync(primary, content, 'utf8')
-              console.info(LOG, 'migrated app config', legacy, '->', primary)
-            } catch (e) {
-              console.warn(LOG, 'migrate app config copy failed', e)
-            }
-          }
-          removeLegacyAppConfigTree(cwd)
           return { ok: true, content: content.trim() ? content : null }
         }
         return { ok: true, content: null }
@@ -470,14 +435,13 @@ export function registerWorkspaceGitIpc(): void {
       payload: { cwd: string; config: unknown }
     ): Promise<{ ok: true } | { ok: false; error: string }> => {
       const cwd = payload.cwd?.trim() ?? ''
-      if (!cwd || !assertGitnotesDataRoot(cwd)) {
+      if (!cwd || !assertNotelabDataRoot(cwd)) {
         return { ok: false, error: 'invalid_data_root' }
       }
       try {
         const path = appConfigFilePath(cwd)
         const body = `${JSON.stringify(payload.config, null, 2)}\n`
         writeFileSync(path, body, 'utf8')
-        removeLegacyAppConfigTree(cwd)
         console.debug(LOG, 'write-app-config', path)
         return { ok: true }
       } catch (e) {
@@ -583,7 +547,7 @@ export function registerWorkspaceGitIpc(): void {
   )
 
   ipcMain.handle(
-    'workspace:read-gitnotes-index',
+    'workspace:read-notelab-index',
     async (
       _evt,
       payload: { cwd: string }
@@ -607,11 +571,11 @@ export function registerWorkspaceGitIpc(): void {
         return { ok: false, error: 'not_a_workspace' }
       }
       try {
-        const { workspaces, notes } = readGitnotesIndexImpl(cwd)
+        const { workspaces, notes } = readNotelabIndexImpl(cwd)
         return { ok: true, workspaces, notes }
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e)
-        console.error(LOG, 'read-gitnotes-index', msg)
+        console.error(LOG, 'read-notelab-index', msg)
         return { ok: false, error: msg }
       }
     }
@@ -633,7 +597,7 @@ export function registerWorkspaceGitIpc(): void {
         return { ok: false, error: 'missing_path' }
       }
       try {
-        writeGitnotesFile(cwd, rel, content)
+        writeNotelabFile(cwd, rel, content)
         return { ok: true }
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e)
@@ -662,7 +626,7 @@ export function registerWorkspaceGitIpc(): void {
       ) {
         return { ok: false, error: 'invalid_workspace' }
       }
-      const workspacesRoot = resolve(join(cwd, 'gitnotes', 'workspaces'))
+      const workspacesRoot = resolve(join(cwd, REPO_APP_ROOT, 'workspaces'))
       const resolvedWs = resolve(workspacesRoot, workspaceId)
       if (dirname(resolvedWs) !== workspacesRoot) {
         return { ok: false, error: 'invalid_workspace' }
@@ -670,15 +634,9 @@ export function registerWorkspaceGitIpc(): void {
       if (!existsSync(resolvedWs)) {
         return { ok: false, error: 'missing_workspace' }
       }
-      try {
-        rmSync(resolvedWs, { recursive: true, force: true })
-        console.info(LOG, 'deleted workspace folder', workspaceId)
-        return { ok: true }
-      } catch (e) {
-        const msg = e instanceof Error ? e.message : String(e)
-        console.error(LOG, 'delete-workspace-folder', msg)
-        return { ok: false, error: msg }
-      }
+      rmSync(resolvedWs, { recursive: true, force: true })
+      console.info(LOG, 'deleted workspace folder', workspaceId)
+      return { ok: true }
     }
   )
 
@@ -745,8 +703,8 @@ export function registerWorkspaceGitIpc(): void {
     ): Promise<{ ok: true } | { ok: false; error: string }> => {
       const cwd = payload.cwd?.trim() ?? ''
       const message = payload.message?.trim() ?? ''
-      const authorName = payload.authorName?.trim() || 'GitNotes'
-      const authorEmail = payload.authorEmail?.trim() || 'gitnotes@local'
+      const authorName = payload.authorName?.trim() || 'notelab.io'
+      const authorEmail = payload.authorEmail?.trim() || 'notes@notelab.io'
       if (!cwd || !existsSync(join(cwd, '.git'))) {
         return { ok: false, error: 'not_a_git_repo' }
       }
@@ -823,7 +781,7 @@ export function registerWorkspaceGitIpc(): void {
         return {
           ok: false,
           error:
-            'No remote named origin. Add your GitHub URL in Settings → GitHub & Git and click “Apply remote to ~/.gitnotes”.',
+            'No remote named origin. Add your GitHub URL in Settings → GitHub & Git and click “Apply remote to ~/.notelab.io”.',
         }
       }
       const br = getCurrentBranchName(cwd)

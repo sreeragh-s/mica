@@ -60,7 +60,7 @@ export function NotesPrimaryPane({
           editorSerializedState={selectedNote.content ?? undefined}
           onSerializedChange={(s) => onNoteSerializedChange(selectedNote.id, s)}
           className="min-h-0 flex-1"
-          gitnotesEditor={{ notes, folders, currentNoteId: selectedNote.id, onOpenInternalNote: onSelectNote }}
+          notelabEditor={{ notes, folders, currentNoteId: selectedNote.id, onOpenInternalNote: onSelectNote }}
         />
       </div>
     )

@@ -275,6 +275,8 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
 
   const showNotes = appMode === 'notes'
   const showTabs = showNotes && !workspaceSettingsFolderId && openNoteTabIds.length > 0
+  /** Same scope as toolbar + search: main notes surface only (not settings, workspace settings, or zen). */
+  const showNotesChatChrome = showNotes && !workspaceSettingsFolderId && !zenMode
 
   return (
     <div
@@ -296,13 +298,13 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
           {showNotes && !workspaceSettingsFolderId && !zenMode && (
             <div
               className={cn(
-                'pointer-events-none absolute z-30 flex h-12 items-center',
+                // Above the full-width search row (later sibling) so the pill stays clickable.
+                'pointer-events-none absolute z-50 flex h-12 items-center',
                 sidebarOverlayActive ? 'right-1.5' : 'right-2',
                 sidebarOverlayActive || macElectron ? 'top-2' : 'top-0'
               )}
-              style={macTitlebarStyles.noDrag}
             >
-              <div className="pointer-events-auto">
+              <div className="pointer-events-auto" style={macElectron ? macTitlebarStyles.noDrag : undefined}>
                 <NotesToolbarPill
                   macTitlebarStyles={macTitlebarStyles}
                   nativeLiquidGlassAttached={nativeLiquidGlassAttached}
@@ -314,13 +316,14 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
               </div>
             </div>
           )}
-          <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+          <div className="relative z-0 flex min-h-0 min-w-0 flex-1 flex-col">
           {!zenMode && (
             <div
               className={cn(
-                'bg-background flex shrink-0 flex-col',
+                'bg-background relative z-0 flex shrink-0 flex-col',
                 (sidebarOverlayActive || macElectron) && 'pt-2'
               )}
+              style={macElectron ? macTitlebarStyles.drag : undefined}
             >
               {/* Search bar row */}
               {showNotes && !workspaceSettingsFolderId ? (
@@ -457,7 +460,17 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
             ) : null}
           </div>
           </div>
-          <NotesChatSidebar open={chatSidebarOpen} />
+          {showNotesChatChrome && (
+            <NotesChatSidebar
+              open={chatSidebarOpen}
+              notes={notes}
+              folders={folders}
+              selectedNote={selectedNote}
+              selectNote={selectNote}
+              macElectron={macElectron}
+              sidebarOverlayActive={sidebarOverlayActive}
+            />
+          )}
         </div>
       </main>
 

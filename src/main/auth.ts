@@ -1,7 +1,7 @@
 import { BrowserWindow, ipcMain, session } from 'electron'
 
-const AUTH_PARTITION = 'persist:gitnotes-auth'
-const LOG = '[gitnotes-auth]'
+const AUTH_PARTITION = 'persist:notelab-auth'
+const LOG = '[notelab-auth]'
 
 function baseUrl(): string {
   const u = __APP_AUTH_URL__ ?? ''
@@ -36,7 +36,7 @@ export function registerAuthIpc(): void {
   ipcMain.handle('auth:sign-in-github', async () => {
     const base = baseUrl()
     if (!base) {
-      throw new Error('Set VITE_AUTH_URL in gitnotes/.env (Worker / tunnel base URL)')
+      throw new Error('Set VITE_AUTH_URL in notelab.io app .env (Worker / tunnel base URL)')
     }
 
     const signInUrl = `${base}/api/auth/sign-in/social`
@@ -163,6 +163,91 @@ export function registerAuthIpc(): void {
       return { ok: false as const }
     }
   })
+
+  /**
+   * Streaming fetch — sends chunks back via webContents events instead of returning a buffer.
+   * Caller must provide a unique `requestId`; events arrive on:
+   *   auth:stream:chunk  (requestId, chunkText)
+   *   auth:stream:end    (requestId)
+   *   auth:stream:error  (requestId, errorMessage)
+   */
+  ipcMain.on(
+    'auth:stream',
+    (
+      event,
+      requestId: string,
+      url: string,
+      init?: { method?: string; body?: string; headers?: Record<string, string> }
+    ) => {
+      const base = baseUrl()
+      if (!base) {
+        event.sender.send('auth:stream:error', requestId, 'missing_env')
+        return
+      }
+      const u = typeof url === 'string' ? url.trim() : ''
+      if (!u) {
+        event.sender.send('auth:stream:error', requestId, 'empty_url')
+        return
+      }
+
+      console.info(`[notelab-auth] auth:stream start requestId=${requestId} url=${u}`)
+
+      void (async () => {
+        try {
+          const origin = new URL(base).origin
+          const headers: Record<string, string> = {
+            Origin: origin,
+            ...(init?.headers ?? {}),
+          }
+          if (init?.body && (init.method ?? 'GET').toUpperCase() !== 'GET') {
+            headers['Content-Type'] = 'application/json'
+          }
+          const res = await authSession.fetch(u, {
+            method: init?.method ?? 'GET',
+            body: init?.body,
+            headers,
+          })
+
+          if (!res.ok) {
+            const errText = await res.text()
+            console.warn(`[notelab-auth] auth:stream HTTP error ${res.status}:`, errText.slice(0, 200))
+            event.sender.send('auth:stream:error', requestId, `HTTP ${res.status}: ${errText.slice(0, 500)}`)
+            return
+          }
+
+          if (!res.body) {
+            event.sender.send('auth:stream:error', requestId, 'No response body')
+            return
+          }
+
+          console.info(`[notelab-auth] auth:stream reading body requestId=${requestId}`)
+          const reader = res.body.getReader()
+          const decoder = new TextDecoder()
+
+          let chunkCount = 0
+          for (;;) {
+            const { done, value } = await reader.read()
+            if (done) break
+            const text = decoder.decode(value, { stream: true })
+            chunkCount++
+            if (!event.sender.isDestroyed()) {
+              event.sender.send('auth:stream:chunk', requestId, text)
+            }
+          }
+          console.info(`[notelab-auth] auth:stream done requestId=${requestId} chunks=${chunkCount}`)
+          if (!event.sender.isDestroyed()) {
+            event.sender.send('auth:stream:end', requestId)
+          }
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e)
+          console.error(`[notelab-auth] auth:stream error requestId=${requestId}:`, msg)
+          if (!event.sender.isDestroyed()) {
+            event.sender.send('auth:stream:error', requestId, msg)
+          }
+        }
+      })()
+    }
+  )
 
   ipcMain.handle(
     'auth:fetch',

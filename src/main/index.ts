@@ -1,9 +1,17 @@
-import { app, shell, BrowserWindow, ipcMain, session, type WebContents } from 'electron'
+import {
+  app,
+  clipboard,
+  shell,
+  BrowserWindow,
+  ipcMain,
+  session,
+  type WebContents,
+  type Input,
+} from 'electron'
 
 type MacLiquidGlassState = { attached: boolean; glassSupported: boolean }
 
 const macLiquidGlassStateByWebContents = new WeakMap<WebContents, MacLiquidGlassState>()
-import type { Input } from 'electron'
 
 /** Serialized shortcut (same shape as renderer `ShortcutBinding`). */
 type ZenShortcutBinding = {
@@ -28,9 +36,10 @@ function bindingMatchesBeforeInput(b: ZenShortcutBinding, input: Input): boolean
   return false
 }
 import { join } from 'path'
-import { electronApp, optimizer, is } from '@electron-toolkit/utils'
+import { electronApp, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { registerAuthIpc } from './auth'
+import { registerChatHistoryIpc } from './chat-history'
 import { registerWorkspaceGitIpc } from './workspace-git'
 import { registerLancedbEmbeddingsIpc } from './lancedb-embeddings'
 
@@ -51,20 +60,54 @@ async function attachMacNativeLiquidGlass(win: BrowserWindow): Promise<void> {
       liquidGlass.unstable_setVariant(glassId, liquidGlass.GlassMaterialVariant.sidebar)
     }
   } catch (e) {
-    console.warn('[gitnotes] electron-liquid-glass failed to attach:', e)
+    console.warn('[notelab] electron-liquid-glass failed to attach:', e)
   }
   if (!win.isDestroyed()) {
     macLiquidGlassStateByWebContents.set(win.webContents, state)
-    win.webContents.send('gitnotes:liquid-glass-state', state)
+    win.webContents.send('notelab:liquid-glass-state', state)
   }
+}
+
+/**
+ * Mirrors `@electron-toolkit/utils` `optimizer.watchWindowShortcuts`, but opens DevTools with
+ * `mode: 'detach'` (separate OS window). Undocked tools inside a transparent / liquid-glass
+ * window often break click hit-testing; detached mode avoids that.
+ */
+function watchWindowShortcutsDetachedDevTools(window: BrowserWindow): void {
+  const { webContents } = window
+  webContents.on('before-input-event', (event, input: Input) => {
+    if (input.type !== 'keyDown') return
+    if (!is.dev) {
+      if (input.code === 'KeyR' && (input.control || input.meta)) {
+        event.preventDefault()
+      }
+      if (input.code === 'KeyI' && ((input.alt && input.meta) || (input.control && input.shift))) {
+        event.preventDefault()
+      }
+    } else if (input.code === 'F12') {
+      if (webContents.isDevToolsOpened()) {
+        webContents.closeDevTools()
+      } else {
+        webContents.openDevTools({ mode: 'detach' })
+      }
+    }
+    if (input.code === 'Minus' && (input.control || input.meta)) {
+      event.preventDefault()
+    }
+    if (input.code === 'Equal' && input.shift && (input.control || input.meta)) {
+      event.preventDefault()
+    }
+  })
 }
 
 function createWindow(): void {
   // Create the browser window.
   const mainWindow = new BrowserWindow({
-    title: 'gitnotes',
+    title: 'notelab.io',
     width: 900,
     height: 670,
+    minWidth: 900,
+    minHeight: 670,
     show: false,
     autoHideMenuBar: true,
     ...(process.platform === 'linux' ? { icon } : {}),
@@ -128,7 +171,7 @@ function createWindow(): void {
     if (!b) return
     if (!bindingMatchesBeforeInput(b, input)) return
     event.preventDefault()
-    mainWindow.webContents.send('gitnotes:zen-shortcut')
+    mainWindow.webContents.send('notelab:zen-shortcut')
   })
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
@@ -163,17 +206,26 @@ app.whenReady().then(() => {
   })
 
   // Set app user model id for windows
-  electronApp.setAppUserModelId('com.gitnotes.app')
+  electronApp.setAppUserModelId('io.notelab.app')
 
-  // Default open or close DevTools by F12 in development
-  // and ignore CommandOrControl + R in production.
+  // Default open or close DevTools by F12 in development (detached window — see
+  // watchWindowShortcutsDetachedDevTools) and ignore CommandOrControl + R in production.
   // see https://github.com/alex8088/electron-toolkit/tree/master/packages/utils
   app.on('browser-window-created', (_, window) => {
-    optimizer.watchWindowShortcuts(window)
+    watchWindowShortcutsDetachedDevTools(window)
   })
 
   // IPC test
   ipcMain.on('ping', () => console.log('pong'))
+
+  ipcMain.handle('clipboard:write-text', (_event, text: string) => {
+    try {
+      clipboard.writeText(text)
+      return { ok: true as const }
+    } catch (err) {
+      return { ok: false as const, error: String(err) }
+    }
+  })
 
   ipcMain.handle('window:set-zen-shortcut-binding', (event, binding: ZenShortcutBinding | null) => {
     zenShortcutBindings.set(event.sender, binding)
@@ -224,6 +276,7 @@ app.whenReady().then(() => {
   })
 
   registerAuthIpc()
+  registerChatHistoryIpc()
   registerWorkspaceGitIpc()
   registerLancedbEmbeddingsIpc()
 

@@ -140,11 +140,11 @@ export function NotesSearchBar({
     <div
       ref={wrapRef}
       className={cn(
-        'flex h-12 w-full min-w-0 shrink-0 items-center gap-2 px-2',
+        'relative z-0 flex h-12 w-full min-w-0 shrink-0 items-center gap-2 px-2',
         reserveToolbarPillSpace ? 'pr-32' : sidebarOverlayActive && 'pr-1.5',
         !sidebarOverlayActive && macElectron && sidebarCollapsed && 'pl-[92px]'
       )}
-      style={macTitlebarStyles.noDrag}
+      style={macElectron ? macTitlebarStyles.drag : undefined}
     >
       {sidebarCollapsed ? (
         <div className={liquidGlassControlPillClass(nativeGlassUi)} style={macTitlebarStyles.noDrag}>
@@ -176,7 +176,10 @@ export function NotesSearchBar({
           }}
         >
           <PopoverAnchor asChild>
-            <div className={liquidGlassSearchShellClass(nativeGlassUi)}>
+            <div
+              className={liquidGlassSearchShellClass(nativeGlassUi)}
+              style={macElectron ? macTitlebarStyles.noDrag : undefined}
+            >
               <Search
                 className="text-muted-foreground pointer-events-none absolute left-3 top-1/2 z-10 size-4 -translate-y-1/2 opacity-70"
                 aria-hidden
@@ -274,7 +277,11 @@ export function NotesSearchBar({
           </PopoverContent>
         </Popover>
       </div>
-      {trailing}
+      {trailing != null ? (
+        <div className="shrink-0" style={macElectron ? macTitlebarStyles.noDrag : undefined}>
+          {trailing}
+        </div>
+      ) : null}
     </div>
   )
 }

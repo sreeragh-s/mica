@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 /**
- * Deletes Chromium/Electron on-disk Local Storage for gitnotes (renderer localStorage,
- * including partitioned sessions like persist:gitnotes-auth).
+ * Deletes Chromium/Electron on-disk Local Storage for notelab.io (renderer localStorage,
+ * including partitioned sessions like persist:notelab-auth).
  *
- * Quit the app before running. Paths follow Electron defaults for `package.json` name "gitnotes".
+ * Quit the app before running. Paths follow Electron defaults for `package.json` name "notelab.io".
  */
 import fs from 'node:fs'
 import path from 'node:path'
@@ -13,11 +13,11 @@ function userDataRoot() {
   const home = os.homedir()
   switch (process.platform) {
     case 'darwin':
-      return path.join(home, 'Library', 'Application Support', 'gitnotes')
+      return path.join(home, 'Library', 'Application Support', 'notelab.io')
     case 'win32':
-      return path.join(home, 'AppData', 'Roaming', 'gitnotes')
+      return path.join(home, 'AppData', 'Roaming', 'notelab.io')
     default:
-      return path.join(home, '.config', 'gitnotes')
+      return path.join(home, '.config', 'notelab.io')
   }
 }
 
@@ -30,7 +30,7 @@ function rmDir(p) {
     const err = /** @type {NodeJS.ErrnoException} */ (e)
     if (err.code === 'EPERM' || err.code === 'EBUSY') {
       console.error(
-        '[clean-local-storage] could not remove (quit gitnotes completely, then retry):',
+        '[clean-local-storage] could not remove (quit notelab.io completely, then retry):',
         p
       )
     } else {
@@ -68,6 +68,6 @@ if (fs.existsSync(partitions)) {
 
 console.log(
   removed > 0
-    ? '[clean-local-storage] done. Restart gitnotes.'
+    ? '[clean-local-storage] done. Restart notelab.io.'
     : '[clean-local-storage] no Local Storage dirs found (already clean?).'
 )

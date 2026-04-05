@@ -1,6 +1,6 @@
 import { useId, type JSX } from "react"
 
-import type { GitnotesThemeConfigV1 } from "@/lib/gitnotes-config-schema"
+import type { NotelabThemeConfigV1 } from "@/lib/notelab-config-schema"
 import { humanizeThemeTokenKey } from "@/lib/theme-config-utils"
 import { THEME_STYLE_VAR_KEYS } from "@/lib/theme-preset-apply"
 import { Input } from "@/components/ui/input"
@@ -10,17 +10,17 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { cn } from "@/lib/utils"
 
 export type ThemeConfigEditorProps = {
-  value: GitnotesThemeConfigV1
-  onChange: (next: GitnotesThemeConfigV1) => void
+  value: NotelabThemeConfigV1
+  onChange: (next: NotelabThemeConfigV1) => void
   className?: string
 }
 
 function patchMode(
-  config: GitnotesThemeConfigV1,
+  config: NotelabThemeConfigV1,
   mode: "light" | "dark",
   key: string,
   raw: string
-): GitnotesThemeConfigV1 {
+): NotelabThemeConfigV1 {
   const trimmed = raw.trim()
   const prev = config[mode] as Record<string, string | undefined>
   if (trimmed === "") {

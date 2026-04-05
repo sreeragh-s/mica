@@ -44,7 +44,7 @@ import {
 } from "lucide-react"
 import { createPortal } from "react-dom"
 
-import { useGitnotesEditorContext } from "@/components/editor/gitnotes-editor-context"
+import { useNotelabEditorContext } from "@/components/editor/notelab-editor-context"
 import {
   filterLinkableNotes,
   NoteLinkPickerList,
@@ -102,7 +102,7 @@ function FloatingTextFormat({
     }
   }, [editor, isLink, setIsLinkEditMode])
 
-  const gitnotesCtx = useGitnotesEditorContext()
+  const notelabCtx = useNotelabEditorContext()
   const [noteSearch, setNoteSearch] = useState("")
   const savedSelectionRef = useRef<BaseSelection | null>(null)
 
@@ -115,13 +115,13 @@ function FloatingTextFormat({
   }, [editor])
 
   const linkableNotes = useMemo(() => {
-    if (!gitnotesCtx) return []
+    if (!notelabCtx) return []
     return filterLinkableNotes(
-      gitnotesCtx,
+      notelabCtx,
       noteSearch,
-      gitnotesCtx.currentNoteId
+      notelabCtx.currentNoteId
     )
-  }, [gitnotesCtx, noteSearch])
+  }, [notelabCtx, noteSearch])
 
   const applyInternalNoteLink = useCallback(
     (noteId: string) => {
@@ -329,7 +329,7 @@ function FloatingTextFormat({
               <LinkIcon className="h-4 w-4" />
             </ToggleGroupItem>
           </ToggleGroup>
-          {gitnotesCtx ? (
+          {notelabCtx ? (
             <>
               <Separator
                 orientation="vertical"
@@ -368,7 +368,7 @@ function FloatingTextFormat({
                     noteSearch={noteSearch}
                     onNoteSearchChange={setNoteSearch}
                     linkableNotes={linkableNotes}
-                    gitnotesCtx={gitnotesCtx}
+                    notelabCtx={notelabCtx}
                     onSelectNoteId={applyInternalNoteLink}
                   />
                 </PopoverContent>

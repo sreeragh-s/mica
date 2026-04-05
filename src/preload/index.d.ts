@@ -1,6 +1,19 @@
 import { ElectronAPI } from '@electron-toolkit/preload'
 
-type GitNotesApi = {
+type ChatHistoryMessage = {
+  role: 'user' | 'assistant'
+  content: string
+  timestamp: number
+}
+
+type ChatHistoryMeta = {
+  sessionId: string
+  title: string
+  createdAt: number
+  messageCount: number
+}
+
+type NotelabApi = {
   auth: {
     getSession: () => Promise<
       | { ok: true; data: { session: unknown; user: unknown } | null }
@@ -16,6 +29,31 @@ type GitNotesApi = {
         headers?: Record<string, string>
       }
     ) => Promise<{ ok: boolean; status: number; body: string }>
+    streamFetch?: (
+      url: string,
+      init: { method?: string; body?: string; headers?: Record<string, string> },
+      callbacks: {
+        onChunk: (chunk: string) => void
+        onEnd: () => void
+        onError: (message: string) => void
+      }
+    ) => () => void
+  }
+  chatHistory?: {
+    write: (payload: {
+      sessionId: string
+      title: string
+      createdAt: number
+      messages: ChatHistoryMessage[]
+    }) => Promise<{ ok: true } | { ok: false; error: string }>
+    list: () => Promise<
+      | { ok: true; sessions: ChatHistoryMeta[] }
+      | { ok: false; error: string }
+    >
+    read: (sessionId: string) => Promise<
+      | { ok: true; content: string }
+      | { ok: false; error: string }
+    >
   }
   workspace: {
     checkGit: () => Promise<
@@ -46,7 +84,7 @@ type GitNotesApi = {
       files: { relativePath: string; content: string }[]
       pruneOrphanNoteFiles?: boolean
     }) => Promise<{ ok: true } | { ok: false; error: string }>
-    readGitnotesIndex: (payload: {
+    readNotelabIndex: (payload: {
       cwd: string
     }) => Promise<
       | {
@@ -165,7 +203,7 @@ type GitNotesApi = {
 declare global {
   interface Window {
     electron: ElectronAPI
-    api: GitNotesApi
+    api: NotelabApi
   }
 }
 

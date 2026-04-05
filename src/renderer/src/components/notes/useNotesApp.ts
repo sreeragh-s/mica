@@ -98,7 +98,7 @@ export function useNotesApp({
   const [notes, setNotes] = useState<SavedNote[]>(initialNotes)
   const [githubRemoteUrl, setGithubRemoteUrl] = useState(() => initial.githubRemoteUrl ?? '')
   const [diskMode, setDiskMode] = useState(false)
-  /** Data root (~/.gitnotes); used when `folders` omits the default workspace but Git still runs at repo root. */
+  /** Data root (~/.notelab.io); used when `folders` omits the default workspace but Git still runs at repo root. */
   const [dataRootPath, setDataRootPath] = useState<string | null>(null)
 
   const [selectedId, setSelectedId] = useState<string | null>(() => {
@@ -293,7 +293,7 @@ export function useNotesApp({
     setDirtyByWorkspaceId(next)
   }, [useGithubApiSync, githubApiDirty])
 
-  type GitnotesIndexOk = {
+  type NotelabIndexOk = {
     ok: true
     workspaces: { id: string; name: string }[]
     notes: {
@@ -306,7 +306,7 @@ export function useNotesApp({
     }[]
   }
 
-  const applyGitnotesIndex = useCallback((idx: GitnotesIndexOk, cwd: string) => {
+  const applyNotelabIndex = useCallback((idx: NotelabIndexOk, cwd: string) => {
     /** Root bucket `default/` is shown as top-level notes only, not a second folder row. */
     const mappedFolders: WorkspaceFolder[] = idx.workspaces
       .filter((w) => w.id !== DEFAULT_WORKSPACE_ID)
@@ -380,11 +380,11 @@ export function useNotesApp({
   const reloadNotesFromDisk = useCallback(async () => {
     const api = getApi()
     const cwd = dataRootRef.current
-    if (!cwd || !api?.workspace?.readGitnotesIndex) return
-    const r = await api.workspace.readGitnotesIndex({ cwd })
+    if (!cwd || !api?.workspace?.readNotelabIndex) return
+    const r = await api.workspace.readNotelabIndex({ cwd })
     if (!r.ok) return
-    applyGitnotesIndex(r, cwd)
-  }, [applyGitnotesIndex])
+    applyNotelabIndex(r, cwd)
+  }, [applyNotelabIndex])
 
   const handleGithubApiPull = useCallback(async () => {
     setGitSyncBusy(true)
@@ -504,7 +504,7 @@ export function useNotesApp({
           exceptRelativePath: rel
         })
         if (!del.ok) {
-          console.error('[gitnotes] delete before write failed', del.error)
+          console.error('[notelab] delete before write failed', del.error)
         }
         const wr = await api.workspace.writeNoteFile({
           cwd: effectiveCwd,
@@ -512,7 +512,7 @@ export function useNotesApp({
           content: buildNoteMarkdownDocument(note)
         })
         if (!wr.ok) {
-          console.error('[gitnotes] write note failed', wr.error)
+          console.error('[notelab] write note failed', wr.error)
         }
         if (useGithubApiSync) {
           setGithubApiDirty(true)
@@ -546,7 +546,7 @@ export function useNotesApp({
           noteId
         })
         if (!del.ok) {
-          console.error('[gitnotes] delete note files after move failed', del.error)
+          console.error('[notelab] delete note files after move failed', del.error)
         }
         const rel = noteMarkdownRelativePath(toFolderId, note)
         const wr = await api.workspace.writeNoteFile({
@@ -555,7 +555,7 @@ export function useNotesApp({
           content: buildNoteMarkdownDocument(note)
         })
         if (!wr.ok) {
-          console.error('[gitnotes] write note after move failed', wr.error)
+          console.error('[notelab] write note after move failed', wr.error)
         }
         if (useGithubApiSync) {
           setGithubApiDirty(true)
@@ -598,8 +598,8 @@ export function useNotesApp({
         const r = await api.workspace.gitCommit({
           cwd: folder.localGitPath,
           message: gitCommitMessage.trim() || 'Update notes',
-          authorName: user?.name?.trim() || 'GitNotes',
-          authorEmail: user?.email?.trim() || 'gitnotes@local'
+          authorName: user?.name?.trim() || 'notelab.io',
+          authorEmail: user?.email?.trim() || 'notes@notelab.io'
         })
         if (!r.ok && r.error !== 'nothing_to_commit') {
           setGitSyncError(r.error)
@@ -748,8 +748,8 @@ export function useNotesApp({
         const c = await api.workspace.gitCommit({
           cwd: folder.localGitPath,
           message: gitCommitMessage.trim() || 'Update notes',
-          authorName: user?.name?.trim() || 'GitNotes',
-          authorEmail: user?.email?.trim() || 'gitnotes@local'
+          authorName: user?.name?.trim() || 'notelab.io',
+          authorEmail: user?.email?.trim() || 'notes@notelab.io'
         })
         if (!c.ok && c.error !== 'nothing_to_commit') {
           setGitSyncError(c.error)
@@ -784,7 +784,7 @@ export function useNotesApp({
   useEffect(() => {
     const api = getApi()
     const ws = api?.workspace
-    if (!ws?.ensureDataRoot || !ws.readGitnotesIndex) return
+    if (!ws?.ensureDataRoot || !ws.readNotelabIndex) return
     let cancelled = false
     void (async () => {
       const rootR = await ws.ensureDataRoot!()
@@ -793,7 +793,7 @@ export function useNotesApp({
       dataRootRef.current = cwd
       setDataRootPath(cwd)
 
-      const idxR = await ws.readGitnotesIndex({ cwd })
+      const idxR = await ws.readNotelabIndex({ cwd })
       if (!idxR.ok || cancelled) return
 
       const persisted = loadNotesState()
@@ -812,7 +812,7 @@ export function useNotesApp({
             pruneOrphanNoteFiles: true
           })
           if (!sync.ok) {
-            console.error('[gitnotes] migration sync failed', sync.error)
+            console.error('[notelab] migration sync failed', sync.error)
           }
         }
         saveNotesState({
@@ -832,7 +832,7 @@ export function useNotesApp({
           pruneOrphanNoteFiles: false
         })
         if (!sync.ok) {
-          console.error('[gitnotes] default workspace init failed', sync.error)
+          console.error('[notelab] default workspace init failed', sync.error)
         }
         saveNotesState({
           version: 3,
@@ -856,19 +856,19 @@ export function useNotesApp({
           pruneOrphanNoteFiles: false
         })
         if (!sync.ok) {
-          console.error('[gitnotes] v3 empty disk reinit failed', sync.error)
+          console.error('[notelab] v3 empty disk reinit failed', sync.error)
         }
       }
 
-      const fresh = await ws.readGitnotesIndex({ cwd })
+      const fresh = await ws.readNotelabIndex({ cwd })
       if (!fresh.ok || cancelled) return
       setDiskMode(true)
-      applyGitnotesIndex(fresh, cwd)
+      applyNotelabIndex(fresh, cwd)
     })()
     return () => {
       cancelled = true
     }
-  }, [applyGitnotesIndex])
+  }, [applyNotelabIndex])
 
   useEffect(() => {
     const t = window.setTimeout(() => {
@@ -895,7 +895,7 @@ export function useNotesApp({
     if (!primaryGitFolder?.localGitPath) return null
     return {
       id: 'app-git',
-      name: '~/.gitnotes',
+      name: '~/.notelab.io',
       localGitPath: primaryGitFolder.localGitPath,
       githubRemoteUrl: githubRemoteUrl.trim() || primaryGitFolder.githubRemoteUrl
     }
@@ -929,7 +929,7 @@ export function useNotesApp({
     if (r.ok) {
       setGithubRemoteUrl(url)
       setFolders((prev) => prev.map((f) => ({ ...f, githubRemoteUrl: url })))
-      setGitHubMessage('Remote origin set on ~/.gitnotes.')
+      setGitHubMessage('Remote origin set on ~/.notelab.io.')
     } else {
       setGitHubMessage(r.error)
     }
@@ -955,7 +955,7 @@ export function useNotesApp({
             pruneOrphanNoteFiles: true
           })
           if (!r.ok) {
-            console.error('[gitnotes] markdown sync failed', r.error)
+            console.error('[notelab] markdown sync failed', r.error)
           }
         }
         if (gen === markdownSyncGen.current) {
@@ -1102,14 +1102,14 @@ export function useNotesApp({
         const api = getApi()
         if (api?.workspace?.writeNoteFile) {
           void (async () => {
-            const rel = `gitnotes/workspaces/${id}/README.md`
+            const rel = `notelab.io/workspaces/${id}/README.md`
             const wr = await api.workspace!.writeNoteFile!({
               cwd: root,
               relativePath: rel,
               content: workspaceReadmeMarkdown(name)
             })
             if (!wr.ok) {
-              console.error('[gitnotes] workspace readme failed', wr.error)
+              console.error('[notelab] workspace readme failed', wr.error)
             }
             if (useGithubApiSync) setGithubApiDirty(true)
             await refreshWorkspaceGitStatuses()
@@ -1310,7 +1310,7 @@ export function useNotesApp({
             noteId
           })
           if (!r.ok) {
-            console.error('[gitnotes] delete note files failed', r.error)
+            console.error('[notelab] delete note files failed', r.error)
           }
           if (useGithubApiSync) setGithubApiDirty(true)
           await refreshWorkspaceGitStatuses()
@@ -1429,14 +1429,14 @@ export function useNotesApp({
         const api = getApi()
         if (api?.workspace?.writeNoteFile) {
           void (async () => {
-            const rel = `gitnotes/workspaces/${folderId}/README.md`
+            const rel = `notelab.io/workspaces/${folderId}/README.md`
             const wr = await api.workspace!.writeNoteFile!({
               cwd: root,
               relativePath: rel,
               content: workspaceReadmeMarkdown(name)
             })
             if (!wr.ok) {
-              console.error('[gitnotes] rename workspace readme failed', wr.error)
+              console.error('[notelab] rename workspace readme failed', wr.error)
             }
             if (useGithubApiSync) setGithubApiDirty(true)
             await refreshWorkspaceGitStatuses()
@@ -1465,7 +1465,7 @@ export function useNotesApp({
         workspaceId: folderId
       })
       if (!r.ok) {
-        console.error('[gitnotes] delete workspace failed', r.error)
+        console.error('[notelab] delete workspace failed', r.error)
         return
       }
       void api?.embeddings?.deleteWorkspaceEmbeddings({ workspaceId: folderId })
@@ -1503,8 +1503,8 @@ export function useNotesApp({
   const refreshIndexingStatus = useCallback(async () => {
     const api = getApi()
     const cwd = dataRootRef.current
-    if (!cwd || !api?.workspace?.readGitnotesIndex) return
-    const idx = await api.workspace.readGitnotesIndex({ cwd })
+    if (!cwd || !api?.workspace?.readNotelabIndex) return
+    const idx = await api.workspace.readNotelabIndex({ cwd })
     if (!idx.ok) return
     const allNotes = idx.notes.map((n) => ({
       workspaceId: n.workspaceId,
@@ -1521,11 +1521,11 @@ export function useNotesApp({
   const runIndexPending = useCallback(async () => {
     const api = getApi()
     const cwd = dataRootRef.current
-    if (!cwd || !api?.workspace?.readGitnotesIndex) return
+    if (!cwd || !api?.workspace?.readNotelabIndex) return
     indexingAbortRef.current = false
     setIndexingStatus((prev) => ({ ...prev, running: true }))
 
-    const idx = await api.workspace.readGitnotesIndex({ cwd })
+    const idx = await api.workspace.readNotelabIndex({ cwd })
     if (!idx.ok) {
       setIndexingStatus((prev) => ({ ...prev, running: false }))
       return
@@ -1593,11 +1593,11 @@ export function useNotesApp({
   const runReindexAll = useCallback(async () => {
     const api = getApi()
     const cwd = dataRootRef.current
-    if (!cwd || !api?.workspace?.readGitnotesIndex) return
+    if (!cwd || !api?.workspace?.readNotelabIndex) return
     indexingAbortRef.current = false
     setIndexingStatus((prev) => ({ ...prev, running: true }))
 
-    const idx = await api.workspace.readGitnotesIndex({ cwd })
+    const idx = await api.workspace.readNotelabIndex({ cwd })
     if (!idx.ok) {
       setIndexingStatus((prev) => ({ ...prev, running: false }))
       return

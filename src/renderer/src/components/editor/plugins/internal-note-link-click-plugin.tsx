@@ -3,16 +3,16 @@
 import { useEffect } from "react"
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext"
 
-import { useGitnotesEditorContext } from "@/components/editor/gitnotes-editor-context"
+import { useNotelabEditorContext } from "@/components/editor/notelab-editor-context"
 import { parseInternalNoteIdFromHref } from "@/lib/internal-note-link"
 
 /**
- * Intercepts clicks on internal #gitnotes/note/… links before Lexical's default
+ * Intercepts clicks on internal #notelab/note/… links before Lexical's default
  * handler opens them in a new window.
  */
 export function InternalNoteLinkClickPlugin(): null {
   const [editor] = useLexicalComposerContext()
-  const ctx = useGitnotesEditorContext()
+  const ctx = useNotelabEditorContext()
 
   useEffect(() => {
     const onOpen = ctx?.onOpenInternalNote

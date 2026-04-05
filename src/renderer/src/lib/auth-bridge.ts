@@ -3,7 +3,7 @@ export type AuthSessionPayload =
   | null
 
 /** OS window chrome (Electron); optional so browser dev still type-checks. */
-export type GitNotesWindowApi = {
+export type NotelabWindowApi = {
   setZenShortcutBinding: (
     binding: { mod: boolean; key?: string; code?: string } | null
   ) => Promise<{ ok: boolean }>
@@ -17,14 +17,17 @@ export type GitNotesWindowApi = {
   ) => () => void
 }
 
-export function getWindowApi(): GitNotesWindowApi | null {
-  if (typeof window === 'undefined') return null
-  const w = window as Window & { api?: { window?: GitNotesWindowApi } }
+export function getWindowApi(): NotelabWindowApi | null {
+  if (typeof window === "undefined") return null
+  const w = window as Window & { api?: { window?: NotelabWindowApi } }
   return w.api?.window ?? null
 }
 
-export type GitNotesApi = {
-  window?: GitNotesWindowApi
+export type NotelabApi = {
+  window?: NotelabWindowApi
+  clipboard?: {
+    writeText: (text: string) => Promise<{ ok: true } | { ok: false; error: string }>
+  }
   auth: {
     getSession: () => Promise<
       | { ok: true; data: AuthSessionPayload }
@@ -57,7 +60,7 @@ export type GitNotesApi = {
     >
     setSyncMode?: (payload: {
       cwd: string
-      syncMode: 'git' | 'github_api' | 'local'
+      syncMode: "git" | "github_api" | "local"
     }) => Promise<{ ok: true } | { ok: false; error: string }>
     openExternal: (url: string) => Promise<void>
     setGitRemote: (payload: {
@@ -70,7 +73,7 @@ export type GitNotesApi = {
       files: { relativePath: string; content: string }[]
       pruneOrphanNoteFiles?: boolean
     }) => Promise<{ ok: true } | { ok: false; error: string }>
-    readGitnotesIndex: (payload: {
+    readNotelabIndex: (payload: {
       cwd: string
     }) => Promise<
       | {
@@ -82,7 +85,7 @@ export type GitNotesApi = {
             title: string
             updatedAtMs: number
             markdownBody: string
-            kind: 'note' | 'drawing'
+            kind: "note" | "drawing"
           }[]
         }
       | { ok: false; error: string }
@@ -186,9 +189,9 @@ export type GitNotesApi = {
   }
 }
 
-export function getApi(): GitNotesApi | null {
+export function getApi(): NotelabApi | null {
   if (typeof window === "undefined") return null
-  const w = window as Window & { api?: GitNotesApi }
+  const w = window as Window & { api?: NotelabApi }
   if (!w.api?.auth) return null
   return w.api
 }

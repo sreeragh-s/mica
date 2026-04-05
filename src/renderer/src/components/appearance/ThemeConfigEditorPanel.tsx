@@ -12,15 +12,15 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { humanizeThemeTokenKey } from "@/lib/theme-config-utils"
-import type { GitnotesThemeConfigV1 } from "@/lib/gitnotes-config-schema"
+import type { NotelabThemeConfigV1 } from "@/lib/notelab-config-schema"
 import { THEME_COLOR_GROUPS, THEME_OTHER_KEYS } from "@/lib/theme-token-groups"
 import { cn } from "@/lib/utils"
 
 export type ThemeConfigEditorPanelProps = {
-  value: GitnotesThemeConfigV1
-  onChange: (next: GitnotesThemeConfigV1) => void
+  value: NotelabThemeConfigV1
+  onChange: (next: NotelabThemeConfigV1) => void
   /** Values to restore when using reset on a row (e.g. seeded preset snapshot). */
-  baseline: GitnotesThemeConfigV1
+  baseline: NotelabThemeConfigV1
   /** Syncs next-themes when user picks Light/Dark in the editor. */
   onAppThemeChange: (theme: "light" | "dark") => void
   /** When the panel opens, align editor mode with the app’s resolved appearance. */
@@ -31,11 +31,11 @@ export type ThemeConfigEditorPanelProps = {
 }
 
 function patchMode(
-  config: GitnotesThemeConfigV1,
+  config: NotelabThemeConfigV1,
   mode: "light" | "dark",
   key: string,
   raw: string
-): GitnotesThemeConfigV1 {
+): NotelabThemeConfigV1 {
   const trimmed = raw.trim()
   const prev = config[mode] as Record<string, string | undefined>
   if (trimmed === "") {

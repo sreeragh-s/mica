@@ -1,4 +1,4 @@
-const GUEST_KEY = 'gitnotes-guest'
+const GUEST_KEY = 'notelab-guest'
 
 /** User chose “Continue as guest” — skip GitHub on launch; can connect in Settings. */
 export function isGuestMode(): boolean {

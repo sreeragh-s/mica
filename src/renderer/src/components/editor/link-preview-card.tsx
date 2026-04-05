@@ -4,7 +4,7 @@ import type { JSX } from "react"
 import { useState, type ReactNode } from "react"
 import { Globe, Mail, NotebookText } from "lucide-react"
 
-import type { GitnotesEditorContextValue } from "@/components/editor/gitnotes-editor-context"
+import type { NotelabEditorContextValue } from "@/components/editor/notelab-editor-context"
 import { isDrawingNote } from "@/components/notes/notes-app-utils"
 import { cn } from "@/lib/utils"
 import {
@@ -80,14 +80,14 @@ export function UrlFavicon({ href }: { href: string }): JSX.Element {
 
 export function InternalNoteLinkPreviewBody({
   resolvedNote,
-  gitnotesCtx,
+  notelabCtx,
 }: {
   resolvedNote: SavedNote | undefined
-  gitnotesCtx: GitnotesEditorContextValue | null
+  notelabCtx: NotelabEditorContextValue | null
 }): JSX.Element {
   const folderLabel =
-    resolvedNote && gitnotesCtx
-      ? (gitnotesCtx.folders.find((f) => f.id === resolvedNote.folderId)
+    resolvedNote && notelabCtx
+      ? (notelabCtx.folders.find((f) => f.id === resolvedNote.folderId)
           ?.name ?? "Workspace")
       : ""
 

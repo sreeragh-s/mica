@@ -182,10 +182,10 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
     <aside
       data-native-liquid-glass={liquidChrome && nativeLiquidGlassAttached ? true : undefined}
       className={cn(
-        'text-sidebar-foreground flex h-full min-h-0 w-full shrink-0 flex-col',
+        'text-sidebar-foreground flex h-full min-h-0 w-full min-w-0 shrink-0 flex-col',
         liquidChrome
           ? 'liquid-sidebar-inset relative z-10 rounded-2xl'
-          : 'bg-sidebar border-sidebar-border w-[min(100%,320px)] border-r'
+          : 'bg-sidebar border-sidebar-border border-r'
       )}
       onPointerDownCapture={(e) => {
         const t = e.target as HTMLElement
@@ -193,13 +193,24 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
         clearSidebarWorkspaceIntent()
       }}
     >
+      {/*
+        macOS: traffic-light inset (pl-[92px]) + strip beside collapse must be -webkit-app-region: drag.
+        Outer row + flex-1 shim both use drag; only the collapse pill is no-drag so it stays clickable.
+      */}
       <div
         className={cn(
-          'flex h-12 w-full shrink-0 items-center justify-end gap-1 px-2 pr-2',
-          macElectron && 'pl-[92px]'
+          'flex h-12 w-full shrink-0 items-center gap-1',
+          macElectron ? 'pl-[92px] pr-2' : 'px-2'
         )}
         style={macElectron ? macTitlebarStyles.drag : undefined}
       >
+        {macElectron ? (
+          <div
+            aria-hidden
+            className="min-h-12 min-w-0 flex-1 self-stretch"
+            style={macTitlebarStyles.drag}
+          />
+        ) : null}
         <div
           className={liquidGlassControlPillClass(nativeGlassUi)}
           style={macElectron ? macTitlebarStyles.noDrag : undefined}
@@ -231,7 +242,7 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
             'flex w-full shrink-0 flex-row flex-nowrap items-center justify-start gap-0.5 px-2 py-1.5',
             macElectron
           )}
-          style={macElectron ? macTitlebarStyles.noDrag : undefined}
+          style={macElectron ? macTitlebarStyles.drag : undefined}
         >
           <Button
             type="button"
@@ -241,6 +252,7 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
             aria-label="New workspace folder"
             onClick={startFolderCreate}
             data-sidebar-interactive=""
+            style={macElectron ? macTitlebarStyles.noDrag : undefined}
           >
             <FolderPlus className="size-4" aria-hidden />
           </Button>
@@ -253,6 +265,7 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
             disabled={!canCreateNote}
             onClick={handleNewNote}
             data-sidebar-interactive=""
+            style={macElectron ? macTitlebarStyles.noDrag : undefined}
           >
             <SquarePen className="size-4" aria-hidden />
           </Button>
@@ -266,6 +279,7 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
             disabled={!canCreateNote}
             onClick={handleNewDrawing}
             data-sidebar-interactive=""
+            style={macElectron ? macTitlebarStyles.noDrag : undefined}
           >
             <PenLine className="size-4" aria-hidden />
           </Button>
@@ -283,6 +297,7 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
             disabled={!canCreateNote}
             onClick={() => (graphViewOpen ? closeGraphView() : openGraphView())}
             data-sidebar-interactive=""
+            style={macElectron ? macTitlebarStyles.noDrag : undefined}
           >
             <Network className="size-4" aria-hidden />
           </Button>
@@ -294,6 +309,7 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
             aria-label="Settings"
             onClick={openSettings}
             data-sidebar-interactive=""
+            style={macElectron ? macTitlebarStyles.noDrag : undefined}
           >
             <Settings className="size-4" aria-hidden />
           </Button>
@@ -301,7 +317,7 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
       ) : appMode === 'settings' ? (
         <div
           className="w-full shrink-0 px-2 py-1.5"
-          style={macElectron ? macTitlebarStyles.noDrag : undefined}
+          style={macElectron ? macTitlebarStyles.drag : undefined}
         >
           <Button
             type="button"
@@ -310,6 +326,7 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
             className="text-muted-foreground h-8 w-full min-w-0  gap-1.5 px-2.5 items-center justify-start "
             onClick={backToNotes}
             data-sidebar-interactive=""
+            style={macElectron ? macTitlebarStyles.noDrag : undefined}
           >
             <ArrowLeft className="size-4 shrink-0" aria-hidden />
             <span className="text-muted-foreground text-left text-[13px] font-medium leading-tight">

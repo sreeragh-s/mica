@@ -54,10 +54,10 @@ export function treeNoteId(noteId: string): string {
 }
 
 /** DataTransfer type for dragging a note from the tree into the main editor area. */
-export const NOTE_DRAG_MIME = 'application/x-gitnotes-note-id'
+export const NOTE_DRAG_MIME = 'application/x-notelab-note-id'
 
 /** DataTransfer type for reordering workspace folders in the sidebar. */
-export const FOLDER_DRAG_MIME = 'application/x-gitnotes-folder-id'
+export const FOLDER_DRAG_MIME = 'application/x-notelab-folder-id'
 
 export function mergeFolderOrder(
   diskFolders: WorkspaceFolder[],
@@ -112,5 +112,5 @@ export function slugifyRepoSuggestion(name: string): string {
     .replace(/[^a-z0-9-]+/g, '-')
     .replace(/^-+|-+$/g, '')
     .slice(0, 100)
-  return s || 'gitnotes-workspace'
+  return s || 'notelab-workspace'
 }

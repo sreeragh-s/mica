@@ -54,7 +54,7 @@ export function DebugSettingsView({
         openExternal: typeof w.openExternal === 'function',
         setGitRemote: typeof w.setGitRemote === 'function',
         syncMarkdown: typeof w.syncMarkdown === 'function',
-        readGitnotesIndex: typeof w.readGitnotesIndex === 'function',
+        readNotelabIndex: typeof w.readNotelabIndex === 'function',
         writeNoteFile: typeof w.writeNoteFile === 'function',
         deleteNoteFiles: typeof w.deleteNoteFiles === 'function',
         gitStatus: typeof w.gitStatus === 'function',
@@ -104,7 +104,7 @@ export function DebugSettingsView({
       return
     }
     const dim = 4
-    const workspaceId = '__gitnotes_debug__'
+    const workspaceId = '__notelab_debug__'
     const noteId = '__lancedb_ping__'
     const testVec = [1, 0, 0, 0]
     setLancePingBusy(true)
@@ -166,7 +166,7 @@ export function DebugSettingsView({
         <div className="flex min-w-0 flex-1 flex-col gap-1">
           <h2 className="text-foreground text-lg font-semibold tracking-tight">Debug</h2>
           <p className="text-muted-foreground text-sm leading-relaxed">
-            Environment and GitNotes integration details for troubleshooting.
+            Environment and notelab.io integration details for troubleshooting.
           </p>
         </div>
       </div>
@@ -183,8 +183,8 @@ export function DebugSettingsView({
           label="App config file"
           value={
             localGitPath
-              ? `${localGitPath}/gitnotes.config`
-              : '(set when ~/.gitnotes is available)'
+              ? `${localGitPath}/notelab.config`
+              : '(set when ~/.notelab.io is available)'
           }
         />
         <Row

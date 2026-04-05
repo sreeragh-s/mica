@@ -1,7 +1,7 @@
 import {
   loadShortcutBindings as loadFromConfig,
   saveShortcutBindings as saveToConfig,
-} from "./gitnotes-app-config"
+} from "./notelab-app-config"
 import {
   SHORTCUT_DEFINITIONS,
   type ShortcutActionId,

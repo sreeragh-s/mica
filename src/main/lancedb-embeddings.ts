@@ -78,7 +78,17 @@ function valueToIpcPlain(value: unknown): unknown {
 }
 
 function serializeRowsForIpc(rows: unknown[]): Record<string, unknown>[] {
-  const plain = rows.map((row) => valueToIpcPlain(row) as Record<string, unknown>)
+  // Arrow row objects expose a toArray() method that valueToIpcPlain would call,
+  // returning a positional array instead of a keyed object. Bypass it by iterating
+  // the row's own keys directly (same pattern used in getIndexedHashes above).
+  const plain = rows.map((row) => {
+    const r = row as Record<string, unknown>
+    const obj: Record<string, unknown> = {}
+    for (const k of Object.keys(r)) {
+      obj[k] = valueToIpcPlain(r[k])
+    }
+    return obj
+  })
   /** JSON round-trip guarantees a structured-cloneable plain object graph for IPC. */
   return JSON.parse(
     JSON.stringify(plain, (_key, v) => {

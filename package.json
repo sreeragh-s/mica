@@ -1,7 +1,7 @@
 {
-  "name": "gitnotes",
+  "name": "notelab.io",
   "version": "1.0.0",
-  "description": "gitnotes — notes app",
+  "description": "notelab.io — notes app",
   "main": "./out/main/index.js",
   "author": "example.com",
   "homepage": "https://electron-vite.org",

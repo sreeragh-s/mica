@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { backendFetchJson } from '@/lib/backend-api'
-import type { GitNotesApi } from '@/lib/auth-bridge'
+import type { NotelabApi } from '@/lib/auth-bridge'
 import { isMacElectron } from '@/lib/electron-env'
 import { saveSetupState } from '@/lib/setup-storage'
 import { cn } from '@/lib/utils'
@@ -14,7 +14,7 @@ import { cn } from '@/lib/utils'
 import { slugifyRepoSuggestion } from '@/components/notes/notes-app-utils'
 
 type Props = {
-  api: GitNotesApi
+  api: NotelabApi
   onDone: () => void
 }
 
@@ -38,7 +38,7 @@ export function SetupScreen({ api, onDone }: Props): JSX.Element {
   const [validateBusy, setValidateBusy] = useState(false)
   const [validateError, setValidateError] = useState<string | null>(null)
 
-  const [newRepoName, setNewRepoName] = useState(() => slugifyRepoSuggestion('gitnotes'))
+  const [newRepoName, setNewRepoName] = useState(() => slugifyRepoSuggestion('notelab'))
   const [createBusy, setCreateBusy] = useState(false)
 
   const runDataRoot = useCallback(async (): Promise<void> => {
@@ -180,7 +180,7 @@ export function SetupScreen({ api, onDone }: Props): JSX.Element {
       }
       const data = v.data as { ok?: boolean; reason?: string }
       if (!data?.ok) {
-        setValidateError(data?.reason ?? 'This repository is not valid for GitNotes.')
+        setValidateError(data?.reason ?? 'This repository is not valid for notelab.io.')
         return
       }
       const link = await backendFetchJson<{ ok?: boolean; fullName?: string; reason?: string }>(
@@ -213,7 +213,7 @@ export function SetupScreen({ api, onDone }: Props): JSX.Element {
     setCreateBusy(true)
     setValidateError(null)
     try {
-      const n = newRepoName.trim() || slugifyRepoSuggestion('gitnotes')
+      const n = newRepoName.trim() || slugifyRepoSuggestion('notelab')
       const r = await backendFetchJson<{ ok?: boolean; fullName?: string }>(
         '/api/github/repos/create',
         { method: 'POST', body: { name: n, private: false } }
@@ -261,7 +261,7 @@ export function SetupScreen({ api, onDone }: Props): JSX.Element {
         )}
       >
         <div className="space-y-0.5 text-center">
-          <h1 className="text-xl font-semibold tracking-tight">Set up GitNotes</h1>
+          <h1 className="text-xl font-semibold tracking-tight">Set up notelab.io</h1>
           <p className="text-muted-foreground text-sm">
             Connect GitHub to sync, or continue with local notes.
           </p>
@@ -364,7 +364,7 @@ export function SetupScreen({ api, onDone }: Props): JSX.Element {
           <section className="border-border space-y-2 rounded-lg border px-3 py-2.5">
             <h2 className="text-foreground text-sm font-semibold">Import a repository</h2>
             <p className="text-muted-foreground text-xs leading-snug">
-              <span className="font-mono">gitnotes/workspaces/</span> or empty repo.
+              <span className="font-mono">notelab.io/workspaces/</span> or empty repo.
             </p>
             {repoList.length > 0 ? (
               <div className="space-y-1.5">
@@ -433,7 +433,7 @@ export function SetupScreen({ api, onDone }: Props): JSX.Element {
                   id="setup-new-repo"
                   value={newRepoName}
                   onChange={(e) => setNewRepoName(e.target.value)}
-                  placeholder="gitnotes-notes"
+                  placeholder="notelab-notes"
                   className="font-mono text-sm"
                 />
               </div>

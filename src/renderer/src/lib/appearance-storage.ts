@@ -1,4 +1,4 @@
-import type { GitnotesThemeConfigV1 } from "./gitnotes-config-schema"
+import type { NotelabThemeConfigV1 } from "./notelab-config-schema"
 import {
   loadThemeConfig as loadThemeConfigFromDisk,
   loadThemePresetId as loadThemePresetFromConfig,
@@ -6,7 +6,7 @@ import {
   saveThemeConfig as persistThemeConfig,
   saveThemePresetId as persistThemePresetId,
   saveUiFont as saveToConfig,
-} from "./gitnotes-app-config"
+} from "./notelab-app-config"
 import { notifyThemePresetChanged } from "./theme-preset-apply"
 import type { UiFontId } from "./ui-font-types"
 export type { UiFontId } from "./ui-font-types"
@@ -34,11 +34,11 @@ export function saveThemePresetId(id: string): void {
   notifyThemePresetChanged()
 }
 
-export function loadThemeConfig(): GitnotesThemeConfigV1 | null {
+export function loadThemeConfig(): NotelabThemeConfigV1 | null {
   return loadThemeConfigFromDisk()
 }
 
-export function saveThemeConfig(config: GitnotesThemeConfigV1): void {
+export function saveThemeConfig(config: NotelabThemeConfigV1): void {
   persistThemeConfig(config)
   notifyThemePresetChanged()
 }

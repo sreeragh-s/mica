@@ -3,7 +3,7 @@ import type { SerializedEditorState } from "lexical"
 import {
   loadNotesState as loadNotesStateFromConfig,
   saveNotesState as saveNotesStateToConfig,
-} from "./gitnotes-app-config"
+} from "./notelab-app-config"
 import { extractPreviewText as extractPreviewTextImpl } from "./notes-state-normalize"
 import type { NotesState, SavedNote } from "./notes-types"
 

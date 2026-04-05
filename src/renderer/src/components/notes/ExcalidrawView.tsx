@@ -174,7 +174,7 @@ export function ExcalidrawView({
   )
 
   return (
-    <div className="gitnotes-excalidraw-host relative min-h-0 w-full flex-1 [&_.excalidraw]:h-full">
+    <div className="notelab-excalidraw-host relative min-h-0 w-full flex-1 [&_.excalidraw]:h-full">
       {loadMaskVisible ? (
         <div
           className="pointer-events-auto absolute inset-0 z-50"
