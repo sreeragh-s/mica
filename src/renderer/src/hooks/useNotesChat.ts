@@ -727,39 +727,33 @@ export function useNotesChat({
   // loadHistorySession — load a past session back into the view (read-only)
   // ---------------------------------------------------------------------------
 
-  const loadHistorySession = useCallback(
-    async (meta: ChatHistoryMeta) => {
-      console.info(LOG, 'loading history session from disk:', meta.sessionId)
-      const chatHistoryApi = window.api.chatHistory
-      if (!chatHistoryApi) return
+  const loadHistorySession = useCallback(async (meta: ChatHistoryMeta) => {
+    console.info(LOG, 'loading history session from disk:', meta.sessionId)
+    const chatHistoryApi = window.api.chatHistory
+    if (!chatHistoryApi?.readSession) return
 
-      const res = await chatHistoryApi.read(meta.sessionId)
-      if (!res.ok) {
-        console.warn(LOG, 'failed to read session:', res.error)
-        return
-      }
+    const res = await chatHistoryApi.readSession(meta.sessionId)
+    if (!res.ok) {
+      console.warn(LOG, 'failed to read session:', res.error)
+      return
+    }
 
-      // Parse the markdown back into messages (simplified — reconstruct from meta)
-      // We create a read-only session view with a flag; for now we just show
-      // a reconstructed session with a marker that it's from history.
-      const reconstructed: ChatSession = {
-        id: meta.sessionId,
-        title: meta.title,
-        createdAt: meta.createdAt,
-        messages: [
-          {
-            id: 'history-note',
-            role: 'assistant',
-            content: `*This is a saved chat session from ${new Date(meta.createdAt).toLocaleString()}.*\n\n${res.content.slice(0, 2000)}`,
-            timestamp: meta.createdAt,
-          },
-        ],
-      }
-      setSession(reconstructed)
-      setShowHistory(false)
-    },
-    []
-  )
+    const { session: disk } = res
+    const sid = disk.sessionId || meta.sessionId
+    const reconstructed: ChatSession = {
+      id: sid,
+      title: disk.title || meta.title,
+      createdAt: disk.createdAt || meta.createdAt,
+      messages: disk.messages.map((m, i) => ({
+        id: `${sid}-hist-${i}-${m.timestamp}`,
+        role: m.role,
+        content: m.content,
+        timestamp: m.timestamp,
+      })),
+    }
+    setSession(reconstructed)
+    setShowHistory(false)
+  }, [])
 
   // ---------------------------------------------------------------------------
   // Refresh history meta from disk on mount

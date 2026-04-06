@@ -68,6 +68,18 @@ type NotelabApi = {
       | { ok: true; content: string }
       | { ok: false; error: string }
     >
+    readSession: (sessionId: string) => Promise<
+      | {
+          ok: true
+          session: {
+            sessionId: string
+            title: string
+            createdAt: number
+            messages: ChatHistoryMessage[]
+          }
+        }
+      | { ok: false; error: string }
+    >
   }
   workspace: {
     checkGit: () => Promise<

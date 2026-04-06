@@ -96,6 +96,18 @@ const api = {
       | { ok: true; content: string }
       | { ok: false; error: string }
     > => ipcRenderer.invoke('chat-history:read', sessionId),
+    readSession: (sessionId: string): Promise<
+      | {
+          ok: true
+          session: {
+            sessionId: string
+            title: string
+            createdAt: number
+            messages: { role: 'user' | 'assistant'; content: string; timestamp: number }[]
+          }
+        }
+      | { ok: false; error: string }
+    > => ipcRenderer.invoke('chat-history:read-session', sessionId),
   },
   workspace: {
     checkGit: (): Promise<

@@ -70,6 +70,11 @@ export function addChatReference(
   return [...refs, next]
 }
 
+/** Matches NotesSidebar / note-link-picker: empty title shows as "Untitled" in UI. */
+function displayNoteTitle(title: string): string {
+  return title.trim() || "Untitled"
+}
+
 // ---------------------------------------------------------------------------
 // Chips
 // ---------------------------------------------------------------------------
@@ -120,7 +125,7 @@ export function PromptInputChatReferenceChips({
                   onReferencesChange(prev =>
                     addChatReference(prev, {
                       kind: "note",
-                      label: editorNote.title,
+                      label: displayNoteTitle(editorNote.title),
                       refId: editorNote.id,
                     }),
                   )
@@ -134,7 +139,9 @@ export function PromptInputChatReferenceChips({
                 ) : (
                   <BookOpenIcon aria-hidden className="size-3 shrink-0 opacity-70" />
                 )}
-                <span className="max-w-[160px] truncate">{editorNote.title}</span>
+                <span className="max-w-[160px] truncate">
+                  {displayNoteTitle(editorNote.title)}
+                </span>
               </button>
             </TooltipTrigger>
             <TooltipContent side="top">Add open note as reference</TooltipContent>
@@ -274,7 +281,7 @@ export const PromptInputChatMentionTextarea = forwardRef<
       .slice(0, 8)
       .map(w => ({ kind: "workspace" as const, id: w.id, label: w.name }))
     const ns: MentionCandidate[] = notes
-      .filter(n => !q || n.title.toLowerCase().includes(q))
+      .filter(n => !q || displayNoteTitle(n.title).toLowerCase().includes(q))
       .slice(0, 12)
       .map(n => {
         const folderLabel =
@@ -283,7 +290,7 @@ export const PromptInputChatMentionTextarea = forwardRef<
         return {
           kind: "note" as const,
           id: n.id,
-          label: n.title,
+          label: displayNoteTitle(n.title),
           folderLabel,
           titleEmoji: n.titleEmoji,
         }
