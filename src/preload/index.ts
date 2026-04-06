@@ -1,6 +1,20 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 
+type OllamaLocalModel = {
+  name: string
+  model: string
+  modified_at: string
+  size: number
+  digest: string
+  details?: {
+    format?: string
+    family?: string
+    parameter_size?: string
+    quantization_level?: string
+  }
+}
+
 const api = {
   clipboard: {
     writeText: (text: string): Promise<{ ok: true } | { ok: false; error: string }> =>
@@ -127,6 +141,8 @@ const api = {
             updatedAtMs: number
             markdownBody: string
             kind: 'note' | 'drawing'
+            coverImageSrc?: string
+            titleEmoji?: string
           }[]
         }
       | { ok: false; error: string }
@@ -229,6 +245,154 @@ const api = {
       return () => {
         ipcRenderer.removeListener(channel, handler)
       }
+    },
+  },
+  /**
+   * Ollama — bundled local model server via electron-ollama.
+   */
+  ollama: {
+    getStatus: (): Promise<
+      | { ok: true; running: boolean; downloaded: boolean; version: string | null }
+      | { ok: false; error: string }
+    > => ipcRenderer.invoke('ollama:get-status'),
+
+    /** Download Ollama binary. Streams progress via callbacks. Returns cleanup fn. */
+    download: (callbacks: {
+      onProgress: (percent: number, message: string) => void
+      onEnd: (version: string) => void
+      onError: (message: string) => void
+    }): (() => void) => {
+      const requestId = `${Date.now()}-${Math.random().toString(36).slice(2)}`
+      const progressHandler = (_: unknown, rid: string, pct: number, msg: string): void => {
+        if (rid === requestId) callbacks.onProgress(pct, msg)
+      }
+      const endHandler = (_: unknown, rid: string, version: string): void => {
+        if (rid === requestId) { cleanup(); callbacks.onEnd(version) }
+      }
+      const errorHandler = (_: unknown, rid: string, msg: string): void => {
+        if (rid === requestId) { cleanup(); callbacks.onError(msg) }
+      }
+      ipcRenderer.on('ollama:download:progress', progressHandler)
+      ipcRenderer.on('ollama:download:end', endHandler)
+      ipcRenderer.on('ollama:download:error', errorHandler)
+      function cleanup(): void {
+        ipcRenderer.removeListener('ollama:download:progress', progressHandler)
+        ipcRenderer.removeListener('ollama:download:end', endHandler)
+        ipcRenderer.removeListener('ollama:download:error', errorHandler)
+      }
+      ipcRenderer.send('ollama:download', requestId)
+      return cleanup
+    },
+
+    start: (): Promise<
+      | { ok: true; alreadyRunning: boolean }
+      | { ok: false; error: string }
+    > => ipcRenderer.invoke('ollama:start'),
+
+    stop: (): Promise<{ ok: true } | { ok: false; error: string }> =>
+      ipcRenderer.invoke('ollama:stop'),
+
+    listModels: (): Promise<
+      | { ok: true; models: OllamaLocalModel[] }
+      | { ok: false; error: string }
+    > => ipcRenderer.invoke('ollama:list-models'),
+
+    /** Pull a model. Streams progress. Returns cleanup fn. */
+    pullModel: (
+      modelName: string,
+      callbacks: {
+        onProgress: (status: string, completed: number, total: number) => void
+        onEnd: () => void
+        onError: (message: string) => void
+      }
+    ): (() => void) => {
+      const requestId = `${Date.now()}-${Math.random().toString(36).slice(2)}`
+      const progressHandler = (_: unknown, rid: string, status: string, completed: number, total: number): void => {
+        if (rid === requestId) callbacks.onProgress(status, completed, total)
+      }
+      const endHandler = (_: unknown, rid: string): void => {
+        if (rid === requestId) { cleanup(); callbacks.onEnd() }
+      }
+      const errorHandler = (_: unknown, rid: string, msg: string): void => {
+        if (rid === requestId) { cleanup(); callbacks.onError(msg) }
+      }
+      ipcRenderer.on('ollama:pull-model:progress', progressHandler)
+      ipcRenderer.on('ollama:pull-model:end', endHandler)
+      ipcRenderer.on('ollama:pull-model:error', errorHandler)
+      function cleanup(): void {
+        ipcRenderer.removeListener('ollama:pull-model:progress', progressHandler)
+        ipcRenderer.removeListener('ollama:pull-model:end', endHandler)
+        ipcRenderer.removeListener('ollama:pull-model:error', errorHandler)
+      }
+      ipcRenderer.send('ollama:pull-model', requestId, modelName)
+      return cleanup
+    },
+
+    deleteModel: (modelName: string): Promise<{ ok: true } | { ok: false; error: string }> =>
+      ipcRenderer.invoke('ollama:delete-model', modelName),
+
+    /** POST /api/embed — single text → one vector (local RAG query embedding). */
+    embed: (payload: {
+      model: string
+      input: string
+    }): Promise<
+      | { ok: true; embedding: number[] }
+      | { ok: false; error: string }
+    > => ipcRenderer.invoke('ollama:embed', payload),
+
+    /** POST /api/embed with multiple inputs — same order as `inputs`. */
+    embedBatch: (payload: {
+      model: string
+      inputs: string[]
+    }): Promise<
+      | { ok: true; embeddings: number[][] }
+      | { ok: false; error: string }
+    > => ipcRenderer.invoke('ollama:embed-batch', payload),
+
+    /**
+     * Stream POST /api/chat through the main process (no CORS; same as bundled Ollama).
+     * Body is JSON.stringify({ model, messages, stream: true }).
+     */
+    chatStream: (
+      bodyJson: string,
+      callbacks: {
+        onChunk: (chunk: string) => void
+        onEnd: () => void
+        onError: (message: string) => void
+      }
+    ): (() => void) => {
+      const requestId = `${Date.now()}-${Math.random().toString(36).slice(2)}`
+
+      const chunkHandler = (_: unknown, rid: string, chunk: string): void => {
+        if (rid === requestId) callbacks.onChunk(chunk)
+      }
+      const endHandler = (_: unknown, rid: string): void => {
+        if (rid === requestId) {
+          cleanup()
+          callbacks.onEnd()
+        }
+      }
+      const errorHandler = (_: unknown, rid: string, msg: string): void => {
+        if (rid === requestId) {
+          cleanup()
+          callbacks.onError(msg)
+        }
+      }
+
+      ipcRenderer.on('ollama:chat-stream:chunk', chunkHandler)
+      ipcRenderer.on('ollama:chat-stream:end', endHandler)
+      ipcRenderer.on('ollama:chat-stream:error', errorHandler)
+
+      function cleanup(): void {
+        ipcRenderer.removeListener('ollama:chat-stream:chunk', chunkHandler)
+        ipcRenderer.removeListener('ollama:chat-stream:end', endHandler)
+        ipcRenderer.removeListener('ollama:chat-stream:error', errorHandler)
+        ipcRenderer.send('ollama:chat-stream:cancel', requestId)
+      }
+
+      ipcRenderer.send('ollama:chat-stream', requestId, bodyJson)
+
+      return cleanup
     },
   },
   /**

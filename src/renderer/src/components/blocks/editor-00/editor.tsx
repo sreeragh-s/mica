@@ -32,6 +32,12 @@ export function Editor({
   onSerializedChange,
   className,
   notelabEditor,
+  title,
+  onTitleChange,
+  coverImageSrc,
+  onCoverChange,
+  titleEmoji,
+  onTitleEmojiChange,
 }: {
   editorState?: EditorState
   editorSerializedState?: SerializedEditorState
@@ -45,6 +51,12 @@ export function Editor({
     currentNoteId: string
     onOpenInternalNote: (noteId: string) => void
   } | null
+  title?: string
+  onTitleChange?: (title: string) => void
+  coverImageSrc?: string | null
+  onCoverChange?: (src: string | null) => void
+  titleEmoji?: string | null
+  onTitleEmojiChange?: (emoji: string | null) => void
 }) {
   return (
     <div
@@ -65,7 +77,14 @@ export function Editor({
         <NotelabEditorProvider value={notelabEditor ?? null}>
           <TooltipProvider>
             <div className="flex h-full min-h-0 flex-1 flex-col">
-              <Plugins />
+              <Plugins
+                title={title}
+                onTitleChange={onTitleChange}
+                coverImageSrc={coverImageSrc}
+                onCoverChange={onCoverChange}
+                titleEmoji={titleEmoji}
+                onTitleEmojiChange={onTitleEmojiChange}
+              />
 
               <OnChangePlugin
                 ignoreSelectionChange={true}

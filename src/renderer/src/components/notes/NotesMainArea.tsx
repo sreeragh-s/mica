@@ -111,6 +111,9 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
     handleNoteSerializedChange,
     handleNewNote,
     handleExcalidrawSceneChange,
+    renameNote,
+    setNoteCover,
+    setNoteTitleEmoji,
     canCreateNote,
     shortcutBindings,
     updateShortcutBinding,
@@ -174,6 +177,9 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
     onNewNote: handleNewNote,
     onNoteSerializedChange: handleNoteSerializedChange,
     onExcalidrawSceneChange: handleExcalidrawSceneChange,
+    onRenameNote: renameNote,
+    onSetNoteCover: setNoteCover,
+    onSetNoteTitleEmoji: setNoteTitleEmoji,
     onDragOver: onDragOverMain,
     onDrop: onDropPrimaryPane
   }
@@ -316,7 +322,6 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
                   nativeLiquidGlassAttached={nativeLiquidGlassAttached}
                   sidebarCollapsed={sidebarCollapsed}
                   toggleSidebar={toggleSidebar}
-                  reserveToolbarPillSpace
                 />
               ) : (
                 <div
@@ -333,7 +338,7 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
               <div
                 className={cn(
                   'flex min-h-0 w-full min-w-0 shrink-0 items-center py-1.5',
-                  !sidebarOverlayActive && macElectron && sidebarCollapsed,
+                  !sidebarOverlayActive && macElectron && sidebarCollapsed && 'pl-[92px]',
                   macElectron && 'pointer-events-none'
                 )}
               >
@@ -485,6 +490,7 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
           selectedId={selectedId}
           macTitlebarStyles={macTitlebarStyles}
           macElectron={macElectron}
+          sidebarOverlayActive={sidebarOverlayActive}
           onClose={closeTabOverview}
           onSelectNote={(id) => {
             selectNote(id)

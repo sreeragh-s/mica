@@ -43,7 +43,7 @@ Synced from **notelab.io**. Each note is a Markdown file with YAML front matter 
 }
 
 export function buildNoteMarkdownDocument(note: SavedNote): string {
-  const title = note.title.trim() || (note.kind === "drawing" ? "New drawing" : "New note")
+  const title = note.title.trim()
   if (note.kind === "drawing") {
     const scene = note.excalidrawScene?.trim() ?? ""
     const front = `---
@@ -57,18 +57,25 @@ notelab_kind: drawing
     return front + (scene ? `${scene}\n` : "{}\n")
   }
   const body = serializedStateToMarkdown(note.content)
+  const coverLine = note.coverImageSrc
+    ? `cover_image: ${JSON.stringify(note.coverImageSrc)}\n`
+    : ""
+  const emojiLine =
+    note.titleEmoji && note.titleEmoji.trim()
+      ? `title_emoji: ${JSON.stringify(note.titleEmoji.trim())}\n`
+      : ""
   const front = `---
 notelab_note_id: "${note.id}"
 updated_at: "${new Date(note.updatedAt).toISOString()}"
 title: ${JSON.stringify(title)}
----
+${coverLine}${emojiLine}---
 
 `
   return front + (body.trim() ? `${body}\n` : "_Empty note._\n")
 }
 
 export function noteMarkdownRelativePath(folderId: string, note: SavedNote): string {
-  const title = note.title.trim() || "New note"
+  const title = note.title.trim() || "Untitled"
   const fileBase = `${slugifyNoteFilenameSegment(title)}--${note.id}.md`
   return `data/${folderId}/${fileBase}`
 }

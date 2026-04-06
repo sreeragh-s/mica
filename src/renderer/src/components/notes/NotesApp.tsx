@@ -2,6 +2,8 @@ import type { JSX } from 'react'
 
 import { cn } from '@/lib/utils'
 
+import { MAC_WINDOW_OUTER_CORNER_RADIUS_PX } from '../../../../shared/mac-window-chrome'
+
 import type { NotesAppProps } from './notes-app-types'
 import { macTitlebarStyles } from './notes-app-utils'
 import { NotesMainArea } from './NotesMainArea'
@@ -17,6 +19,9 @@ export function NotesApp(props: NotesAppProps): JSX.Element {
 
   return (
     <div
+      style={
+        macElectron ? { borderRadius: `${MAC_WINDOW_OUTER_CORNER_RADIUS_PX}px` } : undefined
+      }
       className={cn(
         'bg-background text-foreground relative overflow-hidden',
         sidebarOverlayActive ? 'h-screen w-full' : 'flex h-screen w-full flex-row'
@@ -48,7 +53,7 @@ export function NotesApp(props: NotesAppProps): JSX.Element {
           !sidebarHidden &&
             macElectron &&
             !sidebarOverlayActive &&
-            'pointer-events-none box-border bg-background pb-2 pl-2 pr-1.5 pt-0'
+            'pointer-events-none box-border bg-background p-2 pr-1.5'
         )}
         aria-hidden={sidebarHidden}
       >
@@ -63,7 +68,7 @@ export function NotesApp(props: NotesAppProps): JSX.Element {
           <div
             className={cn(
               'flex h-full min-h-0 min-w-0 flex-col',
-              macElectron && !sidebarHidden && sidebarOverlayActive && 'box-border pb-2 pl-2 pr-1.5 pt-0'
+              macElectron && !sidebarHidden && sidebarOverlayActive && 'box-border p-2 pr-1.5'
             )}
           >
             <div

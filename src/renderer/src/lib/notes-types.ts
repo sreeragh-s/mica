@@ -23,6 +23,10 @@ export type SavedNote = {
   folderId: string
   /** Sidebar label and base name for the synced Markdown file. */
   title: string
+  /** Optional full-width cover image above the title (URL or data URL). */
+  coverImageSrc?: string | null
+  /** Optional emoji shown to the left of the title and in sidebar/search lists. */
+  titleEmoji?: string | null
   /** Defaults to note. Drawings use Excalidraw scene JSON in excalidrawScene. */
   kind?: NoteKind
   /** Serialized Excalidraw document (serializeAsJSON) when kind is drawing. */

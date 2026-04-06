@@ -40,7 +40,7 @@ export function extractPreviewText(
   maxLen = 72
 ): string {
   const text = walkSerializedText(serialized.root).replace(/\s+/g, " ").trim()
-  if (!text) return "New note"
+  if (!text) return "Untitled"
   return text.length > maxLen ? `${text.slice(0, maxLen)}…` : text
 }
 
@@ -59,10 +59,12 @@ function deriveNoteTitle(n: {
   title?: string
   kind?: NoteKind
 }): string {
-  if (typeof n.title === "string" && n.title.trim()) return n.title.trim()
+  // Explicit empty string means the user cleared the title — preserve it.
+  if (typeof n.title === "string") return n.title.trim()
+  // title is undefined (old data) — derive from content.
   if (n.kind === "drawing") return "New drawing"
   if (n.content != null) return extractPreviewText(n.content, 200)
-  return "New note"
+  return ""
 }
 
 function withDerivedTitle(

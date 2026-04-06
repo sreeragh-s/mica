@@ -21,6 +21,9 @@ export type NotesPrimaryPaneProps = {
   onNewNote: () => void
   onNoteSerializedChange: (id: string, serialized: SerializedEditorState) => void
   onExcalidrawSceneChange: (id: string, json: string) => void
+  onRenameNote: (id: string, title: string) => void
+  onSetNoteCover: (id: string, src: string | null) => void
+  onSetNoteTitleEmoji: (id: string, emoji: string | null) => void
   onDragOver?: (e: DragEvent) => void
   onDrop?: (e: DragEvent) => void
 }
@@ -36,6 +39,9 @@ export function NotesPrimaryPane({
   onNewNote,
   onNoteSerializedChange,
   onExcalidrawSceneChange,
+  onRenameNote,
+  onSetNoteCover,
+  onSetNoteTitleEmoji,
   onDragOver,
   onDrop
 }: NotesPrimaryPaneProps): JSX.Element {
@@ -61,6 +67,12 @@ export function NotesPrimaryPane({
           onSerializedChange={(s) => onNoteSerializedChange(selectedNote.id, s)}
           className="min-h-0 flex-1"
           notelabEditor={{ notes, folders, currentNoteId: selectedNote.id, onOpenInternalNote: onSelectNote }}
+          title={selectedNote.title}
+          onTitleChange={(t) => onRenameNote(selectedNote.id, t)}
+          coverImageSrc={selectedNote.kind === 'note' ? selectedNote.coverImageSrc : undefined}
+          onCoverChange={(src) => onSetNoteCover(selectedNote.id, src)}
+          titleEmoji={selectedNote.kind === 'note' ? selectedNote.titleEmoji : undefined}
+          onTitleEmojiChange={(emoji) => onSetNoteTitleEmoji(selectedNote.id, emoji)}
         />
       </div>
     )

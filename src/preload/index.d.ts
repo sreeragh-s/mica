@@ -1,5 +1,19 @@
 import { ElectronAPI } from '@electron-toolkit/preload'
 
+type OllamaLocalModel = {
+  name: string
+  model: string
+  modified_at: string
+  size: number
+  digest: string
+  details?: {
+    format?: string
+    family?: string
+    parameter_size?: string
+    quantization_level?: string
+  }
+}
+
 type ChatHistoryMessage = {
   role: 'user' | 'assistant'
   content: string
@@ -97,6 +111,8 @@ type NotelabApi = {
             updatedAtMs: number
             markdownBody: string
             kind: 'note' | 'drawing'
+            coverImageSrc?: string
+            titleEmoji?: string
           }[]
         }
       | { ok: false; error: string }
@@ -150,6 +166,59 @@ type NotelabApi = {
       cwd: string
       config: unknown
     }) => Promise<{ ok: true } | { ok: false; error: string }>
+  }
+  ollama: {
+    getStatus: () => Promise<
+      | { ok: true; running: boolean; downloaded: boolean; version: string | null }
+      | { ok: false; error: string }
+    >
+    download: (callbacks: {
+      onProgress: (percent: number, message: string) => void
+      onEnd: (version: string) => void
+      onError: (message: string) => void
+    }) => () => void
+    start: () => Promise<
+      | { ok: true; alreadyRunning: boolean }
+      | { ok: false; error: string }
+    >
+    stop: () => Promise<{ ok: true } | { ok: false; error: string }>
+    listModels: () => Promise<
+      | { ok: true; models: OllamaLocalModel[] }
+      | { ok: false; error: string }
+    >
+    pullModel: (
+      modelName: string,
+      callbacks: {
+        onProgress: (status: string, completed: number, total: number) => void
+        onEnd: () => void
+        onError: (message: string) => void
+      }
+    ) => () => void
+    deleteModel: (modelName: string) => Promise<{ ok: true } | { ok: false; error: string }>
+    /** POST /api/embed for local query vectors (matches LanceDB bge-m3 index). */
+    embed: (payload: {
+      model: string
+      input: string
+    }) => Promise<
+      | { ok: true; embedding: number[] }
+      | { ok: false; error: string }
+    >
+    embedBatch: (payload: {
+      model: string
+      inputs: string[]
+    }) => Promise<
+      | { ok: true; embeddings: number[][] }
+      | { ok: false; error: string }
+    >
+    /** Stream Ollama /api/chat via main (avoids CORS from the dev server origin). */
+    chatStream: (
+      bodyJson: string,
+      callbacks: {
+        onChunk: (chunk: string) => void
+        onEnd: () => void
+        onError: (message: string) => void
+      }
+    ) => () => void
   }
   embeddings: {
     getStatus: () => Promise<

@@ -7,8 +7,7 @@
  * LICENSE file in the root directory of this source tree.
  *
  */
-import { JSX, useEffect, useRef, useState } from "react"
-import * as React from "react"
+import { JSX, useEffect, useState } from "react"
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext"
 import { $wrapNodeInElement, mergeRegister } from "@lexical/utils"
 import {
@@ -159,31 +158,12 @@ export function InsertImageUploadedDialogBody({
   )
 }
 
-export function InsertImageDialog({
-  activeEditor,
-  onClose,
+/** URL / file tabs shared by “Insert image” and “Add cover” (confirm only; no Lexical insert). */
+export function ImageSourceTabs({
+  onConfirm,
 }: {
-  activeEditor: LexicalEditor
-  onClose: () => void
+  onConfirm: (payload: InsertImagePayload) => void
 }): JSX.Element {
-  const hasModifier = useRef(false)
-
-  useEffect(() => {
-    hasModifier.current = false
-    const handler = (e: KeyboardEvent) => {
-      hasModifier.current = e.altKey
-    }
-    document.addEventListener("keydown", handler)
-    return () => {
-      document.removeEventListener("keydown", handler)
-    }
-  }, [activeEditor])
-
-  const onClick = (payload: InsertImagePayload) => {
-    activeEditor.dispatchCommand(INSERT_IMAGE_COMMAND, payload)
-    onClose()
-  }
-
   return (
     <Tabs defaultValue="url">
       <TabsList className="w-full">
@@ -195,13 +175,28 @@ export function InsertImageDialog({
         </TabsTrigger>
       </TabsList>
       <TabsContent value="url">
-        <InsertImageUriDialogBody onClick={onClick} />
+        <InsertImageUriDialogBody onClick={onConfirm} />
       </TabsContent>
       <TabsContent value="file">
-        <InsertImageUploadedDialogBody onClick={onClick} />
+        <InsertImageUploadedDialogBody onClick={onConfirm} />
       </TabsContent>
     </Tabs>
   )
+}
+
+export function InsertImageDialog({
+  activeEditor,
+  onClose,
+}: {
+  activeEditor: LexicalEditor
+  onClose: () => void
+}): JSX.Element {
+  const onClick = (payload: InsertImagePayload) => {
+    activeEditor.dispatchCommand(INSERT_IMAGE_COMMAND, payload)
+    onClose()
+  }
+
+  return <ImageSourceTabs onConfirm={onClick} />
 }
 
 export function ImagesPlugin({

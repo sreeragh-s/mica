@@ -38,10 +38,12 @@ function bindingMatchesBeforeInput(b: ZenShortcutBinding, input: Input): boolean
 import { join } from 'path'
 import { electronApp, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
+import { MAC_WINDOW_OUTER_CORNER_RADIUS_PX } from '../shared/mac-window-chrome'
 import { registerAuthIpc } from './auth'
 import { registerChatHistoryIpc } from './chat-history'
 import { registerWorkspaceGitIpc } from './workspace-git'
 import { registerLancedbEmbeddingsIpc } from './lancedb-embeddings'
+import { registerOllamaIpc } from './ollama'
 
 /** Native liquid glass behind the web view (electron-liquid-glass, macOS). */
 async function attachMacNativeLiquidGlass(win: BrowserWindow): Promise<void> {
@@ -52,7 +54,7 @@ async function attachMacNativeLiquidGlass(win: BrowserWindow): Promise<void> {
     if (win.isDestroyed()) return
     state.glassSupported = liquidGlass.isGlassSupported()
     const glassId = liquidGlass.addView(win.getNativeWindowHandle(), {
-      cornerRadius: 16,
+      cornerRadius: MAC_WINDOW_OUTER_CORNER_RADIUS_PX,
       opaque: false
     })
     state.attached = glassId >= 0
@@ -91,12 +93,8 @@ function watchWindowShortcutsDetachedDevTools(window: BrowserWindow): void {
         webContents.openDevTools({ mode: 'detach' })
       }
     }
-    if (input.code === 'Minus' && (input.control || input.meta)) {
-      event.preventDefault()
-    }
-    if (input.code === 'Equal' && input.shift && (input.control || input.meta)) {
-      event.preventDefault()
-    }
+    // Do not prevent Cmd/Ctrl +/-/= zoom: blocking Minus alone broke zoom-out while other
+    // zoom-in paths (e.g. numpad) could still apply — let Chromium handle page zoom.
   })
 }
 
@@ -279,6 +277,7 @@ app.whenReady().then(() => {
   registerChatHistoryIpc()
   registerWorkspaceGitIpc()
   registerLancedbEmbeddingsIpc()
+  registerOllamaIpc()
 
   createWindow()
 

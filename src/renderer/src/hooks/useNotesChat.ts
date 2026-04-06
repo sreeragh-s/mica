@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { LOCAL_EMBEDDING_MODEL } from '@/components/ai/LocalModelSetupDialog'
+import { EMBEDDING_DIMENSION } from '@/lib/embedding-pipeline'
 import { serverFetchJson } from '@/lib/server-api'
 import type { SavedNote, WorkspaceFolder } from '@/lib/notes-storage'
 
@@ -90,8 +92,33 @@ function saveHistoryMeta(list: ChatHistoryMeta[]): void {
 
 // ---------------------------------------------------------------------------
 // SSE parser
-// Cloudflare Workers AI streams: `data: {"response":"..."}\n\n` ... `data: [DONE]\n\n`
+// Workers AI: legacy models use `data: {"response":"..."}`; Chat Completions
+// models (e.g. GLM) use OpenAI-style `choices[0].delta.content`.
 // ---------------------------------------------------------------------------
+
+function extractStreamChunkText(payload: string): string | null {
+  try {
+    const obj = JSON.parse(payload) as unknown
+    if (typeof obj !== 'object' || obj === null) return null
+    const o = obj as Record<string, unknown>
+    if (typeof o.response === 'string') return o.response
+    const choices = o.choices
+    if (!Array.isArray(choices) || choices.length === 0) return null
+    const first = choices[0] as Record<string, unknown>
+    const delta = first.delta as Record<string, unknown> | undefined
+    if (delta && typeof delta.content === 'string') return delta.content
+    const message = first.message as Record<string, unknown> | undefined
+    if (message && typeof message.content === 'string') return message.content
+    return null
+  } catch {
+    return null
+  }
+}
+
+/** Escape single quotes for LanceDB filter literals. */
+function sqlEscapeLiteral(s: string): string {
+  return s.replace(/'/g, "''")
+}
 
 function parseSSEChunks(raw: string): { tokens: string[]; done: boolean } {
   const tokens: string[] = []
@@ -105,12 +132,8 @@ function parseSSEChunks(raw: string): { tokens: string[]; done: boolean } {
       done = true
       continue
     }
-    try {
-      const obj = JSON.parse(payload) as { response?: string }
-      if (typeof obj.response === 'string') tokens.push(obj.response)
-    } catch {
-      /* partial chunk, ignore */
-    }
+    const piece = extractStreamChunkText(payload)
+    if (piece) tokens.push(piece)
   }
   return { tokens, done }
 }
@@ -124,6 +147,14 @@ export type UseNotesChatOptions = {
   /** Passed through for the sidebar workspace filter UI — not used inside the hook. */
   folders?: WorkspaceFolder[]
   selectedNote: SavedNote | null
+  /** Notelab model ID to use for chat requests. Defaults to llama-4-scout-17b. */
+  modelId?: string
+}
+
+/** Optional @-mention context (notes / workspaces) merged into RAG chunks. */
+export type SendMessageContextOptions = {
+  explicitNoteIds?: string[]
+  explicitWorkspaceIds?: string[]
 }
 
 export type UseNotesChatResult = {
@@ -132,11 +163,9 @@ export type UseNotesChatResult = {
   isLoading: boolean
   filterWorkspaceId: string | null
   setFilterWorkspaceId: (id: string | null) => void
-  includeCurrentNote: boolean
-  setIncludeCurrentNote: (v: boolean) => void
   showHistory: boolean
   setShowHistory: (v: boolean) => void
-  sendMessage: (query: string) => Promise<void>
+  sendMessage: (query: string, context?: SendMessageContextOptions) => Promise<void>
   newChat: () => Promise<void>
   loadHistorySession: (meta: ChatHistoryMeta) => Promise<void>
 }
@@ -144,12 +173,12 @@ export type UseNotesChatResult = {
 export function useNotesChat({
   notes,
   selectedNote,
+  modelId = 'llama-4-scout-17b',
 }: UseNotesChatOptions): UseNotesChatResult {
   const [session, setSession] = useState<ChatSession>(loadCurrentSession)
   const [historyMeta, setHistoryMeta] = useState<ChatHistoryMeta[]>(loadHistoryMeta)
   const [isLoading, setIsLoading] = useState(false)
   const [filterWorkspaceId, setFilterWorkspaceId] = useState<string | null>(null)
-  const [includeCurrentNote, setIncludeCurrentNote] = useState(false)
   const [showHistory, setShowHistory] = useState(false)
 
   // Keep localStorage in sync
@@ -168,11 +197,25 @@ export function useNotesChat({
   // ---------------------------------------------------------------------------
 
   const sendMessage = useCallback(
-    async (query: string) => {
-      if (!query.trim() || isLoading) return
-
-      const trimmedQuery = query.trim()
+    async (query: string, contextOpts?: SendMessageContextOptions) => {
+      const explicitNoteIds = contextOpts?.explicitNoteIds?.filter(Boolean) ?? []
+      const explicitWorkspaceIds = contextOpts?.explicitWorkspaceIds?.filter(Boolean) ?? []
+      const trimmedQuery =
+        query.trim() ||
+        (explicitNoteIds.length > 0 || explicitWorkspaceIds.length > 0
+          ? 'Please answer using the referenced notes and workspaces.'
+          : '')
+      if (!trimmedQuery || isLoading) return
       console.info(LOG, 'sendMessage', `"${trimmedQuery.slice(0, 60)}"`)
+
+      const isLocalModel = modelId.startsWith('local:')
+      const ollamaModelName = isLocalModel ? modelId.slice('local:'.length) : null
+
+      const userMessageForUi =
+        query.trim() ||
+        (explicitNoteIds.length > 0 || explicitWorkspaceIds.length > 0
+          ? 'Using referenced notes and workspaces.'
+          : trimmedQuery)
 
       // Cancel any in-flight stream
       abortRef.current = true
@@ -182,7 +225,7 @@ export function useNotesChat({
       const userMsg: ChatMessage = {
         id: newSessionId(),
         role: 'user',
-        content: trimmedQuery,
+        content: userMessageForUi,
         timestamp: Date.now(),
       }
 
@@ -204,21 +247,81 @@ export function useNotesChat({
       })
 
       // -----------------------------------------------------------------------
-      // 1. Embed the query
+      // 1. Embed the query (cloud API, or Ollama bge-m3 when using a local chat model)
       // -----------------------------------------------------------------------
-      console.info(LOG, 'embedding query…')
-      const embedRes = await serverFetchJson<{ embeddings: number[][]; dimension: number }>(
-        '/api/embeddings',
-        { method: 'POST', body: { texts: [trimmedQuery] } }
-      )
+      console.info(LOG, 'embedding query…', isLocalModel ? '(local Ollama)' : '(server)')
 
-      if (!embedRes.ok) {
-        console.error(LOG, 'embedding failed:', embedRes.message)
+      let queryVector: number[]
+
+      if (isLocalModel) {
+        const embedApi = window.api.ollama?.embed
+        if (!embedApi) {
+          setSession((prev) => ({
+            ...prev,
+            messages: prev.messages.map((m) =>
+              m.id === assistantId
+                ? { ...m, content: '⚠️ Local embedding is unavailable in this build.' }
+                : m
+            ),
+          }))
+          setIsLoading(false)
+          return
+        }
+        const localEmb = await embedApi({
+          model: LOCAL_EMBEDDING_MODEL,
+          input: trimmedQuery,
+        })
+        if (!localEmb.ok) {
+          const hint =
+            /not found|pull|file does not exist/i.test(localEmb.error)
+              ? ` Pull ${LOCAL_EMBEDDING_MODEL} in Local models setup (semantic search).`
+              : ''
+          console.error(LOG, 'local embed failed:', localEmb.error)
+          setSession((prev) => ({
+            ...prev,
+            messages: prev.messages.map((m) =>
+              m.id === assistantId
+                ? { ...m, content: `⚠️ Could not embed query: ${localEmb.error}.${hint}` }
+                : m
+            ),
+          }))
+          setIsLoading(false)
+          return
+        }
+        queryVector = localEmb.embedding
+      } else {
+        const embedRes = await serverFetchJson<{ embeddings: number[][]; dimension: number }>(
+          '/api/embeddings',
+          { method: 'POST', body: { texts: [trimmedQuery] } }
+        )
+
+        if (!embedRes.ok) {
+          console.error(LOG, 'embedding failed:', embedRes.message)
+          setSession((prev) => ({
+            ...prev,
+            messages: prev.messages.map((m) =>
+              m.id === assistantId
+                ? { ...m, content: `⚠️ Could not embed query: ${embedRes.message}` }
+                : m
+            ),
+          }))
+          setIsLoading(false)
+          return
+        }
+
+        queryVector = embedRes.data.embeddings[0]
+      }
+
+      if (queryVector.length !== EMBEDDING_DIMENSION) {
+        console.warn(LOG, `embed dim ${queryVector.length} !== LanceDB schema ${EMBEDDING_DIMENSION}`)
         setSession((prev) => ({
           ...prev,
           messages: prev.messages.map((m) =>
             m.id === assistantId
-              ? { ...m, content: `⚠️ Could not embed query: ${embedRes.message}` }
+              ? {
+                  ...m,
+                  content: `⚠️ Embedding size (${queryVector.length}) does not match your note index (${EMBEDDING_DIMENSION}). Use the same embedding model as indexing.`,
+                }
               : m
           ),
         }))
@@ -226,15 +329,73 @@ export function useNotesChat({
         return
       }
 
-      const queryVector = embedRes.data.embeddings[0]
       console.info(LOG, `[1/4] embed OK — dim=${queryVector.length}, sample=[${queryVector.slice(0, 3).map(v => v.toFixed(4)).join(', ')}]`)
+
+      const existingNoteIds = new Set(notes.map((n) => n.id))
+
+      // -----------------------------------------------------------------------
+      // 1b. Chunks for @-mentioned notes / workspaces (explicit context)
+      // -----------------------------------------------------------------------
+      let mentionSources: ChatSource[] = []
+      if (explicitNoteIds.length > 0 || explicitWorkspaceIds.length > 0) {
+        const seenMention = new Set<string>()
+        for (const nid of explicitNoteIds) {
+          if (!existingNoteIds.has(nid)) continue
+          const note = notes.find((n) => n.id === nid)
+          const filterSql = `note_id = '${sqlEscapeLiteral(nid)}'`
+          const res = await window.api.embeddings?.vectorSearch({
+            queryVector,
+            limit: 8,
+            filterSql,
+          })
+          if (!res?.ok) continue
+          for (const row of res.rows) {
+            const key = `${nid}:${String(row.text ?? '').slice(0, 40)}`
+            if (seenMention.has(key)) continue
+            seenMention.add(key)
+            mentionSources.push({
+              noteId: nid,
+              noteTitle: note?.title ?? 'Untitled',
+              workspaceId: String(row.workspace_id ?? ''),
+              chunkText: String(row.text ?? ''),
+            })
+          }
+        }
+        for (const wid of explicitWorkspaceIds) {
+          const filterSql = `workspace_id = '${sqlEscapeLiteral(wid)}'`
+          const res = await window.api.embeddings?.vectorSearch({
+            queryVector,
+            limit: 12,
+            filterSql,
+          })
+          if (!res?.ok) continue
+          for (const row of res.rows) {
+            const noteId = String(row.note_id ?? '')
+            if (!existingNoteIds.has(noteId)) continue
+            const note = notes.find((n) => n.id === noteId)
+            const key = `${noteId}:${String(row.text ?? '').slice(0, 40)}`
+            if (seenMention.has(key)) continue
+            seenMention.add(key)
+            mentionSources.push({
+              noteId,
+              noteTitle: note?.title ?? 'Untitled',
+              workspaceId: String(row.workspace_id ?? ''),
+              chunkText: String(row.text ?? ''),
+            })
+          }
+        }
+        console.info(
+          LOG,
+          `[1b/4] @-mention context — ${mentionSources.length} chunk(s) from ${explicitNoteIds.length} note(s), ${explicitWorkspaceIds.length} workspace(s)`,
+        )
+      }
 
       // -----------------------------------------------------------------------
       // 2. Vector search in LanceDB
       // -----------------------------------------------------------------------
       const filterParts: string[] = []
       if (filterWorkspaceId) {
-        filterParts.push(`workspace_id = '${filterWorkspaceId}'`)
+        filterParts.push(`workspace_id = '${sqlEscapeLiteral(filterWorkspaceId)}'`)
       }
 
       console.info(LOG, `[2/4] notes in memory: ${notes.length}`)
@@ -242,29 +403,6 @@ export function useNotesChat({
         console.info(LOG, `  notes[${i}] id="${n.id}" title="${n.title}" folderId="${n.folderId}"`)
       })
       if (notes.length > 15) console.info(LOG, `  … and ${notes.length - 15} more`)
-
-      // Fetch current note chunks separately if toggle is on
-      let currentNoteChunks: ChatSource[] = []
-      if (includeCurrentNote && selectedNote) {
-        console.info(LOG, `[2/4] fetching current note chunks — note_id="${selectedNote.id}"`)
-        const currentNoteRes = await window.api.embeddings?.vectorSearch({
-          queryVector,
-          limit: 8,
-          filterSql: `note_id = '${selectedNote.id}'`,
-        })
-        console.info(LOG, '[2/4] current note vectorSearch response:', currentNoteRes)
-        if (currentNoteRes?.ok) {
-          currentNoteChunks = currentNoteRes.rows.map((row) => ({
-            noteId: selectedNote.id,
-            noteTitle: selectedNote.title,
-            workspaceId: String(row.workspace_id ?? ''),
-            chunkText: String(row.text ?? ''),
-          }))
-          console.info(LOG, `[2/4] ${currentNoteChunks.length} chunk(s) from current note`)
-        } else {
-          console.warn(LOG, '[2/4] current note search unavailable:', currentNoteRes)
-        }
-      }
 
       const filterSql = filterParts.length ? filterParts.join(' AND ') : undefined
       console.info(LOG, `[2/4] RAG vectorSearch — limit=5, filterSql=${filterSql ?? '(none)'}`)
@@ -278,36 +416,42 @@ export function useNotesChat({
       let ragSources: ChatSource[] = []
       if (searchRes?.ok) {
         console.info(LOG, `[2/4] ${searchRes.rows.length} row(s) returned from LanceDB`)
-        ragSources = searchRes.rows.map((row, i) => {
-          const noteId = String(row.note_id ?? '')
-          const note = notes.find((n) => n.id === noteId)
-          const textPreview = String(row.text ?? '').slice(0, 100).replace(/\n/g, '↵')
-          console.info(
-            LOG,
-            `  row[${i}] note_id="${noteId}" workspace_id="${row.workspace_id}"`,
-            `distance=${row._distance} chunk_index=${row.chunk_index}`,
-            `text_len=${String(row.text ?? '').length} text="${textPreview}"`,
-            note ? `→ matched: "${note.title}"` : `→ NOT FOUND in notes array`,
-          )
-          return {
-            noteId,
-            noteTitle: note?.title ?? 'Untitled',
-            workspaceId: String(row.workspace_id ?? ''),
-            chunkText: String(row.text ?? ''),
-          }
-        })
+        ragSources = searchRes.rows
+          .map((row, i) => {
+            const noteId = String(row.note_id ?? '')
+            const note = notes.find((n) => n.id === noteId)
+            const textPreview = String(row.text ?? '').slice(0, 100).replace(/\n/g, '↵')
+            console.info(
+              LOG,
+              `  row[${i}] note_id="${noteId}" workspace_id="${row.workspace_id}"`,
+              `distance=${row._distance} chunk_index=${row.chunk_index}`,
+              `text_len=${String(row.text ?? '').length} text="${textPreview}"`,
+              note ? `→ matched: "${note.title}"` : `→ NOT FOUND in notes array`,
+            )
+            return {
+              noteId,
+              noteTitle: note?.title ?? 'Untitled',
+              workspaceId: String(row.workspace_id ?? ''),
+              chunkText: String(row.text ?? ''),
+            }
+          })
+          // Drop chunks for deleted notes (stale index rows or races with LanceDB delete).
+          .filter((s) => existingNoteIds.has(s.noteId))
       } else {
         console.warn(LOG, '[2/4] vector search failed or unavailable:', searchRes)
       }
 
-      // Merge current note chunks (dedup by noteId+text prefix)
-      const seen = new Set(ragSources.map((s) => `${s.noteId}:${s.chunkText.slice(0, 30)}`))
-      for (const s of currentNoteChunks) {
-        const key = `${s.noteId}:${s.chunkText.slice(0, 30)}`
-        if (!seen.has(key)) {
-          ragSources.unshift(s)
+      // @-mention chunks first, then RAG hits (dedup by noteId + chunk prefix)
+      {
+        const merged: ChatSource[] = []
+        const seen = new Set<string>()
+        for (const s of [...mentionSources, ...ragSources]) {
+          const key = `${s.noteId}:${s.chunkText.slice(0, 30)}`
+          if (seen.has(key)) continue
           seen.add(key)
+          merged.push(s)
         }
+        ragSources = merged
       }
 
       // allSources = all chunks passed to the AI for context (full detail)
@@ -325,12 +469,6 @@ export function useNotesChat({
       const contextChunks = allSources.map(
         (s) => `[Source: "${s.noteTitle}"]\n${s.chunkText}`
       )
-
-      if (includeCurrentNote && selectedNote && currentNoteChunks.length === 0) {
-        // Note not indexed yet — add title as a hint
-        contextChunks.unshift(`[Currently open note: "${selectedNote.title}"]`)
-        console.info(LOG, '[3/4] current note not indexed yet — added title hint to context')
-      }
 
       console.info(LOG, `[3/4] context — ${contextChunks.length} chunk(s):`)
       contextChunks.forEach((c, i) => {
@@ -352,49 +490,89 @@ export function useNotesChat({
       })
 
       // -----------------------------------------------------------------------
-      // 5. Stream from /api/chat
+      // 5. Stream from /api/chat (cloud) or Ollama local server
       // -----------------------------------------------------------------------
-      const streamFetch = window.api.auth.streamFetch
-      if (!streamFetch) {
-        console.error(LOG, 'streamFetch not available')
-        setIsLoading(false)
-        return
-      }
-
-      const baseUrl = (import.meta.env.VITE_AUTH_URL?.trim() ?? '').replace(/\/$/, '')
-      if (!baseUrl) {
-        console.error(LOG, 'VITE_AUTH_URL not set')
-        setIsLoading(false)
-        return
-      }
-
       let accumulatedContent = ''
-      let rawBuffer = '' // buffer for partial SSE lines
       let chunkCount = 0
 
-      console.info(LOG, `[4/4] starting stream from ${baseUrl}/api/chat`)
+      // Helper: finalize assistant message with accumulated content + sources
+      const finalizeMessage = (): void => {
+        setSession((prev) => ({
+          ...prev,
+          messages: prev.messages.map((m) =>
+            m.id === assistantId ? { ...m, sources: uniqueSources, content: accumulatedContent } : m
+          ),
+        }))
+        setIsLoading(false)
+        streamCleanupRef.current = null
+      }
 
-      const cleanup = streamFetch(
-        `${baseUrl}/api/chat`,
-        {
-          method: 'POST',
-          body: JSON.stringify({ messages: historyForApi, contextChunks }),
-        },
-        {
-          onChunk: (chunk: string) => {
-            if (abortRef.current) return
-            chunkCount++
-            console.debug(LOG, `  SSE raw chunk[${chunkCount}] (${chunk.length} bytes): ${JSON.stringify(chunk.slice(0, 120))}`)
-            rawBuffer += chunk
-            const { tokens } = parseSSEChunks(rawBuffer)
-            // Only consume complete lines (keep trailing partial line in buffer)
-            const lastNewline = rawBuffer.lastIndexOf('\n')
-            if (lastNewline >= 0) {
-              rawBuffer = rawBuffer.slice(lastNewline + 1)
+      const handleStreamError = (msg: string): void => {
+        console.error(LOG, `[4/4] stream error after ${chunkCount} chunk(s):`, msg)
+        setSession((prev) => ({
+          ...prev,
+          messages: prev.messages.map((m) =>
+            m.id === assistantId
+              ? { ...m, content: accumulatedContent || `⚠️ Stream error: ${msg}` }
+              : m
+          ),
+        }))
+        setIsLoading(false)
+        streamCleanupRef.current = null
+      }
+
+      if (isLocalModel && ollamaModelName) {
+        // ── Local Ollama path ──
+        console.info(LOG, `[4/4] streaming from local Ollama — model="${ollamaModelName}"`)
+
+        // Build Ollama chat messages format (with system prompt containing context)
+        const systemPrompt = contextChunks.length > 0
+          ? `You are a helpful notes assistant. Use the following excerpts from the user's notes to answer questions:\n\n${contextChunks.join('\n\n---\n\n')}`
+          : 'You are a helpful notes assistant.'
+
+        const ollamaMessages = [
+          { role: 'system', content: systemPrompt },
+          ...historyForApi.map((m) => ({ role: m.role, content: m.content })),
+        ]
+
+        // Stream via main process — renderer fetch() to localhost hits CORS from the Vite dev origin.
+        const chatStream = window.api.ollama?.chatStream
+        if (!chatStream) {
+          handleStreamError('Local Ollama chat bridge unavailable')
+          return
+        }
+
+        const bodyJson = JSON.stringify({
+          model: ollamaModelName,
+          messages: ollamaMessages,
+          stream: true,
+        })
+
+        /** Ollama may send an error JSON line; main still ends the stream afterward. */
+        let ollamaStreamFailed = false
+        const ollamaStreamError = (msg: string): void => {
+          ollamaStreamFailed = true
+          handleStreamError(msg)
+        }
+
+        let buf = ''
+        const processLine = (line: string): void => {
+          const trimmed = line.trim()
+          if (!trimmed) return
+          try {
+            const obj = JSON.parse(trimmed) as {
+              message?: { content?: string }
+              done?: boolean
+              error?: string
             }
-            if (tokens.length > 0) {
-              console.debug(LOG, `  SSE tokens[${chunkCount}]:`, tokens)
-              accumulatedContent += tokens.join('')
+            if (obj.error) {
+              ollamaStreamError(obj.error)
+              return
+            }
+            const token = obj.message?.content ?? ''
+            if (token) {
+              chunkCount++
+              accumulatedContent += token
               setSession((prev) => ({
                 ...prev,
                 messages: prev.messages.map((m) =>
@@ -402,40 +580,98 @@ export function useNotesChat({
                 ),
               }))
             }
+            if (obj.done) {
+              console.info(
+                LOG,
+                `[4/4] Ollama stream done — ${chunkCount} tokens, ${accumulatedContent.length} chars`
+              )
+            }
+          } catch {
+            /* skip malformed */
+          }
+        }
+
+        const cleanupStream = chatStream(bodyJson, {
+          onChunk: (text) => {
+            if (abortRef.current || ollamaStreamFailed) return
+            buf += text
+            const lines = buf.split('\n')
+            buf = lines.pop() ?? ''
+            for (const line of lines) {
+              processLine(line)
+            }
           },
           onEnd: () => {
-            console.info(LOG, `[4/4] stream ended — ${chunkCount} chunk(s), ${accumulatedContent.length} chars total`)
-            console.info(LOG, `[4/4] final response preview: "${accumulatedContent.slice(0, 200)}"`)
-            // Finalize: attach sources to the assistant message
-            setSession((prev) => ({
-              ...prev,
-              messages: prev.messages.map((m) =>
-                m.id === assistantId ? { ...m, sources: uniqueSources, content: accumulatedContent } : m
-              ),
-            }))
-            setIsLoading(false)
-            streamCleanupRef.current = null
+            if (!ollamaStreamFailed && buf.trim()) {
+              processLine(buf)
+              buf = ''
+            }
+            if (!ollamaStreamFailed) finalizeMessage()
           },
-          onError: (msg: string) => {
-            console.error(LOG, `[4/4] stream error after ${chunkCount} chunk(s):`, msg)
-            setSession((prev) => ({
-              ...prev,
-              messages: prev.messages.map((m) =>
-                m.id === assistantId
-                  ? { ...m, content: accumulatedContent || `⚠️ Stream error: ${msg}` }
-                  : m
-              ),
-            }))
-            setIsLoading(false)
-            streamCleanupRef.current = null
-          },
+          onError: ollamaStreamError,
+        })
+        streamCleanupRef.current = cleanupStream
+      } else {
+        // ── Cloud API path ──
+        const streamFetch = window.api.auth.streamFetch
+        if (!streamFetch) {
+          console.error(LOG, 'streamFetch not available')
+          setIsLoading(false)
+          return
         }
-      )
 
-      streamCleanupRef.current = cleanup
+        const baseUrl = (import.meta.env.VITE_AUTH_URL?.trim() ?? '').replace(/\/$/, '')
+        if (!baseUrl) {
+          console.error(LOG, 'VITE_AUTH_URL not set')
+          setIsLoading(false)
+          return
+        }
+
+        let rawBuffer = ''
+        console.info(LOG, `[4/4] starting stream from ${baseUrl}/api/chat`)
+
+        const cleanup = streamFetch(
+          `${baseUrl}/api/chat`,
+          {
+            method: 'POST',
+            body: JSON.stringify({ messages: historyForApi, contextChunks, modelId }),
+          },
+          {
+            onChunk: (chunk: string) => {
+              if (abortRef.current) return
+              chunkCount++
+              console.debug(LOG, `  SSE raw chunk[${chunkCount}] (${chunk.length} bytes): ${JSON.stringify(chunk.slice(0, 120))}`)
+              rawBuffer += chunk
+              const { tokens } = parseSSEChunks(rawBuffer)
+              const lastNewline = rawBuffer.lastIndexOf('\n')
+              if (lastNewline >= 0) {
+                rawBuffer = rawBuffer.slice(lastNewline + 1)
+              }
+              if (tokens.length > 0) {
+                console.debug(LOG, `  SSE tokens[${chunkCount}]:`, tokens)
+                accumulatedContent += tokens.join('')
+                setSession((prev) => ({
+                  ...prev,
+                  messages: prev.messages.map((m) =>
+                    m.id === assistantId ? { ...m, content: accumulatedContent } : m
+                  ),
+                }))
+              }
+            },
+            onEnd: () => {
+              console.info(LOG, `[4/4] stream ended — ${chunkCount} chunk(s), ${accumulatedContent.length} chars total`)
+              console.info(LOG, `[4/4] final response preview: "${accumulatedContent.slice(0, 200)}"`)
+              finalizeMessage()
+            },
+            onError: handleStreamError,
+          }
+        )
+
+        streamCleanupRef.current = cleanup
+      }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [isLoading, filterWorkspaceId, includeCurrentNote, selectedNote, notes, session.messages]
+    [isLoading, filterWorkspaceId, selectedNote, notes, session.messages, modelId]
   )
 
   // ---------------------------------------------------------------------------
@@ -547,8 +783,6 @@ export function useNotesChat({
     isLoading,
     filterWorkspaceId,
     setFilterWorkspaceId,
-    includeCurrentNote,
-    setIncludeCurrentNote,
     showHistory,
     setShowHistory,
     sendMessage,

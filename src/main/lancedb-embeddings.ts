@@ -321,9 +321,9 @@ export function registerLancedbEmbeddingsIpc(): void {
           return { ok: true as const, deleted: false }
         }
         const table = await conn.openTable(NOTE_EMBEDDINGS_TABLE)
-        await table.delete(
-          `workspace_id = ${sqlStringLiteral(workspaceId)} AND note_id = ${sqlStringLiteral(noteId)}`
-        )
+        // Note IDs are unique app-wide; delete by note_id so we always clear chunks even if
+        // workspace_id in the table ever disagrees with the sidebar folder id.
+        await table.delete(`note_id = ${sqlStringLiteral(noteId)}`)
         return { ok: true as const, deleted: true }
       } catch (e) {
         const message = e instanceof Error ? e.message : String(e)

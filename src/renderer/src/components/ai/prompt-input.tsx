@@ -1,9 +1,9 @@
 import type { ChatStatus, FileUIPart } from "ai"
 import {
+  ArrowUpIcon,
   CornerDownLeftIcon,
   ImageIcon,
   Loader2Icon,
-  MicIcon,
   PaperclipIcon,
   PlusIcon,
   SquareIcon,
@@ -55,13 +55,7 @@ import {
   InputGroupButton,
   InputGroupTextarea,
 } from "@/components/ui/input-group"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
+import { Separator } from "@/components/ui/separator"
 import { cn } from "@/lib/utils"
 
 // ============================================================================
@@ -412,10 +406,13 @@ export type PromptInputProps = Omit<HTMLAttributes<HTMLFormElement>, "onSubmit" 
   maxFileSize?: number // bytes
   onError?: (err: { code: "max_files" | "max_file_size" | "accept"; message: string }) => void
   onSubmit: (message: PromptInputMessage, event: FormEvent<HTMLFormElement>) => void | Promise<void>
+  /** Merged into the inner `InputGroup` (e.g. `bg-background`). */
+  inputGroupClassName?: string
 }
 
 export const PromptInput = ({
   className,
+  inputGroupClassName,
   accept,
   multiple,
   globalDrop,
@@ -745,7 +742,7 @@ export const PromptInput = ({
         type="file"
       />
       <form className={cn("w-full", className)} onSubmit={handleSubmit} ref={formRef} {...props}>
-        <InputGroup className="overflow-hidden">{children}</InputGroup>
+        <InputGroup className={cn("overflow-hidden", inputGroupClassName)}>{children}</InputGroup>
       </form>
     </>
   )
@@ -759,8 +756,9 @@ export const PromptInput = ({
 
 export type PromptInputBodyProps = HTMLAttributes<HTMLDivElement>
 
+/** Wraps the textarea and any inset controls (e.g. `PromptInputFooter`) in a positioned field. */
 export const PromptInputBody = ({ className, ...props }: PromptInputBodyProps) => (
-  <div className={cn("contents", className)} {...props} />
+  <div className={cn("relative flex min-h-0 min-w-0 flex-1 flex-col", className)} {...props} />
 )
 
 export type PromptInputTextareaProps = ComponentProps<typeof InputGroupTextarea>
@@ -843,7 +841,10 @@ export const PromptInputTextarea = ({
 
   return (
     <InputGroupTextarea
-      className={cn("field-sizing-content max-h-48 min-h-16", className)}
+      className={cn(
+        "field-sizing-content max-h-64 min-h-24 w-full flex-1 pb-3",
+        className,
+      )}
       name="message"
       onCompositionEnd={() => setIsComposing(false)}
       onCompositionStart={() => setIsComposing(true)}
@@ -866,12 +867,15 @@ export const PromptInputHeader = ({ className, ...props }: PromptInputHeaderProp
   />
 )
 
-export type PromptInputFooterProps = Omit<ComponentProps<typeof InputGroupAddon>, "align">
+export type PromptInputFooterProps = HTMLAttributes<HTMLDivElement>
 
+/** Toolbar overlaid along the bottom inside `PromptInputBody` (above the textarea content). */
 export const PromptInputFooter = ({ className, ...props }: PromptInputFooterProps) => (
-  <InputGroupAddon
-    align="block-end"
-    className={cn("justify-between gap-1", className)}
+  <div
+    className={cn(
+      "pointer-events-none absolute inset-x-0 bottom-0 z-10 flex items-center justify-between gap-1 px-3 pb-2 pt-1",
+      className,
+    )}
     {...props}
   />
 )
@@ -879,7 +883,7 @@ export const PromptInputFooter = ({ className, ...props }: PromptInputFooterProp
 export type PromptInputToolsProps = HTMLAttributes<HTMLDivElement>
 
 export const PromptInputTools = ({ className, ...props }: PromptInputToolsProps) => (
-  <div className={cn("flex items-center gap-1", className)} {...props} />
+  <div className={cn("pointer-events-auto flex min-w-0 items-center gap-1", className)} {...props} />
 )
 
 export type PromptInputButtonProps = ComponentProps<typeof InputGroupButton>
@@ -894,7 +898,7 @@ export const PromptInputButton = ({
 
   return (
     <InputGroupButton
-      className={cn(className)}
+      className={cn("pointer-events-auto", className)}
       size={newSize}
       type="button"
       variant={variant}
@@ -936,6 +940,83 @@ export const PromptInputActionMenuItem = ({
   ...props
 }: PromptInputActionMenuItemProps) => <DropdownMenuItem className={cn(className)} {...props} />
 
+export type PromptInputToolbarProps = ComponentProps<typeof InputGroupAddon>
+
+/** Bottom toolbar row (`InputGroupAddon` with `align="block-end"`) matching the AI prompt box pattern. */
+export const PromptInputToolbar = ({ className, ...props }: PromptInputToolbarProps) => (
+  <InputGroupAddon
+    align="block-end"
+    className={cn("flex flex-wrap items-center gap-2", className)}
+    {...props}
+  />
+)
+
+export type PromptInputAttachButtonProps = Omit<ComponentProps<typeof PromptInputButton>, "onClick">
+
+export const PromptInputAttachButton = ({
+  className,
+  children,
+  ...props
+}: PromptInputAttachButtonProps) => {
+  const attachments = usePromptInputAttachments()
+
+  return (
+    <PromptInputButton
+      className={className}
+      onClick={() => attachments.openFileDialog()}
+      size="icon-xs"
+      variant="ghost"
+      {...props}
+    >
+      {children ?? (
+        <>
+          <PaperclipIcon className="size-4" />
+          <span className="sr-only">Attach files</span>
+        </>
+      )}
+    </PromptInputButton>
+  )
+}
+
+export type PromptInputModelMenuProps = ComponentProps<typeof DropdownMenu>
+
+export const PromptInputModelMenu = (props: PromptInputModelMenuProps) => (
+  <DropdownMenu modal={false} {...props} />
+)
+
+export type PromptInputModelMenuTriggerProps = PromptInputButtonProps
+
+export const PromptInputModelMenuTrigger = ({
+  className,
+  children,
+  ...props
+}: PromptInputModelMenuTriggerProps) => (
+  <DropdownMenuTrigger asChild>
+    <PromptInputButton
+      className={cn(
+        "ml-auto min-w-0 max-w-[min(100%,200px)] px-2 font-normal text-muted-foreground text-xs hover:text-foreground",
+        className,
+      )}
+      size="sm"
+      variant="ghost"
+      {...props}
+    >
+      {children}
+    </PromptInputButton>
+  </DropdownMenuTrigger>
+)
+
+export type PromptInputModelMenuContentProps = ComponentProps<typeof DropdownMenuContent>
+
+export const PromptInputModelMenuContent = ({
+  align = "end",
+  className,
+  side = "top",
+  ...props
+}: PromptInputModelMenuContentProps) => (
+  <DropdownMenuContent align={align} className={cn(className)} side={side} {...props} />
+)
+
 // Note: Actions that perform side-effects (like opening a file dialog)
 // are provided in opt-in modules (e.g., prompt-input-attachments).
 
@@ -964,7 +1045,7 @@ export const PromptInputSubmit = ({
   return (
     <InputGroupButton
       aria-label="Submit"
-      className={cn(className)}
+      className={cn("pointer-events-auto", className)}
       size={size}
       type="submit"
       variant={variant}
@@ -974,191 +1055,6 @@ export const PromptInputSubmit = ({
     </InputGroupButton>
   )
 }
-
-interface PromptSpeechRecognition extends EventTarget {
-  continuous: boolean
-  interimResults: boolean
-  lang: string
-  start(): void
-  stop(): void
-  onstart: ((this: PromptSpeechRecognition, ev: Event) => any) | null
-  onend: ((this: PromptSpeechRecognition, ev: Event) => any) | null
-  onresult: ((this: PromptSpeechRecognition, ev: SpeechRecognitionEvent) => any) | null
-  onerror: ((this: PromptSpeechRecognition, ev: SpeechRecognitionErrorEvent) => any) | null
-}
-
-interface SpeechRecognitionEvent extends Event {
-  results: SpeechRecognitionResultList
-  resultIndex: number
-}
-
-interface SpeechRecognitionResultList {
-  readonly length: number
-  item(index: number): SpeechRecognitionResult
-  [index: number]: SpeechRecognitionResult
-}
-
-interface SpeechRecognitionResult {
-  readonly length: number
-  item(index: number): SpeechRecognitionAlternative
-  [index: number]: SpeechRecognitionAlternative
-  isFinal: boolean
-}
-
-interface SpeechRecognitionAlternative {
-  transcript: string
-  confidence: number
-}
-
-interface SpeechRecognitionErrorEvent extends Event {
-  error: string
-}
-
-export type PromptInputSpeechButtonProps = ComponentProps<typeof PromptInputButton> & {
-  textareaRef?: RefObject<HTMLTextAreaElement | null>
-  onTranscriptionChange?: (text: string) => void
-}
-
-export const PromptInputSpeechButton = ({
-  className,
-  textareaRef,
-  onTranscriptionChange,
-  ...props
-}: PromptInputSpeechButtonProps) => {
-  const [isListening, setIsListening] = useState(false)
-  const [recognition, setRecognition] = useState<PromptSpeechRecognition | null>(null)
-  const recognitionRef = useRef<PromptSpeechRecognition | null>(null)
-
-  useEffect(() => {
-    if (
-      typeof window !== "undefined" &&
-      ("SpeechRecognition" in window || "webkitSpeechRecognition" in window)
-    ) {
-      type PromptSpeechRecognitionCtor = new () => PromptSpeechRecognition
-      const w = window as Window & {
-        SpeechRecognition?: PromptSpeechRecognitionCtor
-        webkitSpeechRecognition?: PromptSpeechRecognitionCtor
-      }
-      const ctor = w.SpeechRecognition ?? w.webkitSpeechRecognition
-      if (ctor) {
-        const speechRecognition = new ctor() as unknown as PromptSpeechRecognition
-
-        speechRecognition.continuous = true
-        speechRecognition.interimResults = true
-        speechRecognition.lang = "en-US"
-
-        speechRecognition.onstart = () => {
-          setIsListening(true)
-        }
-
-        speechRecognition.onend = () => {
-          setIsListening(false)
-        }
-
-        speechRecognition.onresult = event => {
-          let finalTranscript = ""
-
-          for (let i = event.resultIndex; i < event.results.length; i++) {
-            const result = event.results[i]
-            if (result.isFinal) {
-              finalTranscript += result[0]?.transcript ?? ""
-            }
-          }
-
-          if (finalTranscript && textareaRef?.current) {
-            const textarea = textareaRef.current
-            const currentValue = textarea.value
-            const newValue = currentValue + (currentValue ? " " : "") + finalTranscript
-
-            textarea.value = newValue
-            textarea.dispatchEvent(new Event("input", { bubbles: true }))
-            onTranscriptionChange?.(newValue)
-          }
-        }
-
-        speechRecognition.onerror = event => {
-          console.error("Speech recognition error:", event.error)
-          setIsListening(false)
-        }
-
-        recognitionRef.current = speechRecognition
-        setRecognition(speechRecognition)
-      }
-    }
-
-    return () => {
-      if (recognitionRef.current) {
-        recognitionRef.current.stop()
-      }
-    }
-  }, [textareaRef, onTranscriptionChange])
-
-  const toggleListening = useCallback(() => {
-    if (!recognition) {
-      return
-    }
-
-    if (isListening) {
-      recognition.stop()
-    } else {
-      recognition.start()
-    }
-  }, [recognition, isListening])
-
-  return (
-    <PromptInputButton
-      className={cn(
-        "relative transition-all duration-200",
-        isListening && "animate-pulse bg-accent text-accent-foreground",
-        className,
-      )}
-      disabled={!recognition}
-      onClick={toggleListening}
-      {...props}
-    >
-      <MicIcon className="size-4" />
-    </PromptInputButton>
-  )
-}
-
-export type PromptInputSelectProps = ComponentProps<typeof Select>
-
-export const PromptInputSelect = (props: PromptInputSelectProps) => <Select {...props} />
-
-export type PromptInputSelectTriggerProps = ComponentProps<typeof SelectTrigger>
-
-export const PromptInputSelectTrigger = ({
-  className,
-  ...props
-}: PromptInputSelectTriggerProps) => (
-  <SelectTrigger
-    className={cn(
-      "border-none bg-transparent font-medium text-muted-foreground shadow-none transition-colors",
-      "hover:bg-accent hover:text-foreground aria-expanded:bg-accent aria-expanded:text-foreground",
-      className,
-    )}
-    {...props}
-  />
-)
-
-export type PromptInputSelectContentProps = ComponentProps<typeof SelectContent>
-
-export const PromptInputSelectContent = ({
-  className,
-  ...props
-}: PromptInputSelectContentProps) => <SelectContent className={cn(className)} {...props} />
-
-export type PromptInputSelectItemProps = ComponentProps<typeof SelectItem>
-
-export const PromptInputSelectItem = ({ className, ...props }: PromptInputSelectItemProps) => (
-  <SelectItem className={cn(className)} {...props} />
-)
-
-export type PromptInputSelectValueProps = ComponentProps<typeof SelectValue>
-
-export const PromptInputSelectValue = ({ className, ...props }: PromptInputSelectValueProps) => (
-  <SelectValue className={cn(className)} {...props} />
-)
 
 export type PromptInputHoverCardProps = ComponentProps<typeof HoverCard>
 
@@ -1259,11 +1155,25 @@ export const PromptInputCommandSeparator = ({
   ...props
 }: PromptInputCommandSeparatorProps) => <CommandSeparator className={cn(className)} {...props} />
 
-/** Demo component for preview */
+export {
+  addChatReference,
+  getActiveMentionText,
+  PromptInputChatMentionTextarea,
+  type PromptInputChatMentionTextareaHandle,
+  PromptInputChatReferenceChips,
+  type PromptInputChatEditorNote,
+  type PromptInputChatMentionNote,
+  type PromptInputChatMentionWorkspace,
+  type PromptInputChatReference,
+} from "./prompt-input-chat-mentions"
+
+/** Demo component for preview — matches the AI Elements-style prompt box (toolbar row, no mic). */
 export default function PromptInputDemo() {
   return (
-    <div className="size-full">
+    <div className="flex size-full w-full max-w-2xl flex-col gap-4">
       <PromptInput
+        className="bg-background"
+        inputGroupClassName="bg-background"
         multiple
         onSubmit={message => {
           console.log("Submitting message:", message)
@@ -1272,20 +1182,23 @@ export default function PromptInputDemo() {
         <PromptInputAttachments>
           {attachment => <PromptInputAttachment data={attachment} />}
         </PromptInputAttachments>
-        <PromptInputBody>
-          <PromptInputTextarea />
-        </PromptInputBody>
-        <PromptInputFooter>
-          <PromptInputTools>
-            <PromptInputActionMenu>
-              <PromptInputActionMenuTrigger />
-              <PromptInputActionMenuContent>
-                <PromptInputActionAddAttachments />
-              </PromptInputActionMenuContent>
-            </PromptInputActionMenu>
-          </PromptInputTools>
-          <PromptInputSubmit />
-        </PromptInputFooter>
+        <PromptInputTextarea placeholder="Type or speak your message..." />
+        <PromptInputToolbar>
+          <PromptInputAttachButton />
+          <PromptInputModelMenu>
+            <PromptInputModelMenuTrigger>Claude 3.5</PromptInputModelMenuTrigger>
+            <PromptInputModelMenuContent>
+              <DropdownMenuItem>Claude 3.5 Sonnet</DropdownMenuItem>
+              <DropdownMenuItem>Claude 3 Opus</DropdownMenuItem>
+              <DropdownMenuItem>Claude 3 Haiku</DropdownMenuItem>
+            </PromptInputModelMenuContent>
+          </PromptInputModelMenu>
+          <Separator className="!h-4" orientation="vertical" />
+          <PromptInputSubmit className="rounded-full" size="icon-xs" variant="default">
+            <ArrowUpIcon className="size-4" />
+            <span className="sr-only">Send</span>
+          </PromptInputSubmit>
+        </PromptInputToolbar>
       </PromptInput>
     </div>
   )

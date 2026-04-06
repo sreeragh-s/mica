@@ -108,47 +108,6 @@
 
 @layer components {
   /**
-   * macOS liquid sidebar (Electron): native glass via `electron-liquid-glass` in the main process
-   * plus this panel tint / backdrop blur so the strip blurs the editor painted underneath.
-   * @see https://github.com/Meridius-Labs/electron-liquid-glass
-   */
-  .liquid-sidebar-inset {
-    position: relative;
-    overflow: hidden;
-    /* Translucent sidebar tint over the blurred background strip */
-    background: color-mix(in oklch, var(--sidebar) 78%, transparent);
-    -webkit-backdrop-filter: blur(32px) saturate(1.65);
-    backdrop-filter: blur(32px) saturate(1.65);
-    box-shadow:
-      inset 0 1px 0 0 oklch(1 0 0 / 0.28),
-      inset 0 -1px 0 0 oklch(0 0 0 / 0.04),
-      0 4px 20px -4px oklch(0 0 0 / 0.1);
-    border-width: 1px;
-    border-style: solid;
-    border-color: color-mix(in oklch, var(--sidebar-border) 42%, transparent);
-  }
-
-  .liquid-sidebar-inset[data-native-liquid-glass] {
-    -webkit-backdrop-filter: blur(22px) saturate(1.5);
-    backdrop-filter: blur(22px) saturate(1.5);
-  }
-
-  .dark .liquid-sidebar-inset {
-    background: color-mix(in oklch, var(--sidebar) 58%, transparent);
-    box-shadow:
-      inset 0 1px 0 0 oklch(1 0 0 / 0.07),
-      inset 0 -1px 0 0 oklch(0 0 0 / 0.2),
-      0 6px 28px -6px oklch(0 0 0 / 0.42);
-    border-color: color-mix(in oklch, var(--sidebar-border) 38%, transparent);
-  }
-
-  @supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
-    .liquid-sidebar-inset {
-      background: var(--sidebar);
-    }
-  }
-
-  /**
    * Excalidraw dark theme applies `filter: invert(93%) hue-rotate(180deg)` to canvases so
    * legacy light-canvas drawings read well on dark UI — but it also inverts
    * `viewBackgroundColor`, so a dark fill looks light and never matches app `--background`.

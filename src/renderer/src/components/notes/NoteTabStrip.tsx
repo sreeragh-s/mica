@@ -11,6 +11,7 @@ import { motion } from 'motion/react'
 
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { NOTES_APP_PILL_SURFACE } from './notes-app-utils'
 import type { SavedNote } from '@/lib/notes-storage'
 import type { MacTitlebarStyles } from './notes-app-types'
 
@@ -197,7 +198,10 @@ export function NoteTabStrip({
       style={macElectron ? macTitlebarStyles.noDrag : undefined}
     >
       <div
-        className="bg-muted/35 text-foreground isolate flex h-8 w-full min-w-0 flex-1 items-stretch overflow-hidden rounded-full shadow-[inset_0_1px_0_0_oklch(1_0_0/0.06)] backdrop-blur-xl dark:bg-white/[0.07] dark:shadow-[inset_0_1px_0_0_oklch(1_0_0/0.08)]"
+        className={cn(
+          'isolate flex h-8 w-full min-w-0 flex-1 items-stretch overflow-hidden rounded-full',
+          NOTES_APP_PILL_SURFACE
+        )}
         role="tablist"
       >
         <div className="flex min-h-0 min-w-0 flex-1 overflow-x-auto [scrollbar-width:thin]">

@@ -9,7 +9,7 @@ import {
   type ReactNode
 } from 'react'
 
-import { FileText, PanelLeftOpen, PenLine, Search } from 'lucide-react'
+import { PanelLeftOpen, Search } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -22,7 +22,7 @@ import type { SavedNote, WorkspaceFolder } from '@/lib/notes-storage'
 import { liquidGlassControlPillClass, liquidGlassSearchShellClass } from '@/lib/liquid-glass-toolbar'
 
 import { MacSidebarLeadingToolbarIcon } from './MacSidebarToolbarIcon'
-import { isDrawingNote } from './notes-app-utils'
+import { NoteLeadingIcon } from './NoteLeadingIcon'
 import type { MacTitlebarStyles } from './notes-app-types'
 
 function SearchHighlight({ segments }: { segments: SearchMatchSegment[] }): JSX.Element {
@@ -56,8 +56,6 @@ export type NotesSearchBarProps = {
   sidebarCollapsed: boolean
   toggleSidebar: () => void
   trailing?: ReactNode
-  /** Reserve right padding when the toolbar pill is absolutely positioned in the parent (same visual layout as flex trailing). */
-  reserveToolbarPillSpace?: boolean
 }
 
 export function NotesSearchBar({
@@ -70,8 +68,7 @@ export function NotesSearchBar({
   nativeLiquidGlassAttached,
   sidebarCollapsed,
   toggleSidebar,
-  trailing,
-  reserveToolbarPillSpace
+  trailing
 }: NotesSearchBarProps): JSX.Element {
   const nativeGlassUi = macElectron && nativeLiquidGlassAttached
   const [query, setQuery] = useState('')
@@ -140,14 +137,13 @@ export function NotesSearchBar({
     <div
       ref={wrapRef}
       className={cn(
-        'relative z-10 flex h-12 w-full min-w-0 shrink-0 items-center gap-2 px-2 mt-1',
+        'relative z-10 grid h-12 w-full min-w-0 shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-x-2 px-2 mt-1',
         macElectron && 'pointer-events-none',
-        !reserveToolbarPillSpace && sidebarOverlayActive && 'pr-1.5',
         !sidebarOverlayActive && macElectron && sidebarCollapsed && 'pl-[92px]'
       )}
     >
       {/* macOS: window drag is one full-width band in NotesApp; this row is pointer-events-none except controls. */}
-      <div className="flex min-h-0 min-w-0 flex-1 items-center gap-2">
+      <div className="flex min-h-0 min-w-0 items-center justify-end gap-2">
         {sidebarCollapsed ? (
           <div
             className={cn('pointer-events-auto', liquidGlassControlPillClass(nativeGlassUi))}
@@ -173,14 +169,15 @@ export function NotesSearchBar({
             </Button>
           </div>
         ) : null}
-        <div className="flex min-h-0 min-w-0 flex-1 justify-center">
-          <Popover
-            open={showPopover}
-            onOpenChange={(next) => {
-              if (!next) setOpen(false)
-            }}
-          >
-            <PopoverAnchor asChild>
+      </div>
+      <div className="min-w-0 max-w-md w-full">
+        <Popover
+          open={showPopover}
+          onOpenChange={(next) => {
+            if (!next) setOpen(false)
+          }}
+        >
+          <PopoverAnchor asChild>
             <div
               className={cn('pointer-events-auto', liquidGlassSearchShellClass(nativeGlassUi))}
               style={macElectron ? macTitlebarStyles.noDrag : undefined}
@@ -235,7 +232,6 @@ export function NotesSearchBar({
                   </p>
                 ) : (
                   results.map((r, i) => {
-                    const drawing = isDrawingNote(r.note)
                     return (
                       <Button
                         key={r.note.id}
@@ -253,17 +249,7 @@ export function NotesSearchBar({
                         onClick={() => pick(r)}
                       >
                         <div className="flex min-w-0 items-center gap-2">
-                          {drawing ? (
-                            <PenLine
-                              className="text-muted-foreground size-4 shrink-0 opacity-90"
-                              aria-hidden
-                            />
-                          ) : (
-                            <FileText
-                              className="text-muted-foreground size-4 shrink-0 opacity-90"
-                              aria-hidden
-                            />
-                          )}
+                          <NoteLeadingIcon note={r.note} />
                           <span className="min-w-0 flex-1 truncate text-[13px] font-semibold leading-tight">
                             <SearchHighlight segments={r.titleSegments} />
                           </span>
@@ -279,9 +265,10 @@ export function NotesSearchBar({
                   })
                 )}
               </div>
-            </PopoverContent>
-          </Popover>
-        </div>
+          </PopoverContent>
+        </Popover>
+      </div>
+      <div className="flex min-h-0 min-w-0 items-center justify-start gap-2">
         {trailing != null ? (
           <div
             className="pointer-events-auto shrink-0"
@@ -291,13 +278,6 @@ export function NotesSearchBar({
           </div>
         ) : null}
       </div>
-      {reserveToolbarPillSpace ? (
-        <div
-          className="pointer-events-none h-full w-32 min-w-[8rem] shrink-0"
-          style={macElectron ? macTitlebarStyles.noDrag : undefined}
-          aria-hidden
-        />
-      ) : null}
     </div>
   )
 }

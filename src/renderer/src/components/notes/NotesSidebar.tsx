@@ -3,7 +3,6 @@ import { useEffect, useRef, useState, type DragEvent, type JSX } from 'react'
 import {
   ArrowLeft,
   Bug,
-  FileText,
   Keyboard,
   Palette,
   Network,
@@ -34,10 +33,16 @@ import {
   TreeView
 } from '@/components/ui/tree'
 import { cn } from '@/lib/utils'
-import { liquidGlassControlPillClass } from '@/lib/liquid-glass-toolbar'
+import {
+  liquidGlassControlPillClass,
+  macSidebarLiquidGlassPanelClass
+} from '@/lib/liquid-glass-toolbar'
+import { MAC_SIDEBAR_INSET_PANEL_RADIUS_PX } from '../../../../shared/mac-window-chrome'
 import { DEFAULT_WORKSPACE_ID, formatNoteTime } from '@/lib/notes-storage'
+import { NoteLeadingIcon } from './NoteLeadingIcon'
 import { FOLDER_DRAG_MIME, NOTE_DRAG_MIME, treeFolderId, treeNoteId } from './notes-app-utils'
 import { MacSidebarLeadingToolbarIcon } from './MacSidebarToolbarIcon'
+import type { SavedNote } from '@/lib/notes-storage'
 import type { NotesAppViewModel } from './useNotesApp'
 
 export type NotesSidebarProps = {
@@ -71,6 +76,7 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
     handleNewNote,
     handleDeleteNote,
     renameNote,
+    renameWorkspace,
     moveNoteToFolder,
     reorderWorkspaceFolders,
     reorderWorkspaceFolderToEnd,
@@ -86,9 +92,9 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
     toggleSidebar
   } = vm
 
-  const [renamingNoteId, setRenamingNoteId] = useState<string | null>(null)
+  const [renamingNodeId, setRenamingNodeId] = useState<string | null>(null)
   const [renameDraft, setRenameDraft] = useState('')
-  const renameInputRef = useRef<HTMLInputElement>(null)
+  const skipRenameCommitRef = useRef(false)
   const [dropTargetFolderId, setDropTargetFolderId] = useState<string | null>(null)
   const [folderDropAtEnd, setFolderDropAtEnd] = useState(false)
 
@@ -161,31 +167,69 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
     if (draggedFolderId) reorderWorkspaceFolderToEnd(draggedFolderId)
   }
 
-  useEffect(() => {
-    if (renamingNoteId) {
-      renameInputRef.current?.focus()
-      renameInputRef.current?.select()
+  const findNoteById = (noteId: string): SavedNote | undefined => {
+    for (const list of notesByFolder.values()) {
+      const n = list.find((x) => x.id === noteId)
+      if (n) return n
     }
-  }, [renamingNoteId])
-
-  const commitNoteRename = (noteId: string, previousTitle: string): void => {
-    const t = renameDraft.trim()
-    if (t && t !== previousTitle) renameNote(noteId, t)
-    setRenamingNoteId(null)
+    return undefined
   }
 
-  const liquidChrome = macElectron
+  const beginRename = (treeId: string, initial: string): void => {
+    skipRenameCommitRef.current = false
+    setRenamingNodeId(treeId)
+    setRenameDraft(initial)
+  }
+
+  const cancelRename = (): void => {
+    skipRenameCommitRef.current = true
+    setRenamingNodeId(null)
+  }
+
+  const commitRename = (treeNodeId: string): void => {
+    if (skipRenameCommitRef.current) {
+      skipRenameCommitRef.current = false
+      return
+    }
+    const trimmed = renameDraft.trim()
+    if (treeNodeId.startsWith('note:')) {
+      const noteId = treeNodeId.slice('note:'.length)
+      const nextTitle = trimmed || 'Untitled'
+      const prev = findNoteById(noteId)
+      if (prev && nextTitle !== prev.title) renameNote(noteId, nextTitle)
+    } else if (treeNodeId.startsWith('folder:')) {
+      const folderId = treeNodeId.slice('folder:'.length)
+      const nextName = trimmed || 'Untitled workspace'
+      const folder = folders.find((f) => f.id === folderId)
+      if (folder && nextName !== folder.name) renameWorkspace(folderId, nextName)
+    }
+    setRenamingNodeId(null)
+  }
+
+  const treeRename = {
+    renamingNodeId,
+    draft: renameDraft,
+    onDraftChange: setRenameDraft,
+    onBeginRename: beginRename,
+    onCommitRename: commitRename,
+    onCancelRename: cancelRename
+  }
+
+  const macInsetSidebar = macElectron
   const nativeGlassUi = macElectron && nativeLiquidGlassAttached
   const inboxNotes = notesByFolder.get(DEFAULT_WORKSPACE_ID) ?? []
 
   return (
     <aside
-      data-native-liquid-glass={liquidChrome && nativeLiquidGlassAttached ? true : undefined}
+      data-native-liquid-glass={macInsetSidebar && nativeLiquidGlassAttached ? true : undefined}
+      style={
+        macInsetSidebar ? { borderRadius: `${MAC_SIDEBAR_INSET_PANEL_RADIUS_PX}px` } : undefined
+      }
       className={cn(
         'text-sidebar-foreground flex h-full min-h-0 w-full min-w-0 shrink-0 flex-col',
         macElectron && 'pointer-events-none',
-        liquidChrome
-          ? 'liquid-sidebar-inset relative z-10 rounded-2xl'
+        macInsetSidebar
+          ? macSidebarLiquidGlassPanelClass()
           : 'bg-sidebar border-sidebar-border border-r'
       )}
       onPointerDownCapture={(e) => {
@@ -216,7 +260,7 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
             onClick={toggleSidebar}
             style={macElectron ? macTitlebarStyles.noDrag : undefined}
           >
-            {liquidChrome ? (
+            {macInsetSidebar ? (
               <MacSidebarLeadingToolbarIcon
                 className="size-[15px]"
                 nativeLiquidGlassActive={nativeGlassUi}
@@ -231,9 +275,7 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
         <div
           className={cn(
             'relative z-10 flex w-full shrink-0 flex-row flex-nowrap items-stretch justify-start gap-0.5 py-1.5',
-            macElectron
-              ? 'pointer-events-none px-4 pr-2'
-              : 'px-2'
+            macElectron ? 'pointer-events-none px-4 pr-2' : 'px-2'
           )}
         >
           <div
@@ -339,10 +381,7 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
         </div>
       ) : null}
       <div
-        className={cn(
-          'min-h-0 flex-1 overflow-y-auto p-2',
-          macElectron && 'pointer-events-auto'
-        )}
+        className={cn('min-h-0 flex-1 overflow-y-auto p-2', macElectron && 'pointer-events-auto')}
       >
         {appMode === 'settings' ? (
           <ul className="flex flex-col gap-0">
@@ -426,7 +465,8 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
                 onClick={() => setSettingsSection('indexing')}
                 className={cn(
                   'hover:bg-sidebar-accent hover:text-sidebar-accent-foreground flex h-8 w-full items-center gap-2 rounded-md px-2 text-left text-[13px] leading-tight transition-colors',
-                  settingsSection === 'indexing' && 'bg-sidebar-accent text-sidebar-accent-foreground'
+                  settingsSection === 'indexing' &&
+                    'bg-sidebar-accent text-sidebar-accent-foreground'
                 )}
               >
                 <Sparkles className="text-muted-foreground size-3.5 shrink-0" aria-hidden />
@@ -448,6 +488,7 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
             multiSelect={false}
             selectedIds={treeSelectedIds}
             onSelectionChange={handleTreeSelectionChange}
+            rename={treeRename}
           >
             <TreeView className="p-0">
               {inboxNotes.length > 0 || folders.length > 0 ? (
@@ -463,9 +504,10 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
                   {inboxNotes.map((note, ni) => {
                     const isLastRootNote =
                       ni === inboxNotes.length - 1 && folders.length === 0 && !folderCreateOpen
-                    const isRenaming = renamingNoteId === note.id
+                    const noteTreeId = treeNoteId(note.id)
+                    const isRenaming = renamingNodeId === noteTreeId
                     return (
-                      <TreeNode key={note.id} nodeId={treeNoteId(note.id)} isLast={isLastRootNote}>
+                      <TreeNode key={note.id} nodeId={noteTreeId} isLast={isLastRootNote}>
                         <TreeNodeTrigger
                           draggable={!isRenaming}
                           data-sidebar-interactive=""
@@ -484,83 +526,53 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
                           <TreeExpander hasChildren={false} />
                           <TreeIcon
                             hasChildren={false}
-                            icon={
-                              note.kind === 'drawing' ? (
-                                <PenLine className="text-muted-foreground h-3.5 w-3.5" />
-                              ) : (
-                                <FileText className="text-muted-foreground h-3.5 w-3.5" />
-                              )
-                            }
+                            icon={<NoteLeadingIcon note={note} variant="sidebar" />}
                           />
-                          {isRenaming ? (
-                            <TreeLabel className="min-w-0 flex-1">
-                              <Input
-                                ref={renameInputRef}
-                                className="h-6 w-full min-w-0 text-sm"
-                                value={renameDraft}
-                                onChange={(e) => setRenameDraft(e.target.value)}
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter') {
-                                    e.preventDefault()
-                                    commitNoteRename(note.id, note.title)
-                                  }
-                                  if (e.key === 'Escape') {
-                                    e.preventDefault()
-                                    setRenamingNoteId(null)
-                                  }
+                          <TreeLabel
+                            className="flex min-w-0 flex-1 items-center"
+                            renameInitialValue={note.title}
+                          >
+                            <span className="line-clamp-2 text-left font-medium leading-snug">
+                              {note.title || 'Untitled'}
+                            </span>
+                          </TreeLabel>
+                          <div className="flex h-6 shrink-0 items-center justify-end gap-0.5 pl-2">
+                            <span
+                              className="text-muted-foreground whitespace-nowrap text-[11px] tabular-nums group-hover:hidden"
+                              title={formatNoteTime(note.updatedAt)}
+                            >
+                              {formatNoteTime(note.updatedAt)}
+                            </span>
+                            <span
+                              role="presentation"
+                              className="hidden shrink-0 gap-0.5 group-hover:flex"
+                              style={macElectron ? macTitlebarStyles.noDrag : undefined}
+                            >
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon-xs"
+                                className="text-muted-foreground size-6"
+                                aria-label={`Rename ${note.title}`}
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  beginRename(noteTreeId, note.title)
                                 }}
-                                onBlur={() => commitNoteRename(note.id, note.title)}
-                                onClick={(e) => e.stopPropagation()}
-                                aria-label="Rename note"
-                              />
-                            </TreeLabel>
-                          ) : (
-                            <>
-                              <TreeLabel className="flex min-w-0 flex-1 items-center">
-                                <span className="line-clamp-2 text-left font-medium leading-snug">
-                                  {note.title}
-                                </span>
-                              </TreeLabel>
-                              <div className="flex h-6 shrink-0 items-center justify-end gap-0.5 pl-2">
-                                <span
-                                  className="text-muted-foreground whitespace-nowrap text-[11px] tabular-nums group-hover:hidden"
-                                  title={formatNoteTime(note.updatedAt)}
-                                >
-                                  {formatNoteTime(note.updatedAt)}
-                                </span>
-                                <span
-                                  role="presentation"
-                                  className="hidden shrink-0 gap-0.5 group-hover:flex"
-                                  style={macElectron ? macTitlebarStyles.noDrag : undefined}
-                                >
-                                  <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="icon-xs"
-                                    className="text-muted-foreground size-6"
-                                    aria-label={`Rename ${note.title}`}
-                                    onClick={(e) => {
-                                      e.stopPropagation()
-                                      setRenamingNoteId(note.id)
-                                      setRenameDraft(note.title)
-                                    }}
-                                  >
-                                    <Pencil className="size-3.5" />
-                                  </Button>
-                                  <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="icon-xs"
-                                    className="text-muted-foreground hover:text-destructive size-6"
-                                    aria-label="Delete note"
-                                    onClick={(e) => handleDeleteNote(note.id, e)}
-                                  >
-                                    <Trash2 className="size-3.5" />
-                                  </Button>
-                                </span>
-                              </div>
-                            </>
-                          )}
+                              >
+                                <Pencil className="size-3.5" />
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon-xs"
+                                className="text-muted-foreground hover:text-destructive size-6"
+                                aria-label="Delete note"
+                                onClick={(e) => handleDeleteNote(note.id, e)}
+                              >
+                                <Trash2 className="size-3.5" />
+                              </Button>
+                            </span>
+                          </div>
                         </TreeNodeTrigger>
                       </TreeNode>
                     )
@@ -584,7 +596,7 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
                     <TreeNode nodeId={treeFolderId(folder.id)} isLast={isLastFolder}>
                       <TreeNodeTrigger
                         data-sidebar-interactive=""
-                        draggable
+                        draggable={renamingNodeId !== treeFolderId(folder.id)}
                         onDragStart={(e) => {
                           const ev = e as unknown as globalThis.DragEvent
                           if (!ev.dataTransfer) return
@@ -600,7 +612,7 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
                       >
                         <TreeExpander hasChildren />
                         <TreeIcon hasChildren />
-                        <TreeLabel>{folder.name}</TreeLabel>
+                        <TreeLabel renameInitialValue={folder.name}>{folder.name}</TreeLabel>
                         <span
                           role="presentation"
                           className="shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
@@ -622,11 +634,12 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
                       <TreeNodeContent hasChildren>
                         {notesInFolder.map((note, ni) => {
                           const isLastNote = ni === notesInFolder.length - 1
-                          const isRenaming = renamingNoteId === note.id
+                          const noteTreeId = treeNoteId(note.id)
+                          const isRenaming = renamingNodeId === noteTreeId
                           return (
                             <TreeNode
                               key={note.id}
-                              nodeId={treeNoteId(note.id)}
+                              nodeId={noteTreeId}
                               level={1}
                               isLast={isLastNote}
                             >
@@ -648,83 +661,53 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
                                 <TreeExpander hasChildren={false} />
                                 <TreeIcon
                                   hasChildren={false}
-                                  icon={
-                                    note.kind === 'drawing' ? (
-                                      <PenLine className="text-muted-foreground h-3.5 w-3.5" />
-                                    ) : (
-                                      <FileText className="text-muted-foreground h-3.5 w-3.5" />
-                                    )
-                                  }
+                                  icon={<NoteLeadingIcon note={note} variant="sidebar" />}
                                 />
-                                {isRenaming ? (
-                                  <TreeLabel className="min-w-0 flex-1">
-                                    <Input
-                                      ref={renameInputRef}
-                                      className="h-6 w-full min-w-0 text-sm"
-                                      value={renameDraft}
-                                      onChange={(e) => setRenameDraft(e.target.value)}
-                                      onKeyDown={(e) => {
-                                        if (e.key === 'Enter') {
-                                          e.preventDefault()
-                                          commitNoteRename(note.id, note.title)
-                                        }
-                                        if (e.key === 'Escape') {
-                                          e.preventDefault()
-                                          setRenamingNoteId(null)
-                                        }
+                                <TreeLabel
+                                  className="flex min-w-0 flex-1 items-center"
+                                  renameInitialValue={note.title}
+                                >
+                                  <span className="line-clamp-2 text-left font-medium leading-snug">
+                                    {note.title || 'Untitled'}
+                                  </span>
+                                </TreeLabel>
+                                <div className="flex h-6 shrink-0 items-center justify-end gap-0.5 pl-2">
+                                  <span
+                                    className="text-muted-foreground whitespace-nowrap text-[11px] tabular-nums group-hover:hidden"
+                                    title={formatNoteTime(note.updatedAt)}
+                                  >
+                                    {formatNoteTime(note.updatedAt)}
+                                  </span>
+                                  <span
+                                    role="presentation"
+                                    className="hidden shrink-0 gap-0.5 group-hover:flex"
+                                    style={macElectron ? macTitlebarStyles.noDrag : undefined}
+                                  >
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="icon-xs"
+                                      className="text-muted-foreground size-6"
+                                      aria-label={`Rename ${note.title}`}
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        beginRename(noteTreeId, note.title)
                                       }}
-                                      onBlur={() => commitNoteRename(note.id, note.title)}
-                                      onClick={(e) => e.stopPropagation()}
-                                      aria-label="Rename note"
-                                    />
-                                  </TreeLabel>
-                                ) : (
-                                  <>
-                                    <TreeLabel className="flex min-w-0 flex-1 items-center">
-                                      <span className="line-clamp-2 text-left font-medium leading-snug">
-                                        {note.title}
-                                      </span>
-                                    </TreeLabel>
-                                    <div className="flex h-6 shrink-0 items-center justify-end gap-0.5 pl-2">
-                                      <span
-                                        className="text-muted-foreground whitespace-nowrap text-[11px] tabular-nums group-hover:hidden"
-                                        title={formatNoteTime(note.updatedAt)}
-                                      >
-                                        {formatNoteTime(note.updatedAt)}
-                                      </span>
-                                      <span
-                                        role="presentation"
-                                        className="hidden shrink-0 gap-0.5 group-hover:flex"
-                                        style={macElectron ? macTitlebarStyles.noDrag : undefined}
-                                      >
-                                        <Button
-                                          type="button"
-                                          variant="ghost"
-                                          size="icon-xs"
-                                          className="text-muted-foreground size-6"
-                                          aria-label={`Rename ${note.title}`}
-                                          onClick={(e) => {
-                                            e.stopPropagation()
-                                            setRenamingNoteId(note.id)
-                                            setRenameDraft(note.title)
-                                          }}
-                                        >
-                                          <Pencil className="size-3.5" />
-                                        </Button>
-                                        <Button
-                                          type="button"
-                                          variant="ghost"
-                                          size="icon-xs"
-                                          className="text-muted-foreground hover:text-destructive size-6"
-                                          aria-label="Delete note"
-                                          onClick={(e) => handleDeleteNote(note.id, e)}
-                                        >
-                                          <Trash2 className="size-3.5" />
-                                        </Button>
-                                      </span>
-                                    </div>
-                                  </>
-                                )}
+                                    >
+                                      <Pencil className="size-3.5" />
+                                    </Button>
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="icon-xs"
+                                      className="text-muted-foreground hover:text-destructive size-6"
+                                      aria-label="Delete note"
+                                      onClick={(e) => handleDeleteNote(note.id, e)}
+                                    >
+                                      <Trash2 className="size-3.5" />
+                                    </Button>
+                                  </span>
+                                </div>
                               </TreeNodeTrigger>
                             </TreeNode>
                           )
@@ -752,7 +735,7 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
                 <div
                   className={cn(
                     'mx-1 mt-1 flex items-center gap-2 rounded-md border border-dashed px-3 py-2',
-                    liquidChrome
+                    macInsetSidebar
                       ? 'border-sidebar-border/45 dark:border-white/15'
                       : 'border-sidebar-border'
                   )}

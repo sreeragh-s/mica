@@ -241,6 +241,8 @@ function parseNotelabNoteFile(content: string): {
   updatedAtMs: number
   body: string
   kind: 'note' | 'drawing'
+  coverImageSrc?: string
+  titleEmoji?: string
 } | null {
   if (!content.startsWith('---')) return null
   const endFm = content.indexOf('\n---', 3)
@@ -270,7 +272,27 @@ function parseNotelabNoteFile(content: string): {
     const t = Date.parse(upM[1]!)
     if (!Number.isNaN(t)) updatedAtMs = t
   }
-  return { id, title, updatedAtMs, body, kind }
+  let coverImageSrc: string | undefined
+  const coverM = /^cover_image:\s*(.+)$/m.exec(fm)
+  if (coverM) {
+    const raw = coverM[1]!.trim()
+    try {
+      coverImageSrc = JSON.parse(raw) as string
+    } catch {
+      coverImageSrc = raw.replace(/^["']|["']$/g, '')
+    }
+  }
+  let titleEmoji: string | undefined
+  const emojiM = /^title_emoji:\s*(.+)$/m.exec(fm)
+  if (emojiM) {
+    const raw = emojiM[1]!.trim()
+    try {
+      titleEmoji = JSON.parse(raw) as string
+    } catch {
+      titleEmoji = raw.replace(/^["']|["']$/g, '')
+    }
+  }
+  return { id, title, updatedAtMs, body, kind, coverImageSrc, titleEmoji }
 }
 
 function writeNotelabFile(
@@ -328,6 +350,8 @@ function readNotelabIndexImpl(cwd: string): {
     updatedAtMs: number
     markdownBody: string
     kind: 'note' | 'drawing'
+    coverImageSrc?: string
+    titleEmoji?: string
   }[]
 } {
   const workspaces: { id: string; name: string }[] = []
@@ -338,6 +362,8 @@ function readNotelabIndexImpl(cwd: string): {
     updatedAtMs: number
     markdownBody: string
     kind: 'note' | 'drawing'
+    coverImageSrc?: string
+    titleEmoji?: string
   }[] = []
   const root = join(cwd, DATA_DIR)
   if (!existsSync(root)) return { workspaces, notes }
@@ -366,6 +392,12 @@ function readNotelabIndexImpl(cwd: string): {
         updatedAtMs: parsed.updatedAtMs,
         markdownBody: parsed.body,
         kind: parsed.kind,
+        ...(parsed.coverImageSrc !== undefined
+          ? { coverImageSrc: parsed.coverImageSrc }
+          : {}),
+        ...(parsed.titleEmoji !== undefined && parsed.titleEmoji !== ''
+          ? { titleEmoji: parsed.titleEmoji }
+          : {}),
       })
     }
   }
@@ -611,6 +643,8 @@ export function registerWorkspaceGitIpc(): void {
             updatedAtMs: number
             markdownBody: string
             kind: 'note' | 'drawing'
+            coverImageSrc?: string
+            titleEmoji?: string
           }[]
         }
       | { ok: false; error: string }

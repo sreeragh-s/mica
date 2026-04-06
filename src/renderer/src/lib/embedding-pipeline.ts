@@ -1,13 +1,17 @@
 /**
- * Embedding pipeline: chunk → embed via server API → store in LanceDB.
+ * Embedding pipeline: chunk → embed → store in LanceDB.
  *
- * All server calls are authenticated via the Electron auth session (auth:fetch IPC).
- * Only works when the user is signed in (non-guest mode).
+ * Prefers local Ollama (`bge-m3`) when the bundled server is running and the model
+ * is pulled; otherwise uses the cloud `/api/embeddings` (auth session).
  */
 
-import { serverFetchJson } from '@/lib/server-api'
+import {
+  hasLocalEmbeddingModel,
+  LOCAL_EMBEDDING_MODEL,
+} from '@/components/ai/LocalModelSetupDialog'
 import { getApi } from '@/lib/auth-bridge'
 import { chunkMarkdown, extractExcalidrawText } from '@/lib/markdown-chunker'
+import { serverFetchJson } from '@/lib/server-api'
 
 /** Must match EMBEDDING_DIMENSION in server/src/embeddings.ts */
 export const EMBEDDING_DIMENSION = 1024
@@ -47,17 +51,69 @@ export function chunkNoteContent(
 }
 
 /**
- * Embed an array of text strings via the server `/api/embeddings` endpoint.
+ * True when Electron Ollama is up and `bge-m3` is available for indexing.
+ */
+async function shouldUseLocalEmbeddings(): Promise<boolean> {
+  try {
+    const ollama =
+      typeof window !== 'undefined' ? window.api?.ollama : undefined
+    if (!ollama?.getStatus || !ollama?.listModels || !ollama.embedBatch) return false
+    const status = await ollama.getStatus()
+    if (!status.ok || !status.running) return false
+    const listed = await ollama.listModels()
+    if (!listed.ok) return false
+    return hasLocalEmbeddingModel(listed.models)
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Embed an array of text strings via local Ollama or the server `/api/embeddings`.
  * Batches automatically if texts.length > BATCH_SIZE.
  */
 async function embedTexts(texts: string[]): Promise<number[][] | null> {
   if (texts.length === 0) return []
 
+  const useLocal = await shouldUseLocalEmbeddings()
+  if (useLocal) {
+    const ollama = window.api?.ollama
+    if (!ollama?.embedBatch) {
+      console.error(LOG, 'embedTexts: local embedding unavailable')
+      return null
+    }
+    const allEmbeddings: number[][] = []
+    for (let i = 0; i < texts.length; i += BATCH_SIZE) {
+      const batch = texts.slice(i, i + BATCH_SIZE)
+      console.info(LOG, `embedTexts (local Ollama): batch of ${batch.length} text(s)`)
+      const result = await ollama.embedBatch({
+        model: LOCAL_EMBEDDING_MODEL,
+        inputs: batch,
+      })
+      if (!result.ok) {
+        console.error(LOG, 'embedTexts: local embed failed:', result.error)
+        return null
+      }
+      for (let j = 0; j < result.embeddings.length; j++) {
+        if (result.embeddings[j].length !== EMBEDDING_DIMENSION) {
+          console.error(
+            LOG,
+            `embedTexts: local vector dim ${result.embeddings[j].length}, expected ${EMBEDDING_DIMENSION}`
+          )
+          return null
+        }
+      }
+      allEmbeddings.push(...result.embeddings)
+    }
+    console.info(LOG, `embedTexts: local OK — ${allEmbeddings.length} vector(s)`)
+    return allEmbeddings
+  }
+
   const allEmbeddings: number[][] = []
 
   for (let i = 0; i < texts.length; i += BATCH_SIZE) {
     const batch = texts.slice(i, i + BATCH_SIZE)
-    console.info(LOG, `embedTexts: sending batch of ${batch.length} text(s)`)
+    console.info(LOG, `embedTexts (server): batch of ${batch.length} text(s)`)
     const result = await serverFetchJson<{ embeddings: number[][] }>(
       '/api/embeddings',
       { method: 'POST', body: { texts: batch } }
@@ -84,7 +140,7 @@ export type IndexNoteResult =
  * 2. If hash matches stored hash, skip (content unchanged).
  * 3. Chunk content.
  * 4. If no chunks (empty note), delete old embeddings and skip.
- * 5. Embed chunks via server.
+ * 5. Embed chunks (local Ollama if running, else server).
  * 6. Store in LanceDB with the hash.
  */
 export async function indexNote(opts: {
@@ -122,7 +178,7 @@ export async function indexNote(opts: {
 
   const embeddings = await embedTexts(chunks)
   if (!embeddings) {
-    return { ok: false, error: 'Failed to get embeddings from server' }
+    return { ok: false, error: 'Failed to get embeddings (local Ollama or server)' }
   }
 
   if (embeddings.length !== chunks.length) {

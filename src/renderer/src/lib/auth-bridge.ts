@@ -86,6 +86,8 @@ export type NotelabApi = {
             updatedAtMs: number
             markdownBody: string
             kind: "note" | "drawing"
+            coverImageSrc?: string
+            titleEmoji?: string
           }[]
         }
       | { ok: false; error: string }

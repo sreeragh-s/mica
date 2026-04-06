@@ -18,6 +18,10 @@ export const macTitlebarStyles: MacTitlebarStyles = {
   noDrag: { WebkitAppRegion: 'no-drag' } as CSSProperties
 }
 
+/** Inset pill surface shared by the note tab strip and matching chat controls (height h-8). */
+export const NOTES_APP_PILL_SURFACE =
+  'bg-muted/35 text-foreground shadow-[inset_0_1px_0_0_oklch(1_0_0/0.06)] backdrop-blur-xl dark:bg-white/[0.07] dark:shadow-[inset_0_1px_0_0_oklch(1_0_0/0.08)]'
+
 /** Main window drag uses a single full-width band in `NotesApp` (macOS Electron); avoid extra `drag` rows. */
 
 export function createEmptyNote(folderId: string): SavedNote {
@@ -26,7 +30,7 @@ export function createEmptyNote(folderId: string): SavedNote {
     updatedAt: Date.now(),
     content: null,
     folderId,
-    title: 'New note',
+    title: '',
     kind: 'note'
   }
 }

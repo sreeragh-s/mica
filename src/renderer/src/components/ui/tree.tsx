@@ -6,6 +6,7 @@ import {
   type ComponentProps,
   createContext,
   type HTMLAttributes,
+  type ReactElement,
   type ReactNode,
   useCallback,
   useContext,
@@ -14,9 +15,20 @@ import {
   useRef,
   useState
 } from 'react'
+import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 
 const EMPTY_EXPAND_NODE_IDS: readonly string[] = []
+
+/** Optional inline rename (double-click label) — same flow as landing mock: blur/Enter commit, Escape cancel. */
+export type TreeRenameConfig = {
+  renamingNodeId: string | null
+  draft: string
+  onDraftChange: (value: string) => void
+  onBeginRename: (nodeId: string, initialValue: string) => void
+  onCommitRename: (nodeId: string) => void
+  onCancelRename: () => void
+}
 
 type TreeContextType = {
   expandedIds: Set<string>
@@ -29,11 +41,12 @@ type TreeContextType = {
   multiSelect?: boolean
   indent?: number
   animateExpand?: boolean
+  rename?: TreeRenameConfig
 }
 
 const TreeContext = createContext<TreeContextType | undefined>(undefined)
 
-const useTree = () => {
+const useTree = (): TreeContextType => {
   const context = useContext(TreeContext)
   if (!context) {
     throw new Error('Tree components must be used within a TreeProvider')
@@ -50,7 +63,7 @@ type TreeNodeContextType = {
 
 const TreeNodeContext = createContext<TreeNodeContextType | undefined>(undefined)
 
-const useTreeNode = () => {
+const useTreeNode = (): TreeNodeContextType => {
   const context = useContext(TreeNodeContext)
   if (!context) {
     throw new Error('TreeNode components must be used within a TreeNode')
@@ -74,6 +87,8 @@ export type TreeProviderProps = {
   expandNonce?: number
   /** Node ids to ensure expanded when `expandNonce` changes. */
   expandNodeIds?: readonly string[]
+  /** Double-click `TreeLabel` with `renameInitialValue` to edit; shows inline `Input` while `renamingNodeId` matches. */
+  rename?: TreeRenameConfig
 }
 
 export const TreeProvider = ({
@@ -89,8 +104,9 @@ export const TreeProvider = ({
   animateExpand = true,
   className,
   expandNonce = 0,
-  expandNodeIds = EMPTY_EXPAND_NODE_IDS
-}: TreeProviderProps) => {
+  expandNodeIds = EMPTY_EXPAND_NODE_IDS,
+  rename
+}: TreeProviderProps): ReactElement => {
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set(defaultExpandedIds))
   const [internalSelectedIds, setInternalSelectedIds] = useState<string[]>(selectedIds ?? [])
   const lastExpandNonce = useRef(0)
@@ -118,12 +134,15 @@ export const TreeProvider = ({
     if (expandNodeIds.length === 0) {
       return
     }
-    setExpandedIds((prev) => {
-      const next = new Set(prev)
-      for (const id of expandNodeIds) {
-        next.add(id)
-      }
-      return next
+    // Defer so we don't synchronously setState in the effect body (react-hooks/set-state-in-effect).
+    queueMicrotask(() => {
+      setExpandedIds((prev) => {
+        const next = new Set(prev)
+        for (const id of expandNodeIds) {
+          next.add(id)
+        }
+        return next
+      })
     })
   }, [expandNonce, expandNodeIds])
 
@@ -165,7 +184,8 @@ export const TreeProvider = ({
         selectable,
         multiSelect,
         indent,
-        animateExpand
+        animateExpand,
+        rename
       }}
     >
       <motion.div
@@ -182,7 +202,7 @@ export const TreeProvider = ({
 
 export type TreeViewProps = HTMLAttributes<HTMLDivElement>
 
-export const TreeView = ({ className, children, ...props }: TreeViewProps) => (
+export const TreeView = ({ className, children, ...props }: TreeViewProps): ReactElement => (
   <div className={cn('p-2', className)} {...props}>
     {children}
   </div>
@@ -203,9 +223,8 @@ export const TreeNode = ({
   parentPath = [],
   children,
   className,
-  onClick,
   ...props
-}: TreeNodeProps) => {
+}: TreeNodeProps): ReactElement => {
   const generatedId = useId()
   const nodeId = providedNodeId ?? generatedId
 
@@ -244,7 +263,7 @@ export const TreeNodeTrigger = ({
   className,
   onClick,
   ...props
-}: TreeNodeTriggerProps) => {
+}: TreeNodeTriggerProps): ReactElement => {
   const { selectedIds, toggleExpanded, handleSelection, indent } = useTree()
   const { nodeId, level } = useTreeNode()
   const isSelected = selectedIds.includes(nodeId)
@@ -272,7 +291,7 @@ export const TreeNodeTrigger = ({
   )
 }
 
-export const TreeLines = () => {
+export const TreeLines = (): ReactElement | null => {
   const { showLines, indent } = useTree()
   const { level, isLast, parentPath } = useTreeNode()
 
@@ -334,7 +353,7 @@ export const TreeNodeContent = ({
   hasChildren = false,
   className,
   ...props
-}: TreeNodeContentProps) => {
+}: TreeNodeContentProps): ReactElement => {
   const { animateExpand, expandedIds } = useTree()
   const { nodeId } = useTreeNode()
   const isExpanded = expandedIds.has(nodeId)
@@ -380,7 +399,7 @@ export const TreeExpander = ({
   className,
   onClick,
   ...props
-}: TreeExpanderProps) => {
+}: TreeExpanderProps): ReactElement => {
   const { expandedIds, toggleExpanded } = useTree()
   const { nodeId } = useTreeNode()
   const isExpanded = expandedIds.has(nodeId)
@@ -414,7 +433,12 @@ export type TreeIconProps = ComponentProps<typeof motion.div> & {
   hasChildren?: boolean
 }
 
-export const TreeIcon = ({ icon, hasChildren = false, className, ...props }: TreeIconProps) => {
+export const TreeIcon = ({
+  icon,
+  hasChildren = false,
+  className,
+  ...props
+}: TreeIconProps): ReactElement | null => {
   const { showIcons, expandedIds } = useTree()
   const { nodeId } = useTreeNode()
   const isExpanded = expandedIds.has(nodeId)
@@ -423,7 +447,7 @@ export const TreeIcon = ({ icon, hasChildren = false, className, ...props }: Tre
     return null
   }
 
-  const getDefaultIcon = () =>
+  const getDefaultIcon = (): ReactElement =>
     hasChildren ? (
       isExpanded ? (
         <FolderOpen className="h-3.5 w-3.5" />
@@ -449,8 +473,64 @@ export const TreeIcon = ({ icon, hasChildren = false, className, ...props }: Tre
   )
 }
 
-export type TreeLabelProps = HTMLAttributes<HTMLSpanElement>
+export type TreeLabelProps = HTMLAttributes<HTMLSpanElement> & {
+  /** When set with `TreeProvider` `rename`, double-click starts inline rename with this value. */
+  renameInitialValue?: string
+}
 
-export const TreeLabel = ({ className, ...props }: TreeLabelProps) => (
-  <span className={cn('font flex-1 truncate text-[13px] leading-tight', className)} {...props} />
-)
+export const TreeLabel = ({
+  className,
+  children,
+  renameInitialValue,
+  onDoubleClick,
+  ...props
+}: TreeLabelProps): ReactElement => {
+  const { rename } = useTree()
+  const { nodeId } = useTreeNode()
+  const canRename = Boolean(rename && renameInitialValue !== undefined)
+  const isRenaming = canRename && rename!.renamingNodeId === nodeId
+
+  if (isRenaming) {
+    return (
+      <span className={cn('flex min-h-0 min-w-0 flex-1', className)} {...props}>
+        <Input
+          data-sidebar-interactive=""
+          className="h-6 w-full min-w-0 text-sm"
+          value={rename!.draft}
+          autoFocus
+          onChange={(e) => rename!.onDraftChange(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault()
+              ;(e.target as HTMLInputElement).blur()
+            }
+            if (e.key === 'Escape') {
+              e.preventDefault()
+              rename!.onCancelRename()
+            }
+          }}
+          onBlur={() => rename!.onCommitRename(nodeId)}
+          onClick={(e) => e.stopPropagation()}
+          onDoubleClick={(e) => e.stopPropagation()}
+          aria-label="Rename"
+        />
+      </span>
+    )
+  }
+
+  return (
+    <span
+      className={cn('font flex-1 truncate text-[13px] leading-tight', className)}
+      onDoubleClick={(e) => {
+        if (canRename) {
+          e.stopPropagation()
+          rename!.onBeginRename(nodeId, renameInitialValue!)
+        }
+        onDoubleClick?.(e)
+      }}
+      {...props}
+    >
+      {children}
+    </span>
+  )
+}

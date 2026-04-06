@@ -15,8 +15,8 @@ export default defineConfig(({ mode }) => {
       },
       build: {
         rollupOptions: {
-          /** Native addons — must load from node_modules at runtime */
-          external: ['electron-liquid-glass', '@lancedb/lancedb'],
+          /** Native addons and runtime-loaded modules — must load from node_modules at runtime */
+          external: ['electron-liquid-glass', '@lancedb/lancedb', 'electron-ollama'],
         },
       },
     },

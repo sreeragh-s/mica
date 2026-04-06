@@ -1,13 +1,15 @@
 import {
+  AlertCircleIcon,
   BookOpenIcon,
   BotIcon,
   CopyIcon,
   HistoryIcon,
   Loader2Icon,
+  ArrowUpIcon,
+  PaperclipIcon,
   PlusIcon,
   ScanTextIcon,
   Search,
-  SendIcon,
   XIcon,
 } from 'lucide-react'
 import {
@@ -19,6 +21,23 @@ import {
   useState,
 } from 'react'
 
+import {
+  PromptInputChatMentionTextarea,
+  type PromptInputChatMentionTextareaHandle,
+  PromptInputChatReferenceChips,
+  type PromptInputChatReference,
+} from '@/components/ai/prompt-input'
+import {
+  NoteLabModelPicker,
+  DEFAULT_NOTELAB_MODEL_ID,
+  LOCAL_MODEL_PREFIX,
+} from '@/components/ai/model-selector'
+import {
+  LocalModelSetupPanel,
+  hasLocalEmbeddingModel,
+  isLocalEmbeddingOnlyModel,
+  LOCAL_EMBEDDING_MODEL,
+} from '@/components/ai/LocalModelSetupDialog'
 import { Action, Actions } from '@/components/ai/actions'
 import {
   Conversation,
@@ -44,6 +63,11 @@ import {
 } from '@/components/ai/suggestion'
 import { Button } from '@/components/ui/button'
 import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupButton,
+} from '@/components/ui/input-group'
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -51,7 +75,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
+import { Separator } from '@/components/ui/separator'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { copyPlainTextToClipboard } from '@/lib/copy-to-clipboard'
 import {
@@ -59,10 +83,12 @@ import {
   type SearchMatchSegment,
 } from '@/lib/notes-search'
 import { cn } from '@/lib/utils'
-import type { SavedNote, WorkspaceFolder } from '@/lib/notes-storage'
-import { macTitlebarStyles } from './notes-app-utils'
+import { DEFAULT_WORKSPACE_ID, type SavedNote, type WorkspaceFolder } from '@/lib/notes-storage'
+import { macTitlebarStyles, NOTES_APP_PILL_SURFACE } from './notes-app-utils'
 import type { ChatHistoryMeta } from '@/hooks/useNotesChat'
 import { useNotesChat } from '@/hooks/useNotesChat'
+import { useBillingStatus } from '@/hooks/useBillingStatus'
+import { useOllama } from '@/hooks/useOllama'
 
 // ---------------------------------------------------------------------------
 // Props
@@ -161,24 +187,60 @@ function NotesChatSidebarInner({
   macElectron,
   sidebarOverlayActive,
 }: Omit<NotesChatSidebarProps, 'open'>): JSX.Element {
+  // Selected model: a NoteLabModelId or "local:<ollamaModelName>"
+  const [selectedModelId, setSelectedModelId] = useState<string>(DEFAULT_NOTELAB_MODEL_ID)
+  const [localSetupOpen, setLocalSetupOpen] = useState(false)
+
+  const ollama = useOllama()
+
+  // Embedding-only tags (e.g. bge-m3) are not chat models — avoid stale selection
+  useEffect(() => {
+    if (!selectedModelId.startsWith(LOCAL_MODEL_PREFIX)) return
+    const name = selectedModelId.slice(LOCAL_MODEL_PREFIX.length)
+    if (!isLocalEmbeddingOnlyModel(name)) return
+    const firstChat = ollama.localModels.find((m) => !isLocalEmbeddingOnlyModel(m.name))
+    setSelectedModelId(
+      firstChat ? `${LOCAL_MODEL_PREFIX}${firstChat.name}` : DEFAULT_NOTELAB_MODEL_ID
+    )
+  }, [selectedModelId, ollama.localModels])
+
   const {
     session,
     historyMeta,
     isLoading,
     filterWorkspaceId,
     setFilterWorkspaceId,
-    includeCurrentNote,
-    setIncludeCurrentNote,
     showHistory,
     setShowHistory,
     sendMessage,
     newChat,
     loadHistorySession,
-  } = useNotesChat({ notes, folders, selectedNote })
+  } = useNotesChat({ notes, folders, selectedNote, modelId: selectedModelId })
+
+  const { billing, canChat, creditsLow } = useBillingStatus()
+
+  // A user without an active paid plan can use local models
+  const isUnpaidUser = !billing || billing.status !== 'active'
+  // For local model selection, we allow it regardless of billing
+  const isLocalModelSelected = selectedModelId.startsWith(LOCAL_MODEL_PREFIX)
+  // Can actually chat: paid OR using a local model with Ollama running
+  const canChatEffective = canChat || (isLocalModelSelected && (ollama.status?.running ?? false))
+
+  // When billing status becomes known and user isn't paid, auto-suggest local models
+  // (but don't force-switch — let them choose)
 
   const [input, setInput] = useState('')
+  const [chatReferences, setChatReferences] = useState<PromptInputChatReference[]>([])
   const [historySearch, setHistorySearch] = useState('')
-  const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const textareaRef = useRef<PromptInputChatMentionTextareaHandle>(null)
+
+  const workspacesForMentions = useMemo(() => {
+    const map = new Map(folders.map((f) => [f.id, { id: f.id, name: f.name }]))
+    if (!map.has(DEFAULT_WORKSPACE_ID)) {
+      map.set(DEFAULT_WORKSPACE_ID, { id: DEFAULT_WORKSPACE_ID, name: 'Root' })
+    }
+    return Array.from(map.values())
+  }, [folders])
 
   useEffect(() => {
     if (!showHistory) setHistorySearch('')
@@ -189,15 +251,30 @@ function NotesChatSidebarInner({
     [historyMeta, historySearch]
   )
 
+  const validNoteIds = useMemo(() => new Set(notes.map((n) => n.id)), [notes])
+
   const handleSubmit = useCallback(
     async (e?: { preventDefault(): void }) => {
       e?.preventDefault()
       const q = input.trim()
-      if (!q || isLoading) return
+      const explicitNoteIds = chatReferences
+        .filter((r) => r.kind === 'note')
+        .map((r) => r.refId)
+      const explicitWorkspaceIds = chatReferences
+        .filter((r) => r.kind === 'workspace')
+        .map((r) => r.refId)
+      if (
+        (!q && explicitNoteIds.length === 0 && explicitWorkspaceIds.length === 0) ||
+        isLoading ||
+        !canChatEffective
+      ) {
+        return
+      }
       setInput('')
-      await sendMessage(q)
+      setChatReferences([])
+      await sendMessage(q, { explicitNoteIds, explicitWorkspaceIds })
     },
-    [input, isLoading, sendMessage]
+    [input, chatReferences, isLoading, canChatEffective, sendMessage]
   )
 
   const handleKeyDown = useCallback(
@@ -225,10 +302,69 @@ function NotesChatSidebarInner({
   }, [])
 
   // ---------------------------------------------------------------------------
+  // Paywall banner
+  // ---------------------------------------------------------------------------
+
+  const paywallBanner = (() => {
+    // If using a local model that's running — no paywall
+    if (isLocalModelSelected && ollama.status?.running) return null
+
+    if (!billing || billing.status === 'active') {
+      if (creditsLow && billing) {
+        return (
+          <div className="border-border border-t bg-yellow-50 px-3 py-2 dark:bg-yellow-950/20">
+            <p className="text-xs text-yellow-700 dark:text-yellow-400 flex items-center gap-1.5">
+              <AlertCircleIcon className="size-3 shrink-0" />
+              {billing.overageEnabled
+                ? 'Credits low — overage billing active.'
+                : 'Credits running low. Enable overage in account settings to avoid interruption.'}
+            </p>
+          </div>
+        )
+      }
+      return null
+    }
+
+    const messages: Record<string, string> = {
+      on_hold: 'Payment issue — please update your payment method at notelab.io.',
+      cancelled: 'Your subscription has been cancelled.',
+      expired: 'Your subscription has expired.',
+      none: 'A Notelab subscription is required to use AI chat.',
+    }
+
+    return (
+      <div className="border-border border-t bg-destructive/5 px-3 py-2.5">
+        <p className="text-destructive flex items-center gap-1.5 text-xs">
+          <AlertCircleIcon className="size-3 shrink-0" />
+          {messages[billing.status] ?? 'Subscription required.'}
+        </p>
+        <div className="mt-1 flex items-center gap-3">
+          <a
+            className="text-primary block text-xs underline underline-offset-2"
+            href={`${import.meta.env.VITE_AUTH_BASE}`}
+            rel="noreferrer"
+            target="_blank"
+          >
+            Subscribe at notelab.io →
+          </a>
+          <span className="text-muted-foreground text-xs">or</span>
+          <button
+            className="text-primary text-xs underline underline-offset-2"
+            onClick={() => setLocalSetupOpen(true)}
+            type="button"
+          >
+            Use local models →
+          </button>
+        </div>
+      </div>
+    )
+  })()
+
+  // ---------------------------------------------------------------------------
   // History view
   // ---------------------------------------------------------------------------
 
-  // Spacer that clears the floating toolbar pill (absolute, top-2 h-12 on mac/overlay, top-0 h-12 otherwise)
+  // Spacer that clears the floating toolbar pill
   const pillSpacer = (
     <div
       aria-hidden
@@ -280,8 +416,40 @@ function NotesChatSidebarInner({
   }
 
   // ---------------------------------------------------------------------------
+  // Local model setup view — replaces the entire sidebar content
+  // ---------------------------------------------------------------------------
+
+  if (localSetupOpen) {
+    return (
+      <aside
+        aria-label="Local model setup"
+        className="border-border bg-background flex min-h-0 min-w-0 flex-1 flex-col"
+      >
+        {pillSpacer}
+        <LocalModelSetupPanel
+          onClose={() => setLocalSetupOpen(false)}
+          ollama={ollama}
+          selectedModelId={selectedModelId}
+          onSelectModel={(id: string) => {
+            setSelectedModelId(id)
+            setLocalSetupOpen(false)
+          }}
+        />
+      </aside>
+    )
+  }
+
+  // ---------------------------------------------------------------------------
   // Chat view
   // ---------------------------------------------------------------------------
+
+  const inputPlaceholder = (() => {
+    if (!canChatEffective) {
+      if (isLocalModelSelected) return 'Start Ollama server to chat…'
+      return 'Subscription required…'
+    }
+    return 'Ask about your notes…'
+  })()
 
   return (
     <aside
@@ -301,6 +469,28 @@ function NotesChatSidebarInner({
         showHistory={false}
       />
 
+      {isLocalModelSelected &&
+        ollama.status?.running &&
+        !ollama.modelsLoading &&
+        !hasLocalEmbeddingModel(ollama.localModels) && (
+        <div className="border-border shrink-0 border-b bg-muted/30 px-3 py-2">
+          <p className="text-muted-foreground flex items-start gap-2 text-xs leading-snug">
+            <ScanTextIcon className="size-3.5 shrink-0 mt-0.5" aria-hidden />
+            <span>
+              Pull <span className="font-mono text-foreground">{LOCAL_EMBEDDING_MODEL}</span> in{' '}
+              <button
+                className="text-primary underline underline-offset-2"
+                onClick={() => setLocalSetupOpen(true)}
+                type="button"
+              >
+                local setup
+              </button>{' '}
+              for offline semantic search over your notes.
+            </span>
+          </p>
+        </div>
+      )}
+
       {/* Message list */}
       <Conversation className="flex-1">
         <ConversationContent>
@@ -311,7 +501,12 @@ function NotesChatSidebarInner({
               title="Chat with your notes"
             />
           ) : (
-            session.messages.map((msg) => (
+            session.messages.map((msg) => {
+              const visibleSources =
+                msg.role === 'assistant' && msg.sources
+                  ? msg.sources.filter((s) => validNoteIds.has(s.noteId))
+                  : []
+              return (
               <div key={msg.id}>
                 <Message from={msg.role}>
                   <MessageContent>
@@ -322,12 +517,12 @@ function NotesChatSidebarInner({
                     )}
                   </MessageContent>
 
-                  {/* Sources for assistant messages */}
-                  {msg.role === 'assistant' && msg.sources && msg.sources.length > 0 && (
+                  {/* Sources for assistant messages (hide entries for deleted notes) */}
+                  {msg.role === 'assistant' && visibleSources.length > 0 && (
                     <Sources className="mt-1">
-                      <SourcesTrigger count={msg.sources.length} />
+                      <SourcesTrigger count={visibleSources.length} />
                       <SourcesContent>
-                        {msg.sources.map((src, i) => (
+                        {visibleSources.map((src, i) => (
                           <Source
                             key={`${src.noteId}-${i}`}
                             href="#"
@@ -368,14 +563,15 @@ function NotesChatSidebarInner({
                     </Message>
                   )}
               </div>
-            ))
+            )
+            })
           )}
         </ConversationContent>
         <ConversationScrollButton />
       </Conversation>
 
       {/* Starter suggestions when empty */}
-      {session.messages.length === 0 && (
+      {session.messages.length === 0 && canChatEffective && (
         <div className="px-3 pb-2">
           <Suggestions>
             {STARTER_SUGGESTIONS.map((s) => (
@@ -385,62 +581,93 @@ function NotesChatSidebarInner({
         </div>
       )}
 
-      {/* Input area */}
+      {/* Paywall / low-credits banner */}
+      {paywallBanner}
+
       <form
         className="border-border border-t p-3"
         onSubmit={(e) => void handleSubmit(e)}
       >
-        {/* Current note toggle */}
-        {selectedNote && (
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  className={cn(
-                    'mb-2 flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs transition-colors',
-                    includeCurrentNote
-                      ? 'bg-primary text-primary-foreground border-primary'
-                      : 'border-border text-muted-foreground hover:text-foreground'
-                  )}
-                  onClick={() => setIncludeCurrentNote(!includeCurrentNote)}
-                  type="button"
-                >
-                  <ScanTextIcon className="size-3" />
-                  <span className="max-w-[180px] truncate">{selectedNote.title}</span>
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="top">
-                {includeCurrentNote ? 'Remove current note from context' : 'Add current note to context'}
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        )}
-
-        <div className="flex items-end gap-2">
-          <Textarea
+        <PromptInputChatReferenceChips
+          className="mb-2"
+          editorNote={
+            selectedNote && canChatEffective
+              ? {
+                  id: selectedNote.id,
+                  title: selectedNote.title,
+                  titleEmoji: selectedNote.titleEmoji,
+                }
+              : null
+          }
+          onReferencesChange={setChatReferences}
+          onRemove={(r) =>
+            setChatReferences((prev) => prev.filter((x) => !(x.kind === r.kind && x.refId === r.refId)))
+          }
+          references={chatReferences}
+        />
+        <InputGroup className="bg-background overflow-hidden">
+          <PromptInputChatMentionTextarea
             ref={textareaRef}
-            className="max-h-36 min-h-[2.5rem] resize-none text-sm"
-            disabled={isLoading}
-            onChange={(e) => setInput(e.target.value)}
+            className="max-h-48 min-h-20 resize-none text-sm"
+            disabled={isLoading || !canChatEffective}
+            notes={notes}
+            onChange={setInput}
             onKeyDown={handleKeyDown}
-            placeholder="Ask about your notes…"
+            onReferencesChange={setChatReferences}
+            placeholder={`${inputPlaceholder} Type @ to reference notes or workspaces.`}
             rows={1}
             value={input}
+            workspaces={workspacesForMentions}
           />
-          <Button
-            className="shrink-0"
-            disabled={!input.trim() || isLoading}
-            size="icon"
-            type="submit"
-          >
-            {isLoading ? (
-              <Loader2Icon className="size-4 animate-spin" />
-            ) : (
-              <SendIcon className="size-4" />
-            )}
-            <span className="sr-only">Send</span>
-          </Button>
-        </div>
+          <InputGroupAddon align="block-end" className="flex flex-wrap items-center gap-2">
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <InputGroupButton
+                    aria-label="Reference notes or workspaces"
+                    disabled={isLoading || !canChatEffective}
+                    onClick={() => textareaRef.current?.openReferencePicker()}
+                    size="icon-xs"
+                    type="button"
+                    variant="ghost"
+                  >
+                    <PaperclipIcon className="size-4" />
+                  </InputGroupButton>
+                </TooltipTrigger>
+                <TooltipContent side="top">
+                  Add references (same as typing @)
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            <div className="ml-auto flex min-w-0 items-center gap-2">
+              <NoteLabModelPicker
+                selectedModelId={selectedModelId}
+                onModelChange={setSelectedModelId}
+                localModels={ollama.localModels}
+                ollamaRunning={ollama.status?.running ?? false}
+                onOpenLocalSetup={() => setLocalSetupOpen(true)}
+                localOnly={isUnpaidUser && !canChat}
+              />
+              <Separator className="!h-4" orientation="vertical" />
+              <InputGroupButton
+                className="rounded-full"
+                disabled={
+                  (!input.trim() && chatReferences.length === 0) || isLoading || !canChatEffective
+                }
+                size="icon-xs"
+                type="submit"
+                variant="default"
+              >
+                {isLoading ? (
+                  <Loader2Icon className="size-4 animate-spin" />
+                ) : (
+                  <ArrowUpIcon className="size-4" />
+                )}
+                <span className="sr-only">Send</span>
+              </InputGroupButton>
+            </div>
+          </InputGroupAddon>
+        </InputGroup>
       </form>
     </aside>
   )
@@ -449,8 +676,6 @@ function NotesChatSidebarInner({
 // ---------------------------------------------------------------------------
 // Sub-components
 // ---------------------------------------------------------------------------
-
-
 
 function ChatToolbarRow({
   folders,
@@ -476,7 +701,7 @@ function ChatToolbarRow({
   return (
     <div
       className={cn(
-        'relative z-10 border-border flex min-h-9 shrink-0 items-center gap-2 border-b px-3 ',
+        'relative z-10 border-border flex min-h-9 shrink-0 items-center gap-2 px-3 ',
         macElectron && 'pointer-events-none'
       )}
     >
@@ -491,7 +716,7 @@ function ChatToolbarRow({
           />
           <Input
             aria-label="Search chat history"
-            className="border-border bg-background h-7 pl-8 text-xs"
+            className="border-border bg-background h-8 pl-8 text-xs"
             onChange={(e) => setHistorySearch(e.target.value)}
             placeholder="Search history…"
             type="search"
@@ -507,13 +732,23 @@ function ChatToolbarRow({
             onValueChange={(v) => setFilterWorkspaceId(v === '__all__' ? null : v)}
             value={filterWorkspaceId ?? '__all__'}
           >
-            <SelectTrigger className="h-7 w-full text-xs">
+            <SelectTrigger
+              size="sm"
+              className={cn(
+                NOTES_APP_PILL_SURFACE,
+                'h-8 w-full min-w-0 rounded-full border px-3 py-0 text-xs shadow-none',
+                'focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-0',
+                '[&_svg]:size-3 [&_svg]:opacity-70'
+              )}
+            >
               <SelectValue placeholder="All workspaces" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="__all__">All workspaces</SelectItem>
+              <SelectItem className="text-xs" value="__all__">
+                All workspaces
+              </SelectItem>
               {folders.map((f) => (
-                <SelectItem key={f.id} value={f.id}>
+                <SelectItem className="text-xs" key={f.id} value={f.id}>
                   {f.name}
                 </SelectItem>
               ))}
@@ -531,9 +766,8 @@ function ChatToolbarRow({
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
-                className="size-7"
                 onClick={newChat}
-                size="icon"
+                size="icon-sm"
                 type="button"
                 variant="ghost"
               >
@@ -546,9 +780,8 @@ function ChatToolbarRow({
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
-                className="size-7"
                 onClick={() => setShowHistory(!showHistory)}
-                size="icon"
+                size="icon-sm"
                 type="button"
                 variant="ghost"
               >

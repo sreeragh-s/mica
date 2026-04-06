@@ -303,6 +303,8 @@ export function useNotesApp({
       updatedAtMs: number
       markdownBody: string
       kind?: 'note' | 'drawing'
+      coverImageSrc?: string
+      titleEmoji?: string
     }[]
   }
 
@@ -334,7 +336,11 @@ export function useNotesApp({
         title: n.title,
         updatedAt: n.updatedAtMs,
         content: diskBodyToContent(n.markdownBody),
-        kind: 'note' as const
+        kind: 'note' as const,
+        ...(n.coverImageSrc !== undefined ? { coverImageSrc: n.coverImageSrc } : {}),
+        ...(n.titleEmoji !== undefined && n.titleEmoji !== ''
+          ? { titleEmoji: n.titleEmoji }
+          : {})
       }
     })
     if (idx.workspaces.length === 0 && idx.notes.length === 0) {
@@ -1222,10 +1228,47 @@ export function useNotesApp({
 
   const renameNote = useCallback(
     (noteId: string, title: string) => {
-      const t = title.trim()
-      if (!t) return
       setNotes((prev) =>
-        prev.map((n) => (n.id === noteId ? { ...n, title: t, updatedAt: Date.now() } : n))
+        prev.map((n) => (n.id === noteId ? { ...n, title: title.trim(), updatedAt: Date.now() } : n))
+      )
+      scheduleNoteFlush(noteId)
+    },
+    [scheduleNoteFlush]
+  )
+
+  const setNoteCover = useCallback(
+    (noteId: string, coverImageSrc: string | null) => {
+      setNotes((prev) =>
+        prev.map((n) =>
+          n.id === noteId
+            ? {
+                ...n,
+                ...(coverImageSrc === null || coverImageSrc === ''
+                  ? { coverImageSrc: undefined }
+                  : { coverImageSrc }),
+                updatedAt: Date.now()
+              }
+            : n
+        )
+      )
+      scheduleNoteFlush(noteId)
+    },
+    [scheduleNoteFlush]
+  )
+
+  const setNoteTitleEmoji = useCallback(
+    (noteId: string, titleEmoji: string | null) => {
+      const trimmed = titleEmoji?.trim() ?? ''
+      setNotes((prev) =>
+        prev.map((n) =>
+          n.id === noteId
+            ? {
+                ...n,
+                ...(trimmed === '' ? { titleEmoji: undefined } : { titleEmoji: trimmed }),
+                updatedAt: Date.now()
+              }
+            : n
+        )
       )
       scheduleNoteFlush(noteId)
     },
@@ -1315,11 +1358,14 @@ export function useNotesApp({
           if (useGithubApiSync) setGithubApiDirty(true)
           await refreshWorkspaceGitStatuses()
         }
-        if (deleted) {
-          void api?.embeddings?.deleteNoteEmbeddings({
+        if (deleted && api?.embeddings?.deleteNoteEmbeddings) {
+          const emb = await api.embeddings.deleteNoteEmbeddings({
             workspaceId: deleted.folderId,
-            noteId
+            noteId,
           })
+          if (!emb.ok) {
+            console.error('[notelab] deleteNoteEmbeddings failed', emb.error)
+          }
         }
         setNotes((prev) => prev.filter((n) => n.id !== noteId))
         setOpenNoteTabIds((prev) => prev.filter((id) => id !== noteId))
@@ -1883,6 +1929,8 @@ export function useNotesApp({
     handleNewDrawing,
     handleExcalidrawSceneChange,
     renameNote,
+    setNoteCover,
+    setNoteTitleEmoji,
     moveNoteToFolder,
     reorderWorkspaceFolders,
     reorderWorkspaceFolderToEnd,
