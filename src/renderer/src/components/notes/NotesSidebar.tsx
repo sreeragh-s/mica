@@ -336,10 +336,10 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
           {searchOpen ? (
             <motion.div
               key="search-bar"
-              initial={{ opacity: 0, scaleX: 0.85, originX: 1 }}
-              animate={{ opacity: 1, scaleX: 1, originX: 1 }}
-              exit={{ opacity: 0, scaleX: 0.85, originX: 1 }}
-              transition={{ duration: 0.18, ease: 'easeOut' }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.15 }}
               className={cn(
                 'relative z-10 flex w-full shrink-0 flex-row flex-nowrap items-stretch justify-start gap-0.5 py-1.5',
                 isMacNotelab ? 'pointer-events-none px-4 pr-2' : 'px-2'
@@ -375,81 +375,80 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 0.12 }}
+              transition={{ duration: 0.15 }}
               className={cn(
                 'relative z-10 flex w-full shrink-0 flex-row flex-nowrap items-stretch justify-start gap-0.5 py-1.5',
                 isMacNotelab ? 'pointer-events-none px-4 pr-2' : 'px-2'
               )}
             >
               <div
-                className="pointer-events-auto flex min-w-0 flex-none flex-nowrap items-center gap-0.5"
+                className="pointer-events-auto flex min-w-0 flex-1 items-center justify-between gap-0.5"
                 style={isMacNotelab ? macTitlebarStyles.noDrag : undefined}
               >
+                <div className="flex min-w-0 flex-none items-center gap-0.5">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    className="text-muted-foreground size-8 shrink-0 p-0"
+                    aria-label="New folder"
+                    onClick={startFolderCreate}
+                    data-sidebar-interactive=""
+                    style={isMacNotelab ? macTitlebarStyles.noDrag : undefined}
+                  >
+                    <FolderPlus className="size-4" aria-hidden />
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    className="text-muted-foreground size-8 shrink-0 p-0"
+                    aria-label="New note"
+                    disabled={!canCreateNote}
+                    onClick={handleNewNote}
+                    data-sidebar-interactive=""
+                    style={isMacNotelab ? macTitlebarStyles.noDrag : undefined}
+                  >
+                    <SquarePen className="size-4" aria-hidden />
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    className="text-muted-foreground size-8 shrink-0 p-0"
+                    title="New drawing"
+                    aria-label="New drawing"
+                    disabled={!canCreateNote}
+                    onClick={handleNewDrawing}
+                    data-sidebar-interactive=""
+                    style={isMacNotelab ? macTitlebarStyles.noDrag : undefined}
+                  >
+                    <PencilRuler className="size-4" aria-hidden />
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={graphViewOpen ? 'secondary' : 'ghost'}
+                    className={cn(
+                      'size-8 shrink-0 p-0',
+                      graphViewOpen ? 'text-foreground' : 'text-muted-foreground'
+                    )}
+                    title="Note link graph"
+                    aria-label="Note link graph"
+                    aria-pressed={graphViewOpen}
+                    disabled={!canCreateNote}
+                    onClick={() => (graphViewOpen ? closeGraphView() : openGraphView())}
+                    data-sidebar-interactive=""
+                    style={isMacNotelab ? macTitlebarStyles.noDrag : undefined}
+                  >
+                    <Network className="size-4" aria-hidden />
+                  </Button>
+                </div>
                 <Button
                   type="button"
                   size="sm"
                   variant="ghost"
                   className="text-muted-foreground size-8 shrink-0 p-0"
-                  aria-label="New folder"
-                  onClick={startFolderCreate}
-                  data-sidebar-interactive=""
-                  style={isMacNotelab ? macTitlebarStyles.noDrag : undefined}
-                >
-                  <FolderPlus className="size-4" aria-hidden />
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="ghost"
-                  className="text-muted-foreground size-8 shrink-0 p-0"
-                  aria-label="New note"
-                  disabled={!canCreateNote}
-                  onClick={handleNewNote}
-                  data-sidebar-interactive=""
-                  style={isMacNotelab ? macTitlebarStyles.noDrag : undefined}
-                >
-                  <SquarePen className="size-4" aria-hidden />
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="ghost"
-                  className="text-muted-foreground size-8 shrink-0 p-0"
-                  title="New drawing"
-                  aria-label="New drawing"
-                  disabled={!canCreateNote}
-                  onClick={handleNewDrawing}
-                  data-sidebar-interactive=""
-                  style={isMacNotelab ? macTitlebarStyles.noDrag : undefined}
-                >
-                  <PencilRuler className="size-4" aria-hidden />
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant={graphViewOpen ? 'secondary' : 'ghost'}
-                  className={cn(
-                    'size-8 shrink-0 p-0',
-                    graphViewOpen ? 'text-foreground' : 'text-muted-foreground'
-                  )}
-                  title="Note link graph"
-                  aria-label="Note link graph"
-                  aria-pressed={graphViewOpen}
-                  disabled={!canCreateNote}
-                  onClick={() => (graphViewOpen ? closeGraphView() : openGraphView())}
-                  data-sidebar-interactive=""
-                  style={isMacNotelab ? macTitlebarStyles.noDrag : undefined}
-                >
-                  <Network className="size-4" aria-hidden />
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="ghost"
-                  className={cn(
-                    'size-8 shrink-0 p-0 ml-auto',
-                    'text-muted-foreground '
-                  )}
                   title="Search notes"
                   aria-label="Search notes"
                   onClick={openSearch}
