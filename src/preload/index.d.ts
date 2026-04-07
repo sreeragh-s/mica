@@ -103,6 +103,10 @@ type NotelabApi = {
       fromCwd: string
       toCwd: string
     }) => Promise<{ ok: true; copiedFiles: number } | { ok: false; error: string }>
+    createWorkspaceFolder: (payload: {
+      cwd: string
+      workspaceId: string
+    }) => Promise<{ ok: true } | { ok: false; error: string }>
     setSyncMode?: (payload: {
       cwd: string
       syncMode: 'git' | 'github_api' | 'local'

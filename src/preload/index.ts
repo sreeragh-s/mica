@@ -136,6 +136,10 @@ const api = {
       payload: { fromCwd: string; toCwd: string }
     ): Promise<{ ok: true; copiedFiles: number } | { ok: false; error: string }> =>
       ipcRenderer.invoke('workspace:migrate-workspace', payload),
+    createWorkspaceFolder: (
+      payload: { cwd: string; workspaceId: string }
+    ): Promise<{ ok: true } | { ok: false; error: string }> =>
+      ipcRenderer.invoke('workspace:create-workspace-folder', payload),
     setSyncMode: (
       payload: { cwd: string; syncMode: 'git' | 'github_api' | 'local' }
     ): Promise<{ ok: true } | { ok: false; error: string }> =>

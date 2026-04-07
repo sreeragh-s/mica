@@ -1238,6 +1238,8 @@ export function useNotesApp({
       const root = dataRootRef.current
       setFolders((prev) => [...prev, { id, name, ...(root ? { localGitPath: root } : {}) }])
       if (diskMode && root) {
+        const api = getApi()
+        void api?.workspace?.createWorkspaceFolder?.({ cwd: root, workspaceId: id })
         if (useGithubApiSync) setGithubApiDirty(true)
         void refreshWorkspaceGitStatuses()
       }

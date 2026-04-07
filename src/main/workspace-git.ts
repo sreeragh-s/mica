@@ -854,6 +854,28 @@ export function registerWorkspaceGitIpc(): void {
   )
 
   ipcMain.handle(
+    'workspace:create-workspace-folder',
+    async (
+      _evt,
+      payload: { cwd: string; workspaceId: string }
+    ): Promise<{ ok: true } | { ok: false; error: string }> => {
+      const cwd = payload.cwd?.trim() ?? ''
+      const workspaceId = payload.workspaceId?.trim() ?? ''
+      if (!cwd || !allowWorkspaceFs(cwd)) return { ok: false, error: 'not_a_workspace' }
+      if (!workspaceId || workspaceId.includes('..') || /[/\\]/.test(workspaceId)) {
+        return { ok: false, error: 'invalid_workspace_id' }
+      }
+      try {
+        mkdirSync(join(cwd, workspaceId), { recursive: true })
+        return { ok: true }
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e)
+        return { ok: false, error: msg }
+      }
+    }
+  )
+
+  ipcMain.handle(
     'workspace:delete-note-files',
     async (
       _evt,
