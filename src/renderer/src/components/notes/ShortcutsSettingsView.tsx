@@ -160,9 +160,61 @@ export function ShortcutsSettingsView({
           </li>
           <li>
             <span className="text-foreground font-mono">
+              {formatBindingLabel(bindings.newFolder, macElectron)}
+            </span>{' '}
+            — New folder
+          </li>
+          <li>
+            <span className="text-foreground font-mono">
               {formatBindingLabel(bindings.toggleZenMode, macElectron)}
             </span>{' '}
             — Toggle zen mode (full-screen editor; double-press Esc to exit)
+          </li>
+          <li>
+            <span className="text-foreground font-mono">
+              {formatBindingLabel(bindings.nextTab, macElectron)}
+            </span>{' '}
+            /{' '}
+            <span className="text-foreground font-mono">
+              {formatBindingLabel(bindings.prevTab, macElectron)}
+            </span>{' '}
+            — Next / previous tab
+          </li>
+          <li>
+            <span className="text-foreground font-mono">
+              {macElectron ? '⌘' : 'Ctrl+'}1–8
+            </span>{' '}
+            — Switch to tab by position (1 = first, 8 = eighth)
+          </li>
+          <li>
+            <span className="text-foreground font-mono">
+              {macElectron ? '⌘' : 'Ctrl+'}9
+            </span>{' '}
+            — Switch to last tab
+          </li>
+          <li>
+            <span className="text-foreground font-mono">
+              {formatBindingLabel(bindings.closeTab, macElectron)}
+            </span>{' '}
+            — Close current tab
+          </li>
+          <li>
+            <span className="text-foreground font-mono">
+              {formatBindingLabel(bindings.renameSelected, macElectron)}
+            </span>{' '}
+            — Rename selected note or folder
+          </li>
+          <li>
+            <span className="text-foreground font-mono">
+              {formatBindingLabel(bindings.toggleChat, macElectron)}
+            </span>{' '}
+            — Open / close AI chat
+          </li>
+          <li>
+            <span className="text-foreground font-mono">
+              {formatBindingLabel(bindings.openShortcuts, macElectron)}
+            </span>{' '}
+            — Open keyboard shortcuts
           </li>
           <li className="pt-1">
             Drag a note from the sidebar into the main area to open it as a tab.

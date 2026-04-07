@@ -117,15 +117,12 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
     conflictViewPath,
     workspaceRoot,
     handleWorkspaceRootChange,
+    chatSidebarOpen,
+    toggleChatSidebar,
   } = vm
 
   const [zenHintVisible, setZenHintVisible] = useState(false)
-  const [chatSidebarOpen, setChatSidebarOpen] = useState(false)
   const [editorBottomBarEl, setEditorBottomBarEl] = useState<HTMLDivElement | null>(null)
-
-  const toggleChatSidebar = useCallback(() => {
-    setChatSidebarOpen((open) => !open)
-  }, [])
 
   useEffect(() => {
     if (!zenMode) {

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState, type JSX } from 'react'
 
 import {
   AlertTriangle,
+  ArrowUpDown,
   Check,
   ChevronDown,
   ChevronRight,
@@ -12,7 +13,7 @@ import {
   Plus,
   RefreshCw,
   RotateCcw,
-  X
+  X,
 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -208,19 +209,21 @@ export function GitSourceControlPanel({ vm }: GitSourceControlPanelProps): JSX.E
     gitSyncBusy,
     gitSyncError,
     gitToolbarFolder,
+    githubRemoteUrl,
     refreshGitSourceControl,
     handleGitStageFile,
     handleGitUnstageFile,
     handleGitDiscardFile,
     handleGitCommit,
     handleGitPush,
-    handleGitCommitAndPush,
     handleGitAbortRebase,
     handleGitContinueRebase,
     openConflictView,
     macElectron,
     macTitlebarStyles,
+    setGitRemoteDialogOpen,
   } = vm
+
 
   const [selectedPath, setSelectedPath] = useState<string | null>(null)
   const [diffContent, setDiffContent] = useState<string | null>(null)
@@ -324,6 +327,9 @@ export function GitSourceControlPanel({ vm }: GitSourceControlPanelProps): JSX.E
     void refreshGitSourceControl()
   }, [cwd, refreshGitSourceControl])
 
+  // Clean tree = no staged, unstaged, or conflicted files
+  const hasChanges = stagedFiles.length > 0 || unstagedFiles.length > 0 || conflictedFiles.length > 0
+  const showSyncButton = !hasChanges && !gitSourceControlLoading
   const canCommit = stagedFiles.length > 0 && gitCommitMessage.trim().length > 0 && !gitSyncBusy && !gitSourceControlHasConflicts
 
   if (!cwd) {
@@ -345,6 +351,7 @@ export function GitSourceControlPanel({ vm }: GitSourceControlPanelProps): JSX.E
           <p className="text-muted-foreground text-xs leading-relaxed">
             Initialize a git repository in your workspace to track changes and sync to GitHub.
           </p>
+
         </div>
         {initError && (
           <p className="text-destructive text-xs whitespace-pre-wrap">{initError}</p>
@@ -457,48 +464,57 @@ export function GitSourceControlPanel({ vm }: GitSourceControlPanelProps): JSX.E
           </div>
         )}
 
-        {/* Commit message + actions */}
+        {/* Commit / Sync actions */}
         {!gitSourceControlIsRebasing && (
           <div className="border-b border-border/50 px-2 pb-2 pt-1">
-            <textarea
-              ref={textareaRef}
-              className="border-input bg-background text-foreground placeholder:text-muted-foreground focus-visible:ring-ring w-full resize-none rounded-md border px-2.5 py-2 text-xs leading-relaxed focus-visible:ring-1 focus-visible:outline-none disabled:opacity-50"
-              rows={3}
-              placeholder="Commit message"
-              value={gitCommitMessage}
-              onChange={(e) => setGitCommitMessage(e.target.value)}
-              disabled={gitSyncBusy}
-              data-sidebar-interactive=""
-              style={macElectron ? macTitlebarStyles.noDrag : undefined}
-            />
-            <div className="mt-1.5 flex flex-wrap gap-1.5">
+            {showSyncButton ? (
               <Button
                 type="button"
                 size="sm"
-                className="h-6 flex-1 gap-1 px-2 text-xs"
-                disabled={!canCommit}
-                onClick={() => void handleGitCommit()}
+                className="h-7 w-full gap-1.5 px-2 text-xs"
+                disabled={gitSyncBusy}
+                onClick={() => {
+                  if (!githubRemoteUrl.trim()) {
+                    setGitRemoteDialogOpen(true)
+                  } else {
+                    void handleGitPush()
+                  }
+                }}
+                data-sidebar-interactive=""
               >
-                {gitSyncBusy ? (
-                  <Loader2 className="size-3 animate-spin" />
-                ) : (
-                  <GitCommitHorizontal className="size-3" />
+                {gitSyncBusy ? <Loader2 className="size-3 animate-spin" /> : <ArrowUpDown className="size-3" />}
+                Sync changes
+              </Button>
+            ) : (
+              <>
+                <textarea
+                  ref={textareaRef}
+                  className="border-input bg-background text-foreground placeholder:text-muted-foreground focus-visible:ring-ring w-full resize-none rounded-md border px-2.5 py-2 text-xs leading-relaxed focus-visible:ring-1 focus-visible:outline-none disabled:opacity-50"
+                  rows={3}
+                  placeholder="Commit message"
+                  value={gitCommitMessage}
+                  onChange={(e) => setGitCommitMessage(e.target.value)}
+                  disabled={gitSyncBusy}
+                  data-sidebar-interactive=""
+                  style={macElectron ? macTitlebarStyles.noDrag : undefined}
+                />
+                <div className="mt-1.5 flex gap-1.5">
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="h-6 flex-1 gap-1 px-2 text-xs"
+                    disabled={!canCommit}
+                    onClick={() => void handleGitCommit()}
+                    data-sidebar-interactive=""
+                  >
+                    {gitSyncBusy ? <Loader2 className="size-3 animate-spin" /> : <GitCommitHorizontal className="size-3" />}
+                    Commit
+                  </Button>
+                </div>
+                {stagedFiles.length === 0 && unstagedFiles.length > 0 && (
+                  <p className="text-muted-foreground mt-1 text-[10px]">Stage files to enable commit.</p>
                 )}
-                Commit
-              </Button>
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                className="h-6 gap-1 px-2 text-xs"
-                disabled={!canCommit}
-                onClick={() => void handleGitCommitAndPush()}
-              >
-                Commit & Push
-              </Button>
-            </div>
-            {!canCommit && stagedFiles.length === 0 && unstagedFiles.length > 0 && (
-              <p className="text-muted-foreground mt-1 text-[10px]">Stage files to enable commit.</p>
+              </>
             )}
           </div>
         )}

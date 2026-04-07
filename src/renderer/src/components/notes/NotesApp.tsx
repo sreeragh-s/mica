@@ -6,6 +6,7 @@ import { MAC_WINDOW_OUTER_CORNER_RADIUS_PX } from '../../../../shared/mac-window
 
 import type { NotesAppProps } from './notes-app-types'
 import { macTitlebarStyles } from './notes-app-utils'
+import { GitRemoteDialog } from './GitRemoteDialog'
 import { NotesMainArea } from './NotesMainArea'
 import { NotesSidebar } from './NotesSidebar'
 import { useNotesApp } from './useNotesApp'
@@ -16,6 +17,8 @@ export function NotesApp(props: NotesAppProps): JSX.Element {
   const vm = useNotesApp(props)
   const { sidebarCollapsed, zenMode, macElectron, sidebarOverlayActive } = vm
   const sidebarHidden = sidebarCollapsed || zenMode
+  const cwd = vm.gitToolbarFolder?.localGitPath ?? ''
+  const dirName = cwd.split('/').pop() ?? 'notes'
 
   return (
     <div
@@ -92,6 +95,18 @@ export function NotesApp(props: NotesAppProps): JSX.Element {
       >
         <NotesMainArea vm={vm} />
       </div>
+
+      <GitRemoteDialog
+        open={vm.gitRemoteDialogOpen}
+        onOpenChange={vm.setGitRemoteDialogOpen}
+        cwd={cwd}
+        defaultRepoName={dirName}
+        githubUsername={vm.user?.name ?? null}
+        onRemoteSet={async (url) => {
+          vm.setGithubRemoteUrl(url)
+          vm.handleSaveGithubRemote()
+        }}
+      />
     </div>
   )
 }

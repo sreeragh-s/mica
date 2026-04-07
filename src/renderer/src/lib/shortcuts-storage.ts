@@ -63,10 +63,18 @@ export function findDuplicateShortcutBindings(map: ShortcutBindingsMap): Shortcu
   return [...byKey.values()].filter((g) => g.length > 1)
 }
 
+const CODE_LABELS: Record<string, string> = {
+  Backslash: "\\",
+  BracketLeft: "[",
+  BracketRight: "]",
+  Slash: "/",
+  F2: "F2",
+}
+
 export function formatBindingLabel(b: ShortcutBinding, mac: boolean): string {
   const mod = b.mod ? (mac ? "⌘" : "Ctrl+") : ""
-  if (b.code === "Backslash") {
-    return `${mod}\\`
+  if (b.code && CODE_LABELS[b.code]) {
+    return `${mod}${CODE_LABELS[b.code]}`
   }
   if (b.key) {
     const ch = b.key.length === 1 ? b.key.toUpperCase() : b.key

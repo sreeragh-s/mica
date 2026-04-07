@@ -17,7 +17,8 @@ import {
   Sparkles,
   SquarePen,
   Trash2,
-  User
+  User,
+  PencilRuler
 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -91,7 +92,8 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
     openGraphView,
     closeGraphView,
     toggleSidebar,
-    appSidebarView
+    appSidebarView,
+    triggerRenameSelectedRef,
   } = vm
 
   const [renamingNodeId, setRenamingNodeId] = useState<string | null>(null)
@@ -181,6 +183,17 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
     skipRenameCommitRef.current = false
     setRenamingNodeId(treeId)
     setRenameDraft(initial)
+  }
+
+  // Register the rename trigger so the global keyboard shortcut (F2) can invoke it.
+  triggerRenameSelectedRef.current = () => {
+    if (selectedId) {
+      const note = findNoteById(selectedId)
+      if (note) beginRename(treeNoteId(selectedId), note.title)
+    } else if (focusedFolderId) {
+      const folder = folders.find((f) => f.id === focusedFolderId)
+      if (folder) beginRename(treeFolderId(focusedFolderId), folder.name)
+    }
   }
 
   const cancelRename = (): void => {
@@ -334,7 +347,7 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
               data-sidebar-interactive=""
               style={macElectron ? macTitlebarStyles.noDrag : undefined}
             >
-              <PenLine className="size-4" aria-hidden />
+              <PencilRuler className="size-4" aria-hidden />
             </Button>
             <Button
               type="button"
@@ -423,20 +436,7 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
                 Workspace
               </button>
             </li>
-            <li>
-              <button
-                type="button"
-                data-sidebar-interactive=""
-                onClick={() => setSettingsSection('github')}
-                className={cn(
-                  'hover:bg-sidebar-accent hover:text-sidebar-accent-foreground flex h-8 w-full items-center gap-2 rounded-md px-2 text-left text-[13px] leading-tight transition-colors',
-                  settingsSection === 'github' && 'bg-sidebar-accent text-sidebar-accent-foreground'
-                )}
-              >
-                <FolderGit2 className="text-muted-foreground size-3.5 shrink-0" aria-hidden />
-                GitHub & Git
-              </button>
-            </li>
+        
             <li>
               <button
                 type="button"

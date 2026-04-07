@@ -135,9 +135,15 @@ export function useNotesApp({
   shortcutBindingsRef.current = shortcutBindings
   const shortcutsSuppressedRef = useRef(false)
 
+  const [chatSidebarOpen, setChatSidebarOpen] = useState(false)
   const [graphViewOpen, setGraphViewOpen] = useState(false)
   const [tabOverviewOpen, setTabOverviewOpen] = useState(false)
   const [nativeLiquidGlassAttached, setNativeLiquidGlassAttached] = useState(false)
+
+  /** Sidebar registers its rename-trigger here so the keyboard shortcut can invoke it. */
+  const triggerRenameSelectedRef = useRef<(() => void) | null>(null)
+  /** Ref so the keyboard handler (defined before startFolderCreate) can call it. */
+  const startFolderCreateRef = useRef<(() => void) | null>(null)
 
   const selectedNote = useMemo(
     () => notes.find((n) => n.id === selectedId) ?? null,
@@ -249,6 +255,8 @@ export function useNotesApp({
   const [gitSyncError, setGitSyncError] = useState<string | null>(null)
   const [gitHubBusy, setGitHubBusy] = useState(false)
   const [gitHubMessage, setGitHubMessage] = useState<string | null>(null)
+
+  const [gitRemoteDialogOpen, setGitRemoteDialogOpen] = useState(false)
 
   // App sidebar: explorer (notes tree), source control, or settings nav
   const [appSidebarView, setAppSidebarView] = useState<AppSidebarView>('explorer')
@@ -1846,6 +1854,10 @@ export function useNotesApp({
     setSidebarCollapsed((c) => !c)
   }, [])
 
+  const toggleChatSidebar = useCallback(() => {
+    setChatSidebarOpen((o) => !o)
+  }, [])
+
   const exitZenMode = useCallback(() => {
     lastZenEscPressRef.current = 0
     setZenMode(false)
@@ -1975,6 +1987,15 @@ export function useNotesApp({
     })
   }, [toggleZenMode])
 
+  const openShortcuts = useCallback(() => {
+    setWorkspaceSettingsFolderId(null)
+    setGraphViewOpen(false)
+    setTabOverviewOpen(false)
+    setAppMode('settings')
+    setAppSidebarView('settings')
+    setSettingsSection('shortcuts')
+  }, [])
+
   useEffect(() => {
     const onKeyDown = (e: globalThis.KeyboardEvent): void => {
       if (shortcutsSuppressedRef.current) return
@@ -2008,22 +2029,102 @@ export function useNotesApp({
         handleNewNote()
         return
       }
+      if (keyboardEventMatchesBinding(e, map.newFolder)) {
+        e.preventDefault()
+        e.stopPropagation()
+        if (appMode === 'settings') {
+          setAppMode('notes')
+          setAppSidebarView('explorer')
+        }
+        startFolderCreateRef.current?.()
+        return
+      }
       if (keyboardEventMatchesBinding(e, map.toggleZenMode)) {
         e.preventDefault()
         e.stopPropagation()
         toggleZenMode()
+        return
+      }
+      if (keyboardEventMatchesBinding(e, map.nextTab)) {
+        e.preventDefault()
+        e.stopPropagation()
+        setSelectedId((current) => {
+          const tabs = openNoteTabIdsRef.current
+          if (tabs.length === 0) return current
+          const idx = current ? tabs.indexOf(current) : -1
+          return tabs[(idx + 1) % tabs.length] ?? current
+        })
+        return
+      }
+      if (keyboardEventMatchesBinding(e, map.prevTab)) {
+        e.preventDefault()
+        e.stopPropagation()
+        setSelectedId((current) => {
+          const tabs = openNoteTabIdsRef.current
+          if (tabs.length === 0) return current
+          const idx = current ? tabs.indexOf(current) : 0
+          return tabs[(idx - 1 + tabs.length) % tabs.length] ?? current
+        })
+        return
+      }
+      if (keyboardEventMatchesBinding(e, map.closeTab)) {
+        e.preventDefault()
+        e.stopPropagation()
+        setSelectedId((current) => {
+          if (!current) return current
+          const prev = openNoteTabIdsRef.current
+          const idx = prev.indexOf(current)
+          const next = prev.filter((id) => id !== current)
+          setOpenNoteTabIds(next)
+          const fallback = next[idx - 1] ?? next[idx] ?? next[0] ?? null
+          return fallback
+        })
+        return
+      }
+      if (keyboardEventMatchesBinding(e, map.renameSelected)) {
+        e.preventDefault()
+        e.stopPropagation()
+        triggerRenameSelectedRef.current?.()
+        return
+      }
+      if (keyboardEventMatchesBinding(e, map.toggleChat)) {
+        e.preventDefault()
+        e.stopPropagation()
+        toggleChatSidebar()
+        return
+      }
+      if (keyboardEventMatchesBinding(e, map.openShortcuts)) {
+        e.preventDefault()
+        e.stopPropagation()
+        openShortcuts()
+        return
+      }
+      // Ctrl/Cmd+1–9: jump to tab by index (9 always selects the last tab)
+      if ((e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey) {
+        const digit = e.key >= '1' && e.key <= '9' ? parseInt(e.key, 10) : null
+        if (digit !== null) {
+          const tabs = openNoteTabIdsRef.current
+          if (tabs.length > 0) {
+            e.preventDefault()
+            e.stopPropagation()
+            const target = digit === 9 ? tabs[tabs.length - 1] : tabs[digit - 1]
+            if (target) setSelectedId(target)
+          }
+          return
+        }
       }
     }
 
     window.addEventListener('keydown', onKeyDown, true)
     return () => window.removeEventListener('keydown', onKeyDown, true)
-  }, [appMode, handleNewNote, toggleSidebar, toggleZenMode, exitZenMode])
+  }, [appMode, handleNewNote, toggleSidebar, toggleZenMode, exitZenMode, toggleChatSidebar, openShortcuts])
 
   const startFolderCreate = useCallback(() => {
     setFolderCreateOpen(true)
     setFolderDraft('')
     folderDraftRef.current = ''
   }, [])
+  startFolderCreateRef.current = startFolderCreate
 
   const onFolderNameChange = useCallback((value: string) => {
     setFolderDraft(value)
@@ -2162,6 +2263,12 @@ export function useNotesApp({
     runReindexAll,
     workspaceRoot,
     handleWorkspaceRootChange,
+    gitRemoteDialogOpen,
+    setGitRemoteDialogOpen,
+    chatSidebarOpen,
+    toggleChatSidebar,
+    triggerRenameSelectedRef,
+    openShortcuts,
   }
 }
 

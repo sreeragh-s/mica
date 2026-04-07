@@ -123,10 +123,17 @@ export function ExcalidrawView({
 
   const debounceRef = useRef<number>(0)
   const excalidrawApiRef = useRef<ExcalidrawImperativeAPI | null>(null)
+  const lastSavedElementsRef = useRef<string>('')
 
   useEffect(() => {
     return () => window.clearTimeout(debounceRef.current)
   }, [])
+
+  // Reset saved elements ref when switching notes so the first onChange after
+  // a note switch is not wrongly skipped.
+  useEffect(() => {
+    lastSavedElementsRef.current = ''
+  }, [noteId])
 
   useEffect(() => {
     excalidrawApiRef.current?.updateScene({
@@ -164,9 +171,16 @@ export function ExcalidrawView({
       appState: Parameters<typeof serializeAsJSON>[1],
       files: Parameters<typeof serializeAsJSON>[2]
     ) => {
+      // Serialize only the stable parts (elements + files) to detect real content
+      // changes. appState contains volatile UI state (scroll, cursor, etc.) that
+      // changes constantly even when the drawing is untouched.
+      const elementsKey = JSON.stringify({ elements, files })
+      if (elementsKey === lastSavedElementsRef.current) return
+
       window.clearTimeout(debounceRef.current)
       debounceRef.current = window.setTimeout(() => {
         const json = serializeAsJSON(elements, appState, files, 'local')
+        lastSavedElementsRef.current = elementsKey
         onSceneJsonChange(json)
       }, 400)
     },
