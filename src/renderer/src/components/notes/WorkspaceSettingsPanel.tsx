@@ -1,12 +1,12 @@
 import type { JSX } from 'react'
 
-import type { WorkspaceFolder } from '@/lib/notes-storage'
+import type { Folder } from '@/lib/notes-storage'
 import type { MacTitlebarStyles } from './notes-app-types'
 import { useWorkspaceSettings } from './useWorkspaceSettings'
 import { WorkspaceSettingsView } from './WorkspaceSettingsView'
 
 export type WorkspaceSettingsPanelProps = {
-  folder: WorkspaceFolder
+  folder: Folder
   isMacNotelab: boolean
   macTitlebarStyles: MacTitlebarStyles
   onRename: (name: string) => void

@@ -1,4 +1,4 @@
-import type { SavedNote, WorkspaceFolder } from "@/lib/notes-storage"
+import type { SavedNote, Folder } from "@/lib/notes-storage"
 
 import { serializedStateToMarkdown } from "@/lib/lexical-to-markdown"
 
@@ -29,7 +29,7 @@ function slugifyWorkspaceDirSegment(displayName: string): string {
  * Folder name under `data/<id>/` (relative to ~/.notelab).
  * Uses a readable slug from the display name plus a short unique suffix (not a bare UUID).
  */
-export function newWorkspaceFolderId(displayName: string): string {
+export function newFolderId(displayName: string): string {
   const slug = slugifyWorkspaceDirSegment(displayName)
   const hex = crypto.randomUUID().replace(/-/g, "")
   return `${slug}--${hex.slice(0, 8)}`
@@ -84,7 +84,7 @@ export function noteMarkdownRelativePath(folderId: string, note: SavedNote): str
  * Root notes go directly in cwd; workspace notes go in cwd/<workspaceId>/.
  */
 export function buildMarkdownSyncPayload(
-  folder: WorkspaceFolder,
+  folder: Folder,
   notes: SavedNote[]
 ): { relativePath: string; content: string }[] {
   const files: { relativePath: string; content: string }[] = []

@@ -3,11 +3,11 @@ import type { JSX } from 'react'
 import { FileText, PenLine, Plus } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
-import { formatNoteTime, type SavedNote, type WorkspaceFolder } from '@/lib/notes-storage'
+import { formatNoteTime, type SavedNote, type Folder } from '@/lib/notes-storage'
 import { cn } from '@/lib/utils'
 
 export type WorkspaceNotesListProps = {
-  folder: WorkspaceFolder
+  folder: Folder
   notes: SavedNote[]
   onSelectNote: (noteId: string) => void
   onNewNote: () => void
@@ -30,7 +30,7 @@ export function WorkspaceNotesList({
           </h2>
           <p className="text-muted-foreground text-sm">
             {notes.length === 0
-              ? 'No notes yet in this workspace.'
+              ? 'No notes yet in this folder.'
               : `${notes.length} ${notes.length === 1 ? 'note' : 'notes'}`}
           </p>
         </div>
@@ -49,7 +49,7 @@ export function WorkspaceNotesList({
         {notes.length === 0 ? (
           <div className="text-muted-foreground flex flex-col items-center justify-center gap-3 px-4 py-16 text-center text-sm">
             <FileText className="size-12 opacity-35" aria-hidden />
-            <p>Create your first note in this workspace.</p>
+            <p>Create your first note in this folder.</p>
             <Button
               type="button"
               variant="secondary"

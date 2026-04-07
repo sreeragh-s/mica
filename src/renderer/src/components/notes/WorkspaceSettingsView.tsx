@@ -11,12 +11,12 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import type { WorkspaceFolder } from '@/lib/notes-storage'
+import type { Folder } from '@/lib/notes-storage'
 import type { MacTitlebarStyles } from './notes-app-types'
 import type { WorkspaceSettingsModel } from './useWorkspaceSettings'
 
 export type WorkspaceSettingsViewProps = {
-  folder: WorkspaceFolder
+  folder: Folder
   isMacNotelab: boolean
   macTitlebarStyles: MacTitlebarStyles
 } & WorkspaceSettingsModel
@@ -44,10 +44,10 @@ export function WorkspaceSettingsView({
     >
       <div className="flex flex-col gap-1">
         <h2 className="text-foreground text-lg font-semibold tracking-tight">
-          Workspace settings
+          Folder settings
         </h2>
         <p className="text-muted-foreground text-sm leading-relaxed">
-          Rename this workspace. GitHub and Git live under Settings → GitHub & Git.
+          Rename this folder. GitHub and Git live under Settings → GitHub & Git.
         </p>
       </div>
 
@@ -55,7 +55,7 @@ export function WorkspaceSettingsView({
         <h3 className="text-foreground text-sm font-medium">Name</h3>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
           <div className="min-w-0 flex-1 space-y-2">
-            <Label htmlFor={`ws-name-${folder.id}`}>Workspace name</Label>
+            <Label htmlFor={`ws-name-${folder.id}`}>Folder name</Label>
             <Input
               id={`ws-name-${folder.id}`}
               value={nameDraft}
@@ -82,9 +82,9 @@ export function WorkspaceSettingsView({
       {canDelete ? (
         <section className="border-destructive/30 flex flex-col gap-3 rounded-lg border border-dashed p-4">
           <div className="flex flex-col gap-1">
-            <h3 className="text-destructive text-sm font-medium">Delete workspace</h3>
+            <h3 className="text-destructive text-sm font-medium">Delete folder</h3>
             <p className="text-muted-foreground text-sm leading-relaxed">
-              Permanently remove this workspace and all of its notes from disk. This cannot be undone.
+              Permanently remove this folder and all of its notes from disk. This cannot be undone.
             </p>
           </div>
           <div>
@@ -93,7 +93,7 @@ export function WorkspaceSettingsView({
               variant="destructive"
               onClick={() => setDeleteOpen(true)}
             >
-              Delete workspace…
+              Delete folder…
             </Button>
           </div>
         </section>
@@ -108,14 +108,14 @@ export function WorkspaceSettingsView({
       >
         <DialogContent showCloseButton={!deleteBusy} className="gap-4">
           <DialogHeader>
-            <DialogTitle>Delete this workspace?</DialogTitle>
+            <DialogTitle>Delete this folder?</DialogTitle>
             <DialogDescription>
-              Type the workspace name <span className="text-foreground font-medium">{folder.name}</span> to
+              Type the folder name <span className="text-foreground font-medium">{folder.name}</span> to
               confirm. The folder and all notes inside it will be removed from your data directory.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
-            <Label htmlFor={`ws-delete-confirm-${folder.id}`}>Workspace name</Label>
+            <Label htmlFor={`ws-delete-confirm-${folder.id}`}>Folder name</Label>
             <Input
               id={`ws-delete-confirm-${folder.id}`}
               value={deleteConfirmDraft}
@@ -146,7 +146,7 @@ export function WorkspaceSettingsView({
               disabled={!deleteConfirmMatches || deleteBusy}
               onClick={() => void handleConfirmDelete()}
             >
-              {deleteBusy ? 'Deleting…' : 'Delete workspace'}
+              {deleteBusy ? 'Deleting…' : 'Delete folder'}
             </Button>
           </DialogFooter>
         </DialogContent>

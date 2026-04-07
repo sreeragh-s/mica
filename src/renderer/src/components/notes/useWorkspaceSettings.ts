@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useState } from 'react'
 
-import type { WorkspaceFolder } from '@/lib/notes-storage'
+import type { Folder } from '@/lib/notes-storage'
 
 export type UseWorkspaceSettingsArgs = {
-  folder: WorkspaceFolder
+  folder: Folder
   onRename: (name: string) => void
   canDelete: boolean
   onDelete: () => Promise<void>

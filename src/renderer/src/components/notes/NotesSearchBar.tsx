@@ -17,7 +17,7 @@ import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover'
 import { cn } from '@/lib/utils'
 import type { NoteSearchResult, SearchMatchSegment } from '@/lib/notes-search'
 import { searchNotes } from '@/lib/notes-search'
-import type { SavedNote, WorkspaceFolder } from '@/lib/notes-storage'
+import type { SavedNote, Folder } from '@/lib/notes-storage'
 
 import { liquidGlassControlPillClass, liquidGlassSearchShellClass } from '@/lib/liquid-glass-toolbar'
 
@@ -46,7 +46,7 @@ function SearchHighlight({ segments }: { segments: SearchMatchSegment[] }): JSX.
 
 export type NotesSearchBarProps = {
   notes: SavedNote[]
-  folders: WorkspaceFolder[]
+  folders: Folder[]
   onSelectNote: (noteId: string) => void
   macTitlebarStyles: MacTitlebarStyles
   sidebarOverlayActive: boolean

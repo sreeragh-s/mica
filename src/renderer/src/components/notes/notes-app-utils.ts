@@ -1,7 +1,7 @@
 import type { CSSProperties } from 'react'
 import type { SerializedEditorState } from 'lexical'
 
-import type { SavedNote, WorkspaceFolder } from '@/lib/notes-storage'
+import type { SavedNote, Folder } from '@/lib/notes-storage'
 import type { MacTitlebarStyles } from './notes-app-types'
 
 /** True when the editor output matches stored note content (avoids bumping `updatedAt` on selection/mount). */
@@ -66,11 +66,11 @@ export const NOTE_DRAG_MIME = 'application/x-notelab-note-id'
 export const FOLDER_DRAG_MIME = 'application/x-notelab-folder-id'
 
 export function mergeFolderOrder(
-  diskFolders: WorkspaceFolder[],
+  diskFolders: Folder[],
   preferredOrder: string[]
-): WorkspaceFolder[] {
+): Folder[] {
   const byId = new Map(diskFolders.map((f) => [f.id, f]))
-  const out: WorkspaceFolder[] = []
+  const out: Folder[] = []
   const seen = new Set<string>()
   for (const id of preferredOrder) {
     const f = byId.get(id)

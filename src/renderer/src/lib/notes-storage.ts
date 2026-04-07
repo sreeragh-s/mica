@@ -14,7 +14,7 @@ export {
   type NotesStateV2,
   type NotesStateV3,
   type SavedNote,
-  type WorkspaceFolder,
+  type Folder,
 } from "./notes-types"
 
 export function loadNotesState(): NotesState {

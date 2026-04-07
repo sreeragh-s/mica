@@ -83,7 +83,7 @@ import {
   type SearchMatchSegment,
 } from '@/lib/notes-search'
 import { cn } from '@/lib/utils'
-import { DEFAULT_WORKSPACE_ID, type SavedNote, type WorkspaceFolder } from '@/lib/notes-storage'
+import { DEFAULT_WORKSPACE_ID, type SavedNote, type Folder } from '@/lib/notes-storage'
 import { macTitlebarStyles, NOTES_APP_PILL_SURFACE } from './notes-app-utils'
 import type { ChatHistoryMeta } from '@/hooks/useNotesChat'
 import { useNotesChat } from '@/hooks/useNotesChat'
@@ -97,7 +97,7 @@ import { useOllama } from '@/hooks/useOllama'
 export type NotesChatSidebarProps = {
   open: boolean
   notes: SavedNote[]
-  folders: WorkspaceFolder[]
+  folders: Folder[]
   selectedNote: SavedNote | null
   selectNote: (noteId: string) => void
   /** Adds extra top offset to clear the macOS titlebar + pill area. */
@@ -688,7 +688,7 @@ function ChatToolbarRow({
   newChat,
   isMacNotelab,
 }: {
-  folders: WorkspaceFolder[]
+  folders: Folder[]
   filterWorkspaceId: string | null
   setFilterWorkspaceId: (id: string | null) => void
   showHistory: boolean

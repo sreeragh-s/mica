@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { LOCAL_EMBEDDING_MODEL } from '@/components/ai/LocalModelSetupDialog'
 import { EMBEDDING_DIMENSION } from '@/lib/embedding-pipeline'
 import { serverFetchJson } from '@/lib/server-api'
-import type { SavedNote, WorkspaceFolder } from '@/lib/notes-storage'
+import type { SavedNote, Folder } from '@/lib/notes-storage'
 
 const LOG = '[useNotesChat]'
 
@@ -145,7 +145,7 @@ function parseSSEChunks(raw: string): { tokens: string[]; done: boolean } {
 export type UseNotesChatOptions = {
   notes: SavedNote[]
   /** Passed through for the sidebar workspace filter UI — not used inside the hook. */
-  folders?: WorkspaceFolder[]
+  folders?: Folder[]
   selectedNote: SavedNote | null
   /** Notelab model ID to use for chat requests. Defaults to llama-4-scout-17b. */
   modelId?: string

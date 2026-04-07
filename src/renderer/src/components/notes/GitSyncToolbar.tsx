@@ -4,11 +4,11 @@ import { ArrowDownToLine, CloudUpload, GitCommitHorizontal, RefreshCw } from 'lu
 
 import { Button } from '@/components/ui/button'
 import { getApi } from '@/lib/auth-bridge'
-import type { WorkspaceFolder } from '@/lib/notes-storage'
+import type { Folder } from '@/lib/notes-storage'
 import { isPushRejectedFetchFirst } from './git-sync-errors'
 
 export type GitSyncToolbarProps = {
-  folder: WorkspaceFolder
+  folder: Folder
   /** When set to `github_api`, sync uses the Worker + GitHub REST API instead of local `git`. */
   syncTransport?: 'git' | 'github_api'
   /** True when there are uncommitted changes in the working tree. */

@@ -2,7 +2,7 @@ import {
   DEFAULT_WORKSPACE_ID,
   extractPlainTextFromSerialized,
   type SavedNote,
-  type WorkspaceFolder
+  type Folder
 } from '@/lib/notes-storage'
 
 import { isDrawingNote } from '@/components/notes/notes-app-utils'
@@ -18,7 +18,7 @@ export type NoteSearchResult = {
 }
 
 export type FolderSearchResult = {
-  folder: WorkspaceFolder
+  folder: Folder
   score: number
   nameSegments: SearchMatchSegment[]
 }
@@ -165,7 +165,7 @@ function highlightInBodySlice(
 
 export function searchNotes(
   notes: SavedNote[],
-  folders: WorkspaceFolder[],
+  folders: Folder[],
   query: string,
   options?: { limit?: number }
 ): NoteSearchResult[] {
@@ -273,7 +273,7 @@ export function searchChatHistorySessions(
 }
 
 export function searchFolders(
-  folders: WorkspaceFolder[],
+  folders: Folder[],
   query: string,
   options?: { limit?: number }
 ): FolderSearchResult[] {
@@ -284,7 +284,7 @@ export function searchFolders(
   const scored: FolderSearchResult[] = []
 
   for (const folder of folders) {
-    const name = folder.name?.trim() || 'Untitled workspace'
+    const name = folder.name?.trim() || 'Untitled folder'
     const st = scoreMatch(q, name)
     if (st === null) continue
     scored.push({

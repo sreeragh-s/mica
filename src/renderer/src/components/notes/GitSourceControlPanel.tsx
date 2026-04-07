@@ -344,7 +344,7 @@ export function GitSourceControlPanel({ vm }: GitSourceControlPanelProps): JSX.E
     return (
       <div className="flex flex-col items-center justify-center gap-3 p-6 text-center">
         <p className="text-muted-foreground text-xs leading-relaxed">
-          No workspace folder found. Set up your workspace in Settings → GitHub & Git.
+          No workspace found. Set up your workspace in Settings → GitHub & Git.
         </p>
       </div>
     )

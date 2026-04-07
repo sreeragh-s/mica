@@ -27,7 +27,7 @@ import {
   DEFAULT_WORKSPACE_ID,
   loadNotesState,
   type SavedNote,
-  type WorkspaceFolder,
+  type Folder,
   saveNotesState
 } from '@/lib/notes-storage'
 import {
@@ -42,7 +42,7 @@ import {
 import {
   buildMarkdownSyncPayload,
   buildNoteMarkdownDocument,
-  newWorkspaceFolderId,
+  newFolderId,
   noteMarkdownRelativePath
 } from '@/lib/workspace-markdown-sync'
 import type { AppMode, NotesAppProps, SettingsSection } from './notes-app-types'
@@ -89,7 +89,7 @@ export function useNotesApp({
   const initial = useMemo(() => loadNotesState(), [])
   const initialFolders = initial.version === 3 ? [] : initial.folders
   const initialNotes = initial.version === 3 ? [] : initial.notes
-  const [folders, setFolders] = useState<WorkspaceFolder[]>(initialFolders)
+  const [folders, setFolders] = useState<Folder[]>(initialFolders)
   const [notes, setNotes] = useState<SavedNote[]>(initialNotes)
   const [githubRemoteUrl, setGithubRemoteUrl] = useState(() => initial.githubRemoteUrl ?? '')
   const [diskMode, setDiskMode] = useState(false)
@@ -150,7 +150,7 @@ export function useNotesApp({
     [notes, selectedId]
   )
 
-  const focusedFolder = useMemo((): WorkspaceFolder | null => {
+  const focusedFolder = useMemo((): Folder | null => {
     if (!focusedFolderId) return null
     if (focusedFolderId === DEFAULT_WORKSPACE_ID) {
       return { id: DEFAULT_WORKSPACE_ID, name: 'Root' }
@@ -195,7 +195,7 @@ export function useNotesApp({
                 id: DEFAULT_WORKSPACE_ID,
                 name: 'Root',
                 localGitPath: dataRootPath
-              } satisfies WorkspaceFolder)
+              } satisfies Folder)
             : null))
         : null,
     [folders, workspaceSettingsFolderId, dataRootPath]
@@ -205,13 +205,13 @@ export function useNotesApp({
     () =>
       diskMode &&
       Boolean(dataRootPath) &&
-      Boolean(getApi()?.workspace?.deleteWorkspaceFolder) &&
+      Boolean(getApi()?.workspace?.deleteFolder) &&
       workspaceSettingsFolderId != null &&
       workspaceSettingsFolderId !== DEFAULT_WORKSPACE_ID,
     [diskMode, dataRootPath, workspaceSettingsFolderId]
   )
 
-  const primaryGitFolder = useMemo((): WorkspaceFolder | null => {
+  const primaryGitFolder = useMemo((): Folder | null => {
     const fromFolders = folders.find((f) => f.localGitPath)
     if (fromFolders) return fromFolders
     if (diskMode && dataRootPath) {
@@ -225,7 +225,7 @@ export function useNotesApp({
   }, [folders, diskMode, dataRootPath])
 
   const resolveGitFolderForId = useCallback(
-    (workspaceId: string | undefined | null): WorkspaceFolder | null => {
+    (workspaceId: string | undefined | null): Folder | null => {
       if (workspaceId == null) return null
       const found = folders.find((x) => x.id === workspaceId && x.localGitPath)
       if (found) return found
@@ -328,7 +328,7 @@ export function useNotesApp({
 
   const applyNotelabIndex = useCallback((idx: NotelabIndexOk, cwd: string) => {
     /** Root bucket `default/` is shown as top-level notes only, not a second folder row. */
-    const mappedFolders: WorkspaceFolder[] = idx.workspaces
+    const mappedFolders: Folder[] = idx.workspaces
       .filter((w) => w.id !== DEFAULT_WORKSPACE_ID)
       .map((w) => ({
         id: w.id,
@@ -460,7 +460,7 @@ export function useNotesApp({
       const files: { path: string; content: string; sha?: string | null }[] = []
       const rootNotes = notesRef.current.filter((n) => n.folderId === DEFAULT_WORKSPACE_ID)
       if (rootNotes.length > 0) {
-        const inbox: WorkspaceFolder = { id: DEFAULT_WORKSPACE_ID, name: 'Root' }
+        const inbox: Folder = { id: DEFAULT_WORKSPACE_ID, name: 'Root' }
         const payload = buildMarkdownSyncPayload(inbox, rootNotes)
         for (const p of payload) {
           const rel = p.relativePath.replace(/\\/g, '/')
@@ -1047,7 +1047,7 @@ export function useNotesApp({
     return () => window.clearTimeout(t)
   }, [diskMode, folders, notes, githubRemoteUrl])
 
-  const gitToolbarFolder = useMemo((): WorkspaceFolder | null => {
+  const gitToolbarFolder = useMemo((): Folder | null => {
     if (!primaryGitFolder?.localGitPath) return null
     const resolved = githubRemoteUrl.trim() || primaryGitFolder.githubRemoteUrl
     window.api.log.info('[gitToolbarFolder] githubRemoteUrl state:', githubRemoteUrl, '| primaryGitFolder.githubRemoteUrl:', primaryGitFolder.githubRemoteUrl, '| resolved:', resolved)
@@ -1250,14 +1250,14 @@ export function useNotesApp({
     [selectedId]
   )
 
-  const appendWorkspaceFolder = useCallback(
+  const appendFolder = useCallback(
     (name: string): string => {
-      const id = newWorkspaceFolderId(name)
+      const id = newFolderId(name)
       const root = dataRootRef.current
       setFolders((prev) => [...prev, { id, name, ...(root ? { localGitPath: root } : {}) }])
       if (diskMode && root) {
         const api = getApi()
-        void api?.workspace?.createWorkspaceFolder?.({ cwd: root, workspaceId: id })
+        void api?.workspace?.createFolder?.({ cwd: root, workspaceId: id })
         if (useGithubApiSync) setGithubApiDirty(true)
         void refreshWorkspaceGitStatuses()
       }
@@ -1448,25 +1448,25 @@ export function useNotesApp({
     [diskMode, flushNoteMoveToDisk, useGithubApiSync]
   )
 
-  const reorderWorkspaceFolders = useCallback((draggedFolderId: string, targetFolderId: string) => {
+  const reorderFolders = useCallback((draggedFolderId: string, targetFolderId: string) => {
     if (draggedFolderId === targetFolderId) return
     setFolders((prev) => {
       const ids = prev.map((f) => f.id)
       const nextIds = reorderFolderIdsBeforeTarget(ids, draggedFolderId, targetFolderId)
       if (!nextIds) return prev
       const byId = new Map(prev.map((f) => [f.id, f]))
-      return nextIds.map((id) => byId.get(id)!).filter(Boolean) as WorkspaceFolder[]
+      return nextIds.map((id) => byId.get(id)!).filter(Boolean) as Folder[]
     })
     setTreeExpandNonce((n) => n + 1)
   }, [])
 
-  const reorderWorkspaceFolderToEnd = useCallback((draggedFolderId: string) => {
+  const reorderFolderToEnd = useCallback((draggedFolderId: string) => {
     setFolders((prev) => {
       const ids = prev.map((f) => f.id)
       const nextIds = reorderFolderIdsToEnd(ids, draggedFolderId)
       if (!nextIds) return prev
       const byId = new Map(prev.map((f) => [f.id, f]))
-      return nextIds.map((id) => byId.get(id)!).filter(Boolean) as WorkspaceFolder[]
+      return nextIds.map((id) => byId.get(id)!).filter(Boolean) as Folder[]
     })
     setTreeExpandNonce((n) => n + 1)
   }, [])
@@ -1534,9 +1534,9 @@ export function useNotesApp({
       cancelFolderCreate()
       return
     }
-    appendWorkspaceFolder(name)
+    appendFolder(name)
     cancelFolderCreate()
-  }, [appendWorkspaceFolder, cancelFolderCreate])
+  }, [appendFolder, cancelFolderCreate])
 
   const onFolderDraftKeyDown = useCallback(
     (e: KeyboardEvent<HTMLInputElement>) => {
@@ -1577,7 +1577,7 @@ export function useNotesApp({
     [openSettings]
   )
 
-  const openWorkspaceSettings = useCallback((folderId: string, e: MouseEvent) => {
+  const openFolderSettings = useCallback((folderId: string, e: MouseEvent) => {
     e.stopPropagation()
     setAppMode('notes')
     setAppSidebarView('explorer')
@@ -1610,7 +1610,7 @@ export function useNotesApp({
     setTreeExpandNonce((n) => n + 1)
   }, [])
 
-  const openWorkspaceSettingsForFolder = useCallback((folderId: string) => {
+  const openFolderSettingsPanel = useCallback((folderId: string) => {
     setAppMode('notes')
     setAppSidebarView('explorer')
     setWorkspaceSettingsFolderId(folderId)
@@ -1626,7 +1626,7 @@ export function useNotesApp({
     setFocusedFolderId(null)
   }, [])
 
-  const renameWorkspace = useCallback(
+  const renameFolder = useCallback(
     (folderId: string, name: string) => {
       setFolders((prev) => prev.map((f) => (f.id === folderId ? { ...f, name } : f)))
       const root = dataRootRef.current
@@ -1638,12 +1638,12 @@ export function useNotesApp({
     [diskMode, refreshWorkspaceGitStatuses, useGithubApiSync]
   )
 
-  const deleteWorkspace = useCallback(
+  const deleteFolder = useCallback(
     async (folderId: string) => {
       if (folderId === DEFAULT_WORKSPACE_ID) return
       const root = dataRootRef.current
       const api = getApi()
-      if (!diskMode || !root || !api?.workspace?.deleteWorkspaceFolder) return
+      if (!diskMode || !root || !api?.workspace?.deleteFolder) return
 
       const noteIdsToClose = new Set(
         notesRef.current.filter((n) => n.folderId === folderId).map((n) => n.id)
@@ -1651,7 +1651,7 @@ export function useNotesApp({
       const prevTabs = openNoteTabIdsRef.current
       const nextTabs = prevTabs.filter((id) => !noteIdsToClose.has(id))
 
-      const r = await api.workspace.deleteWorkspaceFolder({
+      const r = await api.workspace.deleteFolder({
         cwd: root,
         workspaceId: folderId
       })
@@ -2198,8 +2198,8 @@ export function useNotesApp({
     setNoteCover,
     setNoteTitleEmoji,
     moveNoteToFolder,
-    reorderWorkspaceFolders,
-    reorderWorkspaceFolderToEnd,
+    reorderFolders,
+    reorderFolderToEnd,
     handleDeleteNote,
     handleNoteSerializedChange,
     shortcutBindings,
@@ -2210,14 +2210,14 @@ export function useNotesApp({
     cancelFolderCreate,
     commitFolderCreate,
     openSettings,
-    openWorkspaceSettings,
+    openFolderSettings,
     navigateToNotesRoot,
     focusFolderInTree,
-    openWorkspaceSettingsForFolder,
+    openFolderSettingsPanel,
     clearSidebarWorkspaceIntent,
     selectNote,
-    renameWorkspace,
-    deleteWorkspace,
+    renameFolder,
+    deleteFolder,
     backToNotes,
     handleGitCommit,
     handleGitPull,

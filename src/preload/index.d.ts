@@ -103,7 +103,7 @@ type NotelabApi = {
       fromCwd: string
       toCwd: string
     }) => Promise<{ ok: true; copiedFiles: number } | { ok: false; error: string }>
-    createWorkspaceFolder: (payload: {
+    createFolder: (payload: {
       cwd: string
       workspaceId: string
     }) => Promise<{ ok: true } | { ok: false; error: string }>
@@ -152,7 +152,7 @@ type NotelabApi = {
       noteId: string
       exceptRelativePath?: string
     }) => Promise<{ ok: true } | { ok: false; error: string }>
-    deleteWorkspaceFolder: (payload: {
+    deleteFolder: (payload: {
       cwd: string
       workspaceId: string
     }) => Promise<{ ok: true } | { ok: false; error: string }>

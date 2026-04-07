@@ -210,7 +210,7 @@ export function SetupScreen({ api, initialRoot, onDone }: Props): JSX.Element {
             Get started
           </Button>
           <p className="text-muted-foreground text-center text-xs leading-snug">
-            You can change the workspace folder and connect GitHub sync in Settings anytime.
+            You can change the workspace and connect GitHub sync in Settings anytime.
           </p>
         </div>
       </div>

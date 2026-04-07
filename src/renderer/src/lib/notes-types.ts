@@ -3,7 +3,7 @@ import type { SerializedEditorState } from "lexical"
 /** Stable id for migrated notes without a workspace. */
 export const DEFAULT_WORKSPACE_ID = "default"
 
-export type WorkspaceFolder = {
+export type Folder = {
   id: string
   name: string
   /** Git remote URL (HTTPS or SSH) for this workspace, if configured. */
@@ -35,7 +35,7 @@ export type SavedNote = {
 
 export type NotesStateV2 = {
   version: 2
-  folders: WorkspaceFolder[]
+  folders: Folder[]
   notes: SavedNote[]
   /** Shared Git remote URL for ~/.notelab (optional). */
   githubRemoteUrl?: string

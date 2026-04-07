@@ -5,16 +5,16 @@ import type { SerializedEditorState } from 'lexical'
 
 import { Editor } from '@/components/blocks/editor-00/editor'
 import { Button } from '@/components/ui/button'
-import type { SavedNote, WorkspaceFolder } from '@/lib/notes-storage'
+import type { SavedNote, Folder } from '@/lib/notes-storage'
 import { ExcalidrawView } from './ExcalidrawView'
 import { WorkspaceNotesList } from './WorkspaceNotesList'
 import { NOTE_DRAG_MIME } from './notes-app-utils'
 
 export type NotesPrimaryPaneProps = {
   selectedNote: SavedNote | null
-  focusedFolder: WorkspaceFolder | null
+  focusedFolder: Folder | null
   notes: SavedNote[]
-  folders: WorkspaceFolder[]
+  folders: Folder[]
   notesByFolder: Map<string, SavedNote[]>
   canCreateNote: boolean
   onSelectNote: (id: string) => void

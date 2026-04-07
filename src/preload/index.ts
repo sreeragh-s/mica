@@ -136,7 +136,7 @@ const api = {
       payload: { fromCwd: string; toCwd: string }
     ): Promise<{ ok: true; copiedFiles: number } | { ok: false; error: string }> =>
       ipcRenderer.invoke('workspace:migrate-workspace', payload),
-    createWorkspaceFolder: (
+    createFolder: (
       payload: { cwd: string; workspaceId: string }
     ): Promise<{ ok: true } | { ok: false; error: string }> =>
       ipcRenderer.invoke('workspace:create-workspace-folder', payload),
@@ -189,7 +189,7 @@ const api = {
       exceptRelativePath?: string
     }): Promise<{ ok: true } | { ok: false; error: string }> =>
       ipcRenderer.invoke('workspace:delete-note-files', payload),
-    deleteWorkspaceFolder: (payload: {
+    deleteFolder: (payload: {
       cwd: string
       workspaceId: string
     }): Promise<{ ok: true } | { ok: false; error: string }> =>

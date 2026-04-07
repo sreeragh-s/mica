@@ -76,8 +76,8 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
     workspaceSettingsFolder,
     workspaceSettingsFolderId,
     workspaceSettingsCanDelete,
-    renameWorkspace,
-    deleteWorkspace,
+    renameFolder,
+    deleteFolder,
     user,
     guestMode,
     onSignOut,
@@ -383,9 +383,9 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
                 folder={workspaceSettingsFolder}
                 isMacNotelab={isMacNotelab}
                 macTitlebarStyles={macTitlebarStyles}
-                onRename={(name) => renameWorkspace(workspaceSettingsFolderId, name)}
+                onRename={(name) => renameFolder(workspaceSettingsFolderId, name)}
                 canDelete={workspaceSettingsCanDelete}
-                onDeleteWorkspace={() => deleteWorkspace(workspaceSettingsFolderId)}
+                onDeleteWorkspace={() => deleteFolder(workspaceSettingsFolderId)}
               />
             ) : appMode === 'settings' && settingsSection === 'account' ? (
               <AccountSettingsView

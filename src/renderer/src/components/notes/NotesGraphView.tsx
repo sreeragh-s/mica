@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import * as d3 from "d3"
 
 import { buildNoteLinkGraph } from "@/lib/note-link-graph"
-import type { SavedNote, WorkspaceFolder } from "@/lib/notes-storage"
+import type { SavedNote, Folder } from "@/lib/notes-storage"
 import { cn } from "@/lib/utils"
 
 const FOLDER_COLORS = [
@@ -27,7 +27,7 @@ type SimNode = d3.SimulationNodeDatum & {
 
 export type NotesGraphViewProps = {
   notes: SavedNote[]
-  folders: WorkspaceFolder[]
+  folders: Folder[]
   isMacNotelab: boolean
   macTitlebarStyles: { noDrag: CSSProperties }
   onSelectNote: (noteId: string) => void

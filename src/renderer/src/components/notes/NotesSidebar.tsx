@@ -80,11 +80,11 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
     handleNewNote,
     handleDeleteNote,
     renameNote,
-    renameWorkspace,
+    renameFolder,
     moveNoteToFolder,
-    reorderWorkspaceFolders,
-    reorderWorkspaceFolderToEnd,
-    openWorkspaceSettings,
+    reorderFolders,
+    reorderFolderToEnd,
+    openFolderSettings,
     onFolderDraftKeyDown,
     backToNotes,
     startFolderCreate,
@@ -95,7 +95,7 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
     toggleSidebar,
     appSidebarView,
     triggerRenameSelectedRef,
-    openWorkspaceSettingsForFolder,
+    openFolderSettingsPanel,
   } = vm
 
   const [renamingNodeId, setRenamingNodeId] = useState<string | null>(null)
@@ -164,7 +164,7 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
     }
     const draggedFolderId = e.dataTransfer.getData(FOLDER_DRAG_MIME)
     if (draggedFolderId && draggedFolderId !== folderId && folderId !== DEFAULT_WORKSPACE_ID) {
-      reorderWorkspaceFolders(draggedFolderId, folderId)
+      reorderFolders(draggedFolderId, folderId)
     }
   }
 
@@ -200,7 +200,7 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
     e.preventDefault()
     setFolderDropAtEnd(false)
     const draggedFolderId = e.dataTransfer.getData(FOLDER_DRAG_MIME)
-    if (draggedFolderId) reorderWorkspaceFolderToEnd(draggedFolderId)
+    if (draggedFolderId) reorderFolderToEnd(draggedFolderId)
   }
 
   const findNoteById = (noteId: string): SavedNote | undefined => {
@@ -246,9 +246,9 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
       if (prev && nextTitle !== prev.title) renameNote(noteId, nextTitle)
     } else if (treeNodeId.startsWith('folder:')) {
       const folderId = treeNodeId.slice('folder:'.length)
-      const nextName = trimmed || 'Untitled workspace'
+      const nextName = trimmed || 'Untitled folder'
       const folder = folders.find((f) => f.id === folderId)
-      if (folder && nextName !== folder.name) renameWorkspace(folderId, nextName)
+      if (folder && nextName !== folder.name) renameFolder(folderId, nextName)
     }
     setRenamingNodeId(null)
   }
@@ -390,7 +390,7 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
                   size="sm"
                   variant="ghost"
                   className="text-muted-foreground size-8 shrink-0 p-0"
-                  aria-label="New workspace folder"
+                  aria-label="New folder"
                   onClick={startFolderCreate}
                   data-sidebar-interactive=""
                   style={isMacNotelab ? macTitlebarStyles.noDrag : undefined}
@@ -608,7 +608,7 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
                         data-sidebar-interactive=""
                         onClick={() => {
                           closeSearch()
-                          openWorkspaceSettingsForFolder(folder.id)
+                          openFolderSettingsPanel(folder.id)
                         }}
                         className="hover:bg-sidebar-accent hover:text-sidebar-accent-foreground flex w-full min-w-0 items-center gap-2 rounded-md px-2 py-2 text-left transition-colors"
                       >
@@ -826,8 +826,8 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
                             variant="ghost"
                             size="icon-xs"
                             className="text-muted-foreground size-6"
-                            aria-label={`Workspace settings for ${folder.name}`}
-                            onClick={(e) => openWorkspaceSettings(folder.id, e)}
+                            aria-label={`Folder settings for ${folder.name}`}
+                            onClick={(e) => openFolderSettings(folder.id, e)}
                             data-sidebar-interactive=""
                           >
                             <Settings2 className="size-3.5" aria-hidden />
@@ -951,12 +951,12 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
                   <Input
                     ref={folderInputRef}
                     className="h-8 flex-1"
-                    placeholder="Workspace name"
+                    placeholder="Folder name"
                     value={folderDraft}
                     onChange={(e) => onFolderNameChange(e.target.value)}
                     onKeyDown={onFolderDraftKeyDown}
                     onBlur={onFolderNameBlur}
-                    aria-label="New workspace name"
+                    aria-label="New folder name"
                   />
                 </div>
               ) : null}

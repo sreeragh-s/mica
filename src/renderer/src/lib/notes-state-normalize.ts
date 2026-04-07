@@ -7,7 +7,7 @@ import {
   type NotesStateV2,
   type NotesStateV3,
   type SavedNote,
-  type WorkspaceFolder,
+  type Folder,
 } from "./notes-types"
 
 function walkSerializedText(node: unknown): string {
@@ -132,7 +132,7 @@ export function normalizeNotesStateFromStorage(raw: unknown): NotesState {
       Array.isArray((parsed as NotesStateV2).notes)
     ) {
       const folders = (parsed as NotesStateV2).folders.filter(
-        (f): f is WorkspaceFolder =>
+        (f): f is Folder =>
           typeof f === "object" &&
           f !== null &&
           typeof f.id === "string" &&

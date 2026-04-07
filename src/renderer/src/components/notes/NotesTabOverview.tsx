@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 import { DEFAULT_WORKSPACE_ID, extractPreviewText, formatNoteTime } from '@/lib/notes-storage'
-import type { SavedNote, WorkspaceFolder } from '@/lib/notes-storage'
+import type { SavedNote, Folder } from '@/lib/notes-storage'
 
 import { isDrawingNote } from './notes-app-utils'
 import type { MacTitlebarStyles } from './notes-app-types'
@@ -38,7 +38,7 @@ const gridItemVariants = {
 
 export type NotesTabOverviewProps = {
   notes: SavedNote[]
-  folders: WorkspaceFolder[]
+  folders: Folder[]
   openNoteTabIds: string[]
   selectedId: string | null
   macTitlebarStyles: MacTitlebarStyles
