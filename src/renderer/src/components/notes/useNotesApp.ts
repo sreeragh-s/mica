@@ -252,6 +252,7 @@ export function useNotesApp({
 
   // App sidebar: explorer (notes tree), source control, or settings nav
   const [appSidebarView, setAppSidebarView] = useState<AppSidebarView>('explorer')
+  const refreshGitSourceControlRef = useRef<(() => Promise<void>) | null>(null)
   const [gitSourceControlFiles, setGitSourceControlFiles] = useState<
     { path: string; x: string; y: string; staged: boolean; conflicted: boolean }[]
   >([])
@@ -616,7 +617,8 @@ export function useNotesApp({
           setGitSyncError(r.error)
           return
         }
-        await refreshWorkspaceGitStatuses()
+        setGitCommitMessage('')
+        await Promise.all([refreshWorkspaceGitStatuses(), refreshGitSourceControlRef.current?.()])
       } finally {
         setGitSyncBusy(false)
       }
@@ -812,6 +814,7 @@ export function useNotesApp({
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [primaryGitFolder?.localGitPath])
+  refreshGitSourceControlRef.current = refreshGitSourceControl
 
   const handleGitStageFile = useCallback(async (filePath: string) => {
     const api = getApi()

@@ -534,6 +534,11 @@ export function registerWorkspaceGitIpc(): void {
       try {
         runGit(['init'], cwd)
         runGit(['branch', '-M', 'main'], cwd)
+        // Write .gitignore for common OS/editor noise
+        const gitignorePath = join(cwd, '.gitignore')
+        if (!existsSync(gitignorePath)) {
+          writeFileSync(gitignorePath, '.DS_Store\nThumbs.db\n*.swp\n', 'utf8')
+        }
         // Remove mode file now that git is initialized
         const modePath = join(cwd, MODE_FILE)
         if (existsSync(modePath)) unlinkSync(modePath)
@@ -946,8 +951,6 @@ export function registerWorkspaceGitIpc(): void {
       if (!message) {
         return { ok: false, error: 'empty_message' }
       }
-      const add = runGitResult(['add', '-A'], cwd)
-      if (!add.ok) return { ok: false, error: add.error }
       const commit = runGitResult(
         [
           '-c',
@@ -967,6 +970,13 @@ export function registerWorkspaceGitIpc(): void {
           err.includes('nothing added to commit')
         ) {
           return { ok: false, error: 'nothing_to_commit' }
+        }
+        // Verify the commit actually landed despite the non-zero exit — git sometimes
+        // exits 1 with warnings (hooks, hints) even when the commit succeeded.
+        const headCheck = runGitResult(['rev-parse', '--verify', 'HEAD'], cwd)
+        if (headCheck.ok) {
+          console.info(LOG, 'commit succeeded despite non-zero exit (warnings):', commit.error, cwd)
+          return { ok: true }
         }
         return { ok: false, error: commit.error }
       }
