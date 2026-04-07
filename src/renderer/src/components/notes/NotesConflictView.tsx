@@ -155,7 +155,7 @@ export function NotesConflictView({ vm }: { vm: NotesAppViewModel }): JSX.Elemen
     handleGitAcceptResolution,
     refreshGitSourceControl,
     gitToolbarFolder,
-    macElectron,
+    isMacNotelab,
     macTitlebarStyles,
     gitSyncBusy,
   } = vm
@@ -286,9 +286,9 @@ export function NotesConflictView({ vm }: { vm: NotesAppViewModel }): JSX.Elemen
       <div
         className={cn(
           'border-border flex h-10 shrink-0 items-center gap-2 border-b px-3',
-          macElectron && 'pointer-events-none'
+          isMacNotelab && 'pointer-events-none'
         )}
-        style={macElectron ? macTitlebarStyles.noDrag : undefined}
+        style={isMacNotelab ? macTitlebarStyles.noDrag : undefined}
       >
         <AlertTriangle className="size-4 shrink-0 text-orange-500" aria-hidden />
         <div className="min-w-0 flex-1">
@@ -300,8 +300,8 @@ export function NotesConflictView({ vm }: { vm: NotesAppViewModel }): JSX.Elemen
           </span>
         </div>
         <div
-          className={cn('flex shrink-0 items-center gap-1.5', macElectron && 'pointer-events-auto')}
-          style={macElectron ? macTitlebarStyles.noDrag : undefined}
+          className={cn('flex shrink-0 items-center gap-1.5', isMacNotelab && 'pointer-events-auto')}
+          style={isMacNotelab ? macTitlebarStyles.noDrag : undefined}
         >
           {allResolved && (
             <Button

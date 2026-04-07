@@ -8,7 +8,7 @@ import { loadSetupState, saveSetupState } from '@/lib/setup-storage'
 import type { MacTitlebarStyles } from './notes-app-types'
 
 export type GitHubSettingsViewProps = {
-  macElectron: boolean
+  isMacNotelab: boolean
   macTitlebarStyles: MacTitlebarStyles
   /** Current workspace root path (from setup state / useNotesApp). */
   workspaceRoot: string | null
@@ -17,7 +17,7 @@ export type GitHubSettingsViewProps = {
 }
 
 export function GitHubSettingsView({
-  macElectron,
+  isMacNotelab,
   macTitlebarStyles,
   workspaceRoot,
   onWorkspaceRootChange,
@@ -95,7 +95,7 @@ export function GitHubSettingsView({
   return (
     <div
       className="mx-auto flex w-full max-w-3xl flex-col gap-8 p-6"
-      style={macElectron ? macTitlebarStyles.noDrag : undefined}
+      style={isMacNotelab ? macTitlebarStyles.noDrag : undefined}
     >
       <div className="flex flex-col gap-1">
         <h2 className="text-foreground text-lg font-semibold tracking-tight">Workspace</h2>

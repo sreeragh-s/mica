@@ -22,7 +22,7 @@ export const macTitlebarStyles: MacTitlebarStyles = {
 export const NOTES_APP_PILL_SURFACE =
   'bg-muted/35 text-foreground shadow-[inset_0_1px_0_0_oklch(1_0_0/0.06)] backdrop-blur-xl dark:bg-white/[0.07] dark:shadow-[inset_0_1px_0_0_oklch(1_0_0/0.08)]'
 
-/** Main window drag uses a single full-width band in `NotesApp` (macOS Electron); avoid extra `drag` rows. */
+/** Main window drag uses a single full-width band in `NotesApp` (macOS Notelab); avoid extra `drag` rows. */
 
 export function createEmptyNote(folderId: string): SavedNote {
   return {

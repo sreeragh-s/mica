@@ -17,13 +17,13 @@ import type { WorkspaceSettingsModel } from './useWorkspaceSettings'
 
 export type WorkspaceSettingsViewProps = {
   folder: WorkspaceFolder
-  macElectron: boolean
+  isMacNotelab: boolean
   macTitlebarStyles: MacTitlebarStyles
 } & WorkspaceSettingsModel
 
 export function WorkspaceSettingsView({
   folder,
-  macElectron,
+  isMacNotelab,
   macTitlebarStyles,
   nameDraft,
   setNameDraft,
@@ -40,7 +40,7 @@ export function WorkspaceSettingsView({
   return (
     <div
       className="mx-auto flex w-full max-w-3xl flex-col gap-8 p-6"
-      style={macElectron ? macTitlebarStyles.noDrag : undefined}
+      style={isMacNotelab ? macTitlebarStyles.noDrag : undefined}
     >
       <div className="flex flex-col gap-1">
         <h2 className="text-foreground text-lg font-semibold tracking-tight">

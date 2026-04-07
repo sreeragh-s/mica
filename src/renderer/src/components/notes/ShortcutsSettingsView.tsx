@@ -15,7 +15,7 @@ import {
 import type { MacTitlebarStyles } from './notes-app-types'
 
 export type ShortcutsSettingsViewProps = {
-  macElectron: boolean
+  isMacNotelab: boolean
   macTitlebarStyles: MacTitlebarStyles
   bindings: ShortcutBindingsMap
   onChangeBinding: (id: ShortcutActionId, binding: ShortcutBinding) => void
@@ -24,7 +24,7 @@ export type ShortcutsSettingsViewProps = {
 }
 
 export function ShortcutsSettingsView({
-  macElectron,
+  isMacNotelab,
   macTitlebarStyles,
   bindings,
   onChangeBinding,
@@ -66,14 +66,14 @@ export function ShortcutsSettingsView({
   return (
     <div
       className="mx-auto flex w-full max-w-3xl flex-col gap-6 p-6"
-      style={macElectron ? macTitlebarStyles.noDrag : undefined}
+      style={isMacNotelab ? macTitlebarStyles.noDrag : undefined}
     >
       <div className="flex flex-col gap-1">
         <h2 className="text-foreground text-lg font-semibold tracking-tight">
           Keyboard shortcuts
         </h2>
         <p className="text-muted-foreground text-sm leading-relaxed">
-          Shortcuts use {macElectron ? '⌘' : 'Ctrl'} as the main modifier. Click “Change” and press
+          Shortcuts use {isMacNotelab ? '⌘' : 'Ctrl'} as the main modifier. Click “Change” and press
           a new combination. Escape cancels recording.
         </p>
       </div>
@@ -86,7 +86,7 @@ export function ShortcutsSettingsView({
 
       {recordingId ? (
         <p className="bg-muted text-muted-foreground rounded-md px-3 py-2 text-sm">
-          Press a shortcut (with {macElectron ? '⌘' : 'Ctrl'})… or Escape to cancel.
+          Press a shortcut (with {isMacNotelab ? '⌘' : 'Ctrl'})… or Escape to cancel.
         </p>
       ) : null}
 
@@ -103,7 +103,7 @@ export function ShortcutsSettingsView({
                 <div className="text-foreground text-sm font-medium">{def.label}</div>
                 <div className="text-muted-foreground text-xs">{def.description}</div>
                 <div className="text-muted-foreground mt-1 font-mono text-xs">
-                  Default: {formatBindingLabel(def.defaultBinding, macElectron)}
+                  Default: {formatBindingLabel(def.defaultBinding, isMacNotelab)}
                 </div>
               </div>
               <div className="mt-2 flex shrink-0 items-center gap-2 sm:mt-0">
@@ -114,7 +114,7 @@ export function ShortcutsSettingsView({
                       : 'bg-muted rounded px-2 py-1 font-mono text-xs'
                   }
                 >
-                  {formatBindingLabel(current, macElectron)}
+                  {formatBindingLabel(current, isMacNotelab)}
                 </span>
                 <Button
                   type="button"
@@ -148,71 +148,71 @@ export function ShortcutsSettingsView({
         <ul className="text-muted-foreground space-y-1.5 text-xs">
           <li>
             <span className="text-foreground font-mono">
-              {formatBindingLabel(bindings.toggleSidebar, macElectron)}
+              {formatBindingLabel(bindings.toggleSidebar, isMacNotelab)}
             </span>{' '}
             — Toggle sidebar
           </li>
           <li>
             <span className="text-foreground font-mono">
-              {formatBindingLabel(bindings.newNote, macElectron)}
+              {formatBindingLabel(bindings.newNote, isMacNotelab)}
             </span>{' '}
             — New note
           </li>
           <li>
             <span className="text-foreground font-mono">
-              {formatBindingLabel(bindings.newFolder, macElectron)}
+              {formatBindingLabel(bindings.newFolder, isMacNotelab)}
             </span>{' '}
             — New folder
           </li>
           <li>
             <span className="text-foreground font-mono">
-              {formatBindingLabel(bindings.toggleZenMode, macElectron)}
+              {formatBindingLabel(bindings.toggleZenMode, isMacNotelab)}
             </span>{' '}
             — Toggle zen mode (full-screen editor; double-press Esc to exit)
           </li>
           <li>
             <span className="text-foreground font-mono">
-              {formatBindingLabel(bindings.nextTab, macElectron)}
+              {formatBindingLabel(bindings.nextTab, isMacNotelab)}
             </span>{' '}
             /{' '}
             <span className="text-foreground font-mono">
-              {formatBindingLabel(bindings.prevTab, macElectron)}
+              {formatBindingLabel(bindings.prevTab, isMacNotelab)}
             </span>{' '}
             — Next / previous tab
           </li>
           <li>
             <span className="text-foreground font-mono">
-              {macElectron ? '⌘' : 'Ctrl+'}1–8
+              {isMacNotelab ? '⌘' : 'Ctrl+'}1–8
             </span>{' '}
             — Switch to tab by position (1 = first, 8 = eighth)
           </li>
           <li>
             <span className="text-foreground font-mono">
-              {macElectron ? '⌘' : 'Ctrl+'}9
+              {isMacNotelab ? '⌘' : 'Ctrl+'}9
             </span>{' '}
             — Switch to last tab
           </li>
           <li>
             <span className="text-foreground font-mono">
-              {formatBindingLabel(bindings.closeTab, macElectron)}
+              {formatBindingLabel(bindings.closeTab, isMacNotelab)}
             </span>{' '}
             — Close current tab
           </li>
           <li>
             <span className="text-foreground font-mono">
-              {formatBindingLabel(bindings.renameSelected, macElectron)}
+              {formatBindingLabel(bindings.renameSelected, isMacNotelab)}
             </span>{' '}
             — Rename selected note or folder
           </li>
           <li>
             <span className="text-foreground font-mono">
-              {formatBindingLabel(bindings.toggleChat, macElectron)}
+              {formatBindingLabel(bindings.toggleChat, isMacNotelab)}
             </span>{' '}
             — Open / close AI chat
           </li>
           <li>
             <span className="text-foreground font-mono">
-              {formatBindingLabel(bindings.openShortcuts, macElectron)}
+              {formatBindingLabel(bindings.openShortcuts, isMacNotelab)}
             </span>{' '}
             — Open keyboard shortcuts
           </li>

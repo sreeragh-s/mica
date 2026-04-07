@@ -9,7 +9,7 @@ import { liquidGlassToolbarShellClass } from '@/lib/liquid-glass-toolbar'
 import type { MacTitlebarStyles } from './notes-app-types'
 
 export type NotesToolbarPillProps = {
-  macElectron?: boolean
+  isMacNotelab?: boolean
   macTitlebarStyles: MacTitlebarStyles
   /** Main-process `electron-liquid-glass` attached (macOS). */
   nativeLiquidGlassAttached: boolean
@@ -20,7 +20,7 @@ export type NotesToolbarPillProps = {
 }
 
 export function NotesToolbarPill({
-  macElectron = false,
+  isMacNotelab = false,
   macTitlebarStyles,
   nativeLiquidGlassAttached,
   onOpenTabOverview,
@@ -32,7 +32,7 @@ export function NotesToolbarPill({
     <div
       className={cn(
         liquidGlassToolbarShellClass(nativeLiquidGlassAttached),
-        macElectron && 'mt-2'
+        isMacNotelab && 'mt-2'
       )}
       style={macTitlebarStyles.noDrag}
     >

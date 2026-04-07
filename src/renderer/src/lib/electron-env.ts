@@ -1,12 +1,12 @@
-/** True when running inside the Electron shell (desktop app). */
-export function isElectronApp(): boolean {
-  return typeof window !== "undefined" && Boolean(window.electron)
+/** True when running inside the Notelab shell (desktop app). */
+export function isNotelabApp(): boolean {
+  return typeof window !== "undefined" && Boolean(window.notelab)
 }
 
-/** True when running in Electron on macOS (hidden title bar + traffic lights). */
-export function isMacElectron(): boolean {
+/** True when running in Notelab on macOS (hidden title bar + traffic lights). */
+export function isMacNotelab(): boolean {
   return (
     typeof window !== "undefined" &&
-    window.electron?.process?.platform === "darwin"
+    window.notelab?.process?.platform === "darwin"
   )
 }

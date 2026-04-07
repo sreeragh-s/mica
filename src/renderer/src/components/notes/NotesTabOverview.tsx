@@ -42,7 +42,7 @@ export type NotesTabOverviewProps = {
   openNoteTabIds: string[]
   selectedId: string | null
   macTitlebarStyles: MacTitlebarStyles
-  macElectron: boolean
+  isMacNotelab: boolean
   /** When true (macOS + expanded sidebar), align with the main column beside the overlay sidebar. */
   sidebarOverlayActive: boolean
   onClose: () => void
@@ -57,7 +57,7 @@ export function NotesTabOverview({
   openNoteTabIds,
   selectedId,
   macTitlebarStyles,
-  macElectron,
+  isMacNotelab,
   sidebarOverlayActive,
   onClose,
   onSelectNote,
@@ -123,7 +123,7 @@ export function NotesTabOverview({
       <motion.div
         className={cn(
           'flex shrink-0 items-center gap-2 px-4 pb-2 pt-3',
-          macElectron && 'pt-10'
+          isMacNotelab && 'pt-10'
         )}
         style={macTitlebarStyles.noDrag}
         initial={{ opacity: 0, y: -8 }}

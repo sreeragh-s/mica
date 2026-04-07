@@ -10,7 +10,7 @@ export type AccountSettingsViewProps = {
   guestMode?: boolean
   onSignOut?: () => void
   onConnectGitHub?: () => void | Promise<void>
-  macElectron: boolean
+  isMacNotelab: boolean
   macTitlebarStyles: MacTitlebarStyles
 }
 
@@ -19,7 +19,7 @@ export function AccountSettingsView({
   guestMode = false,
   onSignOut,
   onConnectGitHub,
-  macElectron,
+  isMacNotelab,
   macTitlebarStyles
 }: AccountSettingsViewProps): JSX.Element {
   /** Session user with something to show (avoids treating `{}` or null as “signed in with GitHub”). */
@@ -31,7 +31,7 @@ export function AccountSettingsView({
   return (
     <div
       className="mx-auto flex w-full max-w-3xl flex-col gap-6 p-6"
-      style={macElectron ? macTitlebarStyles.noDrag : undefined}
+      style={isMacNotelab ? macTitlebarStyles.noDrag : undefined}
     >
       <div className="flex flex-col items-center gap-4 text-center sm:flex-row sm:text-left">
         {user?.image ? (

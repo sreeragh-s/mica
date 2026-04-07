@@ -28,7 +28,7 @@ type SimNode = d3.SimulationNodeDatum & {
 export type NotesGraphViewProps = {
   notes: SavedNote[]
   folders: WorkspaceFolder[]
-  macElectron: boolean
+  isMacNotelab: boolean
   macTitlebarStyles: { noDrag: CSSProperties }
   onSelectNote: (noteId: string) => void
   /** When true, only the canvas is rendered (use with an external split header). */
@@ -38,7 +38,7 @@ export type NotesGraphViewProps = {
 export function NotesGraphView({
   notes,
   folders,
-  macElectron,
+  isMacNotelab,
   macTitlebarStyles,
   onSelectNote,
   embedded = false,
@@ -211,7 +211,7 @@ export function NotesGraphView({
       {embedded ? null : (
         <div
           className="border-border flex h-10 shrink-0 items-center px-3"
-          style={macElectron ? macTitlebarStyles.noDrag : undefined}
+          style={isMacNotelab ? macTitlebarStyles.noDrag : undefined}
         >
           <div className="min-w-0">
             <h2 className="text-foreground truncate text-sm font-semibold">

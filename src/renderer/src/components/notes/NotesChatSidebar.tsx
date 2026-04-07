@@ -101,7 +101,7 @@ export type NotesChatSidebarProps = {
   selectedNote: SavedNote | null
   selectNote: (noteId: string) => void
   /** Adds extra top offset to clear the macOS titlebar + pill area. */
-  macElectron?: boolean
+  isMacNotelab?: boolean
   sidebarOverlayActive?: boolean
 }
 
@@ -144,7 +144,7 @@ export function NotesChatSidebar({
   folders,
   selectedNote,
   selectNote,
-  macElectron,
+  isMacNotelab,
   sidebarOverlayActive,
 }: NotesChatSidebarProps): JSX.Element {
   return (
@@ -167,7 +167,7 @@ export function NotesChatSidebar({
       >
         <NotesChatSidebarInner
           folders={folders}
-          macElectron={macElectron}
+          isMacNotelab={isMacNotelab}
           notes={notes}
           selectNote={selectNote}
           selectedNote={selectedNote}
@@ -184,7 +184,7 @@ function NotesChatSidebarInner({
   folders,
   selectedNote,
   selectNote,
-  macElectron,
+  isMacNotelab,
   sidebarOverlayActive,
 }: Omit<NotesChatSidebarProps, 'open'>): JSX.Element {
   // Selected model: a NoteLabModelId or "local:<ollamaModelName>"
@@ -370,7 +370,7 @@ function NotesChatSidebarInner({
       aria-hidden
       className={cn(
         'pointer-events-none shrink-0',
-        macElectron || sidebarOverlayActive ? 'h-14' : 'h-14'
+        isMacNotelab || sidebarOverlayActive ? 'h-14' : 'h-14'
       )}
     />
   )
@@ -386,7 +386,7 @@ function NotesChatSidebarInner({
           folders={folders}
           filterWorkspaceId={filterWorkspaceId}
           historySearch={historySearch}
-          macElectron={macElectron}
+          isMacNotelab={isMacNotelab}
           newChat={() => void newChat()}
           setFilterWorkspaceId={setFilterWorkspaceId}
           setHistorySearch={setHistorySearch}
@@ -461,7 +461,7 @@ function NotesChatSidebarInner({
         folders={folders}
         filterWorkspaceId={filterWorkspaceId}
         historySearch={historySearch}
-        macElectron={macElectron}
+        isMacNotelab={isMacNotelab}
         newChat={() => void newChat()}
         setFilterWorkspaceId={setFilterWorkspaceId}
         setHistorySearch={setHistorySearch}
@@ -686,7 +686,7 @@ function ChatToolbarRow({
   historySearch,
   setHistorySearch,
   newChat,
-  macElectron,
+  isMacNotelab,
 }: {
   folders: WorkspaceFolder[]
   filterWorkspaceId: string | null
@@ -696,19 +696,19 @@ function ChatToolbarRow({
   historySearch: string
   setHistorySearch: (v: string) => void
   newChat: () => void
-  macElectron?: boolean
+  isMacNotelab?: boolean
 }): JSX.Element {
   return (
     <div
       className={cn(
         'relative z-10 border-border flex min-h-9 shrink-0 items-center gap-2 px-3 ',
-        macElectron && 'pointer-events-none'
+        isMacNotelab && 'pointer-events-none'
       )}
     >
       {showHistory ? (
         <div
           className="pointer-events-auto relative min-w-0 flex-1"
-          style={macElectron ? macTitlebarStyles.noDrag : undefined}
+          style={isMacNotelab ? macTitlebarStyles.noDrag : undefined}
         >
           <Search
             aria-hidden
@@ -726,7 +726,7 @@ function ChatToolbarRow({
       ) : folders.length > 0 ? (
         <div
           className="pointer-events-auto min-w-0 flex-1"
-          style={macElectron ? macTitlebarStyles.noDrag : undefined}
+          style={isMacNotelab ? macTitlebarStyles.noDrag : undefined}
         >
           <Select
             onValueChange={(v) => setFilterWorkspaceId(v === '__all__' ? null : v)}
@@ -760,7 +760,7 @@ function ChatToolbarRow({
       )}
       <div
         className="pointer-events-auto flex shrink-0 items-center gap-0.5"
-        style={macElectron ? macTitlebarStyles.noDrag : undefined}
+        style={isMacNotelab ? macTitlebarStyles.noDrag : undefined}
       >
         <TooltipProvider>
           <Tooltip>

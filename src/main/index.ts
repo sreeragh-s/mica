@@ -37,6 +37,7 @@ function bindingMatchesBeforeInput(b: ZenShortcutBinding, input: Input): boolean
 }
 import { join } from 'path'
 import { electronApp, is } from '@electron-toolkit/utils'
+import log from 'electron-log/main'
 import icon from '../../resources/icon.png?asset'
 import { MAC_WINDOW_OUTER_CORNER_RADIUS_PX } from '../shared/mac-window-chrome'
 import { registerAuthIpc } from './auth'
@@ -44,6 +45,8 @@ import { registerChatHistoryIpc } from './chat-history'
 import { registerWorkspaceGitIpc } from './workspace-git'
 import { registerLancedbEmbeddingsIpc } from './lancedb-embeddings'
 import { registerOllamaIpc } from './ollama'
+
+log.initialize()
 
 /** Native liquid glass behind the web view (electron-liquid-glass, macOS). */
 async function attachMacNativeLiquidGlass(win: BrowserWindow): Promise<void> {
@@ -215,6 +218,10 @@ app.whenReady().then(() => {
 
   // IPC test
   ipcMain.on('ping', () => console.log('pong'))
+
+  ipcMain.on('log:info', (_event, ...args: unknown[]) => log.info('[renderer]', ...args))
+  ipcMain.on('log:warn', (_event, ...args: unknown[]) => log.warn('[renderer]', ...args))
+  ipcMain.on('log:error', (_event, ...args: unknown[]) => log.error('[renderer]', ...args))
 
   ipcMain.handle('clipboard:write-text', (_event, text: string) => {
     try {

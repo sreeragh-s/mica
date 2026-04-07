@@ -215,13 +215,15 @@ export function GitSourceControlPanel({ vm }: GitSourceControlPanelProps): JSX.E
     handleGitUnstageFile,
     handleGitDiscardFile,
     handleGitCommit,
-    handleGitPush,
+    handleGitPullThenPush,
     handleGitAbortRebase,
     handleGitContinueRebase,
     openConflictView,
-    macElectron,
+    isMacNotelab,
     macTitlebarStyles,
     setGitRemoteDialogOpen,
+    setGithubRemoteUrl,
+    gitSynced,
   } = vm
 
 
@@ -238,12 +240,18 @@ export function GitSourceControlPanel({ vm }: GitSourceControlPanelProps): JSX.E
   const [initError, setInitError] = useState<string | null>(null)
   const [gitReady, setGitReady] = useState<boolean | null>(null)
 
-  // Check whether a git repo already exists at cwd
+  // Check whether a git repo already exists at cwd; hydrate remote URL from git if not already set
   useEffect(() => {
     if (!cwd) { setGitReady(null); return }
     const api = getApi()
     if (!api?.workspace?.gitStatus) { setGitReady(false); return }
-    void api.workspace.gitStatus({ cwd }).then((r) => setGitReady(r.ok))
+    void api.workspace.gitStatus({ cwd }).then((r) => {
+      setGitReady(r.ok)
+      if (r.ok && r.remoteUrl && !githubRemoteUrl.trim()) {
+        window.api.log.info('[GitSourceControlPanel] hydrating remoteUrl from git:', r.remoteUrl)
+        setGithubRemoteUrl(r.remoteUrl)
+      }
+    })
   }, [cwd])
 
   const handleInitGit = useCallback(async (): Promise<void> => {
@@ -381,9 +389,9 @@ export function GitSourceControlPanel({ vm }: GitSourceControlPanelProps): JSX.E
       <div
         className={cn(
           'flex h-9 shrink-0 items-center justify-between gap-1 px-3',
-          macElectron && 'pointer-events-none'
+          isMacNotelab && 'pointer-events-none'
         )}
-        style={macElectron ? macTitlebarStyles.noDrag : undefined}
+        style={isMacNotelab ? macTitlebarStyles.noDrag : undefined}
       >
         <span className="text-foreground text-xs font-semibold uppercase tracking-wide">
           Source Control
@@ -394,8 +402,8 @@ export function GitSourceControlPanel({ vm }: GitSourceControlPanelProps): JSX.E
           )}
         </span>
         <div
-          className={cn('flex items-center gap-0.5', macElectron && 'pointer-events-auto')}
-          style={macElectron ? macTitlebarStyles.noDrag : undefined}
+          className={cn('flex items-center gap-0.5', isMacNotelab && 'pointer-events-auto')}
+          style={isMacNotelab ? macTitlebarStyles.noDrag : undefined}
           data-sidebar-interactive=""
         >
           <Button
@@ -419,7 +427,7 @@ export function GitSourceControlPanel({ vm }: GitSourceControlPanelProps): JSX.E
       <div
         className={cn(
           'min-h-0 flex-1 overflow-y-auto',
-          macElectron && 'pointer-events-auto'
+          isMacNotelab && 'pointer-events-auto'
         )}
         data-sidebar-interactive=""
       >
@@ -472,18 +480,18 @@ export function GitSourceControlPanel({ vm }: GitSourceControlPanelProps): JSX.E
                 type="button"
                 size="sm"
                 className="h-7 w-full gap-1.5 px-2 text-xs"
-                disabled={gitSyncBusy}
+                disabled={gitSyncBusy || gitSynced}
                 onClick={() => {
-                  if (!githubRemoteUrl.trim()) {
+                  if (!gitToolbarFolder?.githubRemoteUrl?.trim()) {
                     setGitRemoteDialogOpen(true)
                   } else {
-                    void handleGitPush()
+                    void handleGitPullThenPush()
                   }
                 }}
                 data-sidebar-interactive=""
               >
-                {gitSyncBusy ? <Loader2 className="size-3 animate-spin" /> : <ArrowUpDown className="size-3" />}
-                Sync changes
+                {gitSyncBusy ? <Loader2 className="size-3 animate-spin" /> : gitSynced ? <Check className="size-3" /> : <ArrowUpDown className="size-3" />}
+                {gitSynced ? 'Synced' : 'Sync changes'}
               </Button>
             ) : (
               <>
@@ -496,7 +504,7 @@ export function GitSourceControlPanel({ vm }: GitSourceControlPanelProps): JSX.E
                   onChange={(e) => setGitCommitMessage(e.target.value)}
                   disabled={gitSyncBusy}
                   data-sidebar-interactive=""
-                  style={macElectron ? macTitlebarStyles.noDrag : undefined}
+                  style={isMacNotelab ? macTitlebarStyles.noDrag : undefined}
                 />
                 <div className="mt-1.5 flex gap-1.5">
                   <Button

@@ -51,7 +51,7 @@ export function chunkNoteContent(
 }
 
 /**
- * True when Electron Ollama is up and `bge-m3` is available for indexing.
+ * True when Notelab Ollama is up and `bge-m3` is available for indexing.
  */
 async function shouldUseLocalEmbeddings(): Promise<boolean> {
   try {

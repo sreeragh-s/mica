@@ -17,6 +17,12 @@ export type NoteSearchResult = {
   folderName: string
 }
 
+export type FolderSearchResult = {
+  folder: WorkspaceFolder
+  score: number
+  nameSegments: SearchMatchSegment[]
+}
+
 /** Subsequence match positions in haystack (same length as query when matched). */
 function findSubsequenceIndices(haystack: string, query: string): number[] | null {
   const h = haystack.toLowerCase()
@@ -263,5 +269,35 @@ export function searchChatHistorySessions(
     if (b.score !== a.score) return b.score - a.score
     return b.meta.createdAt - a.meta.createdAt
   })
+  return scored.slice(0, limit)
+}
+
+export function searchFolders(
+  folders: WorkspaceFolder[],
+  query: string,
+  options?: { limit?: number }
+): FolderSearchResult[] {
+  const q = query.trim()
+  if (!q) return []
+
+  const limit = options?.limit ?? 50
+  const scored: FolderSearchResult[] = []
+
+  for (const folder of folders) {
+    const name = folder.name?.trim() || 'Untitled workspace'
+    const st = scoreMatch(q, name)
+    if (st === null) continue
+    scored.push({
+      folder,
+      score: st,
+      nameSegments: buildHighlightSegments(name, q)
+    })
+  }
+
+  scored.sort((a, b) => {
+    if (b.score !== a.score) return b.score - a.score
+    return a.folder.name.localeCompare(b.folder.name)
+  })
+
   return scored.slice(0, limit)
 }

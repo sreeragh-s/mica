@@ -15,7 +15,7 @@ export type { NotesAppProps } from './notes-app-types'
 
 export function NotesApp(props: NotesAppProps): JSX.Element {
   const vm = useNotesApp(props)
-  const { sidebarCollapsed, zenMode, macElectron, sidebarOverlayActive } = vm
+  const { sidebarCollapsed, zenMode, isMacNotelab, sidebarOverlayActive } = vm
   const sidebarHidden = sidebarCollapsed || zenMode
   const cwd = vm.gitToolbarFolder?.localGitPath ?? ''
   const dirName = cwd.split('/').pop() ?? 'notes'
@@ -23,7 +23,7 @@ export function NotesApp(props: NotesAppProps): JSX.Element {
   return (
     <div
       style={
-        macElectron ? { borderRadius: `${MAC_WINDOW_OUTER_CORNER_RADIUS_PX}px` } : undefined
+        isMacNotelab ? { borderRadius: `${MAC_WINDOW_OUTER_CORNER_RADIUS_PX}px` } : undefined
       }
       className={cn(
         'bg-background text-foreground relative overflow-hidden',
@@ -34,7 +34,7 @@ export function NotesApp(props: NotesAppProps): JSX.Element {
         Single macOS drag band: full width, flush to window top. Interactive controls use
         pointer-events-auto + no-drag in each column; rows use pointer-events-none so gaps hit this layer.
       */}
-      {macElectron && (
+      {isMacNotelab && (
         <div
           aria-hidden
           className="fixed inset-x-0 top-0 z-[1] h-14"
@@ -54,7 +54,7 @@ export function NotesApp(props: NotesAppProps): JSX.Element {
             : '',
           sidebarHidden ? 'w-0 border-r-0' : 'w-[min(100%,360px)]',
           !sidebarHidden &&
-            macElectron &&
+            isMacNotelab &&
             !sidebarOverlayActive &&
             'pointer-events-none box-border bg-background p-2 pr-1.5'
         )}
@@ -71,13 +71,13 @@ export function NotesApp(props: NotesAppProps): JSX.Element {
           <div
             className={cn(
               'flex h-full min-h-0 min-w-0 flex-col',
-              macElectron && !sidebarHidden && sidebarOverlayActive && 'box-border p-2 pr-1.5'
+              isMacNotelab && !sidebarHidden && sidebarOverlayActive && 'box-border p-2 pr-1.5'
             )}
           >
             <div
               className={cn(
                 'flex min-h-0 min-w-0 flex-1 flex-col',
-                (sidebarOverlayActive || (macElectron && !sidebarHidden)) &&
+                (sidebarOverlayActive || (isMacNotelab && !sidebarHidden)) &&
                   'pointer-events-auto h-full'
               )}
             >
@@ -103,8 +103,7 @@ export function NotesApp(props: NotesAppProps): JSX.Element {
         defaultRepoName={dirName}
         githubUsername={vm.user?.name ?? null}
         onRemoteSet={async (url) => {
-          vm.setGithubRemoteUrl(url)
-          vm.handleSaveGithubRemote()
+          vm.handleSaveGithubRemote(url)
         }}
       />
     </div>

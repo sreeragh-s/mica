@@ -27,19 +27,19 @@ export type NotesMainAreaProps = {
 
 function GraphPaneTopBar({
   title,
-  macElectron,
+  isMacNotelab,
   macTitlebarStyles,
   onClose
 }: {
   title: string
-  macElectron: boolean
+  isMacNotelab: boolean
   macTitlebarStyles: NotesAppViewModel['macTitlebarStyles']
   onClose: () => void
 }): JSX.Element {
   return (
     <div
       className="border-border grid h-10 shrink-0 grid-cols-[2rem_minmax(0,1fr)_2rem] items-center px-3"
-      style={macElectron ? macTitlebarStyles.noDrag : undefined}
+      style={isMacNotelab ? macTitlebarStyles.noDrag : undefined}
     >
       <Button
         type="button"
@@ -61,7 +61,7 @@ function GraphPaneTopBar({
 
 export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
   const {
-    macElectron,
+    isMacNotelab,
     nativeLiquidGlassAttached,
     macTitlebarStyles,
     appMode,
@@ -204,11 +204,11 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
     if (zenMode && selectedNote && selectedNote.kind !== 'drawing') {
       return (
         <div
-          className={cn('relative flex min-h-0 flex-1 flex-col', macElectron && 'pl-[92px]')}
+          className={cn('relative flex min-h-0 flex-1 flex-col', isMacNotelab && 'pl-[92px]')}
           onDragOver={onDragOverMain}
           onDrop={onDropPrimaryPane}
         >
-          {macElectron && <div className="h-12 shrink-0 pointer-events-none" aria-hidden />}
+          {isMacNotelab && <div className="h-12 shrink-0 pointer-events-none" aria-hidden />}
           {zenHintVisible && (
             <div
               className="pointer-events-none absolute left-0 right-0 top-3 z-10 flex justify-center px-4"
@@ -232,7 +232,7 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
           <NotesGraphView
             notes={notes}
             folders={folders}
-            macElectron={macElectron}
+            isMacNotelab={isMacNotelab}
             macTitlebarStyles={macTitlebarStyles}
             onSelectNote={selectNote}
           />
@@ -247,7 +247,7 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
           <div className="border-border flex min-h-0 min-w-0 flex-1 flex-col border-r">
             <GraphPaneTopBar
               title={selectedNote.title.trim() || 'Untitled'}
-              macElectron={macElectron}
+              isMacNotelab={isMacNotelab}
               macTitlebarStyles={macTitlebarStyles}
               onClose={closeGraphView}
             />
@@ -256,14 +256,14 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
           <div className="border-border flex min-h-0 w-[min(100%,50%)] min-w-0 flex-1 flex-col border-l">
             <GraphPaneTopBar
               title="Note graph"
-              macElectron={macElectron}
+              isMacNotelab={isMacNotelab}
               macTitlebarStyles={macTitlebarStyles}
               onClose={closeGraphView}
             />
             <NotesGraphView
               notes={notes}
               folders={folders}
-              macElectron={macElectron}
+              isMacNotelab={isMacNotelab}
               macTitlebarStyles={macTitlebarStyles}
               onSelectNote={selectNote}
               embedded
@@ -290,7 +290,7 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
       className={cn(
         'bg-background flex min-h-0 min-w-0 flex-col',
         sidebarOverlayActive ? 'absolute inset-0 z-0' : 'flex-1',
-        macElectron && 'pointer-events-none'
+        isMacNotelab && 'pointer-events-none'
       )}
     >
       {/*
@@ -311,7 +311,7 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
             <div
               className={cn(
                 'bg-background relative z-10 flex shrink-0 flex-col',
-                macElectron && 'pointer-events-none'
+                isMacNotelab && 'pointer-events-none'
               )}
             >
               {/* Search bar row */}
@@ -322,7 +322,7 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
                   onSelectNote={selectNote}
                   macTitlebarStyles={macTitlebarStyles}
                   sidebarOverlayActive={sidebarOverlayActive}
-                  macElectron={macElectron}
+                  isMacNotelab={isMacNotelab}
                   nativeLiquidGlassAttached={nativeLiquidGlassAttached}
                   sidebarCollapsed={sidebarCollapsed}
                   toggleSidebar={toggleSidebar}
@@ -332,7 +332,7 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
                   className={cn(
                     'h-12 shrink-0',
                     sidebarOverlayActive && 'pr-1.5',
-                    macElectron && 'pointer-events-none'
+                    isMacNotelab && 'pointer-events-none'
                   )}
                   aria-hidden
                 />
@@ -342,8 +342,8 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
               <div
                 className={cn(
                   'flex min-h-0 w-full min-w-0 shrink-0 items-center py-1.5',
-                  !sidebarOverlayActive && macElectron && sidebarCollapsed && 'pl-[92px]',
-                  macElectron && 'pointer-events-none'
+                  !sidebarOverlayActive && isMacNotelab && sidebarCollapsed && 'pl-[92px]',
+                  isMacNotelab && 'pointer-events-none'
                 )}
               >
                 {showTabs ? (
@@ -354,7 +354,7 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
                     reorderOpenNoteTabs={reorderOpenNoteTabs}
                     closeNoteTab={closeNoteTab}
                     selectNote={selectNote}
-                    macElectron={macElectron}
+                    isMacNotelab={isMacNotelab}
                     macTitlebarStyles={macTitlebarStyles}
                   />
                 ) : (
@@ -381,7 +381,7 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
               <WorkspaceSettingsPanel
                 key={workspaceSettingsFolderId}
                 folder={workspaceSettingsFolder}
-                macElectron={macElectron}
+                isMacNotelab={isMacNotelab}
                 macTitlebarStyles={macTitlebarStyles}
                 onRename={(name) => renameWorkspace(workspaceSettingsFolderId, name)}
                 canDelete={workspaceSettingsCanDelete}
@@ -393,24 +393,24 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
                 guestMode={guestMode}
                 onSignOut={onSignOut}
                 onConnectGitHub={onConnectGitHub}
-                macElectron={macElectron}
+                isMacNotelab={isMacNotelab}
                 macTitlebarStyles={macTitlebarStyles}
               />
             ) : appMode === 'settings' && (settingsSection === 'workspace' || settingsSection === 'github') ? (
               <GitHubSettingsView
-                macElectron={macElectron}
+                isMacNotelab={isMacNotelab}
                 macTitlebarStyles={macTitlebarStyles}
                 workspaceRoot={workspaceRoot}
                 onWorkspaceRootChange={handleWorkspaceRootChange}
               />
             ) : appMode === 'settings' && settingsSection === 'appearance' ? (
               <AppearanceSettingsView
-                macElectron={macElectron}
+                isMacNotelab={isMacNotelab}
                 macTitlebarStyles={macTitlebarStyles}
               />
             ) : appMode === 'settings' && settingsSection === 'shortcuts' ? (
               <ShortcutsSettingsView
-                macElectron={macElectron}
+                isMacNotelab={isMacNotelab}
                 macTitlebarStyles={macTitlebarStyles}
                 bindings={shortcutBindings}
                 onChangeBinding={updateShortcutBinding}
@@ -419,7 +419,7 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
               />
             ) : appMode === 'settings' && settingsSection === 'debug' ? (
               <DebugSettingsView
-                macElectron={macElectron}
+                isMacNotelab={isMacNotelab}
                 macTitlebarStyles={macTitlebarStyles}
                 localGitPath={gitToolbarFolder?.localGitPath ?? null}
                 githubRemoteUrl={githubRemoteUrl}
@@ -430,7 +430,7 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
               />
             ) : appMode === 'settings' && settingsSection === 'indexing' ? (
               <EmbeddingsSettingsView
-                macElectron={macElectron}
+                isMacNotelab={isMacNotelab}
                 macTitlebarStyles={macTitlebarStyles}
                 guestMode={guestMode}
                 isLoggedIn={Boolean(user?.email || user?.name)}
@@ -452,7 +452,7 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
               folders={folders}
               selectedNote={selectedNote}
               selectNote={selectNote}
-              macElectron={macElectron}
+              isMacNotelab={isMacNotelab}
               sidebarOverlayActive={sidebarOverlayActive}
             />
           )}
@@ -464,10 +464,10 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
                 sidebarOverlayActive ? 'right-1.5' : 'right-2',
                 'top-0'
               )}
-              style={macElectron ? macTitlebarStyles.noDrag : undefined}
+              style={isMacNotelab ? macTitlebarStyles.noDrag : undefined}
             >
               <NotesToolbarPill
-                macElectron={macElectron}
+                isMacNotelab={isMacNotelab}
                 macTitlebarStyles={macTitlebarStyles}
                 nativeLiquidGlassAttached={nativeLiquidGlassAttached}
                 onOpenTabOverview={openTabOverview}
@@ -488,7 +488,7 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
           openNoteTabIds={openNoteTabIds}
           selectedId={selectedId}
           macTitlebarStyles={macTitlebarStyles}
-          macElectron={macElectron}
+          isMacNotelab={isMacNotelab}
           sidebarOverlayActive={sidebarOverlayActive}
           onClose={closeTabOverview}
           onSelectNote={(id) => {

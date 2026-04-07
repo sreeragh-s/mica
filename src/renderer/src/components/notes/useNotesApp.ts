@@ -18,7 +18,7 @@ import {
   type IndexingStatus
 } from '@/lib/embedding-pipeline'
 import { mergeGithubContentShas, loadGithubContentShas } from '@/lib/github-shas-storage'
-import { isMacElectron } from '@/lib/electron-env'
+import { isMacNotelab as checkIsMac } from '@/lib/electron-env'
 import { loadSetupState } from '@/lib/setup-storage'
 import { switchDataRoot } from '@/lib/notelab-app-config'
 import { diskBodyToContent } from '@/lib/markdown-to-serialized'
@@ -69,7 +69,7 @@ export function useNotesApp({
   onSignOut,
   onConnectGitHub
 }: NotesAppProps) {
-  const macElectron = isMacElectron()
+  const isMacNotelab = checkIsMac()
   const folderInputRef = useRef<HTMLInputElement>(null)
   const folderDraftRef = useRef('')
   const dataRootRef = useRef<string | null>(null)
@@ -253,6 +253,7 @@ export function useNotesApp({
   const [gitCommitMessage, setGitCommitMessage] = useState('Update notes')
   const [gitSyncBusy, setGitSyncBusy] = useState(false)
   const [gitSyncError, setGitSyncError] = useState<string | null>(null)
+  const [gitSynced, setGitSynced] = useState(false)
   const [gitHubBusy, setGitHubBusy] = useState(false)
   const [gitHubMessage, setGitHubMessage] = useState<string | null>(null)
 
@@ -734,8 +735,10 @@ export function useNotesApp({
         const pushR = await api.workspace.gitPush({ cwd: folder.localGitPath })
         if (!pushR.ok) {
           setGitSyncError(pushR.error)
+          setGitSynced(false)
           return
         }
+        setGitSynced(true)
         await refreshWorkspaceGitStatuses()
       } finally {
         setGitSyncBusy(false)
@@ -814,6 +817,7 @@ export function useNotesApp({
         setGitSourceControlFiles(r.files)
         setGitSourceControlHasConflicts(r.hasConflicts)
         setGitSourceControlIsRebasing(r.isRebasing)
+        if (r.files.length > 0) setGitSynced(false)
       } else {
         setGitSourceControlError(r.error)
       }
@@ -944,7 +948,7 @@ export function useNotesApp({
       const cwd = rootR.path
       dataRootRef.current = cwd
       setDataRootPath(cwd)
-      setWorkspaceRoot(savedRoot ?? null)
+      setWorkspaceRoot(savedRoot ?? cwd)
 
       const idxR = await ws.readNotelabIndex({ cwd })
       if (!idxR.ok || cancelled) return
@@ -1045,11 +1049,13 @@ export function useNotesApp({
 
   const gitToolbarFolder = useMemo((): WorkspaceFolder | null => {
     if (!primaryGitFolder?.localGitPath) return null
+    const resolved = githubRemoteUrl.trim() || primaryGitFolder.githubRemoteUrl
+    window.api.log.info('[gitToolbarFolder] githubRemoteUrl state:', githubRemoteUrl, '| primaryGitFolder.githubRemoteUrl:', primaryGitFolder.githubRemoteUrl, '| resolved:', resolved)
     return {
       id: 'app-git',
       name: '~/.notelab',
       localGitPath: primaryGitFolder.localGitPath,
-      githubRemoteUrl: githubRemoteUrl.trim() || primaryGitFolder.githubRemoteUrl
+      githubRemoteUrl: resolved
     }
   }, [primaryGitFolder, githubRemoteUrl])
 
@@ -1059,8 +1065,9 @@ export function useNotesApp({
     return Object.values(dirtyByWorkspaceId).some(Boolean)
   }, [useGithubApiSync, githubApiDirty, dirtyByWorkspaceId])
 
-  const handleSaveGithubRemote = useCallback(() => {
-    const u = githubRemoteUrl.trim()
+  const handleSaveGithubRemote = useCallback((overrideUrl?: string) => {
+    const u = overrideUrl !== undefined ? overrideUrl.trim() : githubRemoteUrl.trim()
+    window.api.log.info('[handleSaveGithubRemote] overrideUrl:', overrideUrl, '| resolved u:', u, '| current githubRemoteUrl state:', githubRemoteUrl)
     setGithubRemoteUrl(u)
     setFolders((prev) => prev.map((f) => ({ ...f, githubRemoteUrl: u || undefined })))
     setGitHubMessage(u ? 'Saved remote URL.' : 'Cleared saved remote URL.')
@@ -1933,8 +1940,8 @@ export function useNotesApp({
 
   /** macOS: liquid sidebar overlays full-bleed main so glass blurs --background from the editor column. */
   const sidebarOverlayActive = useMemo(
-    () => macElectron && !sidebarCollapsed && !zenMode,
-    [macElectron, sidebarCollapsed, zenMode]
+    () => isMacNotelab && !sidebarCollapsed && !zenMode,
+    [isMacNotelab, sidebarCollapsed, zenMode]
   )
 
   useEffect(() => {
@@ -2145,7 +2152,7 @@ export function useNotesApp({
     guestMode,
     onSignOut,
     onConnectGitHub,
-    macElectron,
+    isMacNotelab,
     nativeLiquidGlassAttached,
     macTitlebarStyles,
     appMode,
@@ -2182,6 +2189,7 @@ export function useNotesApp({
     setGitCommitMessage,
     gitSyncBusy,
     gitSyncError,
+    gitSynced,
     handleTreeSelectionChange,
     handleNewNote,
     handleNewDrawing,

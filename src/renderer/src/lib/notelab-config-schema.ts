@@ -14,7 +14,7 @@ export type NotelabSetupState = {
   workspaceRoot?: string
 }
 
-/** Persisted at ~/.notelab/notelab.config (Electron). */
+/** Persisted at ~/.notelab/notelab.config (Notelab). */
 export type NotelabConfigFileV1 = {
   version: 1
   setup?: NotelabSetupState

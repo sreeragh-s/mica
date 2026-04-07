@@ -921,7 +921,7 @@ export function registerWorkspaceGitIpc(): void {
       _evt,
       payload: { cwd: string }
     ): Promise<
-      | { ok: true; dirty: boolean; porcelain: string }
+      | { ok: true; dirty: boolean; porcelain: string; remoteUrl: string | null }
       | { ok: false; error: string }
     > => {
       const cwd = payload.cwd?.trim() ?? ''
@@ -931,7 +931,9 @@ export function registerWorkspaceGitIpc(): void {
       const r = runGitResult(['status', '--porcelain'], cwd)
       if (!r.ok) return { ok: false, error: r.error }
       const porcelain = r.stdout.trim()
-      return { ok: true, dirty: porcelain.length > 0, porcelain }
+      const remoteR = runGitResult(['remote', 'get-url', 'origin'], cwd)
+      const remoteUrl = remoteR.ok ? remoteR.stdout.trim() || null : null
+      return { ok: true, dirty: porcelain.length > 0, porcelain, remoteUrl }
     }
   )
 

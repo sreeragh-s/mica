@@ -2,7 +2,7 @@ export type AuthSessionPayload =
   | { session: unknown; user: unknown }
   | null
 
-/** OS window chrome (Electron); optional so browser dev still type-checks. */
+/** OS window chrome (Notelab); optional so browser dev still type-checks. */
 export type NotelabWindowApi = {
   setZenShortcutBinding: (
     binding: { mod: boolean; key?: string; code?: string } | null
@@ -10,7 +10,7 @@ export type NotelabWindowApi = {
   onZenShortcutFromMain: (callback: () => void) => () => void
   setZenPresentation: (enabled: boolean) => Promise<{ ok: boolean }>
   onNativeFullScreenExit: (callback: () => void) => () => void
-  /** Main-process `electron-liquid-glass` attach state (macOS Electron). */
+  /** Main-process `electron-liquid-glass` attach state (macOS Notelab). */
   getLiquidGlassState?: () => Promise<{ attached: boolean; glassSupported: boolean }>
   onLiquidGlassState?: (
     callback: (state: { attached: boolean; glassSupported: boolean }) => void
@@ -122,7 +122,7 @@ export type NotelabApi = {
     gitStatus: (payload: {
       cwd: string
     }) => Promise<
-      | { ok: true; dirty: boolean; porcelain: string }
+      | { ok: true; dirty: boolean; porcelain: string; remoteUrl: string | null }
       | { ok: false; error: string }
     >
     gitCommit: (payload: {

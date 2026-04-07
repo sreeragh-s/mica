@@ -20,7 +20,7 @@ export function AppSidebarRail({ vm }: AppSidebarRailProps): JSX.Element {
   const {
     appSidebarView,
     selectAppSidebarView,
-    macElectron,
+    isMacNotelab,
     macTitlebarStyles,
     gitDirtyGlobal,
     gitSourceControlHasConflicts,
@@ -47,7 +47,7 @@ export function AppSidebarRail({ vm }: AppSidebarRailProps): JSX.Element {
               'relative size-9 shrink-0 rounded-lg',
               active ? 'text-foreground' : 'text-muted-foreground'
             )}
-            style={macElectron ? macTitlebarStyles.noDrag : undefined}
+            style={isMacNotelab ? macTitlebarStyles.noDrag : undefined}
             data-sidebar-interactive=""
             onClick={() => selectAppSidebarView(view)}
           >
@@ -75,7 +75,7 @@ export function AppSidebarRail({ vm }: AppSidebarRailProps): JSX.Element {
       <div
         className={cn(
           'border-sidebar-border bg-sidebar/90 flex w-11 shrink-0 flex-col border-r',
-          macElectron && 'pointer-events-auto'
+          isMacNotelab && 'pointer-events-auto'
         )}
         role="toolbar"
         aria-label="Sidebar views"

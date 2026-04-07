@@ -2,7 +2,7 @@ import type { JSX } from "react"
 // import { Github } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
-import { isMacElectron } from "@/lib/electron-env"
+import { isMacNotelab } from "@/lib/electron-env"
 import { cn } from "@/lib/utils"
 
 type Props = {
@@ -13,7 +13,7 @@ type Props = {
 }
 
 export function LoginScreen({ onGitHub, onGuest, busy, error }: Props): JSX.Element {
-  const mac = isMacElectron()
+  const mac = isMacNotelab()
 
   return (
     <div className="bg-background text-foreground flex h-screen w-full flex-col items-center justify-center gap-6 p-8">

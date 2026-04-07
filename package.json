@@ -1,6 +1,6 @@
 {
   "name": "notelab.io",
-  "version": "1.0.0",
+  "version": "1.0.4",
   "description": "notelab.io — notes app",
   "main": "./out/main/index.js",
   "author": "example.com",
@@ -19,10 +19,13 @@
     "build:unpack": "npm run build && electron-builder --dir",
     "build:win": "npm run build && electron-builder --win",
     "build:mac": "electron-vite build && electron-builder --mac",
+    "build:mac:production": "node scripts/build-mac-production.mjs",
+    "upload:mac": "node scripts/upload-mac-artifacts.mjs",
     "resign:mac": "bash scripts/resign-mac-bundle.sh",
     "build:linux": "electron-vite build && electron-builder --linux"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1025.0",
     "@electron-toolkit/preload": "^3.0.2",
     "@electron-toolkit/utils": "^4.0.0",
     "@excalidraw/excalidraw": "^0.18.0",
@@ -49,6 +52,7 @@
     "cmdk": "^1.1.1",
     "d3": "^7.9.0",
     "electron-liquid-glass": "^1.1.1",
+    "electron-log": "^5.4.3",
     "electron-ollama": "^0.1.25",
     "electron-updater": "^6.3.9",
     "embla-carousel-react": "^8.6.0",

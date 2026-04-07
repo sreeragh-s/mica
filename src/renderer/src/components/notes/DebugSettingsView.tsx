@@ -6,11 +6,11 @@ import { Bug, ClipboardCopy, Database, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { getApi } from '@/lib/auth-bridge'
 import { getEmbeddingsApi } from '@/lib/lancedb-embeddings-bridge'
-import { isMacElectron } from '@/lib/electron-env'
+import { isMacNotelab } from '@/lib/electron-env'
 import type { MacTitlebarStyles } from './notes-app-types'
 
 export type DebugSettingsViewProps = {
-  macElectron: boolean
+  isMacNotelab: boolean
   macTitlebarStyles: MacTitlebarStyles
   localGitPath: string | null
   githubRemoteUrl: string
@@ -30,7 +30,7 @@ function Row({ label, value }: { label: string; value: string }): JSX.Element {
 }
 
 export function DebugSettingsView({
-  macElectron,
+  isMacNotelab,
   macTitlebarStyles,
   localGitPath,
   githubRemoteUrl,
@@ -40,7 +40,7 @@ export function DebugSettingsView({
   onRefreshGitStatus,
 }: DebugSettingsViewProps): JSX.Element {
   const api = getApi()
-  const macDarwinUi = isMacElectron()
+  const macDarwinUi = isMacNotelab()
   const emb = getEmbeddingsApi()
   const [lanceStatusText, setLanceStatusText] = useState<string | null>(null)
   const [lancePingText, setLancePingText] = useState<string | null>(null)
@@ -159,7 +159,7 @@ export function DebugSettingsView({
   return (
     <div
       className="mx-auto flex w-full max-w-3xl flex-col gap-6 p-6"
-      style={macElectron ? macTitlebarStyles.noDrag : undefined}
+      style={isMacNotelab ? macTitlebarStyles.noDrag : undefined}
     >
       <div className="flex items-start gap-3">
         <Bug className="text-muted-foreground mt-0.5 size-5 shrink-0" aria-hidden />
@@ -173,7 +173,7 @@ export function DebugSettingsView({
 
       <dl className="border-border flex flex-col gap-3 rounded-lg border p-4">
         <Row label="Renderer API" value={api ? 'window.api present' : 'window.api missing'} />
-        <Row label="macOS Electron UI" value={macDarwinUi ? 'yes' : 'no'} />
+        <Row label="macOS Notelab UI" value={macDarwinUi ? 'yes' : 'no'} />
         <Row label="User agent" value={typeof navigator !== 'undefined' ? navigator.userAgent : ''} />
         <Row label="Workspaces" value={String(foldersCount)} />
         <Row label="Notes" value={String(notesCount)} />

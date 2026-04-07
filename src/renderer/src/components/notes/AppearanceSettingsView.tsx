@@ -79,12 +79,12 @@ const THEME_PRESET_SELECT_OPTIONS = [
 ] as const
 
 export type AppearanceSettingsViewProps = {
-  macElectron: boolean
+  isMacNotelab: boolean
   macTitlebarStyles: MacTitlebarStyles
 }
 
 export function AppearanceSettingsView({
-  macElectron,
+  isMacNotelab,
   macTitlebarStyles
 }: AppearanceSettingsViewProps): JSX.Element {
   const { theme, setTheme, resolvedTheme } = useTheme()
@@ -189,7 +189,7 @@ export function AppearanceSettingsView({
   return (
     <div
       className="mx-auto flex w-full max-w-3xl flex-col gap-8 p-6"
-      style={macElectron ? macTitlebarStyles.noDrag : undefined}
+      style={isMacNotelab ? macTitlebarStyles.noDrag : undefined}
     >
       <div className="flex flex-col gap-1">
         <h2 className="text-foreground text-lg font-semibold tracking-tight">

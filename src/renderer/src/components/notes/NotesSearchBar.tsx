@@ -50,7 +50,7 @@ export type NotesSearchBarProps = {
   onSelectNote: (noteId: string) => void
   macTitlebarStyles: MacTitlebarStyles
   sidebarOverlayActive: boolean
-  macElectron: boolean
+  isMacNotelab: boolean
   /** Main-process `electron-liquid-glass` attached (macOS). */
   nativeLiquidGlassAttached: boolean
   sidebarCollapsed: boolean
@@ -64,13 +64,13 @@ export function NotesSearchBar({
   onSelectNote,
   macTitlebarStyles,
   sidebarOverlayActive,
-  macElectron,
+  isMacNotelab,
   nativeLiquidGlassAttached,
   sidebarCollapsed,
   toggleSidebar,
   trailing
 }: NotesSearchBarProps): JSX.Element {
-  const nativeGlassUi = macElectron && nativeLiquidGlassAttached
+  const nativeGlassUi = isMacNotelab && nativeLiquidGlassAttached
   const [query, setQuery] = useState('')
   const [open, setOpen] = useState(false)
   const [selected, setSelected] = useState(0)
@@ -138,8 +138,8 @@ export function NotesSearchBar({
       ref={wrapRef}
       className={cn(
         'relative z-10 grid h-12 w-full min-w-0 shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-x-2 px-2 mt-1',
-        macElectron && 'pointer-events-none',
-        !sidebarOverlayActive && macElectron && sidebarCollapsed && 'pl-[92px]'
+        isMacNotelab && 'pointer-events-none',
+        !sidebarOverlayActive && isMacNotelab && sidebarCollapsed && 'pl-[92px]'
       )}
     >
       {/* macOS: window drag is one full-width band in NotesApp; this row is pointer-events-none except controls. */}
@@ -158,7 +158,7 @@ export function NotesSearchBar({
               aria-expanded={false}
               onClick={toggleSidebar}
             >
-              {macElectron ? (
+              {isMacNotelab ? (
                 <MacSidebarLeadingToolbarIcon
                   className="size-[15px]"
                   nativeLiquidGlassActive={nativeGlassUi}
@@ -180,7 +180,7 @@ export function NotesSearchBar({
           <PopoverAnchor asChild>
             <div
               className={cn('pointer-events-auto', liquidGlassSearchShellClass(nativeGlassUi))}
-              style={macElectron ? macTitlebarStyles.noDrag : undefined}
+              style={isMacNotelab ? macTitlebarStyles.noDrag : undefined}
             >
                 <Search
                   className="text-muted-foreground pointer-events-none absolute left-3 top-1/2 z-10 size-4 -translate-y-1/2 opacity-70"
@@ -272,7 +272,7 @@ export function NotesSearchBar({
         {trailing != null ? (
           <div
             className="pointer-events-auto shrink-0"
-            style={macElectron ? macTitlebarStyles.noDrag : undefined}
+            style={isMacNotelab ? macTitlebarStyles.noDrag : undefined}
           >
             {trailing}
           </div>

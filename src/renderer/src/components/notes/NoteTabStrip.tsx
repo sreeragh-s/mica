@@ -80,7 +80,7 @@ export type NoteTabStripProps = {
   reorderOpenNoteTabs: (fn: (prev: string[]) => string[]) => void
   closeNoteTab: (id: string) => void
   selectNote: (id: string) => void
-  macElectron: boolean
+  isMacNotelab: boolean
   macTitlebarStyles: MacTitlebarStyles
 }
 
@@ -91,7 +91,7 @@ export function NoteTabStrip({
   reorderOpenNoteTabs,
   closeNoteTab,
   selectNote,
-  macElectron,
+  isMacNotelab,
   macTitlebarStyles
 }: NoteTabStripProps): JSX.Element {
   const [drag, setDrag] = useState<DragState | null>(null)
@@ -193,9 +193,9 @@ export function NoteTabStrip({
     <div
       className={cn(
         'relative z-10 flex min-h-0 w-full min-w-0 flex-1 items-center px-2',
-        macElectron && 'pointer-events-auto'
+        isMacNotelab && 'pointer-events-auto'
       )}
-      style={macElectron ? macTitlebarStyles.noDrag : undefined}
+      style={isMacNotelab ? macTitlebarStyles.noDrag : undefined}
     >
       <div
         className={cn(

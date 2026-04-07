@@ -9,7 +9,7 @@ import type { MacTitlebarStyles } from './notes-app-types'
 import type { NotesAppViewModel } from './useNotesApp'
 
 export type EmbeddingsSettingsViewProps = {
-  macElectron: boolean
+  isMacNotelab: boolean
   macTitlebarStyles: MacTitlebarStyles
   guestMode?: boolean
   isLoggedIn: boolean
@@ -27,7 +27,7 @@ function StatusIcon({ state }: { state: string }): JSX.Element {
 }
 
 export function EmbeddingsSettingsView({
-  macElectron,
+  isMacNotelab,
   macTitlebarStyles,
   guestMode,
   isLoggedIn,
@@ -51,7 +51,7 @@ export function EmbeddingsSettingsView({
   return (
     <div
       className="mx-auto flex w-full max-w-3xl flex-col gap-6 p-6"
-      style={macElectron ? macTitlebarStyles.noDrag : undefined}
+      style={isMacNotelab ? macTitlebarStyles.noDrag : undefined}
     >
       {/* Header */}
       <div className="flex flex-col gap-1">

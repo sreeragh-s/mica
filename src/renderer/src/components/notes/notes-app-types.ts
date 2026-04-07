@@ -12,7 +12,7 @@ export type NotesUser = {
 }
 
 export type NotesAppProps = {
-  /** Signed-in user (Electron + GitHub); shown on the account settings page. */
+  /** Signed-in user (Notelab + GitHub); shown on the account settings page. */
   user?: NotesUser | null
   /** True when the user chose “Continue as guest” (no GitHub session yet). */
   guestMode?: boolean

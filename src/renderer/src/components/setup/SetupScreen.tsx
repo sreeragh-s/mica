@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState, type JSX } from 'react'
 import { Check, FolderOpen, Loader2, RefreshCw, X } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
-import { isMacElectron } from '@/lib/electron-env'
+import { isMacNotelab } from '@/lib/electron-env'
 import { saveSetupState } from '@/lib/setup-storage'
 import { cn } from '@/lib/utils'
 import type { NotelabApi } from '@/lib/auth-bridge'
@@ -23,7 +23,7 @@ type Props = {
 }
 
 export function SetupScreen({ api, initialRoot, onDone }: Props): JSX.Element {
-  const mac = isMacElectron()
+  const mac = isMacNotelab()
   const ws = api.workspace
 
   const [rootLoading, setRootLoading] = useState(!initialRoot)

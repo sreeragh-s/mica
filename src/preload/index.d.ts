@@ -159,7 +159,7 @@ type NotelabApi = {
     gitStatus: (payload: {
       cwd: string
     }) => Promise<
-      | { ok: true; dirty: boolean; porcelain: string }
+      | { ok: true; dirty: boolean; porcelain: string; remoteUrl: string | null }
       | { ok: false; error: string }
     >
     gitCommit: (payload: {
@@ -291,6 +291,11 @@ type NotelabApi = {
       }
     ) => () => void
   }
+  log: {
+    info: (...args: unknown[]) => void
+    warn: (...args: unknown[]) => void
+    error: (...args: unknown[]) => void
+  }
   embeddings: {
     getStatus: () => Promise<
       | { ok: true; dbPath: string; tableExists: boolean }
@@ -350,7 +355,7 @@ type NotelabApi = {
 
 declare global {
   interface Window {
-    electron: ElectronAPI
+    notelab: ElectronAPI
     api: NotelabApi
   }
 }

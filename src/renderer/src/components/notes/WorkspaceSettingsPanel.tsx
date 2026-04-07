@@ -7,7 +7,7 @@ import { WorkspaceSettingsView } from './WorkspaceSettingsView'
 
 export type WorkspaceSettingsPanelProps = {
   folder: WorkspaceFolder
-  macElectron: boolean
+  isMacNotelab: boolean
   macTitlebarStyles: MacTitlebarStyles
   onRename: (name: string) => void
   canDelete: boolean
@@ -16,7 +16,7 @@ export type WorkspaceSettingsPanelProps = {
 
 export function WorkspaceSettingsPanel({
   folder,
-  macElectron,
+  isMacNotelab,
   macTitlebarStyles,
   onRename,
   canDelete,
@@ -31,7 +31,7 @@ export function WorkspaceSettingsPanel({
   return (
     <WorkspaceSettingsView
       folder={folder}
-      macElectron={macElectron}
+      isMacNotelab={isMacNotelab}
       macTitlebarStyles={macTitlebarStyles}
       {...model}
     />

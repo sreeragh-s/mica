@@ -197,7 +197,7 @@ const api = {
     gitStatus: (
       payload: { cwd: string }
     ): Promise<
-      | { ok: true; dirty: boolean; porcelain: string }
+      | { ok: true; dirty: boolean; porcelain: string; remoteUrl: string | null }
       | { ok: false; error: string }
     > => ipcRenderer.invoke('workspace:git-status', payload),
     gitCommit: (payload: {
@@ -478,6 +478,11 @@ const api = {
    * LanceDB runs only in the main process; the renderer calls these via IPC.
    * Embed text in the renderer (or a future main-process pipeline), then send vectors here.
    */
+  log: {
+    info: (...args: unknown[]): void => ipcRenderer.send('log:info', ...args),
+    warn: (...args: unknown[]): void => ipcRenderer.send('log:warn', ...args),
+    error: (...args: unknown[]): void => ipcRenderer.send('log:error', ...args),
+  },
   embeddings: {
     getStatus: (): Promise<
       | { ok: true; dbPath: string; tableExists: boolean }
@@ -532,14 +537,14 @@ const api = {
 
 if (process.contextIsolated) {
   try {
-    contextBridge.exposeInMainWorld('electron', electronAPI)
+    contextBridge.exposeInMainWorld('notelab', electronAPI)
     contextBridge.exposeInMainWorld('api', api)
   } catch (error) {
     console.error(error)
   }
 } else {
   // @ts-expect-error legacy
-  window.electron = electronAPI
+  window.notelab = electronAPI
   // @ts-expect-error legacy
   window.api = api
 }

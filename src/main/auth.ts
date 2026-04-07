@@ -8,7 +8,7 @@ function baseUrl(): string {
   return u.replace(/\/$/, '')
 }
 
-/** Better Auth validates `Origin` when the request carries cookies; Electron `fetch` omits it by default. */
+/** Better Auth validates `Origin` when the request carries cookies; Notelab `fetch` omits it by default. */
 function jsonHeadersWithOrigin(base: string): HeadersInit {
   const origin = new URL(base).origin
   return {
