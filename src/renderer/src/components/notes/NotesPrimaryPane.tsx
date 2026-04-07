@@ -26,6 +26,8 @@ export type NotesPrimaryPaneProps = {
   onSetNoteTitleEmoji: (id: string, emoji: string | null) => void
   onDragOver?: (e: DragEvent) => void
   onDrop?: (e: DragEvent) => void
+  /** When set, editor bottom bar (stats + tools) is portaled into this element (e.g. below terminal). */
+  bottomChromePortal?: HTMLElement | null
 }
 
 export function NotesPrimaryPane({
@@ -43,7 +45,8 @@ export function NotesPrimaryPane({
   onSetNoteCover,
   onSetNoteTitleEmoji,
   onDragOver,
-  onDrop
+  onDrop,
+  bottomChromePortal
 }: NotesPrimaryPaneProps): JSX.Element {
   if (selectedNote) {
     if (selectedNote.kind === 'drawing') {
@@ -73,20 +76,9 @@ export function NotesPrimaryPane({
           onCoverChange={(src) => onSetNoteCover(selectedNote.id, src)}
           titleEmoji={selectedNote.kind === 'note' ? selectedNote.titleEmoji : undefined}
           onTitleEmojiChange={(emoji) => onSetNoteTitleEmoji(selectedNote.id, emoji)}
+          bottomChromePortal={bottomChromePortal}
         />
       </div>
-    )
-  }
-
-  if (focusedFolder) {
-    return (
-      <WorkspaceNotesList
-        folder={focusedFolder}
-        notes={notesByFolder.get(focusedFolder.id) ?? []}
-        onSelectNote={onSelectNote}
-        onNewNote={onNewNote}
-        canCreateNote={canCreateNote}
-      />
     )
   }
 
@@ -97,10 +89,10 @@ export function NotesPrimaryPane({
       onDrop={onDrop}
     >
       <FileText className="size-14 opacity-30" aria-hidden />
-      <p>Select a workspace or create a note to get started.</p>
+      <p>Create a note to get started.</p>
       <Button type="button" onClick={onNewNote} disabled={!canCreateNote}>
         <Plus className="size-4" aria-hidden />
-        New note
+        Add note
       </Button>
     </div>
   )

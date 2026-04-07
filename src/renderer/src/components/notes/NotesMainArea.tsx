@@ -9,6 +9,7 @@ import { AppearanceSettingsView } from './AppearanceSettingsView'
 import { DebugSettingsView } from './DebugSettingsView'
 import { EmbeddingsSettingsView } from './EmbeddingsSettingsView'
 import { GitHubSettingsView } from './GitHubSettingsView'
+import { NotesConflictView } from './NotesConflictView'
 import { NotesGraphView } from './NotesGraphView'
 import { NotesChatSidebar } from './NotesChatSidebar'
 import { NoteTabStrip } from './NoteTabStrip'
@@ -66,25 +67,8 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
     appMode,
     settingsSection,
     dirtyByWorkspaceId,
-    gitCommitMessage,
-    setGitCommitMessage,
-    gitSyncBusy,
-    gitSyncError,
-    handleGitCommit,
-    handleGitPull,
-    handleGitPullThenPush,
-    handleGitPush,
-    handleGitCommitAndPush,
     githubRemoteUrl,
-    setGithubRemoteUrl,
-    handleSaveGithubRemote,
-    handleApplyGithubRemote,
-    gitHubBusy,
-    gitHubMessage,
     gitToolbarFolder,
-    gitDirtyGlobal,
-    syncTransport,
-    primaryGitFolderId,
     refreshWorkspaceGitStatuses,
     folders,
     notes,
@@ -129,11 +113,15 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
     indexingStatus,
     refreshIndexingStatus,
     runIndexPending,
-    runReindexAll
+    runReindexAll,
+    conflictViewPath,
+    workspaceRoot,
+    handleWorkspaceRootChange,
   } = vm
 
   const [zenHintVisible, setZenHintVisible] = useState(false)
   const [chatSidebarOpen, setChatSidebarOpen] = useState(false)
+  const [editorBottomBarEl, setEditorBottomBarEl] = useState<HTMLDivElement | null>(null)
 
   const toggleChatSidebar = useCallback(() => {
     setChatSidebarOpen((open) => !open)
@@ -166,6 +154,13 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
     [selectNote]
   )
 
+  const showEditorBottomChrome =
+    !zenMode &&
+    appMode === 'notes' &&
+    !workspaceSettingsFolderId &&
+    !conflictViewPath &&
+    selectedNote?.kind === 'note'
+
   const primaryPaneProps = {
     selectedNote,
     focusedFolder,
@@ -181,12 +176,23 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
     onSetNoteCover: setNoteCover,
     onSetNoteTitleEmoji: setNoteTitleEmoji,
     onDragOver: onDragOverMain,
-    onDrop: onDropPrimaryPane
+    onDrop: onDropPrimaryPane,
+    bottomChromePortal: showEditorBottomChrome ? editorBottomBarEl : undefined
   }
 
   // --- Notes area content ---
   const notesContent = (() => {
     if (appMode !== 'notes' || workspaceSettingsFolderId) return null
+
+    // Conflict view takes over the main area when a conflict file is open
+    if (conflictViewPath) {
+      
+      return (
+        <div className="flex min-h-0 flex-1 flex-col">
+          <NotesConflictView vm={vm} />
+        </div>
+      )
+    }
 
     // Zen mode: no note selected
     if (zenMode && (!selectedNote || selectedNote.kind === 'drawing')) {
@@ -296,10 +302,11 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
         scroll/interactive regions only so empty chrome passes through to NotesApp’s drag strip.
       */}
       <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-transparent">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <div
           className={cn(
             'relative flex min-h-0 min-w-0 flex-1 flex-row bg-background',
-            sidebarOverlayActive && 'pl-[min(100%,320px)]'
+            sidebarOverlayActive && 'pl-[min(100%,360px)]'
           )}
         >
           <div className="relative z-0 flex min-h-0 min-w-0 flex-1 flex-col">
@@ -361,7 +368,18 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
           )}
 
           {/* Main content — re-enable hits below the titlebar chrome (search/tabs are pointer-events-none). */}
-          <div className="pointer-events-auto flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto bg-background">
+          <div className="pointer-events-auto flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-background">
+            {/*
+              Mounts first in DOM so the editor can portal the bottom bar (stats + tools) here.
+              flex order: editor (1), terminal (2), bottom bar (3).
+            */}
+            {showEditorBottomChrome ? (
+              <div
+                ref={setEditorBottomBarEl}
+                className="bg-background order-3 min-h-10 shrink-0"
+              />
+            ) : null}
+            <div className="order-1 flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto">
             {workspaceSettingsFolderId && workspaceSettingsFolder ? (
               <WorkspaceSettingsPanel
                 key={workspaceSettingsFolderId}
@@ -381,30 +399,12 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
                 macElectron={macElectron}
                 macTitlebarStyles={macTitlebarStyles}
               />
-            ) : appMode === 'settings' && settingsSection === 'github' ? (
+            ) : appMode === 'settings' && (settingsSection === 'workspace' || settingsSection === 'github') ? (
               <GitHubSettingsView
                 macElectron={macElectron}
                 macTitlebarStyles={macTitlebarStyles}
-                syncTransport={syncTransport}
-                folders={folders}
-                githubRemoteUrl={githubRemoteUrl}
-                setGithubRemoteUrl={setGithubRemoteUrl}
-                onSaveRemote={handleSaveGithubRemote}
-                onApplyRemote={handleApplyGithubRemote}
-                gitHubBusy={gitHubBusy}
-                gitHubMessage={gitHubMessage}
-                gitToolbarFolder={gitToolbarFolder}
-                gitDirtyGlobal={gitDirtyGlobal}
-                gitCommitMessage={gitCommitMessage}
-                setGitCommitMessage={setGitCommitMessage}
-                gitSyncBusy={gitSyncBusy}
-                gitSyncError={gitSyncError}
-                primaryGitFolderId={primaryGitFolderId}
-                onGitCommit={handleGitCommit}
-                onGitPull={handleGitPull}
-                onGitPullThenPush={handleGitPullThenPush}
-                onGitPush={handleGitPush}
-                onGitCommitAndPush={handleGitCommitAndPush}
+                workspaceRoot={workspaceRoot}
+                onWorkspaceRootChange={handleWorkspaceRootChange}
               />
             ) : appMode === 'settings' && settingsSection === 'appearance' ? (
               <AppearanceSettingsView
@@ -445,6 +445,7 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
             ) : appMode === 'notes' ? (
               notesContent
             ) : null}
+            </div>
           </div>
           </div>
           {showNotesChatChrome && (
@@ -479,6 +480,7 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
               />
             </div>
           )}
+        </div>
         </div>
       </main>
 

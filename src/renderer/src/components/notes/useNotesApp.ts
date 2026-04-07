@@ -20,7 +20,9 @@ import {
 import { mergeGithubContentShas, loadGithubContentShas } from '@/lib/github-shas-storage'
 import { isMacElectron } from '@/lib/electron-env'
 import { loadSetupState } from '@/lib/setup-storage'
+import { switchDataRoot } from '@/lib/notelab-app-config'
 import { diskBodyToContent } from '@/lib/markdown-to-serialized'
+import type { AppSidebarView } from '@/lib/notes-types'
 import {
   DEFAULT_WORKSPACE_ID,
   loadNotesState,
@@ -41,15 +43,13 @@ import {
   buildMarkdownSyncPayload,
   buildNoteMarkdownDocument,
   newWorkspaceFolderId,
-  noteMarkdownRelativePath,
-  workspaceReadmeMarkdown
+  noteMarkdownRelativePath
 } from '@/lib/workspace-markdown-sync'
 import type { AppMode, NotesAppProps, SettingsSection } from './notes-app-types'
 import {
   createEmptyDrawing,
   createEmptyNote,
   macTitlebarStyles,
-  mergeFolderOrder,
   reorderFolderIdsBeforeTarget,
   reorderFolderIdsToEnd,
   serializedEditorStatesEqual,
@@ -87,11 +87,6 @@ export function useNotesApp({
   const indexingAbortRef = useRef(false)
 
   const initial = useMemo(() => loadNotesState(), [])
-  const persistedSidebarFolderOrderRef = useRef<string[]>(
-    initial.version === 3 && Array.isArray(initial.sidebarFolderOrder)
-      ? initial.sidebarFolderOrder
-      : []
-  )
   const initialFolders = initial.version === 3 ? [] : initial.folders
   const initialNotes = initial.version === 3 ? [] : initial.notes
   const [folders, setFolders] = useState<WorkspaceFolder[]>(initialFolders)
@@ -142,7 +137,6 @@ export function useNotesApp({
 
   const [graphViewOpen, setGraphViewOpen] = useState(false)
   const [tabOverviewOpen, setTabOverviewOpen] = useState(false)
-
   const [nativeLiquidGlassAttached, setNativeLiquidGlassAttached] = useState(false)
 
   const selectedNote = useMemo(
@@ -180,11 +174,9 @@ export function useNotesApp({
   }, [folders, notes])
 
   const treeSelectedIds = useMemo(() => {
-    if (selectedId) return [treeNoteId(selectedId)]
-    if (workspaceSettingsFolderId) {
-      return [treeFolderId(workspaceSettingsFolderId)]
-    }
+    if (workspaceSettingsFolderId) return [treeFolderId(workspaceSettingsFolderId)]
     if (focusedFolderId) return [treeFolderId(focusedFolderId)]
+    if (selectedId) return [treeNoteId(selectedId)]
     return []
   }, [selectedId, focusedFolderId, workspaceSettingsFolderId])
 
@@ -258,11 +250,27 @@ export function useNotesApp({
   const [gitHubBusy, setGitHubBusy] = useState(false)
   const [gitHubMessage, setGitHubMessage] = useState<string | null>(null)
 
+  // App sidebar: explorer (notes tree), source control, or settings nav
+  const [appSidebarView, setAppSidebarView] = useState<AppSidebarView>('explorer')
+  const [gitSourceControlFiles, setGitSourceControlFiles] = useState<
+    { path: string; x: string; y: string; staged: boolean; conflicted: boolean }[]
+  >([])
+  const [gitSourceControlLoading, setGitSourceControlLoading] = useState(false)
+  const [gitSourceControlHasConflicts, setGitSourceControlHasConflicts] = useState(false)
+  const [gitSourceControlIsRebasing, setGitSourceControlIsRebasing] = useState(false)
+  const [gitSourceControlError, setGitSourceControlError] = useState<string | null>(null)
+  // Conflict view state
+  const [conflictViewPath, setConflictViewPath] = useState<string | null>(null)
+
   const [setupSyncMode] = useState<'git' | 'github_api' | 'local' | undefined>(
     () => loadSetupState().syncMode
   )
   const useGithubApiSync = setupSyncMode === 'github_api'
   const [githubApiDirty, setGithubApiDirty] = useState(false)
+  /** Absolute path of workspace root as saved in setup state (may be null for default ~/.notelab). */
+  const [workspaceRoot, setWorkspaceRoot] = useState<string | null>(
+    () => loadSetupState().workspaceRoot ?? null
+  )
 
   const refreshWorkspaceGitStatuses = useCallback(async () => {
     const api = getApi()
@@ -345,7 +353,6 @@ export function useNotesApp({
     })
     if (idx.workspaces.length === 0 && idx.notes.length === 0) {
       setFolders([])
-      persistedSidebarFolderOrderRef.current = []
       setNotes([])
       setSelectedId(null)
       setOpenNoteTabIds([])
@@ -362,9 +369,7 @@ export function useNotesApp({
     )
     const mergedNotes = [...localPending, ...mappedNotes]
 
-    const orderedFolders = mergeFolderOrder(mappedFolders, persistedSidebarFolderOrderRef.current)
-    persistedSidebarFolderOrderRef.current = orderedFolders.map((f) => f.id)
-    setFolders(orderedFolders)
+    setFolders(mappedFolders)
     setNotes(mergedNotes)
     setSelectedId((sel) => {
       if (sel && mergedNotes.some((x) => x.id === sel)) return sel
@@ -787,17 +792,148 @@ export function useNotesApp({
     ]
   )
 
+  const refreshGitSourceControl = useCallback(async () => {
+    const api = getApi()
+    const cwd = primaryGitFolder?.localGitPath
+    if (!cwd || !api?.workspace?.gitFileStatuses) return
+    setGitSourceControlLoading(true)
+    setGitSourceControlError(null)
+    try {
+      const r = await api.workspace.gitFileStatuses({ cwd })
+      if (r.ok) {
+        setGitSourceControlFiles(r.files)
+        setGitSourceControlHasConflicts(r.hasConflicts)
+        setGitSourceControlIsRebasing(r.isRebasing)
+      } else {
+        setGitSourceControlError(r.error)
+      }
+    } finally {
+      setGitSourceControlLoading(false)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [primaryGitFolder?.localGitPath])
+
+  const handleGitStageFile = useCallback(async (filePath: string) => {
+    const api = getApi()
+    const cwd = primaryGitFolder?.localGitPath
+    if (!cwd || !api?.workspace?.gitStageFile) return
+    setGitSyncError(null)
+    const r = await api.workspace.gitStageFile({ cwd, path: filePath })
+    if (!r.ok) setGitSyncError(r.error)
+    await refreshWorkspaceGitStatuses()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [primaryGitFolder?.localGitPath, refreshWorkspaceGitStatuses])
+
+  const handleGitUnstageFile = useCallback(async (filePath: string) => {
+    const api = getApi()
+    const cwd = primaryGitFolder?.localGitPath
+    if (!cwd || !api?.workspace?.gitUnstageFile) return
+    setGitSyncError(null)
+    const r = await api.workspace.gitUnstageFile({ cwd, path: filePath })
+    if (!r.ok) setGitSyncError(r.error)
+    await refreshWorkspaceGitStatuses()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [primaryGitFolder?.localGitPath, refreshWorkspaceGitStatuses])
+
+  const handleGitDiscardFile = useCallback(async (filePath: string) => {
+    const api = getApi()
+    const cwd = primaryGitFolder?.localGitPath
+    if (!cwd || !api?.workspace?.gitDiscardFile) return
+    setGitSyncError(null)
+    const r = await api.workspace.gitDiscardFile({ cwd, path: filePath })
+    if (!r.ok) setGitSyncError(r.error)
+    await refreshWorkspaceGitStatuses()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [primaryGitFolder?.localGitPath, refreshWorkspaceGitStatuses])
+
+  const handleGitAcceptResolution = useCallback(async (
+    filePath: string,
+    resolution: 'ours' | 'theirs' | 'content',
+    content?: string
+  ) => {
+    const api = getApi()
+    const cwd = primaryGitFolder?.localGitPath
+    if (!cwd || !api?.workspace?.gitAcceptResolution) return
+    setGitSyncError(null)
+    const r = await api.workspace.gitAcceptResolution({ cwd, path: filePath, resolution, content })
+    if (!r.ok) setGitSyncError(r.error)
+    await refreshGitSourceControl()
+    await refreshWorkspaceGitStatuses()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [primaryGitFolder?.localGitPath, refreshGitSourceControl, refreshWorkspaceGitStatuses])
+
+  const handleGitAbortRebase = useCallback(async () => {
+    const api = getApi()
+    const cwd = primaryGitFolder?.localGitPath
+    if (!cwd || !api?.workspace?.gitAbortRebase) return
+    setGitSyncBusy(true)
+    setGitSyncError(null)
+    try {
+      const r = await api.workspace.gitAbortRebase({ cwd })
+      if (!r.ok) setGitSyncError(r.error)
+      await refreshGitSourceControl()
+      await refreshWorkspaceGitStatuses()
+    } finally {
+      setGitSyncBusy(false)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [primaryGitFolder?.localGitPath, refreshGitSourceControl, refreshWorkspaceGitStatuses])
+
+  const handleGitContinueRebase = useCallback(async () => {
+    const api = getApi()
+    const cwd = primaryGitFolder?.localGitPath
+    if (!cwd || !api?.workspace?.gitContinueRebase) return
+    setGitSyncBusy(true)
+    setGitSyncError(null)
+    try {
+      const r = await api.workspace.gitContinueRebase({
+        cwd,
+        authorName: user?.name?.trim() || 'notelab.io',
+        authorEmail: user?.email?.trim() || 'notes@notelab.io',
+      })
+      if (!r.ok) setGitSyncError(r.error)
+      await refreshGitSourceControl()
+      await refreshWorkspaceGitStatuses()
+    } finally {
+      setGitSyncBusy(false)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [primaryGitFolder?.localGitPath, user, refreshGitSourceControl, refreshWorkspaceGitStatuses])
+
+  const openConflictView = useCallback((filePath: string) => {
+    setConflictViewPath(filePath)
+  }, [])
+
+  const closeConflictView = useCallback(() => {
+    setConflictViewPath(null)
+  }, [])
+
+  const toggleGitSourceControl = useCallback(() => {
+    setAppSidebarView((v) => {
+      const next: AppSidebarView = v === 'source-control' ? 'explorer' : 'source-control'
+      if (next === 'source-control') {
+        setWorkspaceSettingsFolderId(null)
+        setGraphViewOpen(false)
+        setTabOverviewOpen(false)
+      }
+      return next
+    })
+    setAppMode('notes')
+  }, [])
+
   useEffect(() => {
     const api = getApi()
     const ws = api?.workspace
     if (!ws?.ensureDataRoot || !ws.readNotelabIndex) return
     let cancelled = false
+    const savedRoot = loadSetupState().workspaceRoot
     void (async () => {
-      const rootR = await ws.ensureDataRoot!()
+      const rootR = await ws.ensureDataRoot!(savedRoot ? { path: savedRoot } : undefined)
       if (!rootR.ok || cancelled) return
       const cwd = rootR.path
       dataRootRef.current = cwd
       setDataRootPath(cwd)
+      setWorkspaceRoot(savedRoot ?? null)
 
       const idxR = await ws.readNotelabIndex({ cwd })
       if (!idxR.ok || cancelled) return
@@ -883,7 +1019,6 @@ export function useNotesApp({
         saveNotesState({
           version: 3,
           ...(remote ? { githubRemoteUrl: remote } : {}),
-          sidebarFolderOrder: folders.map((f) => f.id)
         })
         return
       }
@@ -906,6 +1041,7 @@ export function useNotesApp({
       githubRemoteUrl: githubRemoteUrl.trim() || primaryGitFolder.githubRemoteUrl
     }
   }, [primaryGitFolder, githubRemoteUrl])
+
 
   const gitDirtyGlobal = useMemo(() => {
     if (useGithubApiSync) return githubApiDirty
@@ -1052,6 +1188,7 @@ export function useNotesApp({
       if (!note) return
       setWorkspaceSettingsFolderId(null)
       setAppMode('notes')
+      setAppSidebarView('explorer')
       setSelectedId(noteId)
       setFocusedFolderId(null)
       setNewNoteDestinationFolderId(DEFAULT_WORKSPACE_ID)
@@ -1099,28 +1236,10 @@ export function useNotesApp({
     (name: string): string => {
       const id = newWorkspaceFolderId(name)
       const root = dataRootRef.current
-      setFolders((prev) => {
-        const next = [...prev, { id, name, ...(root ? { localGitPath: root } : {}) }]
-        persistedSidebarFolderOrderRef.current = next.map((f) => f.id)
-        return next
-      })
+      setFolders((prev) => [...prev, { id, name, ...(root ? { localGitPath: root } : {}) }])
       if (diskMode && root) {
-        const api = getApi()
-        if (api?.workspace?.writeNoteFile) {
-          void (async () => {
-            const rel = `data/${id}/README.md`
-            const wr = await api.workspace!.writeNoteFile!({
-              cwd: root,
-              relativePath: rel,
-              content: workspaceReadmeMarkdown(name)
-            })
-            if (!wr.ok) {
-              console.error('[notelab] workspace readme failed', wr.error)
-            }
-            if (useGithubApiSync) setGithubApiDirty(true)
-            await refreshWorkspaceGitStatuses()
-          })()
-        }
+        if (useGithubApiSync) setGithubApiDirty(true)
+        void refreshWorkspaceGitStatuses()
       }
       return id
     },
@@ -1142,14 +1261,10 @@ export function useNotesApp({
         return
       }
       if (id.startsWith('folder:')) {
-        const fid = id.slice(7)
-        setSelectedId(null)
+        const fid = id.slice('folder:'.length)
         setFocusedFolderId(fid)
         setNewNoteDestinationFolderId(fid)
-        return
       }
-      setSelectedId(null)
-      setNewNoteDestinationFolderId(DEFAULT_WORKSPACE_ID)
     },
     [selectNote]
   )
@@ -1160,6 +1275,8 @@ export function useNotesApp({
     if (!valid) {
       fid = DEFAULT_WORKSPACE_ID
     }
+    setAppMode('notes')
+    setAppSidebarView('explorer')
     setGraphViewOpen(false)
     setTabOverviewOpen(false)
     const note = createEmptyNote(fid)
@@ -1197,6 +1314,8 @@ export function useNotesApp({
     if (!valid) {
       fid = DEFAULT_WORKSPACE_ID
     }
+    setAppMode('notes')
+    setAppSidebarView('explorer')
     setGraphViewOpen(false)
     setTabOverviewOpen(false)
     const note = createEmptyDrawing(fid)
@@ -1316,7 +1435,6 @@ export function useNotesApp({
       const nextIds = reorderFolderIdsBeforeTarget(ids, draggedFolderId, targetFolderId)
       if (!nextIds) return prev
       const byId = new Map(prev.map((f) => [f.id, f]))
-      persistedSidebarFolderOrderRef.current = nextIds
       return nextIds.map((id) => byId.get(id)!).filter(Boolean) as WorkspaceFolder[]
     })
     setTreeExpandNonce((n) => n + 1)
@@ -1328,7 +1446,6 @@ export function useNotesApp({
       const nextIds = reorderFolderIdsToEnd(ids, draggedFolderId)
       if (!nextIds) return prev
       const byId = new Map(prev.map((f) => [f.id, f]))
-      persistedSidebarFolderOrderRef.current = nextIds
       return nextIds.map((id) => byId.get(id)!).filter(Boolean) as WorkspaceFolder[]
     })
     setTreeExpandNonce((n) => n + 1)
@@ -1419,12 +1536,31 @@ export function useNotesApp({
     setGraphViewOpen(false)
     setTabOverviewOpen(false)
     setAppMode('settings')
+    setAppSidebarView('settings')
     setSettingsSection('account')
   }, [])
+
+  const selectAppSidebarView = useCallback(
+    (view: AppSidebarView) => {
+      if (view === 'settings') {
+        openSettings()
+        return
+      }
+      setAppSidebarView(view)
+      setAppMode('notes')
+      if (view === 'source-control') {
+        setWorkspaceSettingsFolderId(null)
+        setGraphViewOpen(false)
+        setTabOverviewOpen(false)
+      }
+    },
+    [openSettings]
+  )
 
   const openWorkspaceSettings = useCallback((folderId: string, e: MouseEvent) => {
     e.stopPropagation()
     setAppMode('notes')
+    setAppSidebarView('explorer')
     setTabOverviewOpen(false)
     setWorkspaceSettingsFolderId(folderId)
     setSelectedId(null)
@@ -1436,6 +1572,7 @@ export function useNotesApp({
 
   const navigateToNotesRoot = useCallback(() => {
     setAppMode('notes')
+    setAppSidebarView('explorer')
     setWorkspaceSettingsFolderId(null)
     setSelectedId(null)
     setFocusedFolderId(null)
@@ -1445,6 +1582,7 @@ export function useNotesApp({
   const focusFolderInTree = useCallback((folderId: string) => {
     setWorkspaceSettingsFolderId(null)
     setAppMode('notes')
+    setAppSidebarView('explorer')
     setSelectedId(null)
     setFocusedFolderId(folderId)
     setNewNoteDestinationFolderId(folderId)
@@ -1454,6 +1592,7 @@ export function useNotesApp({
 
   const openWorkspaceSettingsForFolder = useCallback((folderId: string) => {
     setAppMode('notes')
+    setAppSidebarView('explorer')
     setWorkspaceSettingsFolderId(folderId)
     setSelectedId(null)
     setFocusedFolderId(folderId)
@@ -1472,22 +1611,8 @@ export function useNotesApp({
       setFolders((prev) => prev.map((f) => (f.id === folderId ? { ...f, name } : f)))
       const root = dataRootRef.current
       if (diskMode && root) {
-        const api = getApi()
-        if (api?.workspace?.writeNoteFile) {
-          void (async () => {
-            const rel = `data/${folderId}/README.md`
-            const wr = await api.workspace!.writeNoteFile!({
-              cwd: root,
-              relativePath: rel,
-              content: workspaceReadmeMarkdown(name)
-            })
-            if (!wr.ok) {
-              console.error('[notelab] rename workspace readme failed', wr.error)
-            }
-            if (useGithubApiSync) setGithubApiDirty(true)
-            await refreshWorkspaceGitStatuses()
-          })()
-        }
+        if (useGithubApiSync) setGithubApiDirty(true)
+        void refreshWorkspaceGitStatuses()
       }
     },
     [diskMode, refreshWorkspaceGitStatuses, useGithubApiSync]
@@ -1516,9 +1641,6 @@ export function useNotesApp({
       }
       void api?.embeddings?.deleteWorkspaceEmbeddings({ workspaceId: folderId })
 
-      persistedSidebarFolderOrderRef.current = persistedSidebarFolderOrderRef.current.filter(
-        (id) => id !== folderId
-      )
       setWorkspaceSettingsFolderId((prev) => (prev === folderId ? null : prev))
       setFocusedFolderId((fid) => (fid === folderId ? null : fid))
       setOpenNoteTabIds(nextTabs)
@@ -1683,8 +1805,36 @@ export function useNotesApp({
     }))
   }, [])
 
+  /**
+   * Called when the user picks a new workspace root in Settings.
+   * Reinitialises the disk index from the new path mid-session.
+   */
+  const handleWorkspaceRootChange = useCallback(async (newRoot: string): Promise<void> => {
+    const api = getApi()
+    const ws = api?.workspace
+    if (!ws?.ensureDataRoot || !ws.readNotelabIndex) return
+    const rootR = await ws.ensureDataRoot({ path: newRoot })
+    if (!rootR.ok) return
+    const cwd = rootR.path
+    dataRootRef.current = cwd
+    setDataRootPath(cwd)
+    setWorkspaceRoot(newRoot)
+    // Config always stays in configRoot (~/.notelab), never the user-chosen notes dir
+    await switchDataRoot(rootR.configRoot)
+    setDiskMode(false)
+    setFolders([])
+    setNotes([])
+    setSelectedId(null)
+    setOpenNoteTabIds([])
+    const idxR = await ws.readNotelabIndex({ cwd })
+    if (!idxR.ok) return
+    setDiskMode(true)
+    applyNotelabIndex(idxR, cwd)
+  }, [applyNotelabIndex])
+
   const backToNotes = useCallback(() => {
     setAppMode('notes')
+    setAppSidebarView('explorer')
   }, [])
 
   const toggleSidebar = useCallback(() => {
@@ -1729,6 +1879,7 @@ export function useNotesApp({
   const openGraphView = useCallback(() => {
     setWorkspaceSettingsFolderId(null)
     setAppMode('notes')
+    setAppSidebarView('explorer')
     setTabOverviewOpen(false)
     setGraphViewOpen(true)
   }, [])
@@ -1847,6 +1998,7 @@ export function useNotesApp({
         e.stopPropagation()
         if (appMode === 'settings') {
           setAppMode('notes')
+          setAppSidebarView('explorer')
         }
         handleNewNote()
         return
@@ -1969,6 +2121,27 @@ export function useNotesApp({
     gitDirtyGlobal,
     primaryGitFolderId: primaryGitFolder?.id ?? null,
     refreshWorkspaceGitStatuses,
+    // Source control panel
+    appSidebarView,
+    setAppSidebarView,
+    selectAppSidebarView,
+    toggleGitSourceControl,
+    gitSourceControlFiles,
+    gitSourceControlLoading,
+    gitSourceControlHasConflicts,
+    gitSourceControlIsRebasing,
+    gitSourceControlError,
+    refreshGitSourceControl,
+    handleGitStageFile,
+    handleGitUnstageFile,
+    handleGitDiscardFile,
+    handleGitAcceptResolution,
+    handleGitAbortRebase,
+    handleGitContinueRebase,
+    // Conflict view
+    conflictViewPath,
+    openConflictView,
+    closeConflictView,
     notes,
     graphViewOpen,
     openGraphView,
@@ -1981,7 +2154,9 @@ export function useNotesApp({
     indexingStatus,
     refreshIndexingStatus,
     runIndexPending,
-    runReindexAll
+    runReindexAll,
+    workspaceRoot,
+    handleWorkspaceRootChange,
   }
 }
 

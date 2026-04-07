@@ -1,4 +1,5 @@
 import { useRef, useState } from "react"
+import { createPortal } from "react-dom"
 import { EmojiPicker } from "frimousse"
 import { ImageIcon, Smile, X } from "lucide-react"
 import {
@@ -148,6 +149,7 @@ export function Plugins({
   onCoverChange,
   titleEmoji,
   onTitleEmojiChange,
+  bottomChromePortal,
 }: {
   title?: string
   onTitleChange?: (title: string) => void
@@ -155,6 +157,8 @@ export function Plugins({
   onCoverChange?: (src: string | null) => void
   titleEmoji?: string | null
   onTitleEmojiChange?: (emoji: string | null) => void
+  /** When provided, the full bottom bar (stats + tools) portals here (e.g. below terminal). */
+  bottomChromePortal?: HTMLElement | null
 }) {
   const [floatingAnchorElem, setFloatingAnchorElem] =
     useState<HTMLDivElement | null>(null)
@@ -191,6 +195,24 @@ export function Plugins({
   const showCoverAdd = Boolean(onCoverChange && !coverImageSrc)
   const showEmojiAdd = Boolean(onTitleEmojiChange && !titleEmoji)
   const showTopMediaBar = showCoverAdd || showEmojiAdd
+
+  const editorBottomBar = (
+    <div className="bg-background clear-both flex shrink-0 items-center justify-between gap-2 overflow-x-auto border-t p-1">
+      <div className="flex min-w-0 flex-1 justify-start">
+        <CounterCharacterPlugin charset="UTF-16" />
+      </div>
+      <div className="flex shrink-0 flex-nowrap items-center justify-end gap-0.5">
+        {enableSpeechToText ? <SpeechToTextPlugin /> : null}
+        {enableShareContent ? <ShareContentPlugin /> : null}
+        <ImportExportPlugin />
+        <EditModeTogglePlugin />
+        <>
+          <ClearEditorActionPlugin />
+          <ClearEditorPlugin />
+        </>
+      </div>
+    </div>
+  )
 
   return (
     <div className="relative flex h-full min-h-0 flex-col">
@@ -448,23 +470,11 @@ export function Plugins({
 
         <ListMaxIndentLevelPlugin />
       </div>
-      <ActionsPlugin>
-        <div className="bg-background clear-both flex shrink-0 items-center justify-between gap-2 overflow-auto border-t p-1">
-          <div className="flex flex-1 justify-start">
-            <CounterCharacterPlugin charset="UTF-16" />
-          </div>
-          <div className="flex flex-1 justify-end">
-            {enableSpeechToText ? <SpeechToTextPlugin /> : null}
-            {enableShareContent ? <ShareContentPlugin /> : null}
-            <ImportExportPlugin />
-            <EditModeTogglePlugin />
-            <>
-              <ClearEditorActionPlugin />
-              <ClearEditorPlugin />
-            </>
-          </div>
-        </div>
-      </ActionsPlugin>
+      {bottomChromePortal === undefined ? (
+        <ActionsPlugin>{editorBottomBar}</ActionsPlugin>
+      ) : bottomChromePortal ? (
+        createPortal(editorBottomBar, bottomChromePortal)
+      ) : null}
     </div>
   )
 }

@@ -1,6 +1,7 @@
-import { ipcMain, shell } from 'electron'
+import { dialog, ipcMain, shell } from 'electron'
 import { execFileSync } from 'node:child_process'
 import {
+  copyFileSync,
   existsSync,
   mkdirSync,
   readFileSync,
@@ -17,9 +18,9 @@ const LOG = '[notelab-workspace]'
 /** Git + markdown live under ~/.notelab (legacy name was ~/.notelab.io). */
 const NOTELAB_HOME_DIR = '.notelab'
 const LEGACY_NOTELAB_HOME_DIR = '.notelab.io'
-/** Markdown and workspace folders live under `data/<workspaceId>/` relative to ~/.notelab. */
-const DATA_DIR = 'data'
-/** Virtual inbox id; not a directory under `data/`. */
+/** Markdown and workspace folders live under `notelab/<workspaceId>/` relative to the root. */
+const DATA_DIR = 'notelab'
+/** Virtual inbox id; root notes live directly in `notelab/`, not in a subfolder. */
 const DEFAULT_WORKSPACE_ID = 'default'
 const MODE_FILE = '.notelab-mode'
 /** App settings JSON: <dataRoot>/notelab.config (data root is ~/.notelab). */
@@ -36,11 +37,16 @@ function migrateNotelabHomeDirIfNeeded(): void {
   console.info(LOG, 'migrated data root', prev, '→', next)
 }
 
+/**
+ * Validates that the given path is an absolute path that exists on disk.
+ * Previously restricted to ~/.notelab; now allows any user-chosen workspace root.
+ */
 function assertNotelabDataRoot(cwd: string): boolean {
   const root = cwd?.trim() ?? ''
   if (!root) return false
-  const expected = resolve(join(homedir(), NOTELAB_HOME_DIR))
-  return resolve(root) === expected
+  const abs = resolve(root)
+  if (!abs.startsWith('/') && !abs.match(/^[A-Za-z]:\\/)) return false
+  return existsSync(abs)
 }
 
 function appConfigFilePath(cwd: string): string {
@@ -82,6 +88,7 @@ function migrateLegacyDataLayout(root: string): void {
 function allowWorkspaceFs(cwd: string): boolean {
   const root = cwd?.trim() ?? ''
   if (!root) return false
+  if (!existsSync(root)) return false
   if (existsSync(join(root, '.git'))) return true
   if (existsSync(join(root, MODE_FILE))) return true
   return false
@@ -221,15 +228,18 @@ function syncMarkdownFilesToDisk(
 
   if (!pruneOrphanNoteFiles) return
 
-  const wsDir = join(cwd, DATA_DIR, workspaceId)
-  if (!existsSync(wsDir)) return
-  const prefix = `data/${workspaceId}/`.replace(/\\/g, '/')
-  for (const ent of readdirSync(wsDir, { withFileTypes: true })) {
-    if (!ent.isFile() || ent.name === 'README.md') continue
-    if (!ent.name.endsWith('.md')) continue
+  const isRoot = workspaceId === DEFAULT_WORKSPACE_ID
+  // cwd is the notes root; workspace notes live in <cwd>/<workspaceId>/
+  const scanDir = isRoot ? cwd : join(cwd, workspaceId)
+  if (!existsSync(scanDir)) return
+  const prefix = isRoot ? '' : `${workspaceId}/`
+  for (const ent of readdirSync(scanDir, { withFileTypes: true })) {
+    // For root: only prune .md files (not subdirectories which are workspaces)
+    if (isRoot && !ent.isFile()) continue
+    if (!ent.isFile() || !ent.name.endsWith('.md')) continue
     const rel = `${prefix}${ent.name}`
     if (!writtenRel.has(rel)) {
-      unlinkSync(join(wsDir, ent.name))
+      unlinkSync(join(scanDir, ent.name))
       console.info(LOG, 'removed stale note file', ent.name)
     }
   }
@@ -320,16 +330,18 @@ function deleteNoteFilesForId(
   noteId: string,
   exceptRelativePath?: string
 ): void {
-  const wsDir = join(cwd, DATA_DIR, workspaceId)
+  const isRoot = workspaceId === DEFAULT_WORKSPACE_ID
+  // cwd is the notes root; root notes live directly in cwd, workspace notes in cwd/<workspaceId>/
+  const wsDir = isRoot ? cwd : join(cwd, workspaceId)
   if (!existsSync(wsDir)) return
   const exceptNorm = exceptRelativePath
     ? normalizeRelativePathForCompare(exceptRelativePath)
     : null
   const suffix = `--${noteId}.md`
   const legacy = `${noteId}.md`
-  const relBase = `data/${workspaceId}/`
+  const relBase = isRoot ? '' : `${workspaceId}/`
   for (const ent of readdirSync(wsDir, { withFileTypes: true })) {
-    if (!ent.isFile() || ent.name === 'README.md') continue
+    if (!ent.isFile()) continue
     if (ent.name.endsWith(suffix) || ent.name === legacy) {
       const rel = `${relBase}${ent.name}`
       if (exceptNorm && normalizeRelativePathForCompare(rel) === exceptNorm) {
@@ -365,40 +377,43 @@ function readNotelabIndexImpl(cwd: string): {
     coverImageSrc?: string
     titleEmoji?: string
   }[] = []
-  const root = join(cwd, DATA_DIR)
-  if (!existsSync(root)) return { workspaces, notes }
-  for (const ent of readdirSync(root, { withFileTypes: true })) {
-    if (!ent.isDirectory()) continue
-    const id = ent.name
-    const wsPath = join(root, id)
-    let name = id.slice(0, 8)
-    const readme = join(wsPath, 'README.md')
-    if (existsSync(readme)) {
-      const first = readFileSync(readme, 'utf8').split(/\r?\n/)[0] ?? ''
-      if (first.startsWith('# ')) name = first.slice(2).trim() || name
-    }
-    workspaces.push({ id, name })
-    for (const f of readdirSync(wsPath, { withFileTypes: true })) {
-      if (!f.isFile() || !f.name.endsWith('.md') || f.name === 'README.md')
-        continue
-      const full = join(wsPath, f.name)
-      const content = readFileSync(full, 'utf8')
-      const parsed = parseNotelabNoteFile(content)
-      if (!parsed) continue
-      notes.push({
-        workspaceId: id,
-        noteId: parsed.id,
-        title: parsed.title,
-        updatedAtMs: parsed.updatedAtMs,
-        markdownBody: parsed.body,
-        kind: parsed.kind,
-        ...(parsed.coverImageSrc !== undefined
-          ? { coverImageSrc: parsed.coverImageSrc }
-          : {}),
-        ...(parsed.titleEmoji !== undefined && parsed.titleEmoji !== ''
-          ? { titleEmoji: parsed.titleEmoji }
-          : {}),
-      })
+  // cwd is the notes root directly — .md files at root level are inbox notes, subdirs are workspaces
+  if (!existsSync(cwd)) return { workspaces, notes }
+
+  function pushNote(workspaceId: string, filePath: string): void {
+    const content = readFileSync(filePath, 'utf8')
+    const parsed = parseNotelabNoteFile(content)
+    if (!parsed) return
+    notes.push({
+      workspaceId,
+      noteId: parsed.id,
+      title: parsed.title,
+      updatedAtMs: parsed.updatedAtMs,
+      markdownBody: parsed.body,
+      kind: parsed.kind,
+      ...(parsed.coverImageSrc !== undefined ? { coverImageSrc: parsed.coverImageSrc } : {}),
+      ...(parsed.titleEmoji !== undefined && parsed.titleEmoji !== ''
+        ? { titleEmoji: parsed.titleEmoji }
+        : {}),
+    })
+  }
+
+  for (const ent of readdirSync(cwd, { withFileTypes: true })) {
+    if (ent.isFile() && ent.name.endsWith('.md')) {
+      // Root-level .md files belong to the default (inbox) workspace
+      pushNote(DEFAULT_WORKSPACE_ID, join(cwd, ent.name))
+    } else if (ent.isDirectory()) {
+      const id = ent.name
+      // Skip hidden dirs and git internals
+      if (id.startsWith('.')) continue
+      const wsPath = join(cwd, id)
+      // Derive workspace name from the directory name slug (before the -- suffix)
+      const name = id.includes('--') ? id.slice(0, id.lastIndexOf('--')).replace(/-/g, ' ') : id
+      workspaces.push({ id, name: name || id })
+      for (const f of readdirSync(wsPath, { withFileTypes: true })) {
+        if (!f.isFile() || !f.name.endsWith('.md')) continue
+        pushNote(id, join(wsPath, f.name))
+      }
     }
   }
   return { workspaces, notes }
@@ -417,57 +432,65 @@ export function registerWorkspaceGitIpc(): void {
 
   ipcMain.handle(
     'workspace:ensure-data-root',
-    async (): Promise<
+    async (
+      _evt,
+      payload?: { path?: string }
+    ): Promise<
       | {
           ok: true
+          /** The notes root — where note files and git repo live. */
           path: string
+          /** Always ~/.notelab — where notelab.config is stored. */
+          configRoot: string
           gitAvailable: boolean
           filesystemOnly: boolean
+          gitInitialized: boolean
         }
       | { ok: false; error: string }
     > => {
       try {
         migrateNotelabHomeDirIfNeeded()
-        const root = join(homedir(), NOTELAB_HOME_DIR)
-        mkdirSync(root, { recursive: true })
-        migrateLegacyDataLayout(root)
-        const gitDir = join(root, '.git')
+        const requestedPath = payload?.path?.trim()
+        const defaultRoot = join(homedir(), NOTELAB_HOME_DIR)
+        // Config always lives in ~/.notelab
+        const configRoot = defaultRoot
+        mkdirSync(configRoot, { recursive: true })
+
+        let notesRoot: string
+        if (requestedPath && requestedPath.length > 0 && resolve(requestedPath) !== resolve(defaultRoot)) {
+          // User-chosen directory: use it directly as the notes root (no DATA_DIR subfolder)
+          notesRoot = requestedPath
+          mkdirSync(notesRoot, { recursive: true })
+        } else {
+          // Default ~/.notelab: notes live in the DATA_DIR subfolder
+          notesRoot = join(defaultRoot, DATA_DIR)
+          mkdirSync(notesRoot, { recursive: true })
+          migrateLegacyDataLayout(defaultRoot)
+        }
+
+        const gitDir = join(notesRoot, '.git')
         const gitCheck = checkGitBinary()
         const gitAvailable = gitCheck.ok
-        let filesystemOnly = false
+        const gitInitialized = existsSync(gitDir)
+        const filesystemOnly = !gitInitialized
 
-        if (gitAvailable) {
-          if (!existsSync(gitDir)) {
-            runGit(['init'], root)
-            runGit(['branch', '-M', 'main'], root)
-          }
-          const modePath = join(root, MODE_FILE)
-          if (existsSync(modePath)) {
-            unlinkSync(modePath)
+        // Ensure a mode file exists when there's no git repo so allowWorkspaceFs passes
+        if (!gitInitialized) {
+          const modePath = join(notesRoot, MODE_FILE)
+          if (!existsSync(modePath)) {
+            writeFileSync(
+              modePath,
+              JSON.stringify({ allowFilesystemWithoutGit: true, syncMode: 'local' }),
+              'utf8'
+            )
           }
         } else {
-          filesystemOnly = true
-          const modePath = join(root, MODE_FILE)
-          writeFileSync(
-            modePath,
-            JSON.stringify({
-              allowFilesystemWithoutGit: true,
-              syncMode: 'no_git',
-            }),
-            'utf8'
-          )
+          const modePath = join(notesRoot, MODE_FILE)
+          if (existsSync(modePath)) unlinkSync(modePath)
         }
 
-        const readmePath = join(root, 'README.md')
-        if (!existsSync(readmePath)) {
-          writeFileSync(
-            readmePath,
-            '# notelab\n\nYour notes are stored under `data/<workspace>/` in this folder. Config is `notelab.config`.\n',
-            'utf8'
-          )
-        }
-        console.info(LOG, 'data root', root, { gitAvailable, filesystemOnly })
-        return { ok: true, path: root, gitAvailable, filesystemOnly }
+        console.info(LOG, 'data root', notesRoot, { configRoot, gitAvailable, gitInitialized, filesystemOnly })
+        return { ok: true, path: notesRoot, configRoot, gitAvailable, filesystemOnly, gitInitialized }
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e)
         console.error(LOG, 'ensure-data-root failed', msg)
@@ -478,6 +501,112 @@ export function registerWorkspaceGitIpc(): void {
               ? 'Could not create the data folder. Check permissions.'
               : msg,
         }
+      }
+    }
+  )
+
+  /** Opens a native folder picker and returns the chosen path. */
+  ipcMain.handle(
+    'workspace:pick-directory',
+    async (): Promise<{ ok: true; path: string } | { ok: false; cancelled: true }> => {
+      const result = await dialog.showOpenDialog({
+        properties: ['openDirectory', 'createDirectory'],
+        title: 'Choose workspace folder',
+        buttonLabel: 'Select Folder',
+      })
+      if (result.canceled || result.filePaths.length === 0) {
+        return { ok: false, cancelled: true }
+      }
+      return { ok: true, path: result.filePaths[0]! }
+    }
+  )
+
+  /** Initialize a git repository in the given directory. */
+  ipcMain.handle(
+    'workspace:init-git',
+    async (
+      _evt,
+      payload: { cwd: string }
+    ): Promise<{ ok: true } | { ok: false; error: string }> => {
+      const cwd = payload.cwd?.trim() ?? ''
+      if (!cwd || !existsSync(cwd)) return { ok: false, error: 'directory_not_found' }
+      if (existsSync(join(cwd, '.git'))) return { ok: true } // Already initialized
+      try {
+        runGit(['init'], cwd)
+        runGit(['branch', '-M', 'main'], cwd)
+        // Remove mode file now that git is initialized
+        const modePath = join(cwd, MODE_FILE)
+        if (existsSync(modePath)) unlinkSync(modePath)
+        console.info(LOG, 'git init', cwd)
+        return { ok: true }
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e)
+        console.error(LOG, 'init-git failed', msg)
+        return { ok: false, error: msg }
+      }
+    }
+  )
+
+  /**
+   * Migrate workspace data from one root to another.
+   * Copies notelab/ and notelab.config. Does not delete the source.
+   */
+  ipcMain.handle(
+    'workspace:migrate-workspace',
+    async (
+      _evt,
+      payload: { fromCwd: string; toCwd: string }
+    ): Promise<{ ok: true; copiedFiles: number } | { ok: false; error: string }> => {
+      const from = payload.fromCwd?.trim() ?? ''
+      const to = payload.toCwd?.trim() ?? ''
+      if (!from || !to) return { ok: false, error: 'missing_args' }
+      if (!existsSync(from)) return { ok: false, error: 'source_not_found' }
+      try {
+        mkdirSync(to, { recursive: true })
+        let copiedFiles = 0
+
+        // Copy notelab.config
+        const configSrc = join(from, APP_CONFIG_FILENAME)
+        if (existsSync(configSrc)) {
+          copyFileSync(configSrc, join(to, APP_CONFIG_FILENAME))
+          copiedFiles++
+        }
+
+        // Copy notelab/ directory recursively
+        const dataSrc = join(from, DATA_DIR)
+        if (existsSync(dataSrc)) {
+          const copyDir = (src: string, dst: string): void => {
+            mkdirSync(dst, { recursive: true })
+            for (const ent of readdirSync(src, { withFileTypes: true })) {
+              const srcPath = join(src, ent.name)
+              const dstPath = join(dst, ent.name)
+              if (ent.isDirectory()) {
+                copyDir(srcPath, dstPath)
+              } else if (ent.isFile()) {
+                copyFileSync(srcPath, dstPath)
+                copiedFiles++
+              }
+            }
+          }
+          copyDir(dataSrc, join(to, DATA_DIR))
+        }
+
+        // Ensure mode file exists in destination (no git yet after migration)
+        const modePath = join(to, MODE_FILE)
+        if (!existsSync(join(to, '.git')) && !existsSync(modePath)) {
+          writeFileSync(
+            modePath,
+            JSON.stringify({ allowFilesystemWithoutGit: true, syncMode: 'local' }),
+            'utf8'
+          )
+        }
+
+        console.info(LOG, 'migrated workspace', from, '→', to, `(${copiedFiles} files)`)
+        return { ok: true, copiedFiles }
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e)
+        console.error(LOG, 'migrate-workspace failed', msg)
+        return { ok: false, error: msg }
       }
     }
   )
@@ -709,7 +838,8 @@ export function registerWorkspaceGitIpc(): void {
       ) {
         return { ok: false, error: 'invalid_workspace' }
       }
-      const workspacesRoot = resolve(join(cwd, DATA_DIR))
+      // cwd is the notes root; workspace folders live directly in cwd
+      const workspacesRoot = resolve(cwd)
       const resolvedWs = resolve(workspacesRoot, workspaceId)
       if (dirname(resolvedWs) !== workspacesRoot) {
         return { ok: false, error: 'invalid_workspace' }
@@ -874,6 +1004,242 @@ export function registerWorkspaceGitIpc(): void {
       if (!r.ok) return { ok: false, error: r.error }
       console.info(LOG, 'push', cwd, branch)
       return { ok: true, stdout: r.stdout }
+    }
+  )
+
+  /** Returns parsed per-file status entries from git status --porcelain. */
+  ipcMain.handle(
+    'workspace:git-file-statuses',
+    async (
+      _evt,
+      payload: { cwd: string }
+    ): Promise<
+      | {
+          ok: true
+          files: { path: string; x: string; y: string; staged: boolean; conflicted: boolean }[]
+          hasConflicts: boolean
+          isRebasing: boolean
+        }
+      | { ok: false; error: string }
+    > => {
+      const cwd = payload.cwd?.trim() ?? ''
+      if (!cwd || !existsSync(join(cwd, '.git'))) {
+        return { ok: false, error: 'not_a_git_repo' }
+      }
+      const r = runGitResult(['status', '--porcelain'], cwd)
+      if (!r.ok) return { ok: false, error: r.error }
+      const lines = r.stdout.split('\n').filter((l) => l.length > 0)
+      const conflictXY = new Set(['AA', 'DD', 'UU', 'AU', 'UA', 'DU', 'UD'])
+      const files = lines.map((line) => {
+        const x = line[0] ?? ' '
+        const y = line[1] ?? ' '
+        const path = line.slice(3).trim().replace(/ -> .+$/, '')
+        const xy = `${x}${y}`.replace(/ /g, '')
+        const conflicted = conflictXY.has(`${x}${y}`) || x === 'U' || y === 'U'
+        const staged = x !== ' ' && x !== '?' && !conflicted
+        return { path, x, y, staged, conflicted }
+      })
+      const hasConflicts = files.some((f) => f.conflicted)
+      const rebaseMergePath = join(cwd, '.git', 'rebase-merge')
+      const rebaseApplyPath = join(cwd, '.git', 'rebase-apply')
+      const isRebasing = existsSync(rebaseMergePath) || existsSync(rebaseApplyPath)
+      return { ok: true, files, hasConflicts, isRebasing }
+    }
+  )
+
+  /** Returns the unified diff for a single file (unstaged changes by default, staged if requested). */
+  ipcMain.handle(
+    'workspace:git-diff-file',
+    async (
+      _evt,
+      payload: { cwd: string; path: string; staged?: boolean }
+    ): Promise<{ ok: true; diff: string } | { ok: false; error: string }> => {
+      const cwd = payload.cwd?.trim() ?? ''
+      const filePath = payload.path?.trim() ?? ''
+      if (!cwd || !existsSync(join(cwd, '.git'))) {
+        return { ok: false, error: 'not_a_git_repo' }
+      }
+      if (!filePath) return { ok: false, error: 'missing_path' }
+      const args = payload.staged
+        ? ['diff', '--cached', '--', filePath]
+        : ['diff', 'HEAD', '--', filePath]
+      const r = runGitResult(args, cwd)
+      if (!r.ok) return { ok: false, error: r.error }
+      return { ok: true, diff: r.stdout }
+    }
+  )
+
+  /** Returns the raw content of a conflicted file with conflict markers. */
+  ipcMain.handle(
+    'workspace:git-conflict-file',
+    async (
+      _evt,
+      payload: { cwd: string; path: string }
+    ): Promise<
+      | { ok: true; content: string; ours: string; theirs: string; base: string }
+      | { ok: false; error: string }
+    > => {
+      const cwd = payload.cwd?.trim() ?? ''
+      const filePath = payload.path?.trim() ?? ''
+      if (!cwd || !existsSync(join(cwd, '.git'))) {
+        return { ok: false, error: 'not_a_git_repo' }
+      }
+      if (!filePath) return { ok: false, error: 'missing_path' }
+      const absPath = join(cwd, filePath)
+      if (!isInsideRepoRoot(cwd, absPath)) {
+        return { ok: false, error: 'path_outside_repo' }
+      }
+      if (!existsSync(absPath)) return { ok: false, error: 'file_not_found' }
+      const content = readFileSync(absPath, 'utf8')
+      // Extract ours and theirs from conflict markers
+      const oursLines: string[] = []
+      const theirsLines: string[] = []
+      const baseLines: string[] = []
+      let section: 'ours' | 'base' | 'theirs' | 'outside' = 'outside'
+      for (const line of content.split('\n')) {
+        if (line.startsWith('<<<<<<<')) { section = 'ours'; continue }
+        if (line.startsWith('|||||||')) { section = 'base'; continue }
+        if (line.startsWith('=======')) { section = 'theirs'; continue }
+        if (line.startsWith('>>>>>>>')) { section = 'outside'; continue }
+        if (section === 'ours') oursLines.push(line)
+        else if (section === 'base') baseLines.push(line)
+        else if (section === 'theirs') theirsLines.push(line)
+      }
+      return {
+        ok: true,
+        content,
+        ours: oursLines.join('\n'),
+        theirs: theirsLines.join('\n'),
+        base: baseLines.join('\n'),
+      }
+    }
+  )
+
+  /** Resolve a conflict by accepting ours or theirs for a given file, then stage it. */
+  ipcMain.handle(
+    'workspace:git-accept-resolution',
+    async (
+      _evt,
+      payload: { cwd: string; path: string; resolution: 'ours' | 'theirs' | 'content'; content?: string }
+    ): Promise<{ ok: true } | { ok: false; error: string }> => {
+      const cwd = payload.cwd?.trim() ?? ''
+      const filePath = payload.path?.trim() ?? ''
+      if (!cwd || !existsSync(join(cwd, '.git'))) {
+        return { ok: false, error: 'not_a_git_repo' }
+      }
+      if (!filePath) return { ok: false, error: 'missing_path' }
+      const absPath = join(cwd, filePath)
+      if (!isInsideRepoRoot(cwd, absPath)) {
+        return { ok: false, error: 'path_outside_repo' }
+      }
+      if (payload.resolution === 'ours' || payload.resolution === 'theirs') {
+        const checkoutArg = payload.resolution === 'ours' ? '--ours' : '--theirs'
+        const r = runGitResult(['checkout', checkoutArg, '--', filePath], cwd)
+        if (!r.ok) return { ok: false, error: r.error }
+      } else if (payload.resolution === 'content' && payload.content !== undefined) {
+        writeFileSync(absPath, payload.content, 'utf8')
+      } else {
+        return { ok: false, error: 'invalid_resolution' }
+      }
+      const stage = runGitResult(['add', '--', filePath], cwd)
+      if (!stage.ok) return { ok: false, error: stage.error }
+      return { ok: true }
+    }
+  )
+
+  /** Stage a single file (git add). */
+  ipcMain.handle(
+    'workspace:git-stage-file',
+    async (
+      _evt,
+      payload: { cwd: string; path: string }
+    ): Promise<{ ok: true } | { ok: false; error: string }> => {
+      const cwd = payload.cwd?.trim() ?? ''
+      const filePath = payload.path?.trim() ?? ''
+      if (!cwd || !existsSync(join(cwd, '.git'))) {
+        return { ok: false, error: 'not_a_git_repo' }
+      }
+      if (!filePath) return { ok: false, error: 'missing_path' }
+      const r = runGitResult(['add', '--', filePath], cwd)
+      if (!r.ok) return { ok: false, error: r.error }
+      return { ok: true }
+    }
+  )
+
+  /** Unstage a single file (git restore --staged). */
+  ipcMain.handle(
+    'workspace:git-unstage-file',
+    async (
+      _evt,
+      payload: { cwd: string; path: string }
+    ): Promise<{ ok: true } | { ok: false; error: string }> => {
+      const cwd = payload.cwd?.trim() ?? ''
+      const filePath = payload.path?.trim() ?? ''
+      if (!cwd || !existsSync(join(cwd, '.git'))) {
+        return { ok: false, error: 'not_a_git_repo' }
+      }
+      if (!filePath) return { ok: false, error: 'missing_path' }
+      const r = runGitResult(['restore', '--staged', '--', filePath], cwd)
+      if (!r.ok) return { ok: false, error: r.error }
+      return { ok: true }
+    }
+  )
+
+  /** Discard unstaged changes for a file (git restore). */
+  ipcMain.handle(
+    'workspace:git-discard-file',
+    async (
+      _evt,
+      payload: { cwd: string; path: string }
+    ): Promise<{ ok: true } | { ok: false; error: string }> => {
+      const cwd = payload.cwd?.trim() ?? ''
+      const filePath = payload.path?.trim() ?? ''
+      if (!cwd || !existsSync(join(cwd, '.git'))) {
+        return { ok: false, error: 'not_a_git_repo' }
+      }
+      if (!filePath) return { ok: false, error: 'missing_path' }
+      const r = runGitResult(['restore', '--', filePath], cwd)
+      if (!r.ok) return { ok: false, error: r.error }
+      return { ok: true }
+    }
+  )
+
+  /** Abort an in-progress rebase. */
+  ipcMain.handle(
+    'workspace:git-abort-rebase',
+    async (
+      _evt,
+      payload: { cwd: string }
+    ): Promise<{ ok: true } | { ok: false; error: string }> => {
+      const cwd = payload.cwd?.trim() ?? ''
+      if (!cwd || !existsSync(join(cwd, '.git'))) {
+        return { ok: false, error: 'not_a_git_repo' }
+      }
+      const r = runGitResult(['rebase', '--abort'], cwd)
+      if (!r.ok) return { ok: false, error: r.error }
+      return { ok: true }
+    }
+  )
+
+  /** Continue a rebase after all conflicts are resolved. */
+  ipcMain.handle(
+    'workspace:git-continue-rebase',
+    async (
+      _evt,
+      payload: { cwd: string; authorName: string; authorEmail: string }
+    ): Promise<{ ok: true } | { ok: false; error: string }> => {
+      const cwd = payload.cwd?.trim() ?? ''
+      if (!cwd || !existsSync(join(cwd, '.git'))) {
+        return { ok: false, error: 'not_a_git_repo' }
+      }
+      const authorName = payload.authorName?.trim() || 'notelab.io'
+      const authorEmail = payload.authorEmail?.trim() || 'notes@notelab.io'
+      const r = runGitResult(
+        ['-c', `user.name=${authorName}`, '-c', `user.email=${authorEmail}`, 'rebase', '--continue'],
+        cwd
+      )
+      if (!r.ok) return { ok: false, error: r.error }
+      return { ok: true }
     }
   )
 }

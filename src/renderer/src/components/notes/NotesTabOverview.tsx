@@ -111,7 +111,7 @@ export function NotesTabOverview({
       className={cn(
         // NotesMainArea uses pointer-events-none on macOS so titlebar dragging works; overlays must opt back in.
         'pointer-events-auto bg-background/75 fixed inset-0 z-[200] flex min-h-0 w-full flex-col backdrop-blur-2xl backdrop-saturate-150',
-        sidebarOverlayActive && 'pl-[min(100%,320px)]'
+        sidebarOverlayActive && 'pl-[min(100%,360px)]'
       )}
       role="dialog"
       aria-modal="true"

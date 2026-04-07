@@ -10,6 +10,8 @@ export type NotelabSetupState = {
   githubRepoFullName?: string
   /** Last known default branch tip on remote (API sync) */
   lastRemoteCommitSha?: string
+  /** Absolute path to the workspace root directory chosen by the user. Defaults to ~/.notelab. */
+  workspaceRoot?: string
 }
 
 /** Persisted at ~/.notelab/notelab.config (Electron). */

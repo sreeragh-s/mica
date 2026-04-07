@@ -49,15 +49,23 @@ export type NotelabApi = {
       | { ok: true; version: string }
       | { ok: false; error: string }
     >
-    ensureDataRoot?: () => Promise<
+    ensureDataRoot?: (payload?: { path?: string }) => Promise<
       | {
           ok: true
           path: string
+          configRoot: string
           gitAvailable: boolean
           filesystemOnly: boolean
+          gitInitialized: boolean
         }
       | { ok: false; error: string }
     >
+    pickDirectory?: () => Promise<{ ok: true; path: string } | { ok: false; cancelled: true }>
+    initGit?: (payload: { cwd: string }) => Promise<{ ok: true } | { ok: false; error: string }>
+    migrateWorkspace?: (payload: {
+      fromCwd: string
+      toCwd: string
+    }) => Promise<{ ok: true; copiedFiles: number } | { ok: false; error: string }>
     setSyncMode?: (payload: {
       cwd: string
       syncMode: "git" | "github_api" | "local"
@@ -131,6 +139,59 @@ export type NotelabApi = {
       | { ok: true; stdout: string }
       | { ok: false; error: string }
     >
+    gitFileStatuses?: (payload: { cwd: string }) => Promise<
+      | {
+          ok: true
+          files: {
+            path: string
+            x: string
+            y: string
+            staged: boolean
+            conflicted: boolean
+          }[]
+          hasConflicts: boolean
+          isRebasing: boolean
+        }
+      | { ok: false; error: string }
+    >
+    gitDiffFile?: (payload: {
+      cwd: string
+      path: string
+      staged?: boolean
+    }) => Promise<{ ok: true; diff: string } | { ok: false; error: string }>
+    gitConflictFile?: (payload: {
+      cwd: string
+      path: string
+    }) => Promise<
+      | { ok: true; content: string; ours: string; theirs: string; base: string }
+      | { ok: false; error: string }
+    >
+    gitAcceptResolution?: (payload: {
+      cwd: string
+      path: string
+      resolution: "ours" | "theirs" | "content"
+      content?: string
+    }) => Promise<{ ok: true } | { ok: false; error: string }>
+    gitStageFile?: (payload: {
+      cwd: string
+      path: string
+    }) => Promise<{ ok: true } | { ok: false; error: string }>
+    gitUnstageFile?: (payload: {
+      cwd: string
+      path: string
+    }) => Promise<{ ok: true } | { ok: false; error: string }>
+    gitDiscardFile?: (payload: {
+      cwd: string
+      path: string
+    }) => Promise<{ ok: true } | { ok: false; error: string }>
+    gitAbortRebase?: (payload: {
+      cwd: string
+    }) => Promise<{ ok: true } | { ok: false; error: string }>
+    gitContinueRebase?: (payload: {
+      cwd: string
+      authorName: string
+      authorEmail: string
+    }) => Promise<{ ok: true } | { ok: false; error: string }>
     readAppConfig?: (payload: {
       cwd: string
     }) => Promise<

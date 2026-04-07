@@ -1,254 +1,82 @@
 import { useCallback, useEffect, useState, type JSX } from 'react'
 
-import { Check, ExternalLink, Loader2, RefreshCw, X } from 'lucide-react'
+import { Check, FolderOpen, Loader2, RefreshCw, X } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { serverFetchJson } from '@/lib/server-api'
-import type { NotelabApi } from '@/lib/auth-bridge'
 import { isMacElectron } from '@/lib/electron-env'
 import { saveSetupState } from '@/lib/setup-storage'
 import { cn } from '@/lib/utils'
+import type { NotelabApi } from '@/lib/auth-bridge'
 
-import { slugifyRepoSuggestion } from '@/components/notes/notes-app-utils'
+type InitialRootResult = {
+  path: string
+  configRoot: string
+  gitAvailable: boolean
+  gitInitialized: boolean
+  filesystemOnly: boolean
+}
 
 type Props = {
   api: NotelabApi
+  initialRoot: InitialRootResult | null
   onDone: () => void
 }
 
-export function SetupScreen({ api, onDone }: Props): JSX.Element {
+export function SetupScreen({ api, initialRoot, onDone }: Props): JSX.Element {
   const mac = isMacElectron()
-  /** Notes folder only — does not block the rest of the screen. */
-  const [rootLoading, setRootLoading] = useState(true)
-  const [rootPath, setRootPath] = useState<string | null>(null)
-  const [gitAvailable, setGitAvailable] = useState<boolean | null>(null)
-  const [gitDetail, setGitDetail] = useState<string | null>('Optional — API sync works without Git.')
+  const ws = api.workspace
 
-  const [installBusy, setInstallBusy] = useState(false)
-  const [refreshBusy, setRefreshBusy] = useState(false)
-  const [statusMsg, setStatusMsg] = useState<string | null>(null)
-  const [hasInstallation, setHasInstallation] = useState(false)
+  const [rootLoading, setRootLoading] = useState(!initialRoot)
+  const [rootPath, setRootPath] = useState<string | null>(initialRoot?.path ?? null)
+  const [gitAvailable, setGitAvailable] = useState<boolean | null>(initialRoot?.gitAvailable ?? null)
+  const [gitInitialized, setGitInitialized] = useState(initialRoot?.gitInitialized ?? false)
+  const [rootError, setRootError] = useState<string | null>(null)
+  const [pickBusy, setPickBusy] = useState(false)
 
-  const [repoList, setRepoList] = useState<{ fullName: string; defaultBranch: string }[]>([])
-  const [selectedRepo, setSelectedRepo] = useState('')
-  const [manualOwner, setManualOwner] = useState('')
-  const [manualRepo, setManualRepo] = useState('')
-  const [validateBusy, setValidateBusy] = useState(false)
-  const [validateError, setValidateError] = useState<string | null>(null)
-
-  const [newRepoName, setNewRepoName] = useState(() => slugifyRepoSuggestion('notelab'))
-  const [createBusy, setCreateBusy] = useState(false)
-
-  const runDataRoot = useCallback(async (): Promise<void> => {
-    const ws = api.workspace
+  const runDataRoot = useCallback(async (path?: string): Promise<void> => {
     if (!ws?.ensureDataRoot) {
       setRootLoading(false)
       return
     }
     setRootLoading(true)
-    const root = await ws.ensureDataRoot()
+    setRootError(null)
+    const root = await ws.ensureDataRoot(path ? { path } : undefined)
     if (!root.ok) {
-      setRootPath(null)
-      setGitAvailable(false)
-      setGitDetail(root.error)
+      setRootError(root.error)
       setRootLoading(false)
       return
     }
     setRootPath(root.path)
     setGitAvailable(root.gitAvailable)
-    setGitDetail(
-      root.gitAvailable
-        ? 'Available for local git push/pull.'
-        : 'Not installed — use GitHub sync above.'
-    )
+    setGitInitialized(root.gitInitialized)
     setRootLoading(false)
-  }, [api])
+  }, [ws])
 
   useEffect(() => {
-    queueMicrotask(() => {
-      void runDataRoot()
-    })
-  }, [runDataRoot])
+    // Only call ensureDataRoot if we didn't get an initial result from App.tsx
+    if (!initialRoot) void runDataRoot()
+  }, [initialRoot, runDataRoot])
 
-  const loadStatus = useCallback(async () => {
-    const r = await serverFetchJson<{
-      hasInstallation?: boolean
-      linkedRepo?: { fullName: string } | null
-    }>('/api/github/status')
-    if (r.ok && r.data) {
-      setHasInstallation(Boolean(r.data.hasInstallation))
-      if (r.data.linkedRepo?.fullName) {
-        setSelectedRepo(r.data.linkedRepo.fullName)
-      }
-    }
-  }, [])
-
-  useEffect(() => {
-    void loadStatus()
-  }, [loadStatus])
-
-  const openInstallPage = useCallback(async () => {
-    setInstallBusy(true)
-    setStatusMsg(null)
+  const handlePickDirectory = useCallback(async (): Promise<void> => {
+    if (!ws?.pickDirectory) return
+    setPickBusy(true)
     try {
-      const r = await serverFetchJson<{ url?: string }>('/api/github/install-url')
-      if (!r.ok || !r.data?.url) {
-        setStatusMsg(r.ok ? 'No install URL returned.' : r.message)
-        return
-      }
-      if (api.workspace?.openExternal) {
-        await api.workspace.openExternal(r.data.url)
-      } else {
-        window.open(r.data.url, '_blank', 'noopener,noreferrer')
-      }
-      setStatusMsg('Complete the install in the browser, then tap “Detect installation”.')
+      const result = await ws.pickDirectory()
+      if (!result.ok) return // cancelled
+      await runDataRoot(result.path)
     } finally {
-      setInstallBusy(false)
+      setPickBusy(false)
     }
-  }, [api])
-
-  const refreshInstallation = useCallback(async () => {
-    setRefreshBusy(true)
-    setStatusMsg(null)
-    try {
-      const r = await serverFetchJson<{ ok?: boolean; installationId?: string }>(
-        '/api/github/refresh-installation',
-        { method: 'POST' }
-      )
-      if (!r.ok) {
-        setStatusMsg(r.message)
-        setHasInstallation(false)
-        return
-      }
-      setHasInstallation(true)
-      setStatusMsg('GitHub App linked. You can list repositories below.')
-      await loadStatus()
-      const lr = await serverFetchJson<{
-        repositories: { fullName: string; defaultBranch: string }[]
-      }>('/api/github/repos?page=1')
-      if (lr.ok && lr.data?.repositories) {
-        setRepoList(lr.data.repositories)
-      }
-    } finally {
-      setRefreshBusy(false)
-    }
-  }, [loadStatus])
-
-  const loadRepos = useCallback(async () => {
-    const lr = await serverFetchJson<{
-      repositories: { fullName: string; defaultBranch: string }[]
-    }>('/api/github/repos?page=1')
-    if (lr.ok && lr.data?.repositories) {
-      setRepoList(lr.data.repositories)
-    }
-  }, [])
-
-  useEffect(() => {
-    if (hasInstallation) {
-      void loadRepos()
-    }
-  }, [hasInstallation, loadRepos])
-
-  const validateAndLink = useCallback(async () => {
-    setValidateBusy(true)
-    setValidateError(null)
-    try {
-      let owner: string
-      let name: string
-      const pick = selectedRepo.trim()
-      if (pick.includes('/')) {
-        const [o, n] = pick.split('/')
-        owner = o?.trim() ?? ''
-        name = n?.trim() ?? ''
-      } else {
-        owner = manualOwner.trim()
-        name = manualRepo.trim()
-      }
-      if (!owner || !name) {
-        setValidateError('Enter owner and repository name, or pick from the list.')
-        return
-      }
-      const v = await serverFetchJson<{ ok?: boolean; reason?: string }>(
-        '/api/github/validate-repo',
-        { method: 'POST', body: { owner, repo: name } }
-      )
-      if (!v.ok) {
-        setValidateError(v.message)
-        return
-      }
-      const data = v.data as { ok?: boolean; reason?: string }
-      if (!data?.ok) {
-        setValidateError(data?.reason ?? 'This repository is not valid for notelab.io.')
-        return
-      }
-      const link = await serverFetchJson<{ ok?: boolean; fullName?: string; reason?: string }>(
-        '/api/github/link-repo',
-        { method: 'POST', body: { owner, repo: name } }
-      )
-      if (!link.ok || !(link.data as { ok?: boolean })?.ok) {
-        setValidateError(
-          !link.ok ? link.message : (link.data as { reason?: string })?.reason ?? 'Link failed'
-        )
-        return
-      }
-      const full = (link.data as { fullName?: string }).fullName ?? `${owner}/${name}`
-      const ws = api.workspace
-      if (rootPath && ws?.setSyncMode) {
-        await ws.setSyncMode({ cwd: rootPath, syncMode: 'github_api' })
-      }
-      saveSetupState({
-        complete: true,
-        syncMode: 'github_api',
-        githubRepoFullName: full,
-      })
-      onDone()
-    } finally {
-      setValidateBusy(false)
-    }
-  }, [api.workspace, manualOwner, manualRepo, onDone, rootPath, selectedRepo])
-
-  const createRepo = useCallback(async () => {
-    setCreateBusy(true)
-    setValidateError(null)
-    try {
-      const n = newRepoName.trim() || slugifyRepoSuggestion('notelab')
-      const r = await serverFetchJson<{ ok?: boolean; fullName?: string }>(
-        '/api/github/repos/create',
-        { method: 'POST', body: { name: n, private: false } }
-      )
-      if (!r.ok || !(r.data as { ok?: boolean })?.ok) {
-        setValidateError(!r.ok ? r.message : 'Create failed')
-        return
-      }
-      const full = (r.data as { fullName?: string }).fullName
-      if (!full) {
-        setValidateError('No repository name in response.')
-        return
-      }
-      const ws = api.workspace
-      if (rootPath && ws?.setSyncMode) {
-        await ws.setSyncMode({ cwd: rootPath, syncMode: 'github_api' })
-      }
-      saveSetupState({
-        complete: true,
-        syncMode: 'github_api',
-        githubRepoFullName: full,
-      })
-      onDone()
-    } finally {
-      setCreateBusy(false)
-    }
-  }, [api.workspace, newRepoName, onDone, rootPath])
+  }, [ws, runDataRoot])
 
   const getStarted = useCallback(() => {
     saveSetupState({
       complete: true,
-      syncMode: gitAvailable === true ? 'git' : 'local',
+      syncMode: gitInitialized ? 'git' : 'local',
+      workspaceRoot: rootPath ?? undefined,
     })
     onDone()
-  }, [gitAvailable, onDone])
+  }, [gitInitialized, rootPath, onDone])
 
   const rootOk = Boolean(rootPath)
 
@@ -261,12 +89,66 @@ export function SetupScreen({ api, onDone }: Props): JSX.Element {
         )}
       >
         <div className="space-y-0.5 text-center">
-          <h1 className="text-xl font-semibold tracking-tight">Set up notelab.io</h1>
+          <h1 className="text-xl font-semibold tracking-tight">Set up notelab</h1>
           <p className="text-muted-foreground text-sm">
-            Connect GitHub to sync, or continue with local notes.
+            Choose where your notes will be stored.
           </p>
         </div>
 
+        {/* Workspace directory */}
+        <div className="border-border space-y-2 rounded-lg border px-3 py-2.5">
+          <h2 className="text-foreground text-sm font-semibold">Workspace folder</h2>
+          <p className="text-muted-foreground text-xs leading-snug">
+            All notes and config will be stored here. Defaults to{' '}
+            <code className="text-xs">~/.notelab</code>.
+          </p>
+          <div className="flex items-center gap-2">
+            <div className="border-input bg-muted/30 min-w-0 flex-1 truncate rounded-md border px-2.5 py-1.5 font-mono text-xs">
+              {rootLoading ? (
+                <span className="text-muted-foreground">Loading…</span>
+              ) : rootPath ? (
+                <span className="text-foreground">{rootPath}</span>
+              ) : (
+                <span className="text-destructive">Not set</span>
+              )}
+            </div>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              className="shrink-0 gap-1.5"
+              disabled={pickBusy || rootLoading}
+              onClick={() => void handlePickDirectory()}
+            >
+              {pickBusy ? (
+                <Loader2 className="size-3.5 animate-spin" aria-hidden />
+              ) : (
+                <FolderOpen className="size-3.5" aria-hidden />
+              )}
+              Change
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="text-muted-foreground hover:text-foreground size-8 shrink-0"
+              disabled={rootLoading || pickBusy}
+              onClick={() => void runDataRoot(rootPath ?? undefined)}
+              aria-label="Refresh"
+            >
+              {rootLoading ? (
+                <Loader2 className="size-4 animate-spin" aria-hidden />
+              ) : (
+                <RefreshCw className="size-4" aria-hidden />
+              )}
+            </Button>
+          </div>
+          {rootError && (
+            <p className="text-destructive text-xs">{rootError}</p>
+          )}
+        </div>
+
+        {/* Status checklist */}
         <ul className="space-y-2 text-sm">
           <li className="border-border flex items-start gap-3 rounded-lg border px-3 py-2.5">
             <span className="mt-0.5 shrink-0" aria-hidden>
@@ -279,180 +161,56 @@ export function SetupScreen({ api, onDone }: Props): JSX.Element {
               )}
             </span>
             <div className="min-w-0 flex-1 space-y-0.5">
-              <div className="flex items-center justify-between gap-2">
-                <p className="font-medium">Notes folder</p>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="text-muted-foreground hover:text-foreground size-8 shrink-0"
-                  disabled={rootLoading}
-                  onClick={() => void runDataRoot()}
-                  aria-label="Refresh notes folder"
-                >
-                  {rootLoading ? (
-                    <Loader2 className="size-4 animate-spin" aria-hidden />
-                  ) : (
-                    <RefreshCw className="size-4" aria-hidden />
-                  )}
-                </Button>
-              </div>
+              <p className="font-medium">Workspace folder</p>
               {rootPath ? (
                 <p className="text-muted-foreground text-xs break-all leading-snug">{rootPath}</p>
               ) : rootLoading ? (
                 <p className="text-muted-foreground text-xs">Preparing…</p>
               ) : (
-                <p className="text-destructive text-xs">Could not create data folder.</p>
+                <p className="text-destructive text-xs">Could not create the folder. Check permissions.</p>
               )}
             </div>
           </li>
 
           <li className="border-border flex items-start gap-3 rounded-lg border px-3 py-2.5">
             <span className="mt-0.5 shrink-0" aria-hidden>
-              {gitAvailable === true ? (
-                <Check className="text-foreground size-4" strokeWidth={2} />
-              ) : gitAvailable === false ? (
-                <span className="text-muted-foreground text-xs font-medium">—</span>
-              ) : rootLoading ? (
+              {rootLoading ? (
                 <Loader2 className="text-muted-foreground size-4 animate-spin" />
+              ) : gitAvailable === true ? (
+                <Check className="text-foreground size-4" strokeWidth={2} />
               ) : (
                 <span className="text-muted-foreground text-xs font-medium">—</span>
               )}
             </span>
             <div className="min-w-0 flex-1 space-y-0.5">
               <p className="font-medium">Git (optional)</p>
-              <p className="text-muted-foreground text-xs leading-snug">{gitDetail}</p>
+              <p className="text-muted-foreground text-xs leading-snug">
+                {rootLoading
+                  ? 'Checking…'
+                  : gitAvailable
+                    ? gitInitialized
+                      ? 'Git repo ready. Initialize or connect a remote in Source Control.'
+                      : 'Available. Initialize a repo from Source Control when ready.'
+                    : 'Not installed. You can still use notelab with local notes.'}
+              </p>
             </div>
           </li>
         </ul>
-
-        <section className="border-border space-y-2 rounded-lg border px-3 py-2.5">
-          <h2 className="text-foreground text-sm font-semibold">GitHub App</h2>
-          <p className="text-muted-foreground text-xs leading-snug">
-            Install the app, then detect the installation here.
-          </p>
-          <div className="flex flex-wrap gap-2">
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              className="gap-1.5"
-              disabled={installBusy}
-              onClick={() => void openInstallPage()}
-            >
-              <ExternalLink className="size-3.5" aria-hidden />
-              Open GitHub install page
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              disabled={refreshBusy}
-              onClick={() => void refreshInstallation()}
-            >
-              {refreshBusy ? (
-                <Loader2 className="size-3.5 animate-spin" aria-hidden />
-              ) : null}
-              Detect installation
-            </Button>
-          </div>
-          {statusMsg ? (
-            <p className="text-foreground text-xs whitespace-pre-wrap">{statusMsg}</p>
-          ) : null}
-        </section>
-
-        {hasInstallation ? (
-          <section className="border-border space-y-2 rounded-lg border px-3 py-2.5">
-            <h2 className="text-foreground text-sm font-semibold">Import a repository</h2>
-            <p className="text-muted-foreground text-xs leading-snug">
-              <span className="font-mono">data/</span> (workspace folders) or empty repo.
-            </p>
-            {repoList.length > 0 ? (
-              <div className="space-y-1.5">
-                <Label htmlFor="setup-repo-select">Your repositories</Label>
-                <select
-                  id="setup-repo-select"
-                  className="border-input bg-background w-full rounded-md border px-3 py-2 text-sm"
-                  value={selectedRepo}
-                  onChange={(e) => {
-                    setSelectedRepo(e.target.value)
-                    setValidateError(null)
-                  }}
-                >
-                  <option value="">— Select —</option>
-                  {repoList.map((r) => (
-                    <option key={r.fullName} value={r.fullName}>
-                      {r.fullName}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            ) : null}
-            <div className="grid gap-2 sm:grid-cols-2">
-              <div className="space-y-1.5">
-                <Label htmlFor="setup-owner">Owner</Label>
-                <Input
-                  id="setup-owner"
-                  value={manualOwner}
-                  onChange={(e) => setManualOwner(e.target.value)}
-                  placeholder="octocat"
-                  className="font-mono text-sm"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="setup-repo">Repository</Label>
-                <Input
-                  id="setup-repo"
-                  value={manualRepo}
-                  onChange={(e) => setManualRepo(e.target.value)}
-                  placeholder="my-notes"
-                  className="font-mono text-sm"
-                />
-              </div>
-            </div>
-            <Button
-              type="button"
-              disabled={validateBusy}
-              onClick={() => void validateAndLink()}
-            >
-              {validateBusy ? <Loader2 className="size-4 animate-spin" /> : null}
-              Validate &amp; link
-            </Button>
-            {validateError ? (
-              <p className="text-destructive text-xs whitespace-pre-wrap">{validateError}</p>
-            ) : null}
-          </section>
-        ) : null}
-
-        {hasInstallation ? (
-          <section className="border-border space-y-2 rounded-lg border px-3 py-2.5">
-            <h2 className="text-foreground text-sm font-semibold">Create a new repository</h2>
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
-              <div className="min-w-0 flex-1 space-y-1.5">
-                <Label htmlFor="setup-new-repo">Repository name</Label>
-                <Input
-                  id="setup-new-repo"
-                  value={newRepoName}
-                  onChange={(e) => setNewRepoName(e.target.value)}
-                  placeholder="notelab-notes"
-                  className="font-mono text-sm"
-                />
-              </div>
-              <Button type="button" disabled={createBusy} onClick={() => void createRepo()}>
-                {createBusy ? <Loader2 className="size-4 animate-spin" /> : null}
-                Create on GitHub
-              </Button>
-            </div>
-          </section>
-        ) : null}
       </div>
 
       <div className="bg-background shrink-0 px-6 pt-4 pb-10">
         <div className="mx-auto flex w-full max-w-lg flex-col gap-2">
-          <Button type="button" size="lg" className="w-full" onClick={getStarted}>
+          <Button
+            type="button"
+            size="lg"
+            className="w-full"
+            disabled={!rootOk || rootLoading}
+            onClick={getStarted}
+          >
             Get started
           </Button>
           <p className="text-muted-foreground text-center text-xs leading-snug">
-            Local notes; add GitHub sync in Settings anytime.
+            You can change the workspace folder and connect GitHub sync in Settings anytime.
           </p>
         </div>
       </div>

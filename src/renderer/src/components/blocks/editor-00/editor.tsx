@@ -38,6 +38,7 @@ export function Editor({
   onCoverChange,
   titleEmoji,
   onTitleEmojiChange,
+  bottomChromePortal,
 }: {
   editorState?: EditorState
   editorSerializedState?: SerializedEditorState
@@ -57,6 +58,7 @@ export function Editor({
   onCoverChange?: (src: string | null) => void
   titleEmoji?: string | null
   onTitleEmojiChange?: (emoji: string | null) => void
+  bottomChromePortal?: HTMLElement | null
 }) {
   return (
     <div
@@ -84,6 +86,7 @@ export function Editor({
                 onCoverChange={onCoverChange}
                 titleEmoji={titleEmoji}
                 onTitleEmojiChange={onTitleEmojiChange}
+                bottomChromePortal={bottomChromePortal}
               />
 
               <OnChangePlugin

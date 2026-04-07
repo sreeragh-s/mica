@@ -114,15 +114,28 @@ const api = {
       | { ok: true; version: string }
       | { ok: false; error: string }
     > => ipcRenderer.invoke('workspace:check-git'),
-    ensureDataRoot: (): Promise<
+    ensureDataRoot: (payload?: { path?: string }): Promise<
       | {
           ok: true
           path: string
+          configRoot: string
           gitAvailable: boolean
           filesystemOnly: boolean
+          gitInitialized: boolean
         }
       | { ok: false; error: string }
-    > => ipcRenderer.invoke('workspace:ensure-data-root'),
+    > => ipcRenderer.invoke('workspace:ensure-data-root', payload),
+    pickDirectory: (): Promise<
+      { ok: true; path: string } | { ok: false; cancelled: true }
+    > => ipcRenderer.invoke('workspace:pick-directory'),
+    initGit: (
+      payload: { cwd: string }
+    ): Promise<{ ok: true } | { ok: false; error: string }> =>
+      ipcRenderer.invoke('workspace:init-git', payload),
+    migrateWorkspace: (
+      payload: { fromCwd: string; toCwd: string }
+    ): Promise<{ ok: true; copiedFiles: number } | { ok: false; error: string }> =>
+      ipcRenderer.invoke('workspace:migrate-workspace', payload),
     setSyncMode: (
       payload: { cwd: string; syncMode: 'git' | 'github_api' | 'local' }
     ): Promise<{ ok: true } | { ok: false; error: string }> =>
@@ -202,6 +215,56 @@ const api = {
       | { ok: true; stdout: string }
       | { ok: false; error: string }
     > => ipcRenderer.invoke('workspace:git-push', payload),
+    gitFileStatuses: (
+      payload: { cwd: string }
+    ): Promise<
+      | {
+          ok: true
+          files: { path: string; x: string; y: string; staged: boolean; conflicted: boolean }[]
+          hasConflicts: boolean
+          isRebasing: boolean
+        }
+      | { ok: false; error: string }
+    > => ipcRenderer.invoke('workspace:git-file-statuses', payload),
+    gitDiffFile: (
+      payload: { cwd: string; path: string; staged?: boolean }
+    ): Promise<{ ok: true; diff: string } | { ok: false; error: string }> =>
+      ipcRenderer.invoke('workspace:git-diff-file', payload),
+    gitConflictFile: (
+      payload: { cwd: string; path: string }
+    ): Promise<
+      | { ok: true; content: string; ours: string; theirs: string; base: string }
+      | { ok: false; error: string }
+    > => ipcRenderer.invoke('workspace:git-conflict-file', payload),
+    gitAcceptResolution: (payload: {
+      cwd: string
+      path: string
+      resolution: 'ours' | 'theirs' | 'content'
+      content?: string
+    }): Promise<{ ok: true } | { ok: false; error: string }> =>
+      ipcRenderer.invoke('workspace:git-accept-resolution', payload),
+    gitStageFile: (
+      payload: { cwd: string; path: string }
+    ): Promise<{ ok: true } | { ok: false; error: string }> =>
+      ipcRenderer.invoke('workspace:git-stage-file', payload),
+    gitUnstageFile: (
+      payload: { cwd: string; path: string }
+    ): Promise<{ ok: true } | { ok: false; error: string }> =>
+      ipcRenderer.invoke('workspace:git-unstage-file', payload),
+    gitDiscardFile: (
+      payload: { cwd: string; path: string }
+    ): Promise<{ ok: true } | { ok: false; error: string }> =>
+      ipcRenderer.invoke('workspace:git-discard-file', payload),
+    gitAbortRebase: (
+      payload: { cwd: string }
+    ): Promise<{ ok: true } | { ok: false; error: string }> =>
+      ipcRenderer.invoke('workspace:git-abort-rebase', payload),
+    gitContinueRebase: (payload: {
+      cwd: string
+      authorName: string
+      authorEmail: string
+    }): Promise<{ ok: true } | { ok: false; error: string }> =>
+      ipcRenderer.invoke('workspace:git-continue-rebase', payload),
     readAppConfig: (
       payload: { cwd: string }
     ): Promise<

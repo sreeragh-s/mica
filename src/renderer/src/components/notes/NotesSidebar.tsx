@@ -8,11 +8,11 @@ import {
   Network,
   Folder,
   FolderGit2,
+  FolderOpen,
   FolderPlus,
   PanelLeftClose,
   PenLine,
   Pencil,
-  Settings,
   Settings2,
   Sparkles,
   SquarePen,
@@ -39,6 +39,8 @@ import {
 } from '@/lib/liquid-glass-toolbar'
 import { MAC_SIDEBAR_INSET_PANEL_RADIUS_PX } from '../../../../shared/mac-window-chrome'
 import { DEFAULT_WORKSPACE_ID, formatNoteTime } from '@/lib/notes-storage'
+import { AppSidebarRail } from './AppSidebar'
+import { GitSourceControlPanel } from './GitSourceControlPanel'
 import { NoteLeadingIcon } from './NoteLeadingIcon'
 import { FOLDER_DRAG_MIME, NOTE_DRAG_MIME, treeFolderId, treeNoteId } from './notes-app-utils'
 import { MacSidebarLeadingToolbarIcon } from './MacSidebarToolbarIcon'
@@ -83,13 +85,13 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
     openWorkspaceSettings,
     onFolderDraftKeyDown,
     backToNotes,
-    openSettings,
     startFolderCreate,
     handleNewDrawing,
     graphViewOpen,
     openGraphView,
     closeGraphView,
-    toggleSidebar
+    toggleSidebar,
+    appSidebarView
   } = vm
 
   const [renamingNodeId, setRenamingNodeId] = useState<string | null>(null)
@@ -238,40 +240,53 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
         clearSidebarWorkspaceIntent()
       }}
     >
-      {/* macOS: unified drag band is in NotesApp; rows are pointer-events-none except controls. */}
+      {/*
+        Top bar spans rail + main column so border-b is continuous; rail border-r starts below this row.
+      */}
       <div
         className={cn(
-          'relative z-10 flex h-12 w-full shrink-0 items-center justify-end gap-1',
-          macElectron ? 'pointer-events-none pr-2' : 'px-2'
+          'border-sidebar-border relative z-10 flex h-12 w-full shrink-0 flex-row items-stretch border-b',
+          macElectron && 'pointer-events-none'
         )}
       >
+        <div className="w-11 shrink-0" aria-hidden />
         <div
-          className={cn('pointer-events-auto', liquidGlassControlPillClass(nativeGlassUi))}
-          style={macElectron ? macTitlebarStyles.noDrag : undefined}
-          data-sidebar-interactive=""
+          className={cn(
+            'flex min-w-0 flex-1 items-center justify-end gap-1',
+            macElectron ? 'pointer-events-none pr-2' : 'px-2'
+          )}
         >
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="text-muted-foreground size-8 shrink-0 rounded-full"
-            aria-label="Collapse sidebar"
-            aria-expanded={true}
-            onClick={toggleSidebar}
+          <div
+            className={cn('pointer-events-auto', liquidGlassControlPillClass(nativeGlassUi))}
             style={macElectron ? macTitlebarStyles.noDrag : undefined}
+            data-sidebar-interactive=""
           >
-            {macInsetSidebar ? (
-              <MacSidebarLeadingToolbarIcon
-                className="size-[15px]"
-                nativeLiquidGlassActive={nativeGlassUi}
-              />
-            ) : (
-              <PanelLeftClose className="size-4" aria-hidden />
-            )}
-          </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="text-muted-foreground size-8 shrink-0 rounded-full"
+              aria-label="Collapse sidebar"
+              aria-expanded={true}
+              onClick={toggleSidebar}
+              style={macElectron ? macTitlebarStyles.noDrag : undefined}
+            >
+              {macInsetSidebar ? (
+                <MacSidebarLeadingToolbarIcon
+                  className="size-[15px]"
+                  nativeLiquidGlassActive={nativeGlassUi}
+                />
+              ) : (
+                <PanelLeftClose className="size-4" aria-hidden />
+              )}
+            </Button>
+          </div>
         </div>
       </div>
-      {appMode === 'notes' ? (
+      <div className="flex min-h-0 min-w-0 flex-1 flex-row">
+        <AppSidebarRail vm={vm} />
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+      {appMode === 'notes' && appSidebarView === 'explorer' ? (
         <div
           className={cn(
             'relative z-10 flex w-full shrink-0 flex-row flex-nowrap items-stretch justify-start gap-0.5 py-1.5',
@@ -339,18 +354,6 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
             >
               <Network className="size-4" aria-hidden />
             </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant="ghost"
-              className="text-muted-foreground size-8 shrink-0 p-0"
-              aria-label="Settings"
-              onClick={openSettings}
-              data-sidebar-interactive=""
-              style={macElectron ? macTitlebarStyles.noDrag : undefined}
-            >
-              <Settings className="size-4" aria-hidden />
-            </Button>
           </div>
         </div>
       ) : appMode === 'settings' ? (
@@ -381,7 +384,13 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
         </div>
       ) : null}
       <div
-        className={cn('min-h-0 flex-1 overflow-y-auto p-2', macElectron && 'pointer-events-auto')}
+        className={cn(
+          'min-h-0 flex-1',
+          macElectron && 'pointer-events-auto',
+          appSidebarView === 'source-control'
+            ? 'flex min-h-0 flex-col overflow-hidden p-0'
+            : 'overflow-y-auto p-2'
+        )}
       >
         {appMode === 'settings' ? (
           <ul className="flex flex-col gap-0">
@@ -398,6 +407,20 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
               >
                 <User className="text-muted-foreground size-3.5 shrink-0" aria-hidden />
                 Account
+              </button>
+            </li>
+            <li>
+              <button
+                type="button"
+                data-sidebar-interactive=""
+                onClick={() => setSettingsSection('workspace')}
+                className={cn(
+                  'hover:bg-sidebar-accent hover:text-sidebar-accent-foreground flex h-8 w-full items-center gap-2 rounded-md px-2 text-left text-[13px] leading-tight transition-colors',
+                  settingsSection === 'workspace' && 'bg-sidebar-accent text-sidebar-accent-foreground'
+                )}
+              >
+                <FolderOpen className="text-muted-foreground size-3.5 shrink-0" aria-hidden />
+                Workspace
               </button>
             </li>
             <li>
@@ -474,9 +497,9 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
               </button>
             </li>
           </ul>
-        ) : null}
-
-        {appMode === 'notes' ? (
+        ) : appSidebarView === 'source-control' ? (
+          <GitSourceControlPanel vm={vm} />
+        ) : (
           <TreeProvider
             key={defaultExpandedFolderIds.join('|')}
             defaultExpandedIds={defaultExpandedFolderIds}
@@ -520,6 +543,7 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
                           className={cn(
                             'hover:bg-sidebar-accent/50',
                             selectedId === note.id &&
+                              !focusedFolderId &&
                               '!bg-sidebar-accent !text-sidebar-accent-foreground'
                           )}
                         >
@@ -605,8 +629,7 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
                         }}
                         className={cn(
                           'hover:bg-sidebar-accent/50',
-                          !selectedId &&
-                            focusedFolderId === folder.id &&
+                          focusedFolderId === folder.id &&
                             '!bg-sidebar-accent !text-sidebar-accent-foreground'
                         )}
                       >
@@ -655,6 +678,7 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
                                 className={cn(
                                   'hover:bg-sidebar-accent/50',
                                   selectedId === note.id &&
+                                    !focusedFolderId &&
                                     '!bg-sidebar-accent !text-sidebar-accent-foreground'
                                 )}
                               >
@@ -758,7 +782,9 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
               ) : null}
             </TreeView>
           </TreeProvider>
-        ) : null}
+        )}
+      </div>
+        </div>
       </div>
     </aside>
   )

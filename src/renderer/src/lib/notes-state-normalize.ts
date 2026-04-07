@@ -119,15 +119,9 @@ export function normalizeNotesStateFromStorage(raw: unknown): NotesState {
     ) {
       const p = parsed as NotesStateV3
       const r = p.githubRemoteUrl
-      const rawOrder = p.sidebarFolderOrder
-      const sidebarFolderOrder =
-        Array.isArray(rawOrder) && rawOrder.every((x) => typeof x === "string")
-          ? rawOrder
-          : undefined
       return {
         version: 3,
         ...(typeof r === "string" && r.trim() ? { githubRemoteUrl: r.trim() } : {}),
-        ...(sidebarFolderOrder ? { sidebarFolderOrder } : {}),
       }
     }
     if (

@@ -191,6 +191,14 @@ export async function hydrateAppConfig(dataRoot: string | null): Promise<void> {
   normalizeThemeCacheAfterLoad()
 }
 
+/**
+ * Switch the config persistence target to a new workspace root mid-session.
+ * Loads the config from the new root (or migrates from browser blob).
+ */
+export async function switchDataRoot(newRoot: string): Promise<void> {
+  await hydrateAppConfig(newRoot)
+}
+
 export function getSetupState(): NotelabSetupState {
   return cache.setup ?? defaultSetup()
 }

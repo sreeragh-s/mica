@@ -35,13 +35,6 @@ export function newWorkspaceFolderId(displayName: string): string {
   return `${slug}--${hex.slice(0, 8)}`
 }
 
-export function workspaceReadmeMarkdown(folderName: string): string {
-  return `# ${folderName}
-
-Synced from **notelab.io**. Each note is a Markdown file with YAML front matter in this folder.
-`
-}
-
 export function buildNoteMarkdownDocument(note: SavedNote): string {
   const title = note.title.trim()
   if (note.kind === "drawing") {
@@ -74,28 +67,27 @@ ${coverLine}${emojiLine}---
   return front + (body.trim() ? `${body}\n` : "_Empty note._\n")
 }
 
+const DEFAULT_WORKSPACE_ID = 'default'
+
 export function noteMarkdownRelativePath(folderId: string, note: SavedNote): string {
   const title = note.title.trim() || "Untitled"
   const fileBase = `${slugifyNoteFilenameSegment(title)}--${note.id}.md`
-  return `data/${folderId}/${fileBase}`
+  if (folderId === DEFAULT_WORKSPACE_ID) {
+    // Root notes live directly in the notes root (cwd)
+    return fileBase
+  }
+  return `${folderId}/${fileBase}`
 }
 
 /**
- * Markdown files to write under the repository root for one workspace.
- * Layout: `data/<workspace-folder-id>/README.md` and `<slug>--<noteId>.md` files.
- * Workspace folder ids look like `my-workspace--a1b2c3d4` (name slug + unique suffix).
+ * Markdown files to write relative to the notes root (cwd).
+ * Root notes go directly in cwd; workspace notes go in cwd/<workspaceId>/.
  */
 export function buildMarkdownSyncPayload(
   folder: WorkspaceFolder,
   notes: SavedNote[]
 ): { relativePath: string; content: string }[] {
-  const base = `data/${folder.id}`
   const files: { relativePath: string; content: string }[] = []
-
-  files.push({
-    relativePath: `${base}/README.md`,
-    content: workspaceReadmeMarkdown(folder.name),
-  })
 
   for (const n of notes) {
     files.push({

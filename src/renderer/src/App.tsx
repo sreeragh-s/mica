@@ -24,6 +24,14 @@ import { loadSetupState, saveSetupState } from '@/lib/setup-storage'
 
 type AppPhase = 'loading' | 'auth' | 'setup' | 'app'
 
+type InitialRootResult = {
+  path: string
+  configRoot: string
+  gitAvailable: boolean
+  gitInitialized: boolean
+  filesystemOnly: boolean
+}
+
 export default function App(): JSX.Element {
   const api = getApi()
   const [phase, setPhase] = useState<AppPhase>('loading')
@@ -34,6 +42,7 @@ export default function App(): JSX.Element {
   } | null>(null)
   const [busy, setBusy] = useState(false)
   const [loginError, setLoginError] = useState<string | null>(null)
+  const [initialRoot, setInitialRoot] = useState<InitialRootResult | null>(null)
 
   const refreshSession = useCallback(async () => {
     if (!api) {
@@ -92,8 +101,12 @@ export default function App(): JSX.Element {
       const api = getApi()
       let dataRoot: string | null = null
       if (api?.workspace?.ensureDataRoot) {
-        const r = await api.workspace.ensureDataRoot()
-        if (r.ok) dataRoot = r.path
+        const savedRoot = loadSetupState().workspaceRoot
+        const r = await api.workspace.ensureDataRoot(savedRoot ? { path: savedRoot } : undefined)
+        if (r.ok) {
+          dataRoot = r.configRoot
+          setInitialRoot(r)
+        }
       }
       await hydrateAppConfig(dataRoot)
       applyUiFontToDocument(loadUiFont())
@@ -161,7 +174,7 @@ export default function App(): JSX.Element {
       />
     )
   } else if (api && phase === 'setup') {
-    content = <SetupScreen api={api} onDone={handleSetupDone} />
+    content = <SetupScreen api={api} initialRoot={initialRoot} onDone={handleSetupDone} />
   } else {
     content = (
       <NotesApp

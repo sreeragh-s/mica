@@ -49,7 +49,7 @@ export function NotesApp(props: NotesAppProps): JSX.Element {
           sidebarOverlayActive
             ? 'pointer-events-none absolute inset-y-0 left-0 z-30'
             : '',
-          sidebarHidden ? 'w-0 border-r-0' : 'w-[min(100%,320px)]',
+          sidebarHidden ? 'w-0 border-r-0' : 'w-[min(100%,360px)]',
           !sidebarHidden &&
             macElectron &&
             !sidebarOverlayActive &&

@@ -45,8 +45,9 @@ export type NotesStateV2 = {
 export type NotesStateV3 = {
   version: 3
   githubRemoteUrl?: string
-  /** Preferred sidebar order of workspace folder ids (persists across reloads). */
-  sidebarFolderOrder?: string[]
 }
 
 export type NotesState = NotesStateV2 | NotesStateV3
+
+/** Left activity rail + sidebar content: notes tree, Git, or settings navigation. */
+export type AppSidebarView = "explorer" | "source-control" | "settings"
