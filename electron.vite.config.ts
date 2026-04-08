@@ -7,11 +7,13 @@ import tailwindcss from '@tailwindcss/vite'
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
   const authUrl = env.VITE_AUTH_URL ?? ''
+  const serverUrl = env.VITE_NOTELAB_SERVER_URL ?? ''
 
   return {
     main: {
       define: {
         __APP_AUTH_URL__: JSON.stringify(authUrl),
+        __APP_SERVER_URL__: JSON.stringify(serverUrl),
       },
       build: {
         rollupOptions: {

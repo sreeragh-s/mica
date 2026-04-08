@@ -124,6 +124,8 @@ export const editorTheme: EditorThemeClasses = {
     focus: "ring-2 ring-primary ring-offset-2",
   },
   hr: 'p-0.5 border-none my-1 mx-0 cursor-pointer after:content-[""] after:block after:h-0.5 after:bg-muted selected:ring-2 selected:ring-primary selected:ring-offset-2 selected:user-select-none',
+  titleBlock:
+    "min-w-0 w-full bg-transparent text-3xl font-extrabold text-foreground focus:outline-none lg:text-4xl empty:before:content-[attr(data-placeholder)] empty:before:text-muted-foreground/50 empty:before:pointer-events-none",
   indent: "[--lexical-indent-base-value:40px]",
   mark: "",
   markOverlap: "",

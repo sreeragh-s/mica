@@ -21,6 +21,7 @@ import { getApi, parseSession } from '@/lib/auth-bridge'
 import { hydrateAppConfig } from '@/lib/notelab-app-config'
 import { clearGuestMode, isGuestMode, setGuestMode } from '@/lib/guest-session'
 import { loadSetupState, saveSetupState } from '@/lib/setup-storage'
+import { UpdateBanner } from '@/components/update/UpdateBanner'
 
 type AppPhase = 'loading' | 'auth' | 'setup' | 'app'
 
@@ -189,7 +190,10 @@ export default function App(): JSX.Element {
   return (
     <ThemeProvider attribute="class" defaultTheme="system" enableSystem storageKey="notelab-theme">
       <ThemePresetRuntime />
-      {content}
+      <div className="flex h-screen flex-col">
+        <UpdateBanner />
+        <div className="min-h-0 flex-1">{content}</div>
+      </div>
     </ThemeProvider>
   )
 }

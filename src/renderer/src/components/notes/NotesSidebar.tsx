@@ -43,6 +43,7 @@ import { MAC_SIDEBAR_INSET_PANEL_RADIUS_PX } from '../../../../shared/mac-window
 import { DEFAULT_WORKSPACE_ID, formatNoteTime, type SavedNote } from '@/lib/notes-storage'
 import { searchNotes, searchFolders } from '@/lib/notes-search'
 import { AppSidebarRail } from './AppSidebar'
+import { WorkspaceSwitcher } from './WorkspaceSwitcher'
 import { GitSourceControlPanel } from './GitSourceControlPanel'
 import { NoteLeadingIcon } from './NoteLeadingIcon'
 import { FOLDER_DRAG_MIME, NOTE_DRAG_MIME, treeFolderId, treeNoteId } from './notes-app-utils'
@@ -96,6 +97,8 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
     appSidebarView,
     triggerRenameSelectedRef,
     openFolderSettingsPanel,
+    workspaceRoot,
+    handleWorkspaceRootChange,
   } = vm
 
   const [renamingNodeId, setRenamingNodeId] = useState<string | null>(null)
@@ -294,10 +297,22 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
           isMacNotelab && 'pointer-events-none'
         )}
       >
-        <div className="w-11 shrink-0" aria-hidden />
         <div
           className={cn(
-            'flex min-w-0 flex-1 items-center justify-end gap-1',
+            'flex min-w-0 flex-1 items-center gap-1',
+            isMacNotelab ? 'pointer-events-none pl-[92px] pr-2' : 'px-2'
+          )}
+        >
+          <WorkspaceSwitcher
+            workspaceRoot={workspaceRoot}
+            isMacNotelab={isMacNotelab}
+            onWorkspaceRootChange={handleWorkspaceRootChange}
+            className="w-full"
+          />
+        </div>
+        <div
+          className={cn(
+            'flex shrink-0 items-center justify-end gap-1',
             isMacNotelab ? 'pointer-events-none pr-2' : 'px-2'
           )}
         >

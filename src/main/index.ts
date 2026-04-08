@@ -8,6 +8,8 @@ import {
   type WebContents,
   type Input,
 } from 'electron'
+import { readFileSync, writeFileSync, mkdirSync } from 'fs'
+import { homedir } from 'os'
 
 type MacLiquidGlassState = { attached: boolean; glassSupported: boolean }
 
@@ -45,6 +47,7 @@ import { registerChatHistoryIpc } from './chat-history'
 import { registerWorkspaceGitIpc } from './workspace-git'
 import { registerLancedbEmbeddingsIpc } from './lancedb-embeddings'
 import { registerOllamaIpc } from './ollama'
+import { registerUpdaterIpc } from './updater'
 
 log.initialize()
 
@@ -101,12 +104,57 @@ function watchWindowShortcutsDetachedDevTools(window: BrowserWindow): void {
   })
 }
 
-function createWindow(): void {
-  // Create the browser window.
-  const mainWindow = new BrowserWindow({
+// ---------------------------------------------------------------------------
+// Multi-window session persistence
+// ---------------------------------------------------------------------------
+
+type WindowSession = {
+  workspacePath?: string
+  selectedNoteId?: string | null
+  openNoteTabIds?: string[]
+  chatSidebarOpen?: boolean
+  bounds?: { x: number; y: number; width: number; height: number }
+}
+
+type AppSession = {
+  version: 1
+  windows: WindowSession[]
+}
+
+function sessionFilePath(): string {
+  const dir = join(homedir(), '.notelab')
+  try { mkdirSync(dir, { recursive: true }) } catch { /* ignore */ }
+  return join(dir, 'notelab.session')
+}
+
+function readAppSession(): AppSession {
+  try {
+    const raw = readFileSync(sessionFilePath(), 'utf-8')
+    const p = JSON.parse(raw) as unknown
+    if (typeof p === 'object' && p !== null && (p as Record<string, unknown>).version === 1) {
+      return p as AppSession
+    }
+  } catch { /* no session yet */ }
+  return { version: 1, windows: [] }
+}
+
+function writeAppSession(session: AppSession): void {
+  try {
+    writeFileSync(sessionFilePath(), JSON.stringify(session, null, 2), 'utf-8')
+  } catch { /* ignore */ }
+}
+
+/** Per-window session data stored by webContents id. */
+const windowSessionData = new WeakMap<WebContents, WindowSession>()
+
+function createWindowWithSession(session?: WindowSession): BrowserWindow {
+  const bounds = session?.bounds
+  const win = new BrowserWindow({
     title: 'notelab.io',
-    width: 900,
-    height: 670,
+    width: bounds?.width ?? 900,
+    height: bounds?.height ?? 670,
+    x: bounds?.x,
+    y: bounds?.y,
     minWidth: 900,
     minHeight: 670,
     show: false,
@@ -114,14 +162,8 @@ function createWindow(): void {
     ...(process.platform === 'linux' ? { icon } : {}),
     ...(process.platform === 'darwin'
       ? {
-          /** `hidden` avoids the extra inset strip that often reads as a separate “top bar”. */
           titleBarStyle: 'hidden' as const,
-          /** Match sidebar toolbar row (`pl-[92px]`); keep in sync with renderer. */
           trafficLightPosition: { x: 22, y: 18 },
-          /**
-           * Required for electron-liquid-glass (do not enable `vibrancy` — it overrides the effect).
-           * @see https://github.com/Meridius-Labs/electron-liquid-glass
-           */
           transparent: true,
           backgroundColor: '#00000000'
         }
@@ -132,65 +174,84 @@ function createWindow(): void {
     }
   })
 
-  const trafficLightsMac: { x: number; y: number } = { x: 22, y: 18 }
-
-  /** macOS often restores the title strip / button layout after zoom-to-fill (not native fullscreen). */
-  const syncMacTitleChrome = (): void => {
-    if (mainWindow.isDestroyed()) return
-    mainWindow.setTitle('')
-    mainWindow.setWindowButtonVisibility(true)
-    mainWindow.setWindowButtonPosition(trafficLightsMac)
+  if (session) {
+    windowSessionData.set(win.webContents, { ...session })
   }
 
-  mainWindow.on('ready-to-show', () => {
-    if (process.platform === 'darwin') {
-      syncMacTitleChrome()
-    }
-    mainWindow.show()
+  const trafficLightsMac = { x: 22, y: 18 }
+  const syncMacTitleChrome = (): void => {
+    if (win.isDestroyed()) return
+    win.setTitle('')
+    win.setWindowButtonVisibility(true)
+    win.setWindowButtonPosition(trafficLightsMac)
+  }
+
+  win.on('ready-to-show', () => {
+    if (process.platform === 'darwin') syncMacTitleChrome()
+    win.show()
   })
 
   if (process.platform === 'darwin') {
-    mainWindow.on('enter-full-screen', syncMacTitleChrome)
-    /** Green “zoom” / edge-tile fills the desktop without `enter-full-screen`; re-apply chrome after. */
-    mainWindow.on('maximize', syncMacTitleChrome)
-    mainWindow.on('unmaximize', syncMacTitleChrome)
-    mainWindow.on('resized', syncMacTitleChrome)
-    mainWindow.on('restore', syncMacTitleChrome)
+    win.on('enter-full-screen', syncMacTitleChrome)
+    win.on('maximize', syncMacTitleChrome)
+    win.on('unmaximize', syncMacTitleChrome)
+    win.on('resized', syncMacTitleChrome)
+    win.on('restore', syncMacTitleChrome)
   }
 
-  mainWindow.on('leave-full-screen', () => {
-    if (process.platform === 'darwin') {
-      syncMacTitleChrome()
-    }
-    mainWindow.webContents.send('window:left-full-screen')
+  win.on('leave-full-screen', () => {
+    if (process.platform === 'darwin') syncMacTitleChrome()
+    win.webContents.send('window:left-full-screen')
   })
 
-  /** Chromium often eats Cmd+J (and similar) before keydown reaches the page; handle zen here. */
-  mainWindow.webContents.on('before-input-event', (event, input) => {
+  win.webContents.on('before-input-event', (event, input) => {
     if (input.type !== 'keyDown' || input.isAutoRepeat) return
-    const b = zenShortcutBindings.get(mainWindow.webContents)
+    const b = zenShortcutBindings.get(win.webContents)
     if (!b) return
     if (!bindingMatchesBeforeInput(b, input)) return
     event.preventDefault()
-    mainWindow.webContents.send('notelab:zen-shortcut')
+    win.webContents.send('notelab:zen-shortcut')
   })
 
-  mainWindow.webContents.setWindowOpenHandler((details) => {
+  win.webContents.setWindowOpenHandler((details) => {
     shell.openExternal(details.url)
     return { action: 'deny' }
   })
 
-  // HMR for renderer base on electron-vite cli.
-  // Load the remote URL for development or the local html file for production.
-  mainWindow.webContents.once('did-finish-load', () => {
-    void attachMacNativeLiquidGlass(mainWindow)
+  win.webContents.once('did-finish-load', () => {
+    void attachMacNativeLiquidGlass(win)
   })
 
+  const workspaceParam = session?.workspacePath
+    ? `?workspace=${encodeURIComponent(session.workspacePath)}`
+    : ''
+
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
-    mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
+    void win.loadURL(process.env['ELECTRON_RENDERER_URL'] + workspaceParam)
   } else {
-    mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
+    void win.loadFile(join(__dirname, '../renderer/index.html'), {
+      search: workspaceParam ? workspaceParam.slice(1) : undefined
+    })
   }
+
+  return win
+}
+
+/** Persist the current multi-window session to disk before the app quits. */
+function persistCurrentSession(): void {
+  const wins = BrowserWindow.getAllWindows()
+  const sessions: WindowSession[] = wins
+    .filter((w) => !w.isDestroyed())
+    .map((w) => {
+      const data = windowSessionData.get(w.webContents) ?? {}
+      const b = w.getBounds()
+      return { ...data, bounds: { x: b.x, y: b.y, width: b.width, height: b.height } }
+    })
+  writeAppSession({ version: 1, windows: sessions })
+}
+
+function createWindow(sessionData?: WindowSession): BrowserWindow {
+  return createWindowWithSession(sessionData)
 }
 
 // This method will be called when Electron has finished
@@ -285,14 +346,46 @@ app.whenReady().then(() => {
   registerWorkspaceGitIpc()
   registerLancedbEmbeddingsIpc()
   registerOllamaIpc()
+  registerUpdaterIpc()
 
-  createWindow()
+  // --- Window session IPC ---
+
+  /** Renderer calls this to get its own persisted session data on startup. */
+  ipcMain.handle('window:get-session', (event) => {
+    const data = windowSessionData.get(event.sender) ?? null
+    return data
+  })
+
+  /** Renderer calls this to update its persisted session data. */
+  ipcMain.handle('window:set-session', (event, data: WindowSession) => {
+    windowSessionData.set(event.sender, data)
+    return { ok: true as const }
+  })
+
+  /** Open a workspace path in a new BrowserWindow. */
+  ipcMain.handle('window:open-workspace-in-new-window', (_event, workspacePath: string) => {
+    createWindow({ workspacePath })
+    return { ok: true as const }
+  })
+
+  // Restore previous session windows (skip on first launch).
+  const prevSession = readAppSession()
+  if (prevSession.windows.length > 0) {
+    for (const ws of prevSession.windows) {
+      createWindow(ws)
+    }
+  } else {
+    createWindow()
+  }
 
   app.on('activate', function () {
-    // On macOS it's common to re-create a window in the app when the
-    // dock icon is clicked and there are no other windows open.
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })
+})
+
+// Persist session before the app quits.
+app.on('before-quit', () => {
+  persistCurrentSession()
 })
 
 // Quit when all windows are closed, except on macOS. There, it's common

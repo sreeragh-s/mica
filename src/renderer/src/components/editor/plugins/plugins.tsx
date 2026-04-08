@@ -1,4 +1,4 @@
-import { useRef, useState } from "react"
+import { useState } from "react"
 import { createPortal } from "react-dom"
 import { EmojiPicker } from "frimousse"
 import { ImageIcon, Smile, X } from "lucide-react"
@@ -44,6 +44,7 @@ import { FloatingLinkEditorPlugin } from "@/components/editor/plugins/floating-l
 import { FloatingTextFormatToolbarPlugin } from "@/components/editor/plugins/floating-text-format-plugin"
 import { InternalNoteLinkClickPlugin } from "@/components/editor/plugins/internal-note-link-click-plugin"
 import { LinkHoverPreviewPlugin } from "@/components/editor/plugins/link-hover-preview-plugin"
+import { TitlePlugin } from "@/components/editor/plugins/title-plugin"
 import { MarkdownPastePlugin } from "@/components/editor/plugins/markdown-paste-plugin"
 import {
   ImageSourceTabs,
@@ -143,7 +144,7 @@ function TitleEmojiPickerContent({
 }
 
 export function Plugins({
-  title: initialTitle,
+  title,
   onTitleChange,
   coverImageSrc,
   onCoverChange,
@@ -163,33 +164,14 @@ export function Plugins({
   const [floatingAnchorElem, setFloatingAnchorElem] =
     useState<HTMLDivElement | null>(null)
   const [isLinkEditMode, setIsLinkEditMode] = useState<boolean>(false)
-  const [titleValue, setTitleValue] = useState(initialTitle ?? "")
   const [coverDialogOpen, setCoverDialogOpen] = useState(false)
   const [emojiToolbarPopoverOpen, setEmojiToolbarPopoverOpen] = useState(false)
   const [emojiEditPopoverOpen, setEmojiEditPopoverOpen] = useState(false)
-  const contentEditableContainerRef = useRef<HTMLDivElement>(null)
 
   const onRef = (_floatingAnchorElem: HTMLDivElement) => {
     if (_floatingAnchorElem !== null) {
       setFloatingAnchorElem(_floatingAnchorElem)
     }
-  }
-
-  const handleTitleChange = (value: string) => {
-    setTitleValue(value)
-    onTitleChange?.(value)
-  }
-
-  const handleTitleBlur = () => {
-    if (!titleValue.trim()) {
-      setTitleValue('')
-      onTitleChange?.('')
-    }
-  }
-
-  const focusEditor = () => {
-    const ce = contentEditableContainerRef.current?.querySelector<HTMLElement>('[contenteditable="true"]')
-    ce?.focus()
   }
 
   const showCoverAdd = Boolean(onCoverChange && !coverImageSrc)
@@ -268,79 +250,27 @@ export function Plugins({
                         </DialogContent>
                       </Dialog>
                       {showTopMediaBar ? (
-                          <div
-                            className={cn(
-                              "flex flex-wrap items-center gap-2 px-6 pb-1",
-                              coverImageSrc ? "pt-2" : "pt-8"
-                            )}
-                          >
-                                 {showEmojiAdd ? (
-                              <Popover
-                                open={emojiToolbarPopoverOpen}
-                                onOpenChange={setEmojiToolbarPopoverOpen}
-                              >
-                                <PopoverTrigger asChild>
-                                  <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="sm"
-                                    className="text-muted-foreground h-8 gap-1.5 px-2"
-                                  >
-                                    <Smile className="size-4" aria-hidden />
-                                    Add emoji
-                                  </Button>
-                                </PopoverTrigger>
-                                <PopoverContent
-                                  align="start"
-                                  className="border-border w-auto p-0 shadow-lg"
-                                  onOpenAutoFocus={(e) => e.preventDefault()}
-                                >
-                                  <TitleEmojiPickerContent
-                                    onPick={(emoji) => {
-                                      onTitleEmojiChange?.(emoji)
-                                      setEmojiToolbarPopoverOpen(false)
-                                    }}
-                                  />
-                                </PopoverContent>
-                              </Popover>
-                            ) : null}
-                            {showCoverAdd ? (
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                className="text-muted-foreground -ml-2 h-8 gap-1.5 px-2"
-                                onClick={() => setCoverDialogOpen(true)}
-                              >
-                                <ImageIcon className="size-4" aria-hidden />
-                                Add cover
-                              </Button>
-                            ) : null}
-                       
-                          </div>
-                      ) : null}
-                      <div
-                        className={cn(
-                          "flex items-center gap-2 px-8 pb-2",
-                          showTopMediaBar ? "pt-2" : "pt-8"
-                        )}
-                      >
-                        {onTitleEmojiChange && titleEmoji ? (
-                          <div className="flex shrink-0 items-center gap-0.5">
+                        <div
+                          className={cn(
+                            "flex flex-wrap items-center gap-2 px-6 pb-1",
+                            coverImageSrc ? "pt-2" : "pt-8"
+                          )}
+                        >
+                          {showEmojiAdd ? (
                             <Popover
-                              open={emojiEditPopoverOpen}
-                              onOpenChange={setEmojiEditPopoverOpen}
+                              open={emojiToolbarPopoverOpen}
+                              onOpenChange={setEmojiToolbarPopoverOpen}
                             >
                               <PopoverTrigger asChild>
-                                <button
+                                <Button
                                   type="button"
-                                  className="hover:bg-muted/60 flex items-center justify-center rounded-md p-0.5 transition-colors"
-                                  aria-label="Change emoji"
+                                  variant="ghost"
+                                  size="sm"
+                                  className="text-muted-foreground h-8 gap-1.5 px-2"
                                 >
-                                  <span className="text-3xl leading-none select-none lg:text-4xl">
-                                    {titleEmoji}
-                                  </span>
-                                </button>
+                                  <Smile className="size-4" aria-hidden />
+                                  Add emoji
+                                </Button>
                               </PopoverTrigger>
                               <PopoverContent
                                 align="start"
@@ -349,45 +279,87 @@ export function Plugins({
                               >
                                 <TitleEmojiPickerContent
                                   onPick={(emoji) => {
-                                    onTitleEmojiChange(emoji)
-                                    setEmojiEditPopoverOpen(false)
+                                    onTitleEmojiChange?.(emoji)
+                                    setEmojiToolbarPopoverOpen(false)
                                   }}
                                 />
                               </PopoverContent>
                             </Popover>
+                          ) : null}
+                          {showCoverAdd ? (
                             <Button
                               type="button"
                               variant="ghost"
-                              size="icon"
-                              className="text-muted-foreground size-8 shrink-0"
-                              aria-label="Remove emoji"
-                              onClick={() => onTitleEmojiChange(null)}
+                              size="sm"
+                              className="text-muted-foreground -ml-2 h-8 gap-1.5 px-2"
+                              onClick={() => setCoverDialogOpen(true)}
                             >
-                              <X className="size-4" aria-hidden />
+                              <ImageIcon className="size-4" aria-hidden />
+                              Add cover
                             </Button>
-                          </div>
-                        ) : null}
-                        <input
-                          type="text"
-                          value={titleValue}
-                          onChange={(e) => handleTitleChange(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter" || e.key === "ArrowDown") {
-                              e.preventDefault()
-                              focusEditor()
-                            }
-                          }}
-                          onBlur={handleTitleBlur}
-                          placeholder="Enter title here"
-                          className="min-w-0 flex-1 bg-transparent text-3xl font-extrabold text-foreground placeholder:text-muted-foreground/50 focus:outline-none lg:text-4xl"
-                        />
-                      </div>
+                          ) : null}
+                        </div>
+                      ) : null}
+                      {onTitleEmojiChange && titleEmoji ? (
+                        <div
+                          className={cn(
+                            "flex shrink-0 items-center gap-0.5 px-8",
+                            showTopMediaBar ? "pt-2" : "pt-8"
+                          )}
+                        >
+                          <Popover
+                            open={emojiEditPopoverOpen}
+                            onOpenChange={setEmojiEditPopoverOpen}
+                          >
+                            <PopoverTrigger asChild>
+                              <button
+                                type="button"
+                                className="hover:bg-muted/60 flex items-center justify-center rounded-md p-0.5 transition-colors"
+                                aria-label="Change emoji"
+                              >
+                                <span className="text-3xl leading-none select-none lg:text-4xl">
+                                  {titleEmoji}
+                                </span>
+                              </button>
+                            </PopoverTrigger>
+                            <PopoverContent
+                              align="start"
+                              className="border-border w-auto p-0 shadow-lg"
+                              onOpenAutoFocus={(e) => e.preventDefault()}
+                            >
+                              <TitleEmojiPickerContent
+                                onPick={(emoji) => {
+                                  onTitleEmojiChange(emoji)
+                                  setEmojiEditPopoverOpen(false)
+                                }}
+                              />
+                            </PopoverContent>
+                          </Popover>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="text-muted-foreground size-8 shrink-0"
+                            aria-label="Remove emoji"
+                            onClick={() => onTitleEmojiChange(null)}
+                          >
+                            <X className="size-4" aria-hidden />
+                          </Button>
+                        </div>
+                      ) : null}
                     </>
                   )}
-                  <div ref={contentEditableContainerRef} className="relative">
+                  <div className="relative">
                     <ContentEditable
                       placeholder={placeholder}
-                      className="ContentEditable__root relative block min-h-full px-8 py-4 focus:outline-none"
+                      className={cn(
+                        "ContentEditable__root relative block min-h-full px-8 pb-4 focus:outline-none",
+                        onTitleChange !== undefined
+                          ? showTopMediaBar || (onTitleEmojiChange && titleEmoji)
+                            ? "pt-2"
+                            : "pt-8"
+                          : "pt-4"
+                      )}
                     />
                   </div>
                 </div>
@@ -396,6 +368,10 @@ export function Plugins({
           }
           ErrorBoundary={LexicalErrorBoundary}
         />
+
+        {onTitleChange !== undefined && (
+          <TitlePlugin title={title} onTitleChange={onTitleChange} />
+        )}
 
         <ClickableLinkPlugin />
         <InternalNoteLinkClickPlugin />

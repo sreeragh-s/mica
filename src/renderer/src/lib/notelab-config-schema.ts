@@ -14,6 +14,15 @@ export type NotelabSetupState = {
   workspaceRoot?: string
 }
 
+export type SavedWorkspace = {
+  /** Absolute path to the workspace root directory. */
+  path: string
+  /** Display name (defaults to the last path segment). */
+  name: string
+  /** Git remote URL for this workspace, if configured. */
+  remoteUrl?: string
+}
+
 /** Persisted at ~/.notelab/notelab.config (Notelab). */
 export type NotelabConfigFileV1 = {
   version: 1
@@ -28,6 +37,8 @@ export type NotelabConfigFileV1 = {
   /** Serialized notes index / remote cache (see notes-types NotesState). */
   notes?: unknown
   githubContentShas?: Record<string, string>
+  /** All known workspaces (path, name, optional remoteUrl). */
+  workspaces?: SavedWorkspace[]
 }
 
 export type NotelabThemeConfigV1 = {

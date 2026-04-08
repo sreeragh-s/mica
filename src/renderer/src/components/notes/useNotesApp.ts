@@ -313,9 +313,9 @@ export function useNotesApp({
 
   type NotelabIndexOk = {
     ok: true
-    workspaces: { id: string; name: string }[]
+    folders: { id: string; name: string }[]
     notes: {
-      workspaceId: string
+      folderId: string
       noteId: string
       title: string
       updatedAtMs: number
@@ -328,7 +328,7 @@ export function useNotesApp({
 
   const applyNotelabIndex = useCallback((idx: NotelabIndexOk, cwd: string) => {
     /** Root bucket `default/` is shown as top-level notes only, not a second folder row. */
-    const mappedFolders: Folder[] = idx.workspaces
+    const mappedFolders: Folder[] = idx.folders
       .filter((w) => w.id !== DEFAULT_WORKSPACE_ID)
       .map((w) => ({
         id: w.id,
@@ -340,7 +340,7 @@ export function useNotesApp({
       if (kind === 'drawing') {
         return {
           id: n.noteId,
-          folderId: n.workspaceId,
+          folderId: n.folderId,
           title: n.title,
           updatedAt: n.updatedAtMs,
           content: null,
@@ -350,7 +350,7 @@ export function useNotesApp({
       }
       return {
         id: n.noteId,
-        folderId: n.workspaceId,
+        folderId: n.folderId,
         title: n.title,
         updatedAt: n.updatedAtMs,
         content: diskBodyToContent(n.markdownBody),
@@ -361,7 +361,7 @@ export function useNotesApp({
           : {})
       }
     })
-    if (idx.workspaces.length === 0 && idx.notes.length === 0) {
+    if (idx.folders.length === 0 && idx.notes.length === 0) {
       setFolders([])
       setNotes([])
       setSelectedId(null)
@@ -520,7 +520,7 @@ export function useNotesApp({
         const rel = noteMarkdownRelativePath(note.folderId, note)
         const del = await api.workspace.deleteNoteFiles({
           cwd: effectiveCwd,
-          workspaceId: note.folderId,
+          folderId: note.folderId,
           noteId,
           exceptRelativePath: rel
         })
@@ -563,7 +563,7 @@ export function useNotesApp({
       try {
         const del = await api.workspace.deleteNoteFiles({
           cwd,
-          workspaceId: fromFolderId,
+          folderId: fromFolderId,
           noteId
         })
         if (!del.ok) {
@@ -943,18 +943,28 @@ export function useNotesApp({
     let cancelled = false
     const savedRoot = loadSetupState().workspaceRoot
     void (async () => {
-      const rootR = await ws.ensureDataRoot!(savedRoot ? { path: savedRoot } : undefined)
+      // URL param is set synchronously by the main process when opening a workspace in a new window.
+      // It takes priority over everything — no IPC timing issues.
+      const urlWorkspace = new URLSearchParams(window.location.search).get('workspace')
+
+      // Restore the window session for note/tab/chat state (not workspace — URL param handles that).
+      const windowSession = await api?.multiWindow?.getSession?.() ?? null
+
+      const workspacePathOverride = urlWorkspace ?? windowSession?.workspacePath ?? null
+      const effectiveRoot = workspacePathOverride ?? savedRoot
+
+      const rootR = await ws.ensureDataRoot!(effectiveRoot ? { path: effectiveRoot } : undefined)
       if (!rootR.ok || cancelled) return
       const cwd = rootR.path
       dataRootRef.current = cwd
       setDataRootPath(cwd)
-      setWorkspaceRoot(savedRoot ?? cwd)
+      setWorkspaceRoot(effectiveRoot ?? cwd)
 
       const idxR = await ws.readNotelabIndex({ cwd })
       if (!idxR.ok || cancelled) return
 
       const persisted = loadNotesState()
-      const diskEmpty = idxR.workspaces.length === 0 && idxR.notes.length === 0
+      const diskEmpty = idxR.folders.length === 0 && idxR.notes.length === 0
       const hasLocal =
         persisted.version === 2 && (persisted.notes.length > 0 || persisted.folders.length > 0)
 
@@ -964,7 +974,7 @@ export function useNotesApp({
           const files = buildMarkdownSyncPayload(f, wsNotes)
           const sync = await ws.syncMarkdown({
             cwd,
-            workspaceId: f.id,
+            folderId: f.id,
             files,
             pruneOrphanNoteFiles: true
           })
@@ -984,7 +994,7 @@ export function useNotesApp({
         const files = buildMarkdownSyncPayload(defaultFolder, [])
         const sync = await ws.syncMarkdown({
           cwd,
-          workspaceId: DEFAULT_WORKSPACE_ID,
+          folderId: DEFAULT_WORKSPACE_ID,
           files,
           pruneOrphanNoteFiles: false
         })
@@ -1008,7 +1018,7 @@ export function useNotesApp({
         const files = buildMarkdownSyncPayload(defaultFolder, [])
         const sync = await ws.syncMarkdown({
           cwd,
-          workspaceId: DEFAULT_WORKSPACE_ID,
+          folderId: DEFAULT_WORKSPACE_ID,
           files,
           pruneOrphanNoteFiles: false
         })
@@ -1021,6 +1031,21 @@ export function useNotesApp({
       if (!fresh.ok || cancelled) return
       setDiskMode(true)
       applyNotelabIndex(fresh, cwd)
+
+      // Restore last selected note and open tabs from window session.
+      if (windowSession) {
+        const allNoteIds = new Set(fresh.notes.map((n) => n.noteId))
+        if (windowSession.selectedNoteId && allNoteIds.has(windowSession.selectedNoteId)) {
+          setSelectedId(windowSession.selectedNoteId)
+        }
+        if (windowSession.openNoteTabIds) {
+          const validTabs = windowSession.openNoteTabIds.filter((id) => allNoteIds.has(id))
+          if (validTabs.length > 0) setOpenNoteTabIds(validTabs)
+        }
+        if (windowSession.chatSidebarOpen) {
+          setChatSidebarOpen(true)
+        }
+      }
     })()
     return () => {
       cancelled = true
@@ -1110,7 +1135,7 @@ export function useNotesApp({
           const files = buildMarkdownSyncPayload(f, wsNotes)
           const r = await api.workspace!.syncMarkdown!({
             cwd: f.localGitPath!,
-            workspaceId: f.id,
+            folderId: f.id,
             files,
             pruneOrphanNoteFiles: true
           })
@@ -1257,7 +1282,7 @@ export function useNotesApp({
       setFolders((prev) => [...prev, { id, name, ...(root ? { localGitPath: root } : {}) }])
       if (diskMode && root) {
         const api = getApi()
-        void api?.workspace?.createFolder?.({ cwd: root, workspaceId: id })
+        void api?.workspace?.createFolder?.({ cwd: root, folderId: id })
         if (useGithubApiSync) setGithubApiDirty(true)
         void refreshWorkspaceGitStatuses()
       }
@@ -1486,7 +1511,7 @@ export function useNotesApp({
         if (diskMode && cwd && api?.workspace?.deleteNoteFiles && deleted) {
           const r = await api.workspace.deleteNoteFiles({
             cwd,
-            workspaceId: deleted.folderId,
+            folderId: deleted.folderId,
             noteId
           })
           if (!r.ok) {
@@ -1653,7 +1678,7 @@ export function useNotesApp({
 
       const r = await api.workspace.deleteFolder({
         cwd: root,
-        workspaceId: folderId
+        folderId
       })
       if (!r.ok) {
         console.error('[notelab] delete workspace failed', r.error)
@@ -1695,7 +1720,7 @@ export function useNotesApp({
     const idx = await api.workspace.readNotelabIndex({ cwd })
     if (!idx.ok) return
     const allNotes = idx.notes.map((n) => ({
-      workspaceId: n.workspaceId,
+      workspaceId: n.folderId,
       noteId: n.noteId,
       title: n.title,
       content: n.markdownBody,
@@ -1745,7 +1770,7 @@ export function useNotesApp({
         )
       }))
       const result = await indexNote({
-        workspaceId: n.workspaceId,
+        workspaceId: n.folderId,
         noteId: n.noteId,
         content: n.markdownBody,
         kind: n.kind,
@@ -1805,7 +1830,7 @@ export function useNotesApp({
       }))
       // Pass no storedHash to force re-embed
       const result = await indexNote({
-        workspaceId: n.workspaceId,
+        workspaceId: n.folderId,
         noteId: n.noteId,
         content: n.markdownBody,
         kind: n.kind
@@ -2125,6 +2150,18 @@ export function useNotesApp({
     window.addEventListener('keydown', onKeyDown, true)
     return () => window.removeEventListener('keydown', onKeyDown, true)
   }, [appMode, handleNewNote, toggleSidebar, toggleZenMode, exitZenMode, toggleChatSidebar, openShortcuts])
+
+  // Persist window session (selected note, open tabs, chat state, workspace) on change.
+  useEffect(() => {
+    const api = getApi()
+    if (!api?.multiWindow?.setSession) return
+    void api.multiWindow.setSession({
+      workspacePath: workspaceRoot ?? undefined,
+      selectedNoteId: selectedId,
+      openNoteTabIds,
+      chatSidebarOpen,
+    })
+  }, [workspaceRoot, selectedId, openNoteTabIds, chatSidebarOpen])
 
   const startFolderCreate = useCallback(() => {
     setFolderCreateOpen(true)

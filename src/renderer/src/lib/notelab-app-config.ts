@@ -3,6 +3,7 @@ import type {
   NotelabConfigFileV1,
   NotelabThemeConfigV1,
   NotelabSetupState,
+  SavedWorkspace,
 } from "./notelab-config-schema"
 import { normalizeNotesStateFromStorage } from "./notes-state-normalize"
 import type { NotesState } from "./notes-types"
@@ -320,6 +321,30 @@ export function loadGithubContentShas(): Record<string, string> {
 
 export function saveGithubContentShas(map: Record<string, string>): void {
   setCache({ ...cache, version: 1, githubContentShas: { ...map } })
+}
+
+export function loadWorkspaces(): SavedWorkspace[] {
+  const raw = cache.workspaces
+  if (!Array.isArray(raw)) return []
+  return raw.filter(
+    (w): w is SavedWorkspace =>
+      typeof w === 'object' && w !== null && typeof w.path === 'string' && typeof w.name === 'string'
+  )
+}
+
+export function saveWorkspaces(workspaces: SavedWorkspace[]): void {
+  setCache({ ...cache, version: 1, workspaces }, true)
+}
+
+/** Upsert a workspace entry by path. Returns the updated list. */
+export function upsertWorkspace(ws: SavedWorkspace): SavedWorkspace[] {
+  const existing = loadWorkspaces()
+  const idx = existing.findIndex((w) => w.path === ws.path)
+  const next = idx >= 0
+    ? existing.map((w, i) => (i === idx ? { ...w, ...ws } : w))
+    : [ws, ...existing]
+  saveWorkspaces(next)
+  return next
 }
 
 export function mergeGithubContentShas(

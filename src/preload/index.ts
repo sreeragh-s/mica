@@ -137,9 +137,9 @@ const api = {
     ): Promise<{ ok: true; copiedFiles: number } | { ok: false; error: string }> =>
       ipcRenderer.invoke('workspace:migrate-workspace', payload),
     createFolder: (
-      payload: { cwd: string; workspaceId: string }
+      payload: { cwd: string; folderId: string }
     ): Promise<{ ok: true } | { ok: false; error: string }> =>
-      ipcRenderer.invoke('workspace:create-workspace-folder', payload),
+      ipcRenderer.invoke('workspace:create-folder', payload),
     setSyncMode: (
       payload: { cwd: string; syncMode: 'git' | 'github_api' | 'local' }
     ): Promise<{ ok: true } | { ok: false; error: string }> =>
@@ -152,7 +152,7 @@ const api = {
       ipcRenderer.invoke('workspace:set-git-remote', payload),
     syncMarkdown: (payload: {
       cwd: string
-      workspaceId: string
+      folderId: string
       files: { relativePath: string; content: string }[]
       pruneOrphanNoteFiles?: boolean
     }): Promise<{ ok: true } | { ok: false; error: string }> =>
@@ -162,9 +162,9 @@ const api = {
     ): Promise<
       | {
           ok: true
-          workspaces: { id: string; name: string }[]
+          folders: { id: string; name: string }[]
           notes: {
-            workspaceId: string
+            folderId: string
             noteId: string
             title: string
             updatedAtMs: number
@@ -184,16 +184,16 @@ const api = {
       ipcRenderer.invoke('workspace:write-note-file', payload),
     deleteNoteFiles: (payload: {
       cwd: string
-      workspaceId: string
+      folderId: string
       noteId: string
       exceptRelativePath?: string
     }): Promise<{ ok: true } | { ok: false; error: string }> =>
       ipcRenderer.invoke('workspace:delete-note-files', payload),
     deleteFolder: (payload: {
       cwd: string
-      workspaceId: string
+      folderId: string
     }): Promise<{ ok: true } | { ok: false; error: string }> =>
-      ipcRenderer.invoke('workspace:delete-workspace-folder', payload),
+      ipcRenderer.invoke('workspace:delete-folder', payload),
     gitStatus: (
       payload: { cwd: string }
     ): Promise<
@@ -532,6 +532,38 @@ const api = {
       | { ok: true; rows: Record<string, unknown>[]; totalRows: number }
       | { ok: false; error: string }
     > => ipcRenderer.invoke('lancedb:dump-table'),
+  },
+  updater: {
+    check: (): Promise<unknown> => ipcRenderer.invoke('update:check'),
+    getState: (): Promise<unknown> => ipcRenderer.invoke('update:get-state'),
+    openDownload: (downloadUrl: string): Promise<{ ok: true } | { ok: false; error: string }> =>
+      ipcRenderer.invoke('update:open-download', downloadUrl),
+    onStateChange: (
+      callback: (state: { status: string; version?: string; downloadUrl?: string; message?: string }) => void
+    ): (() => void) => {
+      const channel = 'notelab:update-state'
+      const handler = (_: unknown, state: { status: string; version?: string; downloadUrl?: string; message?: string }): void => {
+        callback(state)
+      }
+      ipcRenderer.on(channel, handler)
+      return () => ipcRenderer.removeListener(channel, handler)
+    },
+  },
+  multiWindow: {
+    getSession: (): Promise<{
+      workspacePath?: string
+      selectedNoteId?: string | null
+      openNoteTabIds?: string[]
+      chatSidebarOpen?: boolean
+    } | null> => ipcRenderer.invoke('window:get-session'),
+    setSession: (data: {
+      workspacePath?: string
+      selectedNoteId?: string | null
+      openNoteTabIds?: string[]
+      chatSidebarOpen?: boolean
+    }): Promise<{ ok: true }> => ipcRenderer.invoke('window:set-session', data),
+    openWorkspaceInNewWindow: (workspacePath: string): Promise<{ ok: true }> =>
+      ipcRenderer.invoke('window:open-workspace-in-new-window', workspacePath),
   },
 }
 

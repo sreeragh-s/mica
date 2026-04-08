@@ -18,7 +18,6 @@ import { NotesSearchBar } from './NotesSearchBar'
 import { NotesTabOverview } from './NotesTabOverview'
 import { NotesToolbarPill } from './NotesToolbarPill'
 import { ShortcutsSettingsView } from './ShortcutsSettingsView'
-import { WorkspaceSettingsPanel } from './WorkspaceSettingsPanel'
 import type { NotesAppViewModel } from './useNotesApp'
 
 export type NotesMainAreaProps = {
@@ -73,11 +72,6 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
     folders,
     notes,
     notesCount,
-    workspaceSettingsFolder,
-    workspaceSettingsFolderId,
-    workspaceSettingsCanDelete,
-    renameFolder,
-    deleteFolder,
     user,
     guestMode,
     onSignOut,
@@ -154,7 +148,6 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
   const showEditorBottomChrome =
     !zenMode &&
     appMode === 'notes' &&
-    !workspaceSettingsFolderId &&
     !conflictViewPath &&
     selectedNote?.kind === 'note'
 
@@ -179,7 +172,7 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
 
   // --- Notes area content ---
   const notesContent = (() => {
-    if (appMode !== 'notes' || workspaceSettingsFolderId) return null
+    if (appMode !== 'notes') return null
 
     // Conflict view takes over the main area when a conflict file is open
     if (conflictViewPath) {
@@ -281,9 +274,8 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
   })()
 
   const showNotes = appMode === 'notes'
-  const showTabs = showNotes && !workspaceSettingsFolderId && openNoteTabIds.length > 0
-  /** Same scope as toolbar + search: main notes surface only (not settings, workspace settings, or zen). */
-  const showNotesChatChrome = showNotes && !workspaceSettingsFolderId && !zenMode
+  const showTabs = showNotes && openNoteTabIds.length > 0
+  const showNotesChatChrome = showNotes && !zenMode
 
   return (
     <div
@@ -315,7 +307,7 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
               )}
             >
               {/* Search bar row */}
-              {showNotes && !workspaceSettingsFolderId ? (
+              {showNotes ? (
                 <NotesSearchBar
                   notes={notes}
                   folders={folders}
@@ -377,17 +369,7 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
               />
             ) : null}
             <div className="order-1 flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto">
-            {workspaceSettingsFolderId && workspaceSettingsFolder ? (
-              <WorkspaceSettingsPanel
-                key={workspaceSettingsFolderId}
-                folder={workspaceSettingsFolder}
-                isMacNotelab={isMacNotelab}
-                macTitlebarStyles={macTitlebarStyles}
-                onRename={(name) => renameFolder(workspaceSettingsFolderId, name)}
-                canDelete={workspaceSettingsCanDelete}
-                onDeleteWorkspace={() => deleteFolder(workspaceSettingsFolderId)}
-              />
-            ) : appMode === 'settings' && settingsSection === 'account' ? (
+            {appMode === 'settings' && settingsSection === 'account' ? (
               <AccountSettingsView
                 user={user}
                 guestMode={guestMode}
@@ -457,7 +439,7 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
             />
           )}
           {/* After chat in DOM + z-index above chat: open chat uses transform layers that stack above earlier siblings. */}
-          {showNotes && !workspaceSettingsFolderId && !zenMode && (
+          {showNotes && !zenMode && (
             <div
               className={cn(
                 'pointer-events-auto absolute z-[100] flex h-12 items-center',

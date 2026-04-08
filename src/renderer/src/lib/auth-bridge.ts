@@ -68,7 +68,7 @@ export type NotelabApi = {
     }) => Promise<{ ok: true; copiedFiles: number } | { ok: false; error: string }>
     createFolder?: (payload: {
       cwd: string
-      workspaceId: string
+      folderId: string
     }) => Promise<{ ok: true } | { ok: false; error: string }>
     setSyncMode?: (payload: {
       cwd: string
@@ -81,7 +81,7 @@ export type NotelabApi = {
     }) => Promise<{ ok: true } | { ok: false; error: string }>
     syncMarkdown: (payload: {
       cwd: string
-      workspaceId: string
+      folderId: string
       files: { relativePath: string; content: string }[]
       pruneOrphanNoteFiles?: boolean
     }) => Promise<{ ok: true } | { ok: false; error: string }>
@@ -90,9 +90,9 @@ export type NotelabApi = {
     }) => Promise<
       | {
           ok: true
-          workspaces: { id: string; name: string }[]
+          folders: { id: string; name: string }[]
           notes: {
-            workspaceId: string
+            folderId: string
             noteId: string
             title: string
             updatedAtMs: number
@@ -111,13 +111,13 @@ export type NotelabApi = {
     }) => Promise<{ ok: true } | { ok: false; error: string }>
     deleteNoteFiles: (payload: {
       cwd: string
-      workspaceId: string
+      folderId: string
       noteId: string
       exceptRelativePath?: string
     }) => Promise<{ ok: true } | { ok: false; error: string }>
     deleteFolder: (payload: {
       cwd: string
-      workspaceId: string
+      folderId: string
     }) => Promise<{ ok: true } | { ok: false; error: string }>
     gitStatus: (payload: {
       cwd: string
@@ -206,6 +206,21 @@ export type NotelabApi = {
       cwd: string
       config: unknown
     }) => Promise<{ ok: true } | { ok: false; error: string }>
+  }
+  multiWindow?: {
+    getSession: () => Promise<{
+      workspacePath?: string
+      selectedNoteId?: string | null
+      openNoteTabIds?: string[]
+      chatSidebarOpen?: boolean
+    } | null>
+    setSession: (data: {
+      workspacePath?: string
+      selectedNoteId?: string | null
+      openNoteTabIds?: string[]
+      chatSidebarOpen?: boolean
+    }) => Promise<{ ok: true }>
+    openWorkspaceInNewWindow: (workspacePath: string) => Promise<{ ok: true }>
   }
   embeddings?: {
     getStatus: () => Promise<
