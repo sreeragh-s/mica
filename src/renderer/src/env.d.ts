@@ -51,6 +51,8 @@ interface Window {
 interface ImportMetaEnv {
   /** Same base URL as Worker `BETTER_AUTH_URL` (used in UI hints only; auth runs in the main process). */
   readonly VITE_AUTH_URL?: string
+  /** Set to `"true"` to show the Infinity canvas UI. */
+  readonly VITE_ENABLE_INFINITY_CANVAS?: string
   /** Set to `"true"` to show the speech-to-text toolbar control (Web Speech API). */
   readonly VITE_ENABLE_SPEECH_TO_TEXT?: string
   /** Set to `"true"` to show the share-content toolbar control. */

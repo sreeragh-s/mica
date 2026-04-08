@@ -103,7 +103,7 @@ export function NotesApp(props: NotesAppProps): JSX.Element {
         defaultRepoName={dirName}
         githubUsername={vm.user?.name ?? null}
         onRemoteSet={async (url) => {
-          vm.handleSaveGithubRemote(url)
+          await vm.handleGitRemoteConnected(url)
         }}
       />
     </div>

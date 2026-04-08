@@ -89,6 +89,7 @@ import type { ChatHistoryMeta } from '@/hooks/useNotesChat'
 import { useNotesChat } from '@/hooks/useNotesChat'
 import { useBillingStatus } from '@/hooks/useBillingStatus'
 import { useOllama } from '@/hooks/useOllama'
+import type { NotesAppViewModel } from './useNotesApp'
 
 // ---------------------------------------------------------------------------
 // Props
@@ -98,6 +99,10 @@ export type NotesChatSidebarProps = {
   open: boolean
   notes: SavedNote[]
   folders: Folder[]
+  workspacePath: string | null
+  canAutoIndex: boolean
+  indexingStatus: NotesAppViewModel['indexingStatus']
+  runIndexPending: NotesAppViewModel['runIndexPending']
   selectedNote: SavedNote | null
   selectNote: (noteId: string) => void
   /** Adds extra top offset to clear the macOS titlebar + pill area. */
@@ -134,6 +139,81 @@ const STARTER_SUGGESTIONS = [
   'Find todos across my notes',
 ]
 
+function ChatIndexingOverlay({
+  indexingStatus
+}: {
+  indexingStatus: NotesAppViewModel['indexingStatus']
+}): JSX.Element | null {
+  const { notes, running } = indexingStatus
+  const totalCount = notes.length
+  const pendingCount = notes.filter((note) => note.state === 'pending').length
+  const indexingCount = notes.filter((note) => note.state === 'indexing').length
+  const indexedCount = notes.filter((note) => note.state === 'indexed').length
+  const errorCount = notes.filter((note) => note.state === 'error').length
+
+  if (totalCount === 0 || (!running && pendingCount === 0 && errorCount === 0)) {
+    return null
+  }
+
+  const processedCount = totalCount - pendingCount - indexingCount
+  const progressPercent =
+    totalCount > 0 ? Math.max(0, Math.min(100, Math.round((processedCount / totalCount) * 100))) : 0
+  const noteLabel = (count: number): string => `${count} note${count === 1 ? '' : 's'}`
+
+  let title = 'Preparing note index'
+  let detail = `${noteLabel(pendingCount)} pending`
+  let containerClassName = 'border-border/80 bg-background/95 text-foreground'
+  let progressClassName = 'bg-primary'
+  let Icon = ScanTextIcon
+
+  if (running) {
+    title = 'Indexing notes for chat'
+    detail =
+      indexingCount > 0
+        ? `${processedCount} of ${totalCount} done, ${noteLabel(indexingCount)} in progress`
+        : `${processedCount} of ${totalCount} done`
+    Icon = Loader2Icon
+  } else if (errorCount > 0 && pendingCount === 0) {
+    title = 'Indexing finished with errors'
+    detail = `${noteLabel(errorCount)} failed, ${indexedCount} indexed`
+    containerClassName = 'border-destructive/30 bg-background/95 text-foreground'
+    progressClassName = 'bg-destructive'
+    Icon = AlertCircleIcon
+  }
+
+  return (
+    <div className="pointer-events-none absolute inset-x-3 top-24 z-20 flex justify-center">
+      <div
+        className={cn(
+          'w-full max-w-sm rounded-xl border shadow-lg backdrop-blur supports-[backdrop-filter]:bg-background/85',
+          containerClassName
+        )}
+      >
+        <div className="flex items-start gap-2 px-3 py-2.5">
+          <Icon
+            className={cn(
+              'mt-0.5 size-4 shrink-0',
+              running && 'animate-spin',
+              errorCount > 0 && !running ? 'text-destructive' : 'text-primary'
+            )}
+            aria-hidden
+          />
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-medium leading-none">{title}</p>
+            <p className="text-muted-foreground mt-1 text-xs leading-snug">{detail}</p>
+            <div className="bg-muted mt-2 h-1.5 overflow-hidden rounded-full">
+              <div
+                className={cn('h-full rounded-full transition-all duration-300', progressClassName)}
+                style={{ width: `${progressPercent}%` }}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
@@ -142,6 +222,10 @@ export function NotesChatSidebar({
   open,
   notes,
   folders,
+  workspacePath,
+  canAutoIndex,
+  indexingStatus,
+  runIndexPending,
   selectedNote,
   selectNote,
   isMacNotelab,
@@ -166,9 +250,14 @@ export function NotesChatSidebar({
         )}
       >
         <NotesChatSidebarInner
+          open={open}
           folders={folders}
+          canAutoIndex={canAutoIndex}
+          indexingStatus={indexingStatus}
           isMacNotelab={isMacNotelab}
           notes={notes}
+          runIndexPending={runIndexPending}
+          workspacePath={workspacePath}
           selectNote={selectNote}
           selectedNote={selectedNote}
           sidebarOverlayActive={sidebarOverlayActive}
@@ -180,13 +269,18 @@ export function NotesChatSidebar({
 
 /** Chat UI; parent animates width/opacity when `open` toggles. */
 function NotesChatSidebarInner({
+  open,
   notes,
   folders,
+  workspacePath,
+  canAutoIndex,
+  indexingStatus,
+  runIndexPending,
   selectedNote,
   selectNote,
   isMacNotelab,
   sidebarOverlayActive,
-}: Omit<NotesChatSidebarProps, 'open'>): JSX.Element {
+}: NotesChatSidebarProps): JSX.Element {
   // Selected model: a NoteLabModelId or "local:<ollamaModelName>"
   const [selectedModelId, setSelectedModelId] = useState<string>(DEFAULT_NOTELAB_MODEL_ID)
   const [localSetupOpen, setLocalSetupOpen] = useState(false)
@@ -215,7 +309,7 @@ function NotesChatSidebarInner({
     sendMessage,
     newChat,
     loadHistorySession,
-  } = useNotesChat({ notes, folders, selectedNote, modelId: selectedModelId })
+  } = useNotesChat({ notes, folders, workspacePath, selectedNote, modelId: selectedModelId })
 
   const { billing, canChat, creditsLow } = useBillingStatus()
 
@@ -233,6 +327,7 @@ function NotesChatSidebarInner({
   const [chatReferences, setChatReferences] = useState<PromptInputChatReference[]>([])
   const [historySearch, setHistorySearch] = useState('')
   const textareaRef = useRef<PromptInputChatMentionTextareaHandle>(null)
+  const hasTriggeredAutoIndexRef = useRef(false)
 
   const workspacesForMentions = useMemo(() => {
     const map = new Map(folders.map((f) => [f.id, { id: f.id, name: f.name }]))
@@ -245,6 +340,23 @@ function NotesChatSidebarInner({
   useEffect(() => {
     if (!showHistory) setHistorySearch('')
   }, [showHistory])
+
+  useEffect(() => {
+    if (!open) {
+      hasTriggeredAutoIndexRef.current = false
+      return
+    }
+    if (
+      hasTriggeredAutoIndexRef.current ||
+      !workspacePath ||
+      !canAutoIndex ||
+      indexingStatus.running
+    ) {
+      return
+    }
+    hasTriggeredAutoIndexRef.current = true
+    void runIndexPending()
+  }, [open, workspacePath, canAutoIndex, indexingStatus.running, runIndexPending])
 
   const historySearchResults = useMemo(
     () => searchChatHistorySessions(historyMeta, historySearch, { limit: 100 }),
@@ -454,7 +566,7 @@ function NotesChatSidebarInner({
   return (
     <aside
       aria-label="Chat"
-      className="border-border bg-background flex min-h-0 min-w-0 flex-1 flex-col"
+      className="border-border bg-background relative flex min-h-0 min-w-0 flex-1 flex-col"
     >
       {pillSpacer}
       <ChatToolbarRow
@@ -468,6 +580,7 @@ function NotesChatSidebarInner({
         setShowHistory={setShowHistory}
         showHistory={false}
       />
+      {canAutoIndex ? <ChatIndexingOverlay indexingStatus={indexingStatus} /> : null}
 
       {isLocalModelSelected &&
         ollama.status?.running &&

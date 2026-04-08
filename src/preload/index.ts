@@ -475,8 +475,7 @@ const api = {
     },
   },
   /**
-   * LanceDB runs only in the main process; the renderer calls these via IPC.
-   * Embed text in the renderer (or a future main-process pipeline), then send vectors here.
+   * Vectra runs only in the main process; the renderer calls these via IPC.
    */
   log: {
     info: (...args: unknown[]): void => ipcRenderer.send('log:info', ...args),
@@ -484,54 +483,84 @@ const api = {
     error: (...args: unknown[]): void => ipcRenderer.send('log:error', ...args),
   },
   embeddings: {
-    getStatus: (): Promise<
-      | { ok: true; dbPath: string; tableExists: boolean }
+    getStatus: (payload: {
+      workspacePath: string
+    }): Promise<
+      | { ok: true; indexPath: string; indexExists: boolean; documents: number; chunks: number }
       | { ok: false; error: string }
-    > => ipcRenderer.invoke('lancedb:get-status'),
-    ensureTable: (): Promise<{ ok: true } | { ok: false; error: string }> =>
-      ipcRenderer.invoke('lancedb:ensure-table'),
-    getIndexedHashes: (): Promise<
+    > => ipcRenderer.invoke('embeddings:get-status', payload),
+    ensureIndex: (payload: {
+      workspacePath: string
+    }): Promise<{ ok: true } | { ok: false; error: string }> =>
+      ipcRenderer.invoke('embeddings:ensure-index', payload),
+    getIndexedHashes: (payload: {
+      workspacePath: string
+    }): Promise<
       | { ok: true; hashes: Record<string, { contentHash: string; workspaceId: string }> }
       | { ok: false; error: string }
-    > => ipcRenderer.invoke('lancedb:get-indexed-hashes'),
-    indexNoteEmbeddings: (payload: {
+    > => ipcRenderer.invoke('embeddings:get-indexed-hashes', payload),
+    upsertNoteDocument: (payload: {
+      workspacePath: string
       workspaceId: string
       noteId: string
+      title: string
+      kind: 'note' | 'drawing'
       contentHash: string
-      chunks: {
-        id?: string
-        chunkIndex: number
-        text: string
-        vector: number[] | Float32Array
-      }[]
+      text: string
+      docType?: string
     }): Promise<
       { ok: true; indexed: number } | { ok: false; error: string }
-    > => ipcRenderer.invoke('lancedb:index-note-embeddings', payload),
-    vectorSearch: (payload: {
-      queryVector: number[] | Float32Array
-      limit?: number
-      filterSql?: string
+    > => ipcRenderer.invoke('embeddings:upsert-note-document', payload),
+    searchDocuments: (payload: {
+      workspacePath: string
+      query: string
+      maxDocuments?: number
+      maxChunks?: number
+      maxSections?: number
+      maxTokens?: number
+      filter?: Record<string, unknown>
+      isBm25?: boolean
     }): Promise<
-      | { ok: true; rows: Record<string, unknown>[] }
+      | {
+          ok: true
+          rows: {
+            note_id: string
+            workspace_id: string
+            note_title: string
+            kind: 'note' | 'drawing'
+            text: string
+            score: number
+            uri: string
+            section_index: number
+            is_bm25: boolean
+          }[]
+        }
       | { ok: false; error: string }
-    > => ipcRenderer.invoke('lancedb:vector-search', payload),
-    deleteNoteEmbeddings: (payload: {
-      workspaceId: string
+    > => ipcRenderer.invoke('embeddings:search-documents', payload),
+    deleteNoteDocument: (payload: {
+      workspacePath: string
       noteId: string
     }): Promise<
       | { ok: true; deleted: boolean }
       | { ok: false; error: string }
-    > => ipcRenderer.invoke('lancedb:delete-note-embeddings', payload),
-    deleteWorkspaceEmbeddings: (payload: {
+    > => ipcRenderer.invoke('embeddings:delete-note-document', payload),
+    deleteWorkspaceDocuments: (payload: {
+      workspacePath: string
       workspaceId: string
     }): Promise<
-      | { ok: true; deleted: boolean }
+      | { ok: true; deleted: boolean; deletedCount: number }
       | { ok: false; error: string }
-    > => ipcRenderer.invoke('lancedb:delete-workspace-embeddings', payload),
-    dumpTable: (): Promise<
-      | { ok: true; rows: Record<string, unknown>[]; totalRows: number }
+    > => ipcRenderer.invoke('embeddings:delete-workspace-documents', payload),
+    dumpIndex: (payload: { workspacePath: string }): Promise<
+      | {
+          ok: true
+          indexPath: string
+          documents: Record<string, unknown>[]
+          totalDocuments: number
+          totalChunks: number
+        }
       | { ok: false; error: string }
-    > => ipcRenderer.invoke('lancedb:dump-table'),
+    > => ipcRenderer.invoke('embeddings:dump-index', payload),
   },
   updater: {
     check: (): Promise<unknown> => ipcRenderer.invoke('update:check'),

@@ -17,6 +17,7 @@ import {
   SquarePen,
   Trash2,
   User,
+  LayoutDashboard,
   PencilRuler,
   Search,
   X
@@ -35,6 +36,7 @@ import {
   TreeView
 } from '@/components/ui/tree'
 import { cn } from '@/lib/utils'
+import { enableInfinityCanvas } from '@/lib/vite-flags'
 import {
   liquidGlassControlPillClass,
   macSidebarLiquidGlassPanelClass
@@ -93,6 +95,9 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
     graphViewOpen,
     openGraphView,
     closeGraphView,
+    canvasViewOpen,
+    openCanvasView,
+    closeCanvasView,
     toggleSidebar,
     appSidebarView,
     triggerRenameSelectedRef,
@@ -458,6 +463,26 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
                   >
                     <Network className="size-4" aria-hidden />
                   </Button>
+                  {enableInfinityCanvas ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={canvasViewOpen ? 'secondary' : 'ghost'}
+                      className={cn(
+                        'size-8 shrink-0 p-0',
+                        canvasViewOpen ? 'text-foreground' : 'text-muted-foreground'
+                      )}
+                      title="Infinity canvas"
+                      aria-label="Infinity canvas"
+                      aria-pressed={canvasViewOpen}
+                      disabled={!canCreateNote}
+                      onClick={() => (canvasViewOpen ? closeCanvasView() : openCanvasView())}
+                      data-sidebar-interactive=""
+                      style={isMacNotelab ? macTitlebarStyles.noDrag : undefined}
+                    >
+                      <LayoutDashboard className="size-4" aria-hidden />
+                    </Button>
+                  ) : null}
                 </div>
                 <Button
                   type="button"

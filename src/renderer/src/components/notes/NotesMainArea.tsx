@@ -4,11 +4,13 @@ import { X } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { enableInfinityCanvas } from '@/lib/vite-flags'
 import { AccountSettingsView } from './AccountSettingsView'
 import { AppearanceSettingsView } from './AppearanceSettingsView'
 import { DebugSettingsView } from './DebugSettingsView'
 import { EmbeddingsSettingsView } from './EmbeddingsSettingsView'
 import { GitHubSettingsView } from './GitHubSettingsView'
+import { NotesCanvasView } from './NotesCanvasView'
 import { NotesConflictView } from './NotesConflictView'
 import { NotesGraphView } from './NotesGraphView'
 import { NotesChatSidebar } from './NotesChatSidebar'
@@ -99,6 +101,8 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
     setShortcutsCaptureActive,
     graphViewOpen,
     closeGraphView,
+    canvasViewOpen,
+    closeCanvasView,
     zenMode,
     sidebarOverlayActive,
     tabOverviewOpen,
@@ -108,6 +112,7 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
     refreshIndexingStatus,
     runIndexPending,
     runReindexAll,
+    dataRootPath,
     conflictViewPath,
     workspaceRoot,
     handleWorkspaceRootChange,
@@ -214,6 +219,27 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
             </div>
           )}
           <NotesPrimaryPane {...primaryPaneProps} />
+        </div>
+      )
+    }
+
+    // Canvas view (full-screen infinite canvas with live editor/excalidraw nodes)
+    if (enableInfinityCanvas && canvasViewOpen) {
+      return (
+        <div className="flex min-h-0 flex-1 flex-col">
+          <NotesCanvasView
+            notes={notes}
+            folders={folders}
+            isMacNotelab={isMacNotelab}
+            macTitlebarStyles={macTitlebarStyles}
+            onSelectNote={selectNote}
+            onClose={closeCanvasView}
+            onNoteSerializedChange={handleNoteSerializedChange}
+            onExcalidrawSceneChange={handleExcalidrawSceneChange}
+            onRenameNote={renameNote}
+            onSetNoteCover={setNoteCover}
+            onSetNoteTitleEmoji={setNoteTitleEmoji}
+          />
         </div>
       )
     }
@@ -403,6 +429,7 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
               <DebugSettingsView
                 isMacNotelab={isMacNotelab}
                 macTitlebarStyles={macTitlebarStyles}
+                workspacePath={dataRootPath}
                 localGitPath={gitToolbarFolder?.localGitPath ?? null}
                 githubRemoteUrl={githubRemoteUrl}
                 foldersCount={folders.length}
@@ -414,6 +441,7 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
               <EmbeddingsSettingsView
                 isMacNotelab={isMacNotelab}
                 macTitlebarStyles={macTitlebarStyles}
+                workspacePath={dataRootPath}
                 guestMode={guestMode}
                 isLoggedIn={Boolean(user?.email || user?.name)}
                 indexingStatus={indexingStatus}
@@ -432,6 +460,10 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
               open={chatSidebarOpen}
               notes={notes}
               folders={folders}
+              workspacePath={dataRootPath}
+              canAutoIndex={Boolean(user?.email || user?.name) && !guestMode}
+              indexingStatus={indexingStatus}
+              runIndexPending={runIndexPending}
               selectedNote={selectedNote}
               selectNote={selectNote}
               isMacNotelab={isMacNotelab}

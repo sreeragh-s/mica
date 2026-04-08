@@ -2,6 +2,32 @@ export type AuthSessionPayload =
   | { session: unknown; user: unknown }
   | null
 
+export type EmbeddingsFilter = {
+  $eq?: number | string | boolean
+  $ne?: number | string | boolean
+  $gt?: number
+  $gte?: number
+  $lt?: number
+  $lte?: number
+  $in?: Array<number | string>
+  $nin?: Array<number | string>
+  $and?: EmbeddingsFilter[]
+  $or?: EmbeddingsFilter[]
+  [key: string]: unknown
+}
+
+export type EmbeddingsSearchRow = {
+  note_id: string
+  workspace_id: string
+  note_title: string
+  kind: 'note' | 'drawing'
+  text: string
+  score: number
+  uri: string
+  section_index: number
+  is_bm25: boolean
+}
+
 /** OS window chrome (Notelab); optional so browser dev still type-checks. */
 export type NotelabWindowApi = {
   setZenShortcutBinding: (
@@ -223,49 +249,68 @@ export type NotelabApi = {
     openWorkspaceInNewWindow: (workspacePath: string) => Promise<{ ok: true }>
   }
   embeddings?: {
-    getStatus: () => Promise<
-      | { ok: true; dbPath: string; tableExists: boolean }
+    getStatus: (payload: {
+      workspacePath: string
+    }) => Promise<
+      | { ok: true; indexPath: string; indexExists: boolean; documents: number; chunks: number }
       | { ok: false; error: string }
     >
-    ensureTable: () => Promise<{ ok: true } | { ok: false; error: string }>
-    getIndexedHashes: () => Promise<
+    ensureIndex: (payload: {
+      workspacePath: string
+    }) => Promise<{ ok: true } | { ok: false; error: string }>
+    getIndexedHashes: (payload: {
+      workspacePath: string
+    }) => Promise<
       | { ok: true; hashes: Record<string, { contentHash: string; workspaceId: string }> }
       | { ok: false; error: string }
     >
-    indexNoteEmbeddings: (payload: {
+    upsertNoteDocument: (payload: {
+      workspacePath: string
       workspaceId: string
       noteId: string
+      title: string
+      kind: 'note' | 'drawing'
       contentHash: string
-      chunks: {
-        id?: string
-        chunkIndex: number
-        text: string
-        vector: number[] | Float32Array
-      }[]
+      text: string
+      docType?: string
     }) => Promise<{ ok: true; indexed: number } | { ok: false; error: string }>
-    vectorSearch: (payload: {
-      queryVector: number[] | Float32Array
-      limit?: number
-      filterSql?: string
+    searchDocuments: (payload: {
+      workspacePath: string
+      query: string
+      maxDocuments?: number
+      maxChunks?: number
+      maxSections?: number
+      maxTokens?: number
+      filter?: EmbeddingsFilter
+      isBm25?: boolean
     }) => Promise<
-      | { ok: true; rows: Record<string, unknown>[] }
+      | { ok: true; rows: EmbeddingsSearchRow[] }
       | { ok: false; error: string }
     >
-    deleteNoteEmbeddings: (payload: {
-      workspaceId: string
+    deleteNoteDocument: (payload: {
+      workspacePath: string
       noteId: string
     }) => Promise<
       | { ok: true; deleted: boolean }
       | { ok: false; error: string }
     >
-    deleteWorkspaceEmbeddings: (payload: {
+    deleteWorkspaceDocuments: (payload: {
+      workspacePath: string
       workspaceId: string
     }) => Promise<
-      | { ok: true; deleted: boolean }
+      | { ok: true; deleted: boolean; deletedCount: number }
       | { ok: false; error: string }
     >
-    dumpTable?: () => Promise<
-      | { ok: true; rows: Record<string, unknown>[]; totalRows: number }
+    dumpIndex?: (payload: {
+      workspacePath: string
+    }) => Promise<
+      | {
+          ok: true
+          indexPath: string
+          documents: Record<string, unknown>[]
+          totalDocuments: number
+          totalChunks: number
+        }
       | { ok: false; error: string }
     >
   }

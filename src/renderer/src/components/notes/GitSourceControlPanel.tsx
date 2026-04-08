@@ -209,20 +209,24 @@ export function GitSourceControlPanel({ vm }: GitSourceControlPanelProps): JSX.E
     gitSyncBusy,
     gitSyncError,
     gitToolbarFolder,
-    githubRemoteUrl,
+    gitRepoReady,
+    gitHasOriginRemote,
+    gitInitBusy,
+    gitInitError,
     refreshGitSourceControl,
+    refreshWorkspaceGitStatuses,
     handleGitStageFile,
     handleGitUnstageFile,
     handleGitDiscardFile,
     handleGitCommit,
     handleGitPullThenPush,
+    handleInitGit,
     handleGitAbortRebase,
     handleGitContinueRebase,
     openConflictView,
     isMacNotelab,
     macTitlebarStyles,
     setGitRemoteDialogOpen,
-    setGithubRemoteUrl,
     gitSynced,
   } = vm
 
@@ -233,42 +237,10 @@ export function GitSourceControlPanel({ vm }: GitSourceControlPanelProps): JSX.E
   const [stagedExpanded, setStagedExpanded] = useState(true)
   const [changesExpanded, setChangesExpanded] = useState(true)
   const [conflictsExpanded, setConflictsExpanded] = useState(true)
+  const [bulkActionBusy, setBulkActionBusy] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   const cwd = gitToolbarFolder?.localGitPath ?? ''
-  const [initBusy, setInitBusy] = useState(false)
-  const [initError, setInitError] = useState<string | null>(null)
-  const [gitReady, setGitReady] = useState<boolean | null>(null)
-
-  // Check whether a git repo already exists at cwd; hydrate remote URL from git if not already set
-  useEffect(() => {
-    if (!cwd) { setGitReady(null); return }
-    const api = getApi()
-    if (!api?.workspace?.gitStatus) { setGitReady(false); return }
-    void api.workspace.gitStatus({ cwd }).then((r) => {
-      setGitReady(r.ok)
-      if (r.ok && r.remoteUrl && !githubRemoteUrl.trim()) {
-        window.api.log.info('[GitSourceControlPanel] hydrating remoteUrl from git:', r.remoteUrl)
-        setGithubRemoteUrl(r.remoteUrl)
-      }
-    })
-  }, [cwd])
-
-  const handleInitGit = useCallback(async (): Promise<void> => {
-    if (!cwd) return
-    const api = getApi()
-    if (!api?.workspace?.initGit) return
-    setInitBusy(true)
-    setInitError(null)
-    try {
-      const r = await api.workspace.initGit({ cwd })
-      if (!r.ok) { setInitError(r.error); return }
-      setGitReady(true)
-      void refreshGitSourceControl()
-    } finally {
-      setInitBusy(false)
-    }
-  }, [cwd, refreshGitSourceControl])
 
   const stagedFiles = gitSourceControlFiles.filter((f) => f.staged && !f.conflicted)
   const unstagedFiles = gitSourceControlFiles.filter((f) => !f.staged && !f.conflicted)
@@ -317,18 +289,42 @@ export function GitSourceControlPanel({ vm }: GitSourceControlPanelProps): JSX.E
   }, [handleGitDiscardFile, refreshGitSourceControl, selectedPath])
 
   const handleStageAll = useCallback(async () => {
-    for (const f of unstagedFiles) {
-      await handleGitStageFile(f.path)
+    if (!cwd) return
+    const api = getApi()
+    if (!api?.workspace?.gitStageFile) return
+    setBulkActionBusy(true)
+    try {
+      for (const f of unstagedFiles) {
+        const r = await api.workspace.gitStageFile({ cwd, path: f.path })
+        if (!r.ok) {
+          window.api.log.error('[GitSourceControlPanel] bulk stage failed', f.path, r.error)
+          break
+        }
+      }
+      await Promise.all([refreshGitSourceControl(), refreshWorkspaceGitStatuses()])
+    } finally {
+      setBulkActionBusy(false)
     }
-    void refreshGitSourceControl()
-  }, [unstagedFiles, handleGitStageFile, refreshGitSourceControl])
+  }, [cwd, refreshGitSourceControl, refreshWorkspaceGitStatuses, unstagedFiles])
 
   const handleUnstageAll = useCallback(async () => {
-    for (const f of stagedFiles) {
-      await handleGitUnstageFile(f.path)
+    if (!cwd) return
+    const api = getApi()
+    if (!api?.workspace?.gitUnstageFile) return
+    setBulkActionBusy(true)
+    try {
+      for (const f of stagedFiles) {
+        const r = await api.workspace.gitUnstageFile({ cwd, path: f.path })
+        if (!r.ok) {
+          window.api.log.error('[GitSourceControlPanel] bulk unstage failed', f.path, r.error)
+          break
+        }
+      }
+      await Promise.all([refreshGitSourceControl(), refreshWorkspaceGitStatuses()])
+    } finally {
+      setBulkActionBusy(false)
     }
-    void refreshGitSourceControl()
-  }, [stagedFiles, handleGitUnstageFile, refreshGitSourceControl])
+  }, [cwd, refreshGitSourceControl, refreshWorkspaceGitStatuses, stagedFiles])
 
   // Auto-refresh when panel mounts or cwd changes
   useEffect(() => {
@@ -350,7 +346,7 @@ export function GitSourceControlPanel({ vm }: GitSourceControlPanelProps): JSX.E
     )
   }
 
-  if (gitReady === false) {
+  if (gitRepoReady === false) {
     return (
       <div className="flex flex-col items-center justify-center gap-4 p-6 text-center">
         <GitBranch className="text-muted-foreground/40 size-8" aria-hidden />
@@ -361,18 +357,18 @@ export function GitSourceControlPanel({ vm }: GitSourceControlPanelProps): JSX.E
           </p>
 
         </div>
-        {initError && (
-          <p className="text-destructive text-xs whitespace-pre-wrap">{initError}</p>
+        {gitInitError && (
+          <p className="text-destructive text-xs whitespace-pre-wrap">{gitInitError}</p>
         )}
         <Button
           type="button"
           size="sm"
           className="gap-1.5"
-          disabled={initBusy}
+          disabled={gitInitBusy}
           onClick={() => void handleInitGit()}
           data-sidebar-interactive=""
         >
-          {initBusy ? (
+          {gitInitBusy ? (
             <Loader2 className="size-3.5 animate-spin" aria-hidden />
           ) : (
             <GitBranch className="size-3.5" aria-hidden />
@@ -482,7 +478,7 @@ export function GitSourceControlPanel({ vm }: GitSourceControlPanelProps): JSX.E
                 className="h-7 w-full gap-1.5 px-2 text-xs"
                 disabled={gitSyncBusy || gitSynced}
                 onClick={() => {
-                  if (!gitToolbarFolder?.githubRemoteUrl?.trim()) {
+                  if (!gitHasOriginRemote) {
                     setGitRemoteDialogOpen(true)
                   } else {
                     void handleGitPullThenPush()
@@ -606,9 +602,10 @@ export function GitSourceControlPanel({ vm }: GitSourceControlPanelProps): JSX.E
                     className="mr-2 size-5 text-muted-foreground"
                     title="Unstage all"
                     onClick={() => void handleUnstageAll()}
+                    disabled={bulkActionBusy}
                     data-sidebar-interactive=""
                   >
-                    <Minus className="size-3" />
+                    {bulkActionBusy ? <Loader2 className="size-3 animate-spin" /> : <Minus className="size-3" />}
                   </Button>
                 )}
               </div>
@@ -661,9 +658,10 @@ export function GitSourceControlPanel({ vm }: GitSourceControlPanelProps): JSX.E
                     className="mr-2 size-5 text-muted-foreground"
                     title="Stage all"
                     onClick={() => void handleStageAll()}
+                    disabled={bulkActionBusy}
                     data-sidebar-interactive=""
                   >
-                    <Plus className="size-3" />
+                    {bulkActionBusy ? <Loader2 className="size-3 animate-spin" /> : <Plus className="size-3" />}
                   </Button>
                 )}
               </div>

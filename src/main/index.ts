@@ -45,7 +45,7 @@ import { MAC_WINDOW_OUTER_CORNER_RADIUS_PX } from '../shared/mac-window-chrome'
 import { registerAuthIpc } from './auth'
 import { registerChatHistoryIpc } from './chat-history'
 import { registerWorkspaceGitIpc } from './workspace-git'
-import { registerLancedbEmbeddingsIpc } from './lancedb-embeddings'
+import { registerVectraEmbeddingsIpc } from './vectra-embeddings'
 import { registerOllamaIpc } from './ollama'
 import { registerUpdaterIpc } from './updater'
 
@@ -344,7 +344,7 @@ app.whenReady().then(() => {
   registerAuthIpc()
   registerChatHistoryIpc()
   registerWorkspaceGitIpc()
-  registerLancedbEmbeddingsIpc()
+  registerVectraEmbeddingsIpc()
   registerOllamaIpc()
   registerUpdaterIpc()
 

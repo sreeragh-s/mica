@@ -11,6 +11,7 @@ import type { NotesAppViewModel } from './useNotesApp'
 export type EmbeddingsSettingsViewProps = {
   isMacNotelab: boolean
   macTitlebarStyles: MacTitlebarStyles
+  workspacePath: string | null
   guestMode?: boolean
   isLoggedIn: boolean
   indexingStatus: NotesAppViewModel['indexingStatus']
@@ -29,6 +30,7 @@ function StatusIcon({ state }: { state: string }): JSX.Element {
 export function EmbeddingsSettingsView({
   isMacNotelab,
   macTitlebarStyles,
+  workspacePath,
   guestMode,
   isLoggedIn,
   indexingStatus,
@@ -45,6 +47,7 @@ export function EmbeddingsSettingsView({
   const totalCount = notes.length
   const errorCount = notes.filter((n) => n.state === 'error').length
   const indexedPercent = totalCount > 0 ? Math.round((indexedCount / totalCount) * 100) : 0
+  const showReindexAll = import.meta.env.DEV
 
   const disabled = !isLoggedIn || guestMode || running
 
@@ -61,8 +64,9 @@ export function EmbeddingsSettingsView({
         </div>
         <p className="text-muted-foreground text-sm leading-relaxed">
           Index your notes and drawings to enable AI-powered search. Content is chunked and embedded
-          via your Cloudflare Worker using the{' '}
-          <span className="text-foreground font-medium">bge-m3</span> model, then stored locally.
+          via local Ollama or your Cloudflare Worker using the{' '}
+          <span className="text-foreground font-medium">bge-m3</span> model, then stored in a
+          workspace-local Vectra index.
         </p>
       </div>
 
@@ -128,23 +132,25 @@ export function EmbeddingsSettingsView({
           Index Pending{pendingCount > 0 ? ` (${pendingCount})` : ''}
         </Button>
 
-        <Button
-          type="button"
-          variant="outline"
-          disabled={disabled || totalCount === 0}
-          onClick={() => void runReindexAll()}
-          className="gap-2"
-          title={
-            !isLoggedIn || guestMode
-              ? 'Sign in to enable indexing'
-              : totalCount === 0
-                ? 'No notes to index'
-                : undefined
-          }
-        >
-          <RefreshCw className={cn('size-4', running && 'animate-spin')} aria-hidden />
-          Reindex All
-        </Button>
+        {showReindexAll ? (
+          <Button
+            type="button"
+            variant="outline"
+            disabled={disabled || totalCount === 0}
+            onClick={() => void runReindexAll()}
+            className="gap-2"
+            title={
+              !isLoggedIn || guestMode
+                ? 'Sign in to enable indexing'
+                : totalCount === 0
+                  ? 'No notes to index'
+                  : undefined
+            }
+          >
+            <RefreshCw className={cn('size-4', running && 'animate-spin')} aria-hidden />
+            Reindex All
+          </Button>
+        ) : null}
 
         <Button
           type="button"
@@ -161,22 +167,27 @@ export function EmbeddingsSettingsView({
         <Button
           type="button"
           variant="ghost"
+          disabled={!workspacePath}
           onClick={() => {
+            if (!workspacePath) return
             const api = getApi()
-            void api?.embeddings?.dumpTable?.().then((result) => {
+            void api?.embeddings?.dumpIndex?.({ workspacePath }).then((result) => {
+              if (!result) return
               if (!result.ok) {
-                console.error('[embeddings] dumpTable failed:', result.error)
+                console.error('[embeddings] dumpIndex failed:', result.error)
                 return
               }
-              console.group(`[embeddings] LanceDB dump — ${result.totalRows} row(s)`)
-              for (const row of result.rows) {
-                console.log(row)
+              console.group(
+                `[embeddings] Vectra dump — ${result.totalDocuments} document(s), ${result.totalChunks} chunk(s)`
+              )
+              for (const document of result.documents) {
+                console.log(document)
               }
               console.groupEnd()
             })
           }}
           className="gap-2"
-          title="Dump all LanceDB rows to DevTools console"
+          title="Dump the current workspace index to DevTools console"
         >
           <Database className="size-4" aria-hidden />
           Dump to Console

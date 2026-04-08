@@ -163,6 +163,52 @@ function runGitResult(
   }
 }
 
+function summarizeGitLogText(text: string, maxLength = 280): string | null {
+  const trimmed = text.trim()
+  if (!trimmed) return null
+  const singleLine = trimmed.replace(/\s+/g, ' ')
+  if (singleLine.length <= maxLength) return singleLine
+  return `${singleLine.slice(0, maxLength)}...`
+}
+
+function runLoggedGitResult(
+  args: string[],
+  cwd: string,
+  label: string
+): { ok: true; stdout: string } | { ok: false; error: string } {
+  const startedAt = Date.now()
+  console.info(LOG, 'git start', label, { cwd, args })
+  const result = runGitResult(args, cwd)
+  const durationMs = Date.now() - startedAt
+  if (result.ok) {
+    console.info(LOG, 'git success', label, {
+      cwd,
+      durationMs,
+      output: summarizeGitLogText(result.stdout) ?? undefined,
+    })
+  } else {
+    console.warn(LOG, 'git failure', label, {
+      cwd,
+      durationMs,
+      error: summarizeGitLogText(result.error) ?? result.error,
+    })
+  }
+  return result
+}
+
+function parseGitStatusPath(rawPath: string): string {
+  const trimmed = rawPath.trim()
+  const renameSeparator = ' -> '
+  const renameIndex = trimmed.lastIndexOf(renameSeparator)
+  if (renameIndex === -1) return trimmed
+  return trimmed.slice(renameIndex + renameSeparator.length).trim()
+}
+
+function pathStillHasGitStatus(cwd: string, filePath: string): boolean {
+  const r = runGitResult(['status', '--porcelain', '--untracked-files=all', '--', filePath], cwd)
+  return !r.ok || r.stdout.trim().length > 0
+}
+
 function hasGitOrigin(cwd: string): boolean {
   try {
     runGit(['remote', 'get-url', 'origin'], cwd)
@@ -182,6 +228,12 @@ function getCurrentBranchName(
     return { ok: false, error: 'detached_head' }
   }
   return { ok: true, branch }
+}
+
+function isRebaseInProgress(cwd: string): boolean {
+  const rebaseMergePath = join(cwd, '.git', 'rebase-merge')
+  const rebaseApplyPath = join(cwd, '.git', 'rebase-apply')
+  return existsSync(rebaseMergePath) || existsSync(rebaseApplyPath)
 }
 
 /** True if the current branch already tracks a remote branch. */
@@ -534,10 +586,22 @@ export function registerWorkspaceGitIpc(): void {
       try {
         runGit(['init'], cwd)
         runGit(['branch', '-M', 'main'], cwd)
-        // Write .gitignore for common OS/editor noise
+        // Ensure generated app data and common OS/editor noise stay out of git.
         const gitignorePath = join(cwd, '.gitignore')
-        if (!existsSync(gitignorePath)) {
-          writeFileSync(gitignorePath, '.DS_Store\nThumbs.db\n*.swp\n', 'utf8')
+        const existingGitignore = existsSync(gitignorePath) ? readFileSync(gitignorePath, 'utf8') : ''
+        const normalizedGitignore = existingGitignore.replace(/\r\n/g, '\n')
+        const gitignoreEntries = new Set(
+          normalizedGitignore
+            .split('\n')
+            .map((line) => line.trim())
+            .filter((line) => line.length > 0)
+        )
+        const requiredGitignoreEntries = ['.notelab', '.DS_Store', 'Thumbs.db', '*.swp']
+        const missingGitignoreEntries = requiredGitignoreEntries.filter((entry) => !gitignoreEntries.has(entry))
+        if (missingGitignoreEntries.length > 0) {
+          const prefix =
+            normalizedGitignore.length === 0 || normalizedGitignore.endsWith('\n') ? normalizedGitignore : `${normalizedGitignore}\n`
+          writeFileSync(gitignorePath, `${prefix}${missingGitignoreEntries.join('\n')}\n`, 'utf8')
         }
         // Remove mode file now that git is initialized
         const modePath = join(cwd, MODE_FILE)
@@ -997,19 +1061,44 @@ export function registerWorkspaceGitIpc(): void {
       if (!cwd || !existsSync(join(cwd, '.git'))) {
         return { ok: false, error: 'not_a_git_repo' }
       }
+      if (!hasGitOrigin(cwd)) {
+        return {
+          ok: false,
+          error:
+            'No remote named origin. Connect a GitHub repo first from Source Control.',
+        }
+      }
+      if (isRebaseInProgress(cwd)) {
+        console.warn(LOG, 'pull --rebase blocked; rebase already in progress', { cwd })
+        return { ok: false, error: 'rebase_in_progress' }
+      }
       const br = getCurrentBranchName(cwd)
       if (!br.ok) return { ok: false, error: br.error }
       const { branch } = br
-      let r = runGitResult(['pull', '--rebase'], cwd)
+      console.info(LOG, 'pull --rebase requested', {
+        cwd,
+        branch,
+        hasUpstream: currentBranchHasUpstream(cwd),
+      })
+      let r = runLoggedGitResult(['pull', '--rebase'], cwd, 'pull --rebase')
       if (
         !r.ok &&
         /no tracking information|no upstream|Set the remote/i.test(r.error)
       ) {
-        r = runGitResult(['pull', '--rebase', 'origin', branch], cwd)
+        console.info(LOG, 'pull --rebase retrying with explicit upstream', { cwd, branch })
+        r = runLoggedGitResult(['pull', '--rebase', 'origin', branch], cwd, 'pull --rebase origin/<branch>')
+      }
+      if (!r.ok && isRebaseInProgress(cwd)) {
+        console.warn(LOG, 'pull --rebase left repository in rebase state', { cwd, branch })
+        return { ok: false, error: 'rebase_conflicts' }
       }
       if (!r.ok) return { ok: false, error: r.error }
       setUpstreamToOriginIfPossible(cwd, branch)
-      console.info(LOG, 'pull --rebase', cwd)
+      console.info(LOG, 'pull --rebase complete', {
+        cwd,
+        branch,
+        output: summarizeGitLogText(r.stdout) ?? undefined,
+      })
       return { ok: true, stdout: r.stdout }
     }
   )
@@ -1030,6 +1119,9 @@ export function registerWorkspaceGitIpc(): void {
           error:
             'No remote named origin. Add your GitHub URL in Settings → GitHub & Git and click “Apply remote to ~/.notelab”.',
         }
+      }
+      if (isRebaseInProgress(cwd)) {
+        return { ok: false, error: 'rebase_in_progress' }
       }
       const br = getCurrentBranchName(cwd)
       if (!br.ok) return { ok: false, error: br.error }
@@ -1067,16 +1159,22 @@ export function registerWorkspaceGitIpc(): void {
       const files = lines.map((line) => {
         const x = line[0] ?? ' '
         const y = line[1] ?? ' '
-        const path = line.slice(3).trim().replace(/ -> .+$/, '')
-        const xy = `${x}${y}`.replace(/ /g, '')
+        const path = parseGitStatusPath(line.slice(3))
         const conflicted = conflictXY.has(`${x}${y}`) || x === 'U' || y === 'U'
         const staged = x !== ' ' && x !== '?' && !conflicted
         return { path, x, y, staged, conflicted }
       })
       const hasConflicts = files.some((f) => f.conflicted)
-      const rebaseMergePath = join(cwd, '.git', 'rebase-merge')
-      const rebaseApplyPath = join(cwd, '.git', 'rebase-apply')
-      const isRebasing = existsSync(rebaseMergePath) || existsSync(rebaseApplyPath)
+      const isRebasing = isRebaseInProgress(cwd)
+      if (isRebasing || hasConflicts) {
+        console.info(LOG, 'git-file-statuses rebase snapshot', {
+          cwd,
+          isRebasing,
+          hasConflicts,
+          fileCount: files.length,
+          conflictedFiles: files.filter((file) => file.conflicted).map((file) => file.path),
+        })
+      }
       return { ok: true, files, hasConflicts, isRebasing }
     }
   )
@@ -1124,6 +1222,7 @@ export function registerWorkspaceGitIpc(): void {
         return { ok: false, error: 'path_outside_repo' }
       }
       if (!existsSync(absPath)) return { ok: false, error: 'file_not_found' }
+      console.info(LOG, 'git-conflict-file requested', { cwd, path: filePath })
       const content = readFileSync(absPath, 'utf8')
       // Extract ours and theirs from conflict markers
       const oursLines: string[] = []
@@ -1166,16 +1265,21 @@ export function registerWorkspaceGitIpc(): void {
       if (!isInsideRepoRoot(cwd, absPath)) {
         return { ok: false, error: 'path_outside_repo' }
       }
+      console.info(LOG, 'git-accept-resolution requested', {
+        cwd,
+        path: filePath,
+        resolution: payload.resolution,
+      })
       if (payload.resolution === 'ours' || payload.resolution === 'theirs') {
         const checkoutArg = payload.resolution === 'ours' ? '--ours' : '--theirs'
-        const r = runGitResult(['checkout', checkoutArg, '--', filePath], cwd)
+        const r = runLoggedGitResult(['checkout', checkoutArg, '--', filePath], cwd, `checkout ${checkoutArg}`)
         if (!r.ok) return { ok: false, error: r.error }
       } else if (payload.resolution === 'content' && payload.content !== undefined) {
         writeFileSync(absPath, payload.content, 'utf8')
       } else {
         return { ok: false, error: 'invalid_resolution' }
       }
-      const stage = runGitResult(['add', '--', filePath], cwd)
+      const stage = runLoggedGitResult(['add', '--', filePath], cwd, 'add resolved file')
       if (!stage.ok) return { ok: false, error: stage.error }
       return { ok: true }
     }
@@ -1195,7 +1299,17 @@ export function registerWorkspaceGitIpc(): void {
       }
       if (!filePath) return { ok: false, error: 'missing_path' }
       const r = runGitResult(['add', '--', filePath], cwd)
-      if (!r.ok) return { ok: false, error: r.error }
+      if (!r.ok) {
+        const absPath = resolve(cwd, filePath)
+        if (
+          r.error.includes('did not match any files') &&
+          !existsSync(absPath) &&
+          !pathStillHasGitStatus(cwd, filePath)
+        ) {
+          return { ok: true }
+        }
+        return { ok: false, error: r.error }
+      }
       return { ok: true }
     }
   )
@@ -1249,7 +1363,8 @@ export function registerWorkspaceGitIpc(): void {
       if (!cwd || !existsSync(join(cwd, '.git'))) {
         return { ok: false, error: 'not_a_git_repo' }
       }
-      const r = runGitResult(['rebase', '--abort'], cwd)
+      console.info(LOG, 'rebase --abort requested', { cwd })
+      const r = runLoggedGitResult(['rebase', '--abort'], cwd, 'rebase --abort')
       if (!r.ok) return { ok: false, error: r.error }
       return { ok: true }
     }
@@ -1268,11 +1383,26 @@ export function registerWorkspaceGitIpc(): void {
       }
       const authorName = payload.authorName?.trim() || 'notelab.io'
       const authorEmail = payload.authorEmail?.trim() || 'notes@notelab.io'
-      const r = runGitResult(
-        ['-c', `user.name=${authorName}`, '-c', `user.email=${authorEmail}`, 'rebase', '--continue'],
-        cwd
+      console.info(LOG, 'rebase --continue requested', { cwd })
+      const r = runLoggedGitResult(
+        [
+          '-c',
+          'core.editor=true',
+          '-c',
+          `user.name=${authorName}`,
+          '-c',
+          `user.email=${authorEmail}`,
+          'rebase',
+          '--continue',
+        ],
+        cwd,
+        'rebase --continue'
       )
       if (!r.ok) return { ok: false, error: r.error }
+      console.info(LOG, 'rebase --continue completed', {
+        cwd,
+        output: summarizeGitLogText(r.stdout) ?? undefined,
+      })
       return { ok: true }
     }
   )
