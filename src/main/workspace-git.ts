@@ -1443,6 +1443,7 @@ export function registerWorkspaceGitIpc(): void {
       console.info(LOG, 'rebase --continue requested', { cwd })
       const continueArgs = gitRebaseContinueArgs(authorName, authorEmail)
       let r = runLoggedGitResult(continueArgs, cwd, 'rebase --continue')
+      let finishedViaSkip = false
       if (
         !r.ok &&
         shouldTryRebaseSkipAfterContinueFailure(r.error)
@@ -1456,12 +1457,17 @@ export function registerWorkspaceGitIpc(): void {
           cwd,
           'rebase --skip'
         )
+        finishedViaSkip = r.ok
       }
       if (!r.ok) return { ok: false, error: r.error }
-      console.info(LOG, 'rebase --continue completed', {
-        cwd,
-        output: summarizeGitLogText(r.stdout) ?? undefined,
-      })
+      console.info(
+        LOG,
+        finishedViaSkip ? 'rebase --skip completed' : 'rebase --continue completed',
+        {
+          cwd,
+          output: summarizeGitLogText(r.stdout) ?? undefined,
+        }
+      )
       return { ok: true }
     }
   )
