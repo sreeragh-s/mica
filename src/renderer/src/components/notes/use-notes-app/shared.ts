@@ -1,0 +1,31 @@
+import type { IndexingNoteStatus, IndexingStatus } from '@/lib/embedding-pipeline'
+import { DEFAULT_WORKSPACE_ID } from '@/lib/notes-storage'
+
+/** Root notes have no folder node in the tree; only user workspaces expand. */
+export function treeExpandIdsForFolderId(folderId: string): string[] {
+  return folderId === DEFAULT_WORKSPACE_ID ? [] : [`folder:${folderId}`]
+}
+
+export function summarizeIndexingCounts(
+  notes: IndexingNoteStatus[]
+): Pick<IndexingStatus, 'pendingCount' | 'indexedCount'> {
+  return {
+    pendingCount: notes.filter((note) => note.state === 'pending').length,
+    indexedCount: notes.filter((note) => note.state === 'indexed').length
+  }
+}
+
+export type NotelabIndexOk = {
+  ok: true
+  folders: { id: string; name: string }[]
+  notes: {
+    folderId: string
+    noteId: string
+    title: string
+    updatedAtMs: number
+    markdownBody: string
+    kind?: 'note' | 'drawing'
+    coverImageSrc?: string
+    titleEmoji?: string
+  }[]
+}

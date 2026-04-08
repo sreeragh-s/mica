@@ -152,7 +152,8 @@ export function useNotesGitSync({
     const revealed = await revealConflictResolver()
     log.info('git operation error handled', { revealedConflictResolver: revealed })
     if (revealed) {
-      setGitSyncError(friendlyGitSyncError('rebase_conflicts'))
+      // Use the real error (e.g. rebase_in_progress vs rebase_conflicts), not a generic label.
+      setGitSyncError(friendlyGitSyncError(error))
       return
     }
     setGitSyncError(friendlyGitSyncError(error))

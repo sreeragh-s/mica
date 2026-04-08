@@ -137,6 +137,31 @@ function runGit(args: string[], cwd: string): void {
   execFileSync('git', args, { cwd, stdio: 'pipe' })
 }
 
+/** Git often writes failure details to stdout; Node only fills `message` when both streams are empty. */
+function formatGitExecFailure(e: unknown): string {
+  const err = e as {
+    stderr?: Buffer | string | null
+    stdout?: Buffer | string | null
+    output?: Array<Buffer | string | null | undefined>
+    message?: string
+  }
+  const chunks: string[] = []
+  const push = (v: Buffer | string | null | undefined): void => {
+    if (v == null) return
+    chunks.push(typeof v === 'string' ? v : v.toString('utf8'))
+  }
+  push(err.stderr ?? undefined)
+  push(err.stdout ?? undefined)
+  if (Array.isArray(err.output)) {
+    for (const part of err.output) {
+      push(part ?? undefined)
+    }
+  }
+  const combined = chunks.join('\n').trim()
+  if (combined) return combined
+  return err.message?.trim() || String(e)
+}
+
 function runGitResult(
   args: string[],
   cwd: string
@@ -149,18 +174,50 @@ function runGitResult(
     })
     return { ok: true, stdout }
   } catch (e) {
-    const err = e as { stderr?: Buffer | string; message?: string }
-    const stderr =
-      typeof err.stderr === "string"
-        ? err.stderr
-        : err.stderr != null
-          ? err.stderr.toString("utf8")
-          : ""
     return {
       ok: false,
-      error: stderr.trim() || err.message || String(e),
+      error: formatGitExecFailure(e),
     }
   }
+}
+
+function gitRebaseContinueArgs(authorName: string, authorEmail: string): string[] {
+  return [
+    '-c',
+    'core.editor=true',
+    '-c',
+    `user.name=${authorName}`,
+    '-c',
+    `user.email=${authorEmail}`,
+    'rebase',
+    '--continue',
+  ]
+}
+
+function gitRebaseSkipArgs(authorName: string, authorEmail: string): string[] {
+  return [
+    '-c',
+    'core.editor=true',
+    '-c',
+    `user.name=${authorName}`,
+    '-c',
+    `user.email=${authorEmail}`,
+    'rebase',
+    '--skip',
+  ]
+}
+
+/** After resolving conflicts, a replayed commit can become empty; `rebase --continue` then fails until you skip. */
+function shouldTryRebaseSkipAfterContinueFailure(errorText: string): boolean {
+  const m = errorText.toLowerCase()
+  return (
+    m.includes('nothing to commit') ||
+    m.includes('no changes') ||
+    m.includes('empty') ||
+    m.includes('rebase --skip') ||
+    m.includes('did you forget to use') ||
+    m.includes('cherry-pick is now empty')
+  )
 }
 
 function summarizeGitLogText(text: string, maxLength = 280): string | null {
