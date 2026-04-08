@@ -1,5 +1,5 @@
 import { dialog, ipcMain, shell } from 'electron'
-import { execFileSync } from 'node:child_process'
+import { execFileSync, spawnSync } from 'node:child_process'
 import {
   copyFileSync,
   existsSync,
@@ -137,47 +137,38 @@ function runGit(args: string[], cwd: string): void {
   execFileSync('git', args, { cwd, stdio: 'pipe' })
 }
 
-/** Git often writes failure details to stdout; Node only fills `message` when both streams are empty. */
-function formatGitExecFailure(e: unknown): string {
-  const err = e as {
-    stderr?: Buffer | string | null
-    stdout?: Buffer | string | null
-    output?: Array<Buffer | string | null | undefined>
-    message?: string
-  }
-  const chunks: string[] = []
-  const push = (v: Buffer | string | null | undefined): void => {
-    if (v == null) return
-    chunks.push(typeof v === 'string' ? v : v.toString('utf8'))
-  }
-  push(err.stderr ?? undefined)
-  push(err.stdout ?? undefined)
-  if (Array.isArray(err.output)) {
-    for (const part of err.output) {
-      push(part ?? undefined)
-    }
-  }
-  const combined = chunks.join('\n').trim()
-  if (combined) return combined
-  return err.message?.trim() || String(e)
-}
-
+/**
+ * Uses spawnSync so stderr/stdout are always available on failure. execFileSync’s thrown Error
+ * often omits Git’s output in Electron, leaving only `Command failed: git ...`.
+ */
 function runGitResult(
   args: string[],
   cwd: string
 ): { ok: true; stdout: string } | { ok: false; error: string } {
-  try {
-    const stdout = execFileSync('git', args, {
-      cwd,
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'pipe'],
-    })
+  const r = spawnSync('git', args, {
+    cwd,
+    encoding: 'utf8',
+    maxBuffer: 50 * 1024 * 1024,
+  })
+  if (r.error) {
+    return { ok: false, error: r.error.message || String(r.error) }
+  }
+  const stdout = `${r.stdout ?? ''}`
+  const stderr = `${r.stderr ?? ''}`
+  if (r.status === 0) {
     return { ok: true, stdout }
-  } catch (e) {
-    return {
-      ok: false,
-      error: formatGitExecFailure(e),
-    }
+  }
+  const parts = [stderr.trim(), stdout.trim()].filter(Boolean)
+  const combined = parts.join('\n').trim()
+  const meta =
+    r.status != null
+      ? `status ${r.status}`
+      : r.signal
+        ? `signal ${r.signal}`
+        : 'unknown failure'
+  return {
+    ok: false,
+    error: combined || `git exited (${meta})`,
   }
 }
 
