@@ -212,11 +212,11 @@ function shouldTryRebaseSkipAfterContinueFailure(errorText: string): boolean {
   const m = errorText.toLowerCase()
   return (
     m.includes('nothing to commit') ||
-    m.includes('no changes') ||
-    m.includes('empty') ||
+    m.includes('cherry-pick is now empty') ||
     m.includes('rebase --skip') ||
     m.includes('did you forget to use') ||
-    m.includes('cherry-pick is now empty')
+    (m.includes('no changes') &&
+      (m.includes('git add') || m.includes('patch') || m.includes('stage')))
   )
 }
 
@@ -1441,20 +1441,22 @@ export function registerWorkspaceGitIpc(): void {
       const authorName = payload.authorName?.trim() || 'notelab.io'
       const authorEmail = payload.authorEmail?.trim() || 'notes@notelab.io'
       console.info(LOG, 'rebase --continue requested', { cwd })
-      const r = runLoggedGitResult(
-        [
-          '-c',
-          'core.editor=true',
-          '-c',
-          `user.name=${authorName}`,
-          '-c',
-          `user.email=${authorEmail}`,
-          'rebase',
-          '--continue',
-        ],
-        cwd,
-        'rebase --continue'
-      )
+      const continueArgs = gitRebaseContinueArgs(authorName, authorEmail)
+      let r = runLoggedGitResult(continueArgs, cwd, 'rebase --continue')
+      if (
+        !r.ok &&
+        shouldTryRebaseSkipAfterContinueFailure(r.error)
+      ) {
+        console.info(LOG, 'rebase --continue suggests skip; trying rebase --skip', {
+          cwd,
+          priorError: summarizeGitLogText(r.error) ?? r.error,
+        })
+        r = runLoggedGitResult(
+          gitRebaseSkipArgs(authorName, authorEmail),
+          cwd,
+          'rebase --skip'
+        )
+      }
       if (!r.ok) return { ok: false, error: r.error }
       console.info(LOG, 'rebase --continue completed', {
         cwd,
