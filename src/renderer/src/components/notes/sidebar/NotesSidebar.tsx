@@ -48,7 +48,7 @@ import { AppSidebarRail } from '@/components/notes/sidebar/AppSidebar'
 import { WorkspaceSwitcher } from '@/components/notes/sidebar/WorkspaceSwitcher'
 import { GitSourceControlPanel } from '@/components/notes/git/GitSourceControlPanel'
 import { NoteLeadingIcon } from '@/components/notes/sidebar/NoteLeadingIcon'
-import { FOLDER_DRAG_MIME, NOTE_DRAG_MIME, treeFolderId, treeNoteId } from '@/components/notes/notes-app-utils'
+import { FOLDER_DRAG_MIME, NOTE_DRAG_MIME, treeFolderPath, treeNotePath } from '@/components/notes/notes-app-utils'
 import { MacSidebarLeadingToolbarIcon } from '@/components/notes/sidebar/MacSidebarToolbarIcon'
 import type { NotesAppViewModel } from '@/components/notes/app-state/useNotesApp'
 
@@ -73,7 +73,7 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
     folderInputRef,
     onFolderNameChange,
     onFolderNameBlur,
-    selectedId,
+    selectedNotePath,
     focusedFolderId,
     treeExpandNonce,
     treeExpandIds,
@@ -157,7 +157,7 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
     return types.includes(NOTE_DRAG_MIME) || types.includes(FOLDER_DRAG_MIME)
   }
 
-  const onFolderRowDrop = (e: globalThis.DragEvent, folderId: string): void => {
+  const onFolderRowDrop = (e: globalThis.DragEvent, folder: string): void => {
     if (!sidebarAcceptsDrop(e)) return
     if (!e.dataTransfer) return
     e.preventDefault()
@@ -165,14 +165,14 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
     setDropTargetFolderId(null)
     setFolderDropAtEnd(false)
 
-    const noteId = e.dataTransfer.getData(NOTE_DRAG_MIME)
-    if (noteId) {
-      moveNoteToFolder(noteId, folderId)
+    const notePath = e.dataTransfer.getData(NOTE_DRAG_MIME)
+    if (notePath) {
+      moveNoteToFolder(notePath, folder)
       return
     }
     const draggedFolderId = e.dataTransfer.getData(FOLDER_DRAG_MIME)
-    if (draggedFolderId && draggedFolderId !== folderId && folderId !== DEFAULT_WORKSPACE_ID) {
-      reorderFolders(draggedFolderId, folderId)
+    if (draggedFolderId && draggedFolderId !== folder && folder !== DEFAULT_WORKSPACE_ID) {
+      reorderFolders(draggedFolderId, folder)
     }
   }
 
@@ -211,9 +211,9 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
     if (draggedFolderId) reorderFolderToEnd(draggedFolderId)
   }
 
-  const findNoteById = (noteId: string): SavedNote | undefined => {
+  const findNoteById = (notePath: string): SavedNote | undefined => {
     for (const list of notesByFolder.values()) {
-      const n = list.find((x) => x.id === noteId)
+      const n = list.find((x) => x.path === notePath)
       if (n) return n
     }
     return undefined
@@ -227,12 +227,12 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
 
   // Register the rename trigger so the global keyboard shortcut (F2) can invoke it.
   triggerRenameSelectedRef.current = () => {
-    if (selectedId) {
-      const note = findNoteById(selectedId)
-      if (note) beginRename(treeNoteId(selectedId), note.title)
+    if (selectedNotePath) {
+      const note = findNoteById(selectedNotePath)
+      if (note) beginRename(treeNotePath(selectedNotePath), note.title)
     } else if (focusedFolderId) {
-      const folder = folders.find((f) => f.id === focusedFolderId)
-      if (folder) beginRename(treeFolderId(focusedFolderId), folder.name)
+      const folder = folders.find((f) => f.folder === focusedFolderId)
+      if (folder) beginRename(treeFolderPath(focusedFolderId), folder.name)
     }
   }
 
@@ -248,15 +248,15 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
     }
     const trimmed = renameDraft.trim()
     if (treeNodeId.startsWith('note:')) {
-      const noteId = treeNodeId.slice('note:'.length)
+      const notePath = treeNodeId.slice('note:'.length)
       const nextTitle = trimmed || 'Untitled'
-      const prev = findNoteById(noteId)
-      if (prev && nextTitle !== prev.title) renameNote(noteId, nextTitle)
+      const prev = findNoteById(notePath)
+      if (prev && nextTitle !== prev.title) renameNote(notePath, nextTitle)
     } else if (treeNodeId.startsWith('folder:')) {
-      const folderId = treeNodeId.slice('folder:'.length)
+      const folderPath = treeNodeId.slice('folder:'.length)
       const nextName = trimmed || 'Untitled folder'
-      const folder = folders.find((f) => f.id === folderId)
-      if (folder && nextName !== folder.name) renameFolder(folderId, nextName)
+      const workspace = folders.find((f) => f.folder === folderPath)
+      if (workspace && nextName !== workspace.name) renameFolder(folderPath, nextName)
     }
     setRenamingNodeId(null)
   }
@@ -641,13 +641,13 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
                     </p>
                     <ul className="flex flex-col gap-0.5 pb-1">
                       {folderSearchResults.map(({ folder, nameSegments }) => (
-                        <li key={folder.id}>
+                        <li key={folder.folder}>
                           <button
                             type="button"
                             data-sidebar-interactive=""
                             onClick={() => {
                               closeSearch()
-                              openFolderSettingsPanel(folder.id)
+                              openFolderSettingsPanel(folder.folder)
                             }}
                             className="hover:bg-sidebar-accent hover:text-sidebar-accent-foreground flex w-full min-w-0 items-center gap-2 rounded-md px-2 py-2 text-left transition-colors"
                           >
@@ -676,14 +676,14 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
                     </p>
                     <ul className="flex flex-col gap-0.5">
                       {searchResults.map(({ note, snippetSegments, folderName }) => (
-                        <li key={note.id}>
+                        <li key={note.path}>
                           <button
                             type="button"
                             data-sidebar-interactive=""
                             onClick={() => {
                               closeSearch()
                               backToNotes()
-                              const treeId = treeNoteId(note.id)
+                              const treeId = treeNotePath(note.path)
                               handleTreeSelectionChange([treeId])
                             }}
                             className="hover:bg-sidebar-accent hover:text-sidebar-accent-foreground flex w-full min-w-0 flex-col items-start gap-1 rounded-md px-2 py-2 text-left transition-colors"
@@ -746,22 +746,22 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
                       {inboxNotes.map((note, ni) => {
                         const isLastRootNote =
                           ni === inboxNotes.length - 1 && folders.length === 0 && !folderCreateOpen
-                        const noteTreeId = treeNoteId(note.id)
+                        const noteTreeId = treeNotePath(note.path)
                         const isRenaming = renamingNodeId === noteTreeId
                         return (
-                          <TreeNode key={note.id} nodeId={noteTreeId} isLast={isLastRootNote}>
+                          <TreeNode key={note.path} nodeId={noteTreeId} isLast={isLastRootNote}>
                             <TreeNodeTrigger
                               draggable={!isRenaming}
                               data-sidebar-interactive=""
                               onDragStart={(e) => {
                                 const drag = e as unknown as globalThis.DragEvent
                                 if (!drag.dataTransfer) return
-                                drag.dataTransfer.setData(NOTE_DRAG_MIME, note.id)
+                                drag.dataTransfer.setData(NOTE_DRAG_MIME, note.path)
                                 drag.dataTransfer.effectAllowed = 'copyMove'
                               }}
                               className={cn(
                                 'hover:bg-sidebar-accent/50',
-                                selectedId === note.id &&
+                                selectedNotePath === note.path &&
                                 !focusedFolderId &&
                                 '!bg-sidebar-accent !text-sidebar-accent-foreground'
                               )}
@@ -810,7 +810,7 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
                                     size="icon-xs"
                                     className="text-muted-foreground hover:text-destructive size-6"
                                     aria-label="Delete note"
-                                    onClick={(e) => handleDeleteNote(note.id, e)}
+                                    onClick={(e) => handleDeleteNote(note.path, e)}
                                   >
                                     <Trash2 className="size-3.5" />
                                   </Button>
@@ -823,32 +823,32 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
                     </div>
                   ) : null}
                   {folders.map((folder, fi) => {
-                    const notesInFolder = notesByFolder.get(folder.id) ?? []
+                    const notesInFolder = notesByFolder.get(folder.folder) ?? []
                     const isLastFolder = fi === folders.length - 1 && !folderCreateOpen
                     return (
                       <div
-                        key={folder.id}
+                        key={folder.folder}
                         className={cn(
                           'mx-1 overflow-hidden rounded-md transition-colors',
-                          dropTargetFolderId === folder.id &&
+                          dropTargetFolderId === folder.folder &&
                           'bg-sidebar-accent/20 ring-primary/40 ring-1 ring-inset'
                         )}
-                        onDragOverCapture={onFolderSectionDragOverCapture(folder.id)}
-                        onDropCapture={onFolderSectionDropCapture(folder.id)}
+                        onDragOverCapture={onFolderSectionDragOverCapture(folder.folder)}
+                        onDropCapture={onFolderSectionDropCapture(folder.folder)}
                       >
-                        <TreeNode nodeId={treeFolderId(folder.id)} isLast={isLastFolder}>
+                        <TreeNode nodeId={treeFolderPath(folder.folder)} isLast={isLastFolder}>
                           <TreeNodeTrigger
                             data-sidebar-interactive=""
-                            draggable={renamingNodeId !== treeFolderId(folder.id)}
+                            draggable={renamingNodeId !== treeFolderPath(folder.folder)}
                             onDragStart={(e) => {
                               const ev = e as unknown as globalThis.DragEvent
                               if (!ev.dataTransfer) return
-                              ev.dataTransfer.setData(FOLDER_DRAG_MIME, folder.id)
+                              ev.dataTransfer.setData(FOLDER_DRAG_MIME, folder.folder)
                               ev.dataTransfer.effectAllowed = 'move'
                             }}
                             className={cn(
                               'hover:bg-sidebar-accent/50',
-                              focusedFolderId === folder.id &&
+                              focusedFolderId === folder.folder &&
                               '!bg-sidebar-accent !text-sidebar-accent-foreground'
                             )}
                           >
@@ -866,7 +866,7 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
                                 size="icon-xs"
                                 className="text-muted-foreground size-6"
                                 aria-label={`Folder settings for ${folder.name}`}
-                                onClick={(e) => openFolderSettings(folder.id, e)}
+                                onClick={(e) => openFolderSettings(folder.folder, e)}
                                 data-sidebar-interactive=""
                               >
                                 <Settings2 className="size-3.5" aria-hidden />
@@ -876,11 +876,11 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
                           <TreeNodeContent hasChildren>
                             {notesInFolder.map((note, ni) => {
                               const isLastNote = ni === notesInFolder.length - 1
-                              const noteTreeId = treeNoteId(note.id)
+                              const noteTreeId = treeNotePath(note.path)
                               const isRenaming = renamingNodeId === noteTreeId
                               return (
                                 <TreeNode
-                                  key={note.id}
+                                  key={note.path}
                                   nodeId={noteTreeId}
                                   level={1}
                                   isLast={isLastNote}
@@ -891,12 +891,12 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
                                     onDragStart={(e) => {
                                       const drag = e as unknown as globalThis.DragEvent
                                       if (!drag.dataTransfer) return
-                                      drag.dataTransfer.setData(NOTE_DRAG_MIME, note.id)
+                                      drag.dataTransfer.setData(NOTE_DRAG_MIME, note.path)
                                       drag.dataTransfer.effectAllowed = 'copyMove'
                                     }}
                                     className={cn(
                                       'hover:bg-sidebar-accent/50',
-                                      selectedId === note.id &&
+                                      selectedNotePath === note.path &&
                                       !focusedFolderId &&
                                       '!bg-sidebar-accent !text-sidebar-accent-foreground'
                                     )}
@@ -945,7 +945,7 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
                                           size="icon-xs"
                                           className="text-muted-foreground hover:text-destructive size-6"
                                           aria-label="Delete note"
-                                          onClick={(e) => handleDeleteNote(note.id, e)}
+                                          onClick={(e) => handleDeleteNote(note.path, e)}
                                         >
                                           <Trash2 className="size-3.5" />
                                         </Button>

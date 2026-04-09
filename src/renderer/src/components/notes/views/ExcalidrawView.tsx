@@ -70,13 +70,13 @@ function readDocumentBackgroundCss(): string {
 }
 
 export type ExcalidrawViewProps = {
-  noteId: string
+  notePath: string
   sceneJson: string | null
   onSceneJsonChange: (json: string) => void
 }
 
 export function ExcalidrawView({
-  noteId,
+  notePath,
   sceneJson,
   onSceneJsonChange
 }: ExcalidrawViewProps): JSX.Element {
@@ -93,7 +93,7 @@ export function ExcalidrawView({
     setLoadMaskVisible(true)
     const id = window.setTimeout(() => setLoadMaskVisible(false), LOAD_MASK_MS)
     return () => window.clearTimeout(id)
-  }, [noteId])
+  }, [notePath])
 
   useEffect(() => {
     setThemeBackgroundColor(cssColorToCanvasColor(fallbackBackground(resolvedTheme)))
@@ -133,7 +133,7 @@ export function ExcalidrawView({
   // a note switch is not wrongly skipped.
   useEffect(() => {
     lastSavedElementsRef.current = ''
-  }, [noteId])
+  }, [notePath])
 
   useEffect(() => {
     excalidrawApiRef.current?.updateScene({
@@ -163,7 +163,7 @@ export function ExcalidrawView({
     } catch {
       return { appState: { viewBackgroundColor: themeBackgroundColor } }
     }
-  }, [noteId, sceneJson, themeBackgroundColor])
+  }, [notePath, sceneJson, themeBackgroundColor])
 
   const onChange = useCallback(
     (
@@ -197,7 +197,7 @@ export function ExcalidrawView({
         />
       ) : null}
       <Excalidraw
-        key={noteId}
+        key={notePath}
         theme={excalidrawTheme}
         initialData={initialData}
         excalidrawAPI={(api) => {

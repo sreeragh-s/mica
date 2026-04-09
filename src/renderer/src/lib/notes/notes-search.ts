@@ -173,7 +173,7 @@ export function searchNotes(
   if (!q) return []
 
   const folderName = (id: string): string =>
-    id === DEFAULT_WORKSPACE_ID ? 'Root' : (folders.find((f) => f.id === id)?.name ?? 'Workspace')
+    id === DEFAULT_WORKSPACE_ID ? 'Root' : (folders.find((f) => f.folder === id)?.name ?? 'Workspace')
 
   const limit = options?.limit ?? 50
   const scored: NoteSearchResult[] = []
@@ -203,7 +203,7 @@ export function searchNotes(
       score: best,
       titleSegments,
       snippetSegments,
-      folderName: folderName(note.folderId)
+      folderName: folderName(note.folder)
     })
   }
 

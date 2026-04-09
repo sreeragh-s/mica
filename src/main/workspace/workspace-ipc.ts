@@ -33,7 +33,7 @@ const LOG = '[notelab-workspace]'
 /** Git + markdown live under ~/.notelab (legacy name was ~/.notelab.io). */
 const NOTELAB_HOME_DIR = '.notelab'
 const LEGACY_NOTELAB_HOME_DIR = '.notelab.io'
-/** Markdown and folders live under `notelab/<folderId>/` relative to the root. */
+/** Markdown and folders live under `notelab/<folder>/` relative to the root. */
 const DATA_DIR = 'notelab'
 /** Virtual inbox id; root notes live directly in `notelab/`, not in a subfolder. */
 const DEFAULT_WORKSPACE_ID = 'default'

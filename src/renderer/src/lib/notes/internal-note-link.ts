@@ -1,18 +1,18 @@
 /** Hash fragment used in editor links to open another note or drawing in-app. */
 const HASH_PREFIX = '#notelab/note/'
 
-export function buildInternalNoteLinkHref(noteId: string): string {
-  return `${HASH_PREFIX}${noteId}`
+export function buildInternalNoteLinkHref(notePath: string): string {
+  return `${HASH_PREFIX}${notePath}`
 }
 
-export function parseInternalNoteIdFromHref(href: string): string | null {
+export function parseInternalNotePathFromHref(href: string): string | null {
   const m = href.match(/#notelab\/note\/([^#?]+)/)
   if (m?.[1]) return m[1]
   try {
     const u = new URL(href, typeof window !== 'undefined' ? window.location.href : 'http://localhost/')
     if (u.hash.startsWith('#notelab/note/')) {
-      const id = u.hash.slice('#notelab/note/'.length)
-      return id || null
+      const notePath = u.hash.slice('#notelab/note/'.length)
+      return notePath || null
     }
   } catch {
     /* ignore */

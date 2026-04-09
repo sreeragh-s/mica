@@ -1,9 +1,9 @@
 import type { SerializedEditorState } from "lexical"
 
 import type { SavedNote } from "@/lib/notes/notes-storage"
-import { parseInternalNoteIdFromHref } from "@/lib/notes/internal-note-link"
+import { parseInternalNotePathFromHref } from "@/lib/notes/internal-note-link"
 
-/** Walk Lexical JSON and collect target note ids from internal note links. */
+/** Walk Lexical JSON and collect target note paths from internal note links. */
 export function collectInternalNoteLinkTargets(
   serialized: SerializedEditorState | null | undefined
 ): string[] {
@@ -14,7 +14,7 @@ export function collectInternalNoteLinkTargets(
     if (typeof node !== "object") return
     const o = node as Record<string, unknown>
     if (o.type === "link" && typeof o.url === "string") {
-      const id = parseInternalNoteIdFromHref(o.url)
+      const id = parseInternalNotePathFromHref(o.url)
       if (id) out.add(id)
     }
     if (Array.isArray(o.children)) {
@@ -30,7 +30,7 @@ export type NoteGraphNode = {
   id: string
   title: string
   kind: NonNullable<SavedNote["kind"]>
-  folderId: string
+  folder: string
 }
 
 export type NoteGraphLink = {
@@ -43,7 +43,7 @@ export function buildNoteLinkGraph(notes: SavedNote[]): {
   nodes: NoteGraphNode[]
   links: NoteGraphLink[]
 } {
-  const idSet = new Set(notes.map((n) => n.id))
+  const idSet = new Set(notes.map((n) => n.path))
   const linkKeys = new Set<string>()
   const links: NoteGraphLink[] = []
 
@@ -52,19 +52,19 @@ export function buildNoteLinkGraph(notes: SavedNote[]): {
     const targets = collectInternalNoteLinkTargets(note.content)
     for (const t of targets) {
       if (!idSet.has(t)) continue
-      if (t === note.id) continue
-      const key = `${note.id}\0${t}`
+      if (t === note.path) continue
+      const key = `${note.path}\0${t}`
       if (linkKeys.has(key)) continue
       linkKeys.add(key)
-      links.push({ source: note.id, target: t })
+      links.push({ source: note.path, target: t })
     }
   }
 
   const nodes: NoteGraphNode[] = notes.map((n) => ({
-    id: n.id,
+    id: n.path,
     title: (n.title?.trim() || "Untitled").slice(0, 80),
     kind: n.kind ?? "note",
-    folderId: n.folderId,
+    folder: n.folder,
   }))
 
   return { nodes, links }

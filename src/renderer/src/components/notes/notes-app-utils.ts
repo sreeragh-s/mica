@@ -24,23 +24,23 @@ export const NOTES_APP_PILL_SURFACE =
 
 /** Main window drag uses a single full-width band in `NotesApp` (macOS Notelab); avoid extra `drag` rows. */
 
-export function createEmptyNote(folderId: string, notePath: string): SavedNote {
+export function createEmptyNote(folder: string, notePath: string): SavedNote {
   return {
-    id: notePath,
+    path: notePath,
     updatedAt: Date.now(),
     content: null,
-    folderId,
+    folder,
     title: '',
     kind: 'note'
   }
 }
 
-export function createEmptyDrawing(folderId: string, notePath: string): SavedNote {
+export function createEmptyDrawing(folder: string, notePath: string): SavedNote {
   return {
-    id: notePath,
+    path: notePath,
     updatedAt: Date.now(),
     content: null,
-    folderId,
+    folder,
     title: 'New drawing',
     kind: 'drawing',
     excalidrawScene: null
@@ -51,12 +51,12 @@ export function isDrawingNote(note: SavedNote): boolean {
   return note.kind === 'drawing'
 }
 
-export function treeFolderId(folderId: string): string {
-  return `folder:${folderId}`
+export function treeFolderPath(folder: string): string {
+  return `folder:${folder}`
 }
 
-export function treeNoteId(noteId: string): string {
-  return `note:${noteId}`
+export function treeNotePath(notePath: string): string {
+  return `note:${notePath}`
 }
 
 /** DataTransfer type for dragging a note from the tree into the main editor area. */
@@ -69,18 +69,18 @@ export function mergeFolderOrder(
   diskFolders: Folder[],
   preferredOrder: string[]
 ): Folder[] {
-  const byId = new Map(diskFolders.map((f) => [f.id, f]))
+  const byFolder = new Map(diskFolders.map((workspace) => [workspace.folder, workspace]))
   const out: Folder[] = []
-  const seen = new Set<string>()
-  for (const id of preferredOrder) {
-    const f = byId.get(id)
-    if (f) {
-      out.push(f)
-      seen.add(id)
+  const seenFolders = new Set<string>()
+  for (const folder of preferredOrder) {
+    const workspace = byFolder.get(folder)
+    if (workspace) {
+      out.push(workspace)
+      seenFolders.add(folder)
     }
   }
-  for (const f of diskFolders) {
-    if (!seen.has(f.id)) out.push(f)
+  for (const workspace of diskFolders) {
+    if (!seenFolders.has(workspace.folder)) out.push(workspace)
   }
   return out
 }

@@ -586,13 +586,13 @@ const api = {
     getSession: (): Promise<{
       workspacePath?: string
       selectedNoteId?: string | null
-      openNoteTabIds?: string[]
+      openNoteTabPaths?: string[]
       chatSidebarOpen?: boolean
     } | null> => ipcRenderer.invoke('window:get-session'),
     setSession: (data: {
       workspacePath?: string
       selectedNoteId?: string | null
-      openNoteTabIds?: string[]
+      openNoteTabPaths?: string[]
       chatSidebarOpen?: boolean
     }): Promise<{ ok: true }> => ipcRenderer.invoke('window:set-session', data),
     openWorkspaceInNewWindow: (workspacePath: string): Promise<{ ok: true }> =>

@@ -50,9 +50,9 @@ export function NotesPrimaryPane({
     if (selectedNote.kind === 'drawing') {
       return (
         <ExcalidrawView
-          noteId={selectedNote.id}
+          notePath={selectedNote.path}
           sceneJson={selectedNote.excalidrawScene ?? null}
-          onSceneJsonChange={(json) => onExcalidrawSceneChange(selectedNote.id, json)}
+          onSceneJsonChange={(json) => onExcalidrawSceneChange(selectedNote.path, json)}
         />
       )
     }
@@ -63,21 +63,21 @@ export function NotesPrimaryPane({
         onDrop={onDrop}
       >
         <Editor
-          key={selectedNote.id}
+          key={selectedNote.path}
           editorSerializedState={selectedNote.content ?? undefined}
-          onSerializedChange={(s) => onNoteSerializedChange(selectedNote.id, s)}
+          onSerializedChange={(s) => onNoteSerializedChange(selectedNote.path, s)}
           className="min-h-0 flex-1"
-          notelabEditor={{ notes, folders, currentNoteId: selectedNote.id, onOpenInternalNote: onSelectNote }}
+          notelabEditor={{ notes, folders, currentNoteId: selectedNote.path, onOpenInternalNote: onSelectNote }}
           header={
             <NoteTitleInput
               value={selectedNote.title}
-              onChange={(title) => onRenameNote(selectedNote.id, title)}
+              onChange={(title) => onRenameNote(selectedNote.path, title)}
             />
           }
           coverImageSrc={selectedNote.kind === 'note' ? selectedNote.coverImageSrc : undefined}
-          onCoverChange={(src) => onSetNoteCover(selectedNote.id, src)}
+          onCoverChange={(src) => onSetNoteCover(selectedNote.path, src)}
           titleEmoji={selectedNote.kind === 'note' ? selectedNote.titleEmoji : undefined}
-          onTitleEmojiChange={(emoji) => onSetNoteTitleEmoji(selectedNote.id, emoji)}
+          onTitleEmojiChange={(emoji) => onSetNoteTitleEmoji(selectedNote.path, emoji)}
           bottomChromePortal={bottomChromePortal}
         />
       </div>

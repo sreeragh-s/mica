@@ -40,7 +40,7 @@ type NoteCanvasCardData = {
   allFolders: Folder[]
   onNoteSerializedChange: (id: string, serialized: SerializedEditorState) => void
   onExcalidrawSceneChange: (id: string, json: string) => void
-  onSelectNote: (noteId: string) => void
+  onSelectNote: (notePath: string) => void
   onSetNoteCover: (id: string, src: string | null) => void
   onSetNoteTitleEmoji: (id: string, emoji: string | null) => void
 }
@@ -52,7 +52,7 @@ export type NotesCanvasViewProps = {
   folders: Folder[]
   isMacNotelab: boolean
   macTitlebarStyles: { noDrag: CSSProperties }
-  onSelectNote: (noteId: string) => void
+  onSelectNote: (notePath: string) => void
   onClose: () => void
   onNoteSerializedChange: (id: string, serialized: SerializedEditorState) => void
   onExcalidrawSceneChange: (id: string, json: string) => void
@@ -125,26 +125,26 @@ function NoteCanvasCard({ data }: NodeProps<NoteCanvasCardNode>): JSX.Element {
         <div className="nowheel min-h-0 flex-1 overflow-auto">
           {drawing ? (
             <ExcalidrawView
-              noteId={note.id}
+              notePath={note.path}
               sceneJson={note.excalidrawScene ?? null}
-              onSceneJsonChange={(json) => onExcalidrawSceneChange(note.id, json)}
+              onSceneJsonChange={(json) => onExcalidrawSceneChange(note.path, json)}
             />
           ) : (
             <Editor
-              key={note.id}
+              key={note.path}
               editorSerializedState={note.content ?? undefined}
-              onSerializedChange={(s) => onNoteSerializedChange(note.id, s)}
+              onSerializedChange={(s) => onNoteSerializedChange(note.path, s)}
               className="min-h-0 flex-1"
               notelabEditor={{
                 notes: allNotes,
                 folders: allFolders,
-                currentNoteId: note.id,
+                currentNoteId: note.path,
                 onOpenInternalNote: onSelectNote
               }}
               coverImageSrc={note.kind === 'note' ? note.coverImageSrc : undefined}
-              onCoverChange={(src) => onSetNoteCover(note.id, src)}
+              onCoverChange={(src) => onSetNoteCover(note.path, src)}
               titleEmoji={note.kind === 'note' ? note.titleEmoji : undefined}
-              onTitleEmojiChange={(emoji) => onSetNoteTitleEmoji(note.id, emoji)}
+              onTitleEmojiChange={(emoji) => onSetNoteTitleEmoji(note.path, emoji)}
             />
           )}
         </div>
@@ -178,11 +178,11 @@ function NotesCanvasViewInner({
   onSetNoteTitleEmoji
 }: NotesCanvasViewProps): JSX.Element {
   const graph = useMemo(() => buildNoteLinkGraph(notes), [notes])
-  const noteMap = useMemo(() => new Map(notes.map((n) => [n.id, n])), [notes])
+  const noteMap = useMemo(() => new Map(notes.map((n) => [n.path, n])), [notes])
   const folderNameById = useMemo(() => {
     const m = new Map<string, string>()
     m.set(DEFAULT_WORKSPACE_ID, 'Root')
-    for (const f of folders) m.set(f.id, f.name)
+    for (const f of folders) m.set(f.folder, f.name)
     return m
   }, [folders])
 
@@ -197,7 +197,7 @@ function NotesCanvasViewInner({
       },
       data: {
         note: noteMap.get(gn.id)!,
-        folderName: folderNameById.get(gn.folderId) ?? 'Root',
+        folderName: folderNameById.get(gn.folder) ?? 'Root',
         allNotes: notes,
         allFolders: folders,
         onNoteSerializedChange,

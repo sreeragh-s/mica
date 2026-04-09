@@ -22,7 +22,7 @@ type SimNode = d3.SimulationNodeDatum & {
   id: string
   title: string
   kind: NonNullable<SavedNote["kind"]>
-  folderId: string
+  folder: string
 }
 
 export type NotesGraphViewProps = {
@@ -30,7 +30,7 @@ export type NotesGraphViewProps = {
   folders: Folder[]
   isMacNotelab: boolean
   macTitlebarStyles: { noDrag: CSSProperties }
-  onSelectNote: (noteId: string) => void
+  onSelectNote: (notePath: string) => void
   /** When true, only the canvas is rendered (use with an external split header). */
   embedded?: boolean
 }
@@ -104,8 +104,8 @@ export function NotesGraphView({
 
     const gNodes = gRoot.append("g")
 
-    const folderColor = (folderId: string): string => {
-      const i = folders.findIndex((f) => f.id === folderId)
+    const folderColor = (folder: string): string => {
+      const i = folders.findIndex((f) => f.folder === folder)
       return FOLDER_COLORS[(i >= 0 ? i : 0) % FOLDER_COLORS.length]
     }
 
@@ -143,9 +143,9 @@ export function NotesGraphView({
       .append("circle")
       .attr("r", (d) => (d.kind === "drawing" ? 14 : 12))
       .attr("fill", (d) =>
-        d.kind === "drawing" ? "none" : folderColor(d.folderId)
+        d.kind === "drawing" ? "none" : folderColor(d.folder)
       )
-      .attr("stroke", (d) => folderColor(d.folderId))
+      .attr("stroke", (d) => folderColor(d.folder))
       .attr("stroke-width", (d) => (d.kind === "drawing" ? 2.5 : 0))
       .attr("stroke-dasharray", (d) => (d.kind === "drawing" ? "4 3" : "none"))
 

@@ -47,7 +47,7 @@ function SearchHighlight({ segments }: { segments: SearchMatchSegment[] }): JSX.
 export type NotesSearchBarProps = {
   notes: SavedNote[]
   folders: Folder[]
-  onSelectNote: (noteId: string) => void
+  onSelectNote: (notePath: string) => void
   macTitlebarStyles: MacTitlebarStyles
   sidebarOverlayActive: boolean
   isMacNotelab: boolean
@@ -95,7 +95,7 @@ export function NotesSearchBar({
 
   const pick = useCallback(
     (r: NoteSearchResult) => {
-      onSelectNote(r.note.id)
+      onSelectNote(r.note.path)
       setQuery('')
       setOpen(false)
       inputRef.current?.blur()
@@ -234,7 +234,7 @@ export function NotesSearchBar({
                   results.map((r, i) => {
                     return (
                       <Button
-                        key={r.note.id}
+                        key={r.note.path}
                         type="button"
                         variant="ghost"
                         role="option"

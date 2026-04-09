@@ -469,7 +469,7 @@ export function useNotesGitSync({
     if (!primaryGitFolder?.localGitPath) return null
     const resolvedRemoteUrl = githubRemoteUrl.trim() || primaryGitFolder.githubRemoteUrl
     return {
-      id: 'app-git',
+      folder: 'app-git',
       name: '~/.notelab',
       localGitPath: primaryGitFolder.localGitPath,
       githubRemoteUrl: resolvedRemoteUrl,

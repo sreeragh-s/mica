@@ -4,7 +4,7 @@ import { useEffect } from "react"
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext"
 
 import { useNotelabEditorContext } from "@/components/editor/notelab-editor-context"
-import { parseInternalNoteIdFromHref } from "@/lib/notes/internal-note-link"
+import { parseInternalNotePathFromHref } from "@/lib/notes/internal-note-link"
 
 /**
  * Intercepts clicks on internal #notelab/note/… links before Lexical's default
@@ -31,7 +31,7 @@ export function InternalNoteLinkClickPlugin(): null {
         const raw = anchor.getAttribute("href") ?? ""
         const resolved = (anchor as HTMLAnchorElement).href || raw
         const id =
-          parseInternalNoteIdFromHref(resolved) ?? parseInternalNoteIdFromHref(raw)
+          parseInternalNotePathFromHref(resolved) ?? parseInternalNotePathFromHref(raw)
         if (!id) return
         e.preventDefault()
         e.stopPropagation()

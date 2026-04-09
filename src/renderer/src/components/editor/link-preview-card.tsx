@@ -87,7 +87,7 @@ export function InternalNoteLinkPreviewBody({
 }): JSX.Element {
   const folderLabel =
     resolvedNote && notelabCtx
-      ? (notelabCtx.folders.find((f) => f.id === resolvedNote.folderId)
+      ? (notelabCtx.folders.find((f) => f.folder === resolvedNote.folder)
           ?.name ?? "Workspace")
       : ""
 

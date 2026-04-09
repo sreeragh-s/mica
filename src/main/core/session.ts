@@ -17,7 +17,7 @@ import { BrowserWindow, type WebContents } from 'electron'
 export type WindowSession = {
   workspacePath?: string
   selectedNoteId?: string | null
-  openNoteTabIds?: string[]
+  openNoteTabPaths?: string[]
   chatSidebarOpen?: boolean
   bounds?: { x: number; y: number; width: number; height: number }
 }

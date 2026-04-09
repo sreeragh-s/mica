@@ -30,7 +30,7 @@ function slugifyWorkspaceDirSegment(displayName: string): string {
  * Folder name under `data/<id>/` (relative to ~/.notelab).
  * Uses a readable slug from the display name plus a short unique suffix (not a bare UUID).
  */
-export function newFolderId(displayName: string): string {
+export function newFolderPath(displayName: string): string {
   return slugifyWorkspaceDirSegment(displayName)
 }
 
@@ -64,8 +64,8 @@ ${coverLine}${emojiLine}---
   return front + (body.trim() ? `${body}\n` : "_Empty note._\n")
 }
 
-export function noteMarkdownRelativePath(_folderId: string, note: SavedNote): string {
-  return note.id
+export function noteMarkdownRelativePath(_folder: string, note: SavedNote): string {
+  return note.path
 }
 
 export function buildNoteFileBaseName(title: string, kind: SavedNote["kind"]): string {
@@ -78,7 +78,7 @@ export function buildFolderPath(folderName: string): string {
 }
 
 export function buildUniqueNoteRelativePath(
-  folderId: string,
+  folder: string,
   title: string,
   kind: SavedNote["kind"],
   takenRelativePaths: Iterable<string>,
@@ -96,7 +96,7 @@ export function buildUniqueNoteRelativePath(
   while (true) {
     const candidateBase = counter === 1 ? baseName : `${bare}-${counter}.md`
     const candidate =
-      folderId === DEFAULT_WORKSPACE_ID ? candidateBase : `${folderId}/${candidateBase}`
+      folder === DEFAULT_WORKSPACE_ID ? candidateBase : `${folder}/${candidateBase}`
     if (!taken.has(candidate)) {
       return candidate
     }
@@ -116,7 +116,7 @@ export function buildMarkdownSyncPayload(
 
   for (const n of notes) {
     files.push({
-      relativePath: noteMarkdownRelativePath(folder.id, n),
+      relativePath: noteMarkdownRelativePath(folder.folder, n),
       content: buildNoteMarkdownDocument(n),
     })
   }

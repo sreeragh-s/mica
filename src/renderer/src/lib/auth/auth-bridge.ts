@@ -240,13 +240,13 @@ export type NotelabApi = {
     getSession: () => Promise<{
       workspacePath?: string
       selectedNoteId?: string | null
-      openNoteTabIds?: string[]
+      openNoteTabPaths?: string[]
       chatSidebarOpen?: boolean
     } | null>
     setSession: (data: {
       workspacePath?: string
       selectedNoteId?: string | null
-      openNoteTabIds?: string[]
+      openNoteTabPaths?: string[]
       chatSidebarOpen?: boolean
     }) => Promise<{ ok: true }>
     openWorkspaceInNewWindow: (workspacePath: string) => Promise<{ ok: true }>

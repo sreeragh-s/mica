@@ -124,7 +124,7 @@ function FloatingTextFormat({
   }, [notelabCtx, noteSearch])
 
   const applyInternalNoteLink = useCallback(
-    (noteId: string) => {
+    (notePath: string) => {
       setNoteLinkMenuOpen(false)
       setNoteSearch("")
       editor.update(() => {
@@ -132,7 +132,7 @@ function FloatingTextFormat({
         if (saved !== null && $isRangeSelection(saved)) {
           $setSelection(saved)
         }
-        $toggleLink(buildInternalNoteLinkHref(noteId))
+        $toggleLink(buildInternalNoteLinkHref(notePath))
       })
       setIsLinkEditMode(false)
       savedSelectionRef.current = null

@@ -13,12 +13,12 @@ import {
   UrlFavicon,
   ExternalUrlPreviewBody,
 } from "@/components/editor/link-preview-card"
-import { parseInternalNoteIdFromHref } from "@/lib/notes/internal-note-link"
+import { parseInternalNotePathFromHref } from "@/lib/notes/internal-note-link"
 
 type HoverPayload =
   | {
       kind: "internal"
-      noteId: string
+      notePath: string
       rect: DOMRect
     }
   | {
@@ -107,11 +107,11 @@ export function LinkHoverPreviewPlugin(): JSX.Element | null {
         const raw = anchor.getAttribute("href") ?? ""
         const resolvedHref = anchor.href || raw
         const rect = anchor.getBoundingClientRect()
-        const noteId = parseInternalNoteIdFromHref(resolvedHref) ?? parseInternalNoteIdFromHref(raw)
+        const notePath = parseInternalNotePathFromHref(resolvedHref) ?? parseInternalNotePathFromHref(raw)
 
         showTimerRef.current = setTimeout(() => {
-          if (noteId) {
-            setHover({ kind: "internal", noteId, rect })
+          if (notePath) {
+            setHover({ kind: "internal", notePath, rect })
           } else {
             setHover({
               kind: "external",
@@ -149,7 +149,7 @@ export function LinkHoverPreviewPlugin(): JSX.Element | null {
 
   const resolvedNote =
     hover.kind === "internal" && notelabCtx
-      ? notelabCtx.notes.find((n) => n.id === hover.noteId)
+      ? notelabCtx.notes.find((n) => n.path === hover.notePath)
       : undefined
 
   let top = hover.rect.bottom + GAP

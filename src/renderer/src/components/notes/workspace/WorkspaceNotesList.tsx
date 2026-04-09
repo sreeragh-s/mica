@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils'
 export type WorkspaceNotesListProps = {
   folder: Folder
   notes: SavedNote[]
-  onSelectNote: (noteId: string) => void
+  onSelectNote: (notePath: string) => void
   onNewNote: () => void
   canCreateNote: boolean
 }
@@ -65,10 +65,10 @@ export function WorkspaceNotesList({
         ) : (
           <ul className="flex flex-col gap-0.5">
             {notes.map((note) => (
-              <li key={note.id}>
+              <li key={note.path}>
                 <button
                   type="button"
-                  onClick={() => onSelectNote(note.id)}
+                  onClick={() => onSelectNote(note.path)}
                   className={cn(
                     'hover:bg-accent/70 focus-visible:ring-ring flex w-full items-start gap-2 rounded-lg px-3 py-3 text-left transition-colors',
                     'focus-visible:ring-2 focus-visible:outline-none'

@@ -46,8 +46,8 @@ type UseNotesAppUiArgs = {
   chatSidebarOpen: boolean
   setChatSidebarOpen: Setter<boolean>
   workspaceRoot: string | null
-  selectedId: string | null
-  openNoteTabIds: string[]
+  selectedNotePath: string | null
+  openNoteTabPaths: string[]
   setSelectedId: Setter<string | null>
   setOpenNoteTabIds: Setter<string[]>
   setAppSidebarView: Setter<AppSidebarView>
@@ -84,8 +84,8 @@ export function useNotesAppUi({
   chatSidebarOpen,
   setChatSidebarOpen,
   workspaceRoot,
-  selectedId,
-  openNoteTabIds,
+  selectedNotePath,
+  openNoteTabPaths,
   setSelectedId,
   setOpenNoteTabIds,
   setAppSidebarView,
@@ -463,11 +463,11 @@ export function useNotesAppUi({
     if (!api?.multiWindow?.setSession) return
     void api.multiWindow.setSession({
       workspacePath: workspaceRoot ?? undefined,
-      selectedNoteId: selectedId,
-      openNoteTabIds,
+      selectedNoteId: selectedNotePath,
+      openNoteTabPaths,
       chatSidebarOpen
     })
-  }, [chatSidebarOpen, openNoteTabIds, selectedId, workspaceRoot])
+  }, [chatSidebarOpen, openNoteTabPaths, selectedNotePath, workspaceRoot])
 
   return {
     nativeLiquidGlassAttached,

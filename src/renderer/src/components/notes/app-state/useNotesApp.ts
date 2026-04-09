@@ -25,7 +25,7 @@ import {
 import {
   buildFolderPath,
   buildUniqueNoteRelativePath,
-  newFolderId
+  newFolderPath
 } from '@/lib/workspace/workspace-markdown-sync'
 import type { AppMode, NotesAppProps, SettingsSection } from '@/components/notes/notes-app-types'
 import {
@@ -35,8 +35,8 @@ import {
   reorderFolderIdsBeforeTarget,
   reorderFolderIdsToEnd,
   serializedEditorStatesEqual,
-  treeFolderId,
-  treeNoteId
+  treeFolderPath,
+  treeNotePath
 } from '@/components/notes/notes-app-utils'
 import { treeExpandIdsForFolderId } from './use-notes-app/shared'
 import { useNotesAppDisk } from './use-notes-app/useNotesAppDisk'
@@ -66,21 +66,21 @@ export function useNotesApp({
   const [folders, setFolders] = useState<Folder[]>(initialFolders)
   const [notes, setNotes] = useState<SavedNote[]>(initialNotes)
 
-  const [selectedId, setSelectedId] = useState<string | null>(() => {
+  const [selectedNotePath, setSelectedId] = useState<string | null>(() => {
     const n = initialNotes
-    return n.length > 0 ? ([...n].sort((a, b) => b.updatedAt - a.updatedAt)[0]?.id ?? null) : null
+    return n.length > 0 ? ([...n].sort((a, b) => b.updatedAt - a.updatedAt)[0]?.path ?? null) : null
   })
 
-  const [openNoteTabIds, setOpenNoteTabIds] = useState<string[]>(() => {
+  const [openNoteTabPaths, setOpenNoteTabIds] = useState<string[]>(() => {
     const n = initialNotes
     if (n.length === 0) return []
-    const id = [...n].sort((a, b) => b.updatedAt - a.updatedAt)[0]?.id
-    return id ? [id] : []
+    const path = [...n].sort((a, b) => b.updatedAt - a.updatedAt)[0]?.path
+    return path ? [path] : []
   })
 
   const [focusedFolderId, setFocusedFolderId] = useState<string | null>(null)
 
-  /** User workspace folder id for new notes, or {@link DEFAULT_WORKSPACE_ID} for root. */
+  /** User workspace folder for new notes, or {@link DEFAULT_WORKSPACE_ID} for root. */
   const [newNoteDestinationFolderId, setNewNoteDestinationFolderId] =
     useState<string>(DEFAULT_WORKSPACE_ID)
 
@@ -118,8 +118,8 @@ export function useNotesApp({
   foldersRef.current = folders
   const notesRef = useRef(notes)
   notesRef.current = notes
-  const openNoteTabIdsRef = useRef(openNoteTabIds)
-  openNoteTabIdsRef.current = openNoteTabIds
+  const openNoteTabIdsRef = useRef(openNoteTabPaths)
+  openNoteTabIdsRef.current = openNoteTabPaths
   const noteFlushTimers = useRef<Map<string, number>>(new Map())
   const noteRenameTimers = useRef<Map<string, number>>(new Map())
   const pendingDiskWrites = useRef<Set<string>>(new Set())
@@ -190,30 +190,30 @@ export function useNotesApp({
     })
 
   const selectedNote = useMemo(
-    () => notes.find((n) => n.id === selectedId) ?? null,
-    [notes, selectedId]
+    () => notes.find((n) => n.path === selectedNotePath) ?? null,
+    [notes, selectedNotePath]
   )
 
   const focusedFolder = useMemo((): Folder | null => {
     if (!focusedFolderId) return null
     if (focusedFolderId === DEFAULT_WORKSPACE_ID) {
-      return { id: DEFAULT_WORKSPACE_ID, name: 'Root' }
+      return { folder: DEFAULT_WORKSPACE_ID, name: 'Root' }
     }
-    return folders.find((f) => f.id === focusedFolderId) ?? null
+    return folders.find((f) => f.folder === focusedFolderId) ?? null
   }, [folders, focusedFolderId])
 
   const notesByFolder = useMemo(() => {
     const map = new Map<string, SavedNote[]>()
     for (const f of folders) {
-      map.set(f.id, [])
+      map.set(f.folder, [])
     }
     if (!map.has(DEFAULT_WORKSPACE_ID)) {
       map.set(DEFAULT_WORKSPACE_ID, [])
     }
     for (const n of notes) {
-      let fid = n.folderId
+      let fid = n.folder
       if (!map.has(fid)) {
-        fid = folders.some((f) => f.id === n.folderId) ? n.folderId : DEFAULT_WORKSPACE_ID
+        fid = folders.some((f) => f.folder === n.folder) ? n.folder : DEFAULT_WORKSPACE_ID
       }
       map.get(fid)!.push(n)
     }
@@ -223,18 +223,18 @@ export function useNotesApp({
     return map
   }, [folders, notes])
 
-  const takenNotePaths = useCallback(() => notesRef.current.map((note) => note.id), [])
+  const takenNotePaths = useCallback(() => notesRef.current.map((note) => note.path), [])
 
   const buildNotePath = useCallback(
-    (folderId: string, title: string, kind: SavedNote['kind'], currentPath?: string) =>
-      buildUniqueNoteRelativePath(folderId, title, kind, takenNotePaths(), currentPath),
+    (folder: string, title: string, kind: SavedNote['kind'], currentPath?: string) =>
+      buildUniqueNoteRelativePath(folder, title, kind, takenNotePaths(), currentPath),
     [takenNotePaths]
   )
 
   const replaceTrackedNoteId = useCallback((from: string, to: string) => {
     if (from === to) return
     setSelectedId((prev) => (prev === from ? to : prev))
-    setOpenNoteTabIds((prev) => prev.map((id) => (id === from ? to : id)))
+    setOpenNoteTabIds((prev) => prev.map((path) => (path === from ? to : path)))
   }, [])
 
   const scheduleNotePathRename = useCallback(
@@ -245,12 +245,12 @@ export function useNotesApp({
       }
       const timerId = window.setTimeout(() => {
         noteRenameTimers.current.delete(currentPath)
-        const note = notesRef.current.find((entry) => entry.id === currentPath)
+        const note = notesRef.current.find((entry) => entry.path === currentPath)
         if (!note) return
-        const nextPath = buildNotePath(note.folderId, note.title, note.kind, note.id)
-        if (nextPath === note.id) return
+        const nextPath = buildNotePath(note.folder, note.title, note.kind, note.path)
+        if (nextPath === note.path) return
         setNotes((prev) =>
-          prev.map((entry) => (entry.id === currentPath ? { ...entry, id: nextPath } : entry))
+          prev.map((entry) => (entry.path === currentPath ? { ...entry, path: nextPath } : entry))
         )
         replaceTrackedNoteId(currentPath, nextPath)
         const flushTimer = noteFlushTimers.current.get(currentPath)
@@ -259,7 +259,7 @@ export function useNotesApp({
           noteFlushTimers.current.delete(currentPath)
         }
         if (diskMode) {
-          void flushNoteMoveToDisk(currentPath, note.folderId, note.folderId)
+          void flushNoteMoveToDisk(currentPath, note.folder, note.folder)
         } else if (useGithubApiSync) {
           setGithubApiDirty(true)
         }
@@ -270,19 +270,19 @@ export function useNotesApp({
   )
 
   const treeSelectedIds = useMemo(() => {
-    if (workspaceSettingsFolderId) return [treeFolderId(workspaceSettingsFolderId)]
-    if (focusedFolderId) return [treeFolderId(focusedFolderId)]
-    if (selectedId) return [treeNoteId(selectedId)]
+    if (workspaceSettingsFolderId) return [treeFolderPath(workspaceSettingsFolderId)]
+    if (focusedFolderId) return [treeFolderPath(focusedFolderId)]
+    if (selectedNotePath) return [treeNotePath(selectedNotePath)]
     return []
-  }, [selectedId, focusedFolderId, workspaceSettingsFolderId])
+  }, [selectedNotePath, focusedFolderId, workspaceSettingsFolderId])
 
   const workspaceSettingsFolder = useMemo(
     () =>
       workspaceSettingsFolderId
-        ? (folders.find((f) => f.id === workspaceSettingsFolderId) ??
+        ? (folders.find((f) => f.folder === workspaceSettingsFolderId) ??
           (workspaceSettingsFolderId === DEFAULT_WORKSPACE_ID && dataRootPath
             ? ({
-                id: DEFAULT_WORKSPACE_ID,
+                folder: DEFAULT_WORKSPACE_ID,
                 name: 'Root',
                 localGitPath: dataRootPath
               } satisfies Folder)
@@ -306,7 +306,7 @@ export function useNotesApp({
     if (fromFolders) return fromFolders
     if (diskMode && dataRootPath) {
       return {
-        id: DEFAULT_WORKSPACE_ID,
+        folder: DEFAULT_WORKSPACE_ID,
         name: 'Root',
         localGitPath: dataRootPath
       }
@@ -317,10 +317,10 @@ export function useNotesApp({
   const resolveGitFolderForId = useCallback(
     (workspaceId: string | undefined | null): Folder | null => {
       if (workspaceId == null) return null
-      const found = folders.find((x) => x.id === workspaceId && x.localGitPath)
+      const found = folders.find((x) => x.folder === workspaceId && x.localGitPath)
       if (found) return found
       if (workspaceId === DEFAULT_WORKSPACE_ID && dataRootPath) {
-        return { id: DEFAULT_WORKSPACE_ID, name: 'Root', localGitPath: dataRootPath }
+        return { folder: DEFAULT_WORKSPACE_ID, name: 'Root', localGitPath: dataRootPath }
       }
       return null
     },
@@ -380,7 +380,7 @@ export function useNotesApp({
     handleApplyGithubRemote,
   } = useNotesGitSync({
     primaryGitFolder,
-    selectedNoteFolderId: selectedNote?.folderId ?? null,
+    selectedNoteFolderId: selectedNote?.folder ?? null,
     focusedFolderId,
     resolveGitFolderForId,
     setFolders,
@@ -436,7 +436,7 @@ export function useNotesApp({
     if (
       focusedFolderId &&
       focusedFolderId !== DEFAULT_WORKSPACE_ID &&
-      !folders.some((f) => f.id === focusedFolderId)
+      !folders.some((f) => f.folder === focusedFolderId)
     ) {
       setFocusedFolderId(null)
     }
@@ -446,13 +446,13 @@ export function useNotesApp({
     if (!workspaceSettingsFolderId) return
     const ok =
       workspaceSettingsFolderId === DEFAULT_WORKSPACE_ID ||
-      folders.some((f) => f.id === workspaceSettingsFolderId)
+      folders.some((f) => f.folder === workspaceSettingsFolderId)
     if (!ok) setWorkspaceSettingsFolderId(null)
   }, [folders, workspaceSettingsFolderId])
 
   useEffect(() => {
     setOpenNoteTabIds((prev) => {
-      const next = prev.filter((id) => notes.some((n) => n.id === id))
+      const next = prev.filter((path) => notes.some((n) => n.path === path))
       return next.length === prev.length ? prev : next
     })
   }, [notes])
@@ -470,24 +470,24 @@ export function useNotesApp({
     }
   }, [])
 
-  const pushOpenNoteTab = useCallback((noteId: string) => {
-    if (!notesRef.current.some((n) => n.id === noteId)) return
-    setOpenNoteTabIds((prev) => (prev.includes(noteId) ? prev : [...prev, noteId]))
+  const pushOpenNoteTab = useCallback((notePath: string) => {
+    if (!notesRef.current.some((n) => n.path === notePath)) return
+    setOpenNoteTabIds((prev) => (prev.includes(notePath) ? prev : [...prev, notePath]))
   }, [])
 
   const selectNote = useCallback(
-    (noteId: string) => {
-      const note = notesRef.current.find((n) => n.id === noteId)
+    (notePath: string) => {
+      const note = notesRef.current.find((n) => n.path === notePath)
       if (!note) return
       setWorkspaceSettingsFolderId(null)
       setAppMode('notes')
       setAppSidebarView('explorer')
-      setSelectedId(noteId)
+      setSelectedId(notePath)
       setFocusedFolderId(null)
       setNewNoteDestinationFolderId(DEFAULT_WORKSPACE_ID)
-      setTreeExpandIds(treeExpandIdsForFolderId(note.folderId))
+      setTreeExpandIds(treeExpandIdsForFolderId(note.folder))
       setTreeExpandNonce((n) => n + 1)
-      pushOpenNoteTab(noteId)
+      pushOpenNoteTab(notePath)
     },
     [pushOpenNoteTab]
   )
@@ -502,41 +502,41 @@ export function useNotesApp({
   )
 
   const closeNoteTab = useCallback(
-    (noteId: string) => {
+    (notePath: string) => {
       const prev = openNoteTabIdsRef.current
-      const idx = prev.indexOf(noteId)
-      const next = prev.filter((id) => id !== noteId)
+      const idx = prev.indexOf(notePath)
+      const next = prev.filter((path) => path !== notePath)
       setOpenNoteTabIds(next)
 
-      if (selectedId !== noteId) return
+      if (selectedNotePath !== notePath) return
 
       const fallback = next[idx - 1] ?? next[idx] ?? next[0] ?? null
       setSelectedId(fallback)
       if (fallback) {
-        const n = notesRef.current.find((x) => x.id === fallback)
+        const n = notesRef.current.find((x) => x.path === fallback)
         if (n) {
           setFocusedFolderId(null)
           setNewNoteDestinationFolderId(DEFAULT_WORKSPACE_ID)
-          setTreeExpandIds(treeExpandIdsForFolderId(n.folderId))
+          setTreeExpandIds(treeExpandIdsForFolderId(n.folder))
           setTreeExpandNonce((x) => x + 1)
         }
       }
     },
-    [selectedId]
+    [selectedNotePath]
   )
 
   const appendFolder = useCallback(
     (name: string): string => {
-      const id = newFolderId(name)
+      const folder = newFolderPath(name)
       const root = dataRootRef.current
-      setFolders((prev) => [...prev, { id, name, ...(root ? { localGitPath: root } : {}) }])
+      setFolders((prev) => [...prev, { folder, name, ...(root ? { localGitPath: root } : {}) }])
       if (diskMode && root) {
         const api = getApi()
-        void api?.workspace?.createFolder?.({ cwd: root, folder: id })
+        void api?.workspace?.createFolder?.({ cwd: root, folder })
         if (useGithubApiSync) setGithubApiDirty(true)
         void refreshWorkspaceGitStatuses()
       }
-      return id
+      return folder
     },
     [diskMode, refreshWorkspaceGitStatuses, useGithubApiSync]
   )
@@ -566,7 +566,7 @@ export function useNotesApp({
 
   const handleNewNote = useCallback(() => {
     let fid = newNoteDestinationFolderId
-    const valid = fid === DEFAULT_WORKSPACE_ID || foldersRef.current.some((f) => f.id === fid)
+    const valid = fid === DEFAULT_WORKSPACE_ID || foldersRef.current.some((f) => f.folder === fid)
     if (!valid) {
       fid = DEFAULT_WORKSPACE_ID
     }
@@ -577,36 +577,36 @@ export function useNotesApp({
     const notePath = buildNotePath(fid, '', 'note')
     const note = createEmptyNote(fid, notePath)
     setNotes((prev) => [note, ...prev])
-    setSelectedId(note.id)
+    setSelectedId(note.path)
     setFocusedFolderId(null)
     setNewNoteDestinationFolderId(DEFAULT_WORKSPACE_ID)
     setTreeExpandIds(treeExpandIdsForFolderId(fid))
     setTreeExpandNonce((n) => n + 1)
-    pushOpenNoteTab(note.id)
+    pushOpenNoteTab(note.path)
     if (diskMode) {
-      window.setTimeout(() => scheduleNoteFlush(note.id), 0)
+      window.setTimeout(() => scheduleNoteFlush(note.path), 0)
     }
   }, [buildNotePath, newNoteDestinationFolderId, diskMode, scheduleNoteFlush, pushOpenNoteTab])
 
   const handleNoteSerializedChange = useCallback(
-    (noteId: string, serialized: SerializedEditorState) => {
-      const current = notesRef.current.find((n) => n.id === noteId)
+    (notePath: string, serialized: SerializedEditorState) => {
+      const current = notesRef.current.find((n) => n.path === notePath)
       if (current && serializedEditorStatesEqual(current.content, serialized)) {
         return
       }
       setNotes((prev) =>
         prev.map((n) =>
-          n.id === noteId ? { ...n, content: serialized, updatedAt: Date.now() } : n
+          n.path === notePath ? { ...n, content: serialized, updatedAt: Date.now() } : n
         )
       )
-      scheduleNoteFlush(noteId)
+      scheduleNoteFlush(notePath)
     },
     [scheduleNoteFlush]
   )
 
   const handleNewDrawing = useCallback(() => {
     let fid = newNoteDestinationFolderId
-    const valid = fid === DEFAULT_WORKSPACE_ID || foldersRef.current.some((f) => f.id === fid)
+    const valid = fid === DEFAULT_WORKSPACE_ID || foldersRef.current.some((f) => f.folder === fid)
     if (!valid) {
       fid = DEFAULT_WORKSPACE_ID
     }
@@ -617,50 +617,50 @@ export function useNotesApp({
     const notePath = buildNotePath(fid, 'New drawing', 'drawing')
     const note = createEmptyDrawing(fid, notePath)
     setNotes((prev) => [note, ...prev])
-    setSelectedId(note.id)
+    setSelectedId(note.path)
     setFocusedFolderId(null)
     setNewNoteDestinationFolderId(DEFAULT_WORKSPACE_ID)
     setTreeExpandIds(treeExpandIdsForFolderId(fid))
     setTreeExpandNonce((n) => n + 1)
-    pushOpenNoteTab(note.id)
+    pushOpenNoteTab(note.path)
     if (diskMode) {
-      window.setTimeout(() => scheduleNoteFlush(note.id), 0)
+      window.setTimeout(() => scheduleNoteFlush(note.path), 0)
     }
   }, [buildNotePath, newNoteDestinationFolderId, diskMode, scheduleNoteFlush, pushOpenNoteTab])
 
   const handleExcalidrawSceneChange = useCallback(
-    (noteId: string, json: string) => {
+    (notePath: string, json: string) => {
       setNotes((prev) =>
         prev.map((n) =>
-          n.id === noteId && n.kind === 'drawing'
+          n.path === notePath && n.kind === 'drawing'
             ? { ...n, excalidrawScene: json, updatedAt: Date.now() }
             : n
         )
       )
-      scheduleNoteFlush(noteId)
+      scheduleNoteFlush(notePath)
     },
     [scheduleNoteFlush]
   )
 
   const renameNote = useCallback(
-    (noteId: string, title: string) => {
+    (notePath: string, title: string) => {
       const trimmed = title.trim()
       setNotes((prev) =>
         prev.map((n) =>
-          n.id === noteId ? { ...n, title: trimmed, updatedAt: Date.now() } : n
+          n.path === notePath ? { ...n, title: trimmed, updatedAt: Date.now() } : n
         )
       )
-      scheduleNoteFlush(noteId)
-      scheduleNotePathRename(noteId)
+      scheduleNoteFlush(notePath)
+      scheduleNotePathRename(notePath)
     },
     [scheduleNoteFlush, scheduleNotePathRename]
   )
 
   const setNoteCover = useCallback(
-    (noteId: string, coverImageSrc: string | null) => {
+    (notePath: string, coverImageSrc: string | null) => {
       setNotes((prev) =>
         prev.map((n) =>
-          n.id === noteId
+          n.path === notePath
             ? {
                 ...n,
                 ...(coverImageSrc === null || coverImageSrc === ''
@@ -671,17 +671,17 @@ export function useNotesApp({
             : n
         )
       )
-      scheduleNoteFlush(noteId)
+      scheduleNoteFlush(notePath)
     },
     [scheduleNoteFlush]
   )
 
   const setNoteTitleEmoji = useCallback(
-    (noteId: string, titleEmoji: string | null) => {
+    (notePath: string, titleEmoji: string | null) => {
       const trimmed = titleEmoji?.trim() ?? ''
       setNotes((prev) =>
         prev.map((n) =>
-          n.id === noteId
+          n.path === notePath
             ? {
                 ...n,
                 ...(trimmed === '' ? { titleEmoji: undefined } : { titleEmoji: trimmed }),
@@ -690,46 +690,46 @@ export function useNotesApp({
             : n
         )
       )
-      scheduleNoteFlush(noteId)
+      scheduleNoteFlush(notePath)
     },
     [scheduleNoteFlush]
   )
 
   const moveNoteToFolder = useCallback(
-    (noteId: string, targetFolderId: string) => {
-      const note = notesRef.current.find((n) => n.id === noteId)
-      if (!note || note.folderId === targetFolderId) return
+    (notePath: string, targetFolderId: string) => {
+      const note = notesRef.current.find((n) => n.path === notePath)
+      if (!note || note.folder === targetFolderId) return
       const targetOk =
         targetFolderId === DEFAULT_WORKSPACE_ID ||
-        foldersRef.current.some((f) => f.id === targetFolderId)
+        foldersRef.current.some((f) => f.folder === targetFolderId)
       if (!targetOk) return
 
-      const fromFolderId = note.folderId
-      const nextId = buildNotePath(targetFolderId, note.title, note.kind, note.id)
+      const fromFolderId = note.folder
+      const nextId = buildNotePath(targetFolderId, note.title, note.kind, note.path)
       setGraphViewOpen(false)
       setNotes((prev) =>
         prev.map((n) =>
-          n.id === noteId
-            ? { ...n, id: nextId, folderId: targetFolderId, updatedAt: Date.now() }
+          n.path === notePath
+            ? { ...n, path: nextId, folder: targetFolderId, updatedAt: Date.now() }
             : n
         )
       )
-      setSelectedId((prev) => (prev === noteId ? nextId : prev))
-      setOpenNoteTabIds((prev) => prev.map((id) => (id === noteId ? nextId : id)))
+      setSelectedId((prev) => (prev === notePath ? nextId : prev))
+      setOpenNoteTabIds((prev) => prev.map((path) => (path === notePath ? nextId : path)))
       setFocusedFolderId(targetFolderId)
       setNewNoteDestinationFolderId(targetFolderId)
       setTreeExpandIds(treeExpandIdsForFolderId(targetFolderId))
       setTreeExpandNonce((n) => n + 1)
 
-      const tid = noteFlushTimers.current.get(noteId)
+      const tid = noteFlushTimers.current.get(notePath)
       if (tid !== undefined) window.clearTimeout(tid)
-      noteFlushTimers.current.delete(noteId)
-      const renameTid = noteRenameTimers.current.get(noteId)
+      noteFlushTimers.current.delete(notePath)
+      const renameTid = noteRenameTimers.current.get(notePath)
       if (renameTid !== undefined) window.clearTimeout(renameTid)
-      noteRenameTimers.current.delete(noteId)
+      noteRenameTimers.current.delete(notePath)
 
       if (diskMode) {
-        void flushNoteMoveToDisk(noteId, fromFolderId, targetFolderId)
+        void flushNoteMoveToDisk(notePath, fromFolderId, targetFolderId)
       } else if (useGithubApiSync) {
         setGithubApiDirty(true)
       }
@@ -740,45 +740,45 @@ export function useNotesApp({
   const reorderFolders = useCallback((draggedFolderId: string, targetFolderId: string) => {
     if (draggedFolderId === targetFolderId) return
     setFolders((prev) => {
-      const ids = prev.map((f) => f.id)
+      const ids = prev.map((f) => f.folder)
       const nextIds = reorderFolderIdsBeforeTarget(ids, draggedFolderId, targetFolderId)
       if (!nextIds) return prev
-      const byId = new Map(prev.map((f) => [f.id, f]))
-      return nextIds.map((id) => byId.get(id)!).filter(Boolean) as Folder[]
+      const byId = new Map(prev.map((f) => [f.folder, f]))
+      return nextIds.map((folder) => byId.get(folder)!).filter(Boolean) as Folder[]
     })
     setTreeExpandNonce((n) => n + 1)
   }, [])
 
   const reorderFolderToEnd = useCallback((draggedFolderId: string) => {
     setFolders((prev) => {
-      const ids = prev.map((f) => f.id)
+      const ids = prev.map((f) => f.folder)
       const nextIds = reorderFolderIdsToEnd(ids, draggedFolderId)
       if (!nextIds) return prev
-      const byId = new Map(prev.map((f) => [f.id, f]))
-      return nextIds.map((id) => byId.get(id)!).filter(Boolean) as Folder[]
+      const byId = new Map(prev.map((f) => [f.folder, f]))
+      return nextIds.map((folder) => byId.get(folder)!).filter(Boolean) as Folder[]
     })
     setTreeExpandNonce((n) => n + 1)
   }, [])
 
   const handleDeleteNote = useCallback(
-    (noteId: string, e: MouseEvent) => {
+    (notePath: string, e: MouseEvent) => {
       e.stopPropagation()
-      const tid = noteFlushTimers.current.get(noteId)
+      const tid = noteFlushTimers.current.get(notePath)
       if (tid !== undefined) window.clearTimeout(tid)
-      noteFlushTimers.current.delete(noteId)
-      const renameTid = noteRenameTimers.current.get(noteId)
+      noteFlushTimers.current.delete(notePath)
+      const renameTid = noteRenameTimers.current.get(notePath)
       if (renameTid !== undefined) window.clearTimeout(renameTid)
-      noteRenameTimers.current.delete(noteId)
+      noteRenameTimers.current.delete(notePath)
       const snapshotNotes = notesRef.current
-      const snapshotSelected = selectedId
-      const deleted = snapshotNotes.find((n) => n.id === noteId)
+      const snapshotSelected = selectedNotePath
+      const deleted = snapshotNotes.find((n) => n.path === notePath)
       void (async () => {
         const api = getApi()
         const cwd = dataRootRef.current
         if (diskMode && cwd && api?.workspace?.deleteNoteFile && deleted) {
           const r = await api.workspace.deleteNoteFile({
             cwd,
-            note: noteId
+            note: notePath
           })
           if (!r.ok) {
             console.error('[notelab] delete note files failed', r.error)
@@ -789,17 +789,17 @@ export function useNotesApp({
         if (deleted && cwd && api?.embeddings?.deleteNoteDocument) {
           const emb = await api.embeddings.deleteNoteDocument({
             workspacePath: cwd,
-            note: noteId,
+            note: notePath,
           })
           if (!emb.ok) {
             console.error('[notelab] deleteNoteDocument failed', emb.error)
           }
         }
-        setNotes((prev) => prev.filter((n) => n.id !== noteId))
-        setOpenNoteTabIds((prev) => prev.filter((id) => id !== noteId))
-        if (snapshotSelected === noteId) {
-          const next = snapshotNotes.filter((n) => n.id !== noteId)
-          const nextSel = next[0]?.id ?? null
+        setNotes((prev) => prev.filter((n) => n.path !== notePath))
+        setOpenNoteTabIds((prev) => prev.filter((path) => path !== notePath))
+        if (snapshotSelected === notePath) {
+          const next = snapshotNotes.filter((n) => n.path !== notePath)
+          const nextSel = next[0]?.path ?? null
           setSelectedId(nextSel)
           if (nextSel) {
             setFocusedFolderId(null)
@@ -810,7 +810,7 @@ export function useNotesApp({
         }
       })()
     },
-    [diskMode, refreshWorkspaceGitStatuses, selectedId, useGithubApiSync]
+    [diskMode, refreshWorkspaceGitStatuses, selectedNotePath, useGithubApiSync]
   )
 
   const cancelFolderCreate = useCallback(() => {
@@ -868,16 +868,16 @@ export function useNotesApp({
     [openSettings]
   )
 
-  const openFolderSettings = useCallback((folderId: string, e: MouseEvent) => {
+  const openFolderSettings = useCallback((folder: string, e: MouseEvent) => {
     e.stopPropagation()
     setAppMode('notes')
     setAppSidebarView('explorer')
     setTabOverviewOpen(false)
-    setWorkspaceSettingsFolderId(folderId)
+    setWorkspaceSettingsFolderId(folder)
     setSelectedId(null)
-    setFocusedFolderId(folderId)
-    setNewNoteDestinationFolderId(folderId)
-    setTreeExpandIds(treeExpandIdsForFolderId(folderId))
+    setFocusedFolderId(folder)
+    setNewNoteDestinationFolderId(folder)
+    setTreeExpandIds(treeExpandIdsForFolderId(folder))
     setTreeExpandNonce((n) => n + 1)
   }, [])
 
@@ -890,25 +890,25 @@ export function useNotesApp({
     setNewNoteDestinationFolderId(DEFAULT_WORKSPACE_ID)
   }, [])
 
-  const focusFolderInTree = useCallback((folderId: string) => {
+  const focusFolderInTree = useCallback((folder: string) => {
     setWorkspaceSettingsFolderId(null)
     setAppMode('notes')
     setAppSidebarView('explorer')
     setSelectedId(null)
-    setFocusedFolderId(folderId)
-    setNewNoteDestinationFolderId(folderId)
-    setTreeExpandIds(treeExpandIdsForFolderId(folderId))
+    setFocusedFolderId(folder)
+    setNewNoteDestinationFolderId(folder)
+    setTreeExpandIds(treeExpandIdsForFolderId(folder))
     setTreeExpandNonce((n) => n + 1)
   }, [])
 
-  const openFolderSettingsPanel = useCallback((folderId: string) => {
+  const openFolderSettingsPanel = useCallback((folder: string) => {
     setAppMode('notes')
     setAppSidebarView('explorer')
-    setWorkspaceSettingsFolderId(folderId)
+    setWorkspaceSettingsFolderId(folder)
     setSelectedId(null)
-    setFocusedFolderId(folderId)
-    setNewNoteDestinationFolderId(folderId)
-    setTreeExpandIds(treeExpandIdsForFolderId(folderId))
+    setFocusedFolderId(folder)
+    setNewNoteDestinationFolderId(folder)
+    setTreeExpandIds(treeExpandIdsForFolderId(folder))
     setTreeExpandNonce((n) => n + 1)
   }, [])
 
@@ -918,15 +918,15 @@ export function useNotesApp({
   }, [])
 
   const renameFolder = useCallback(
-    async (folderId: string, name: string) => {
-      const current = foldersRef.current.find((f) => f.id === folderId)
+    async (folder: string, name: string) => {
+      const current = foldersRef.current.find((f) => f.folder === folder)
       if (!current) return
       const nextFolderId = buildFolderPath(name)
       const root = dataRootRef.current
-      if (diskMode && root && folderId !== nextFolderId) {
+      if (diskMode && root && folder !== nextFolderId) {
         const rename = await getApi()?.workspace?.renamePath?.({
           cwd: root,
-          from: folderId,
+          from: folder,
           to: nextFolderId
         })
         if (!rename?.ok) {
@@ -935,27 +935,27 @@ export function useNotesApp({
         }
       }
       setFolders((prev) =>
-        prev.map((f) => (f.id === folderId ? { ...f, id: nextFolderId, name } : f))
+        prev.map((f) => (f.folder === folder ? { ...f, folder: nextFolderId, name } : f))
       )
       setNotes((prev) =>
         prev.map((note) =>
-          note.folderId !== folderId
+          note.folder !== folder
             ? note
             : {
                 ...note,
-                folderId: nextFolderId,
-                id: note.id.startsWith(`${folderId}/`)
-                  ? `${nextFolderId}/${note.id.slice(folderId.length + 1)}`
-                  : note.id
+                folder: nextFolderId,
+                path: note.path.startsWith(`${folder}/`)
+                  ? `${nextFolderId}/${note.path.slice(folder.length + 1)}`
+                  : note.path
               }
         )
       )
       setSelectedId((prev) =>
-        prev?.startsWith(`${folderId}/`) ? `${nextFolderId}/${prev.slice(folderId.length + 1)}` : prev
+        prev?.startsWith(`${folder}/`) ? `${nextFolderId}/${prev.slice(folder.length + 1)}` : prev
       )
       setOpenNoteTabIds((prev) =>
-        prev.map((id) =>
-          id.startsWith(`${folderId}/`) ? `${nextFolderId}/${id.slice(folderId.length + 1)}` : id
+        prev.map((path) =>
+          path.startsWith(`${folder}/`) ? `${nextFolderId}/${path.slice(folder.length + 1)}` : path
         )
       )
       if (diskMode && root) {
@@ -967,33 +967,33 @@ export function useNotesApp({
   )
 
   const deleteFolder = useCallback(
-    async (folderId: string) => {
-      if (folderId === DEFAULT_WORKSPACE_ID) return
+    async (folder: string) => {
+      if (folder === DEFAULT_WORKSPACE_ID) return
       const root = dataRootRef.current
       const api = getApi()
       if (!diskMode || !root || !api?.workspace?.deleteFolder) return
 
-      const noteIdsToClose = new Set(
-        notesRef.current.filter((n) => n.folderId === folderId).map((n) => n.id)
+      const notePathsToClose = new Set(
+        notesRef.current.filter((n) => n.folder === folder).map((n) => n.path)
       )
       const prevTabs = openNoteTabIdsRef.current
-      const nextTabs = prevTabs.filter((id) => !noteIdsToClose.has(id))
+      const nextTabs = prevTabs.filter((path) => !notePathsToClose.has(path))
 
       const r = await api.workspace.deleteFolder({
         cwd: root,
-        folder: folderId
+        folder: folder
       })
       if (!r.ok) {
         console.error('[notelab] delete workspace failed', r.error)
         return
       }
-      void api?.embeddings?.deleteWorkspaceDocuments?.({ workspacePath: root, workspaceId: folderId })
+      void api?.embeddings?.deleteWorkspaceDocuments?.({ workspacePath: root, workspaceId: folder })
 
-      setWorkspaceSettingsFolderId((prev) => (prev === folderId ? null : prev))
-      setFocusedFolderId((fid) => (fid === folderId ? null : fid))
+      setWorkspaceSettingsFolderId((prev) => (prev === folder ? null : prev))
+      setFocusedFolderId((fid) => (fid === folder ? null : fid))
       setOpenNoteTabIds(nextTabs)
       setSelectedId((current) => {
-        if (!current || !noteIdsToClose.has(current)) return current
+        if (!current || !notePathsToClose.has(current)) return current
         const idx = prevTabs.indexOf(current)
         return nextTabs[idx - 1] ?? nextTabs[idx] ?? nextTabs[0] ?? null
       })
@@ -1009,7 +1009,7 @@ export function useNotesApp({
     ]
   )
 
-  const defaultExpandedFolderIds = useMemo(() => folders.map((f) => treeFolderId(f.id)), [folders])
+  const defaultExpandedFolderIds = useMemo(() => folders.map((f) => treeFolderPath(f.folder)), [folders])
 
   const canCreateNote = true
 
@@ -1050,8 +1050,8 @@ export function useNotesApp({
     chatSidebarOpen,
     setChatSidebarOpen,
     workspaceRoot,
-    selectedId,
-    openNoteTabIds,
+    selectedNotePath,
+    openNoteTabPaths,
     setSelectedId,
     setOpenNoteTabIds,
     setAppSidebarView,
@@ -1107,8 +1107,8 @@ export function useNotesApp({
     folderInputRef,
     onFolderNameChange,
     onFolderNameBlur,
-    selectedId,
-    openNoteTabIds,
+    selectedNotePath,
+    openNoteTabPaths,
     reorderOpenNoteTabs,
     closeNoteTab,
     focusedFolderId,
@@ -1180,7 +1180,7 @@ export function useNotesApp({
     gitInitError,
     handleInitGit,
     gitDirtyGlobal,
-    primaryGitFolderId: primaryGitFolder?.id ?? null,
+    primaryGitFolderId: primaryGitFolder?.folder ?? null,
     refreshWorkspaceGitStatuses,
     // Source control panel
     appSidebarView,

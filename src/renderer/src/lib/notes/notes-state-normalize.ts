@@ -48,9 +48,9 @@ function isSavedNote(n: unknown): n is Omit<SavedNote, "title"> & { title?: stri
   return (
     typeof n === "object" &&
     n !== null &&
-    typeof (n as SavedNote).id === "string" &&
+    typeof (n as SavedNote).path === "string" &&
     typeof (n as SavedNote).updatedAt === "number" &&
-    typeof (n as SavedNote).folderId === "string"
+    typeof (n as SavedNote).folder === "string"
   )
 }
 
@@ -76,21 +76,21 @@ function withDerivedTitle(
 function migrateV1ToV2(parsed: unknown[]): NotesState {
   return {
     version: 2,
-    folders: [{ id: DEFAULT_WORKSPACE_ID, name: "Notes" }],
+    folders: [{ folder: DEFAULT_WORKSPACE_ID, name: "Notes" }],
     notes: parsed
       .filter(
-        (n): n is Omit<SavedNote, "folderId"> & { folderId?: string } =>
+        (n): n is Omit<SavedNote, "folder"> & { folder?: string } =>
           typeof n === "object" &&
           n !== null &&
-          typeof (n as SavedNote).id === "string" &&
+          typeof (n as SavedNote).path === "string" &&
           typeof (n as SavedNote).updatedAt === "number"
       )
       .map((n) =>
         withDerivedTitle({
-          id: n.id,
+          path: n.path,
           updatedAt: n.updatedAt,
           content: n.content ?? null,
-          folderId: n.folderId ?? DEFAULT_WORKSPACE_ID,
+          folder: n.folder ?? DEFAULT_WORKSPACE_ID,
           title: (n as { title?: string }).title,
         })
       ),
@@ -102,7 +102,7 @@ export function normalizeNotesStateFromStorage(raw: unknown): NotesState {
   if (raw === undefined || raw === null) {
     return {
       version: 2,
-      folders: [{ id: DEFAULT_WORKSPACE_ID, name: "Notes" }],
+      folders: [{ folder: DEFAULT_WORKSPACE_ID, name: "Notes" }],
       notes: [],
     }
   }
@@ -135,7 +135,7 @@ export function normalizeNotesStateFromStorage(raw: unknown): NotesState {
         (f): f is Folder =>
           typeof f === "object" &&
           f !== null &&
-          typeof f.id === "string" &&
+          typeof f.folder === "string" &&
           typeof f.name === "string"
       )
       const notes = (parsed as NotesStateV2).notes.filter(isSavedNote).map(withDerivedTitle)
@@ -150,10 +150,10 @@ export function normalizeNotesStateFromStorage(raw: unknown): NotesState {
       if (folders.length === 0) {
         return {
           version: 2,
-          folders: [{ id: DEFAULT_WORKSPACE_ID, name: "Notes" }],
+          folders: [{ folder: DEFAULT_WORKSPACE_ID, name: "Notes" }],
           notes: notes.map((n) => ({
             ...n,
-            folderId: DEFAULT_WORKSPACE_ID,
+            folder: DEFAULT_WORKSPACE_ID,
           })),
           ...(githubRemoteUrl ? { githubRemoteUrl } : {}),
         }
@@ -167,13 +167,13 @@ export function normalizeNotesStateFromStorage(raw: unknown): NotesState {
     }
     return {
       version: 2,
-      folders: [{ id: DEFAULT_WORKSPACE_ID, name: "Notes" }],
+      folders: [{ folder: DEFAULT_WORKSPACE_ID, name: "Notes" }],
       notes: [],
     }
   } catch {
     return {
       version: 2,
-      folders: [{ id: DEFAULT_WORKSPACE_ID, name: "Notes" }],
+      folders: [{ folder: DEFAULT_WORKSPACE_ID, name: "Notes" }],
       notes: [],
     }
   }

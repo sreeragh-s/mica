@@ -100,7 +100,7 @@ export function useNotesAppDisk({
       const next: Record<string, boolean> = {}
       for (const f of foldersRef.current) {
         if (!f.localGitPath) continue
-        next[f.id] = githubApiDirty
+        next[f.folder] = githubApiDirty
       }
       if (foldersRef.current.length === 0 && dataRootRef.current) {
         next[DEFAULT_WORKSPACE_ID] = githubApiDirty
@@ -113,7 +113,7 @@ export function useNotesAppDisk({
     for (const f of foldersRef.current) {
       if (!f.localGitPath) continue
       const s = await api.workspace.gitStatus({ cwd: f.localGitPath })
-      if (s.ok) next[f.id] = s.dirty
+      if (s.ok) next[f.folder] = s.dirty
     }
     const rootCwd = dataRootRef.current
     if (foldersRef.current.length === 0 && rootCwd) {
@@ -129,7 +129,7 @@ export function useNotesAppDisk({
       const mappedFolders: Folder[] = idx.folders
         .filter((w) => w.folder !== DEFAULT_WORKSPACE_ID)
         .map((w) => ({
-          id: w.folder,
+          folder: w.folder,
           name: w.name,
           localGitPath: cwd
         }))
@@ -137,8 +137,8 @@ export function useNotesAppDisk({
         const kind = n.kind ?? 'note'
         if (kind === 'drawing') {
           return {
-            id: n.note,
-            folderId: n.folder,
+            path: n.note,
+            folder: n.folder,
             title: n.title,
             updatedAt: n.updatedAtMs,
             content: null,
@@ -147,8 +147,8 @@ export function useNotesAppDisk({
           }
         }
         return {
-          id: n.note,
-          folderId: n.folder,
+          path: n.note,
+          folder: n.folder,
           title: n.title,
           updatedAt: n.updatedAtMs,
           content: diskBodyToContent(n.markdownBody),
@@ -169,28 +169,28 @@ export function useNotesAppDisk({
         return
       }
       /** Keep notes created in this session that are not in the index yet (e.g. before disk flush). */
-      const diskIds = new Set(mappedNotes.map((n) => n.id))
+      const diskPaths = new Set(mappedNotes.map((n) => n.path))
       const validFolderId = (fid: string) =>
-        fid === DEFAULT_WORKSPACE_ID || mappedFolders.some((f) => f.id === fid)
+        fid === DEFAULT_WORKSPACE_ID || mappedFolders.some((f) => f.folder === fid)
       const localPending = notesRef.current.filter(
-        (n) => !diskIds.has(n.id) && validFolderId(n.folderId)
+        (n) => !diskPaths.has(n.path) && validFolderId(n.folder)
       )
       const mergedNotes = [...localPending, ...mappedNotes]
 
       setFolders(mappedFolders)
       setNotes(mergedNotes)
       setSelectedId((sel) => {
-        if (sel && mergedNotes.some((x) => x.id === sel)) return sel
+        if (sel && mergedNotes.some((x) => x.path === sel)) return sel
         return mergedNotes.length > 0
-          ? [...mergedNotes].sort((a, b) => b.updatedAt - a.updatedAt)[0]!.id
+          ? [...mergedNotes].sort((a, b) => b.updatedAt - a.updatedAt)[0]!.path
           : null
       })
       setOpenNoteTabIds((prev) => {
-        const validPrev = prev.filter((id) => mergedNotes.some((n) => n.id === id))
+        const validPrev = prev.filter((path) => mergedNotes.some((n) => n.path === path))
         if (validPrev.length > 0) return validPrev
         if (mergedNotes.length === 0) return []
-        const defaultId = [...mergedNotes].sort((a, b) => b.updatedAt - a.updatedAt)[0]!.id
-        return [defaultId]
+        const defaultPath = [...mergedNotes].sort((a, b) => b.updatedAt - a.updatedAt)[0]!.path
+        return [defaultPath]
       })
       setFocusedFolderId(null)
       setNewNoteDestinationFolderId(DEFAULT_WORKSPACE_ID)
@@ -266,9 +266,9 @@ export function useNotesAppDisk({
       }
       const shas = loadGithubContentShas()
       const files: { path: string; content: string; sha?: string | null }[] = []
-      const rootNotes = notesRef.current.filter((n) => n.folderId === DEFAULT_WORKSPACE_ID)
+      const rootNotes = notesRef.current.filter((n) => n.folder === DEFAULT_WORKSPACE_ID)
       if (rootNotes.length > 0) {
-        const inbox: Folder = { id: DEFAULT_WORKSPACE_ID, name: 'Root' }
+        const inbox: Folder = { folder: DEFAULT_WORKSPACE_ID, name: 'Root' }
         const payload = buildMarkdownSyncPayload(inbox, rootNotes)
         for (const p of payload) {
           const rel = p.relativePath.replace(/\\/g, '/')
@@ -280,7 +280,7 @@ export function useNotesAppDisk({
         }
       }
       for (const f of foldersRef.current) {
-        const wsNotes = notesRef.current.filter((n) => n.folderId === f.id)
+        const wsNotes = notesRef.current.filter((n) => n.folder === f.folder)
         const payload = buildMarkdownSyncPayload(f, wsNotes)
         for (const p of payload) {
           const rel = p.relativePath.replace(/\\/g, '/')
@@ -313,23 +313,23 @@ export function useNotesAppDisk({
   }, [dataRootRef, foldersRef, gitCommitMessage, notesRef, refreshWorkspaceGitStatuses])
 
   const flushNoteToDisk = useCallback(
-    async (noteId: string) => {
+    async (notePath: string) => {
       const api = getApi()
       const cwd = dataRootRef.current
       if (!cwd || !api?.workspace?.writeNoteFile || !api.workspace.deleteNoteFile) return
-      const note = notesRef.current.find((n) => n.id === noteId)
+      const note = notesRef.current.find((n) => n.path === notePath)
       if (!note) return
-      const isRoot = note.folderId === DEFAULT_WORKSPACE_ID
-      const folder = foldersRef.current.find((f) => f.id === note.folderId)
+      const isRoot = note.folder === DEFAULT_WORKSPACE_ID
+      const folder = foldersRef.current.find((f) => f.folder === note.folder)
       const effectiveCwd = isRoot ? cwd : folder?.localGitPath
       if (!effectiveCwd) return
-      pendingDiskWrites.current.add(noteId)
+      pendingDiskWrites.current.add(notePath)
       try {
-        const rel = noteMarkdownRelativePath(note.folderId, note)
-        if (rel !== noteId && api.workspace.renamePath) {
+        const rel = noteMarkdownRelativePath(note.folder, note)
+        if (rel !== notePath && api.workspace.renamePath) {
           const rename = await api.workspace.renamePath({
             cwd: effectiveCwd,
-            from: noteId,
+            from: notePath,
             to: rel
           })
           if (!rename.ok) {
@@ -349,7 +349,7 @@ export function useNotesAppDisk({
         }
         await refreshWorkspaceGitStatuses()
       } finally {
-        pendingDiskWrites.current.delete(noteId)
+        pendingDiskWrites.current.delete(notePath)
       }
     },
     [
@@ -363,24 +363,24 @@ export function useNotesAppDisk({
   )
 
   const flushNoteMoveToDisk = useCallback(
-    async (noteId: string, _fromFolderId: string, toFolderId: string) => {
+    async (notePath: string, _fromFolderId: string, toFolderId: string) => {
       const api = getApi()
       const cwd = dataRootRef.current
       if (!cwd || !api?.workspace?.writeNoteFile || !api.workspace.renamePath) return
       /** `setNotes` runs before the next render; `notesRef` may still hold the pre-move folder. */
-      const raw = notesRef.current.find((n) => n.id === noteId)
+      const raw = notesRef.current.find((n) => n.path === notePath)
       if (!raw) return
-      const note = { ...raw, folderId: toFolderId }
+      const note = { ...raw, folder: toFolderId }
       const targetRoot = toFolderId === DEFAULT_WORKSPACE_ID
-      const targetFolder = foldersRef.current.find((f) => f.id === toFolderId)
+      const targetFolder = foldersRef.current.find((f) => f.folder === toFolderId)
       const writeCwd = targetRoot ? cwd : targetFolder?.localGitPath
       if (!writeCwd) return
-      pendingDiskWrites.current.add(noteId)
+      pendingDiskWrites.current.add(notePath)
       try {
         const rel = noteMarkdownRelativePath(toFolderId, note)
         const move = await api.workspace.renamePath({
           cwd,
-          from: noteId,
+          from: notePath,
           to: rel
         })
         if (!move.ok && move.error !== 'missing_source') {
@@ -399,7 +399,7 @@ export function useNotesAppDisk({
         }
         await refreshWorkspaceGitStatuses()
       } finally {
-        pendingDiskWrites.current.delete(noteId)
+        pendingDiskWrites.current.delete(notePath)
       }
     },
     [
@@ -413,15 +413,15 @@ export function useNotesAppDisk({
   )
 
   const scheduleNoteFlush = useCallback(
-    (noteId: string) => {
+    (notePath: string) => {
       if (!diskMode) return
-      const prev = noteFlushTimers.current.get(noteId)
+      const prev = noteFlushTimers.current.get(notePath)
       if (prev !== undefined) window.clearTimeout(prev)
       const tid = window.setTimeout(() => {
-        noteFlushTimers.current.delete(noteId)
-        void flushNoteToDisk(noteId)
+        noteFlushTimers.current.delete(notePath)
+        void flushNoteToDisk(notePath)
       }, 480)
-      noteFlushTimers.current.set(noteId, tid)
+      noteFlushTimers.current.set(notePath, tid)
     },
     [diskMode, flushNoteToDisk, noteFlushTimers]
   )
@@ -461,11 +461,11 @@ export function useNotesAppDisk({
 
       if (persisted.version === 2 && hasLocal && diskEmpty && ws.syncMarkdown) {
         for (const f of persisted.folders) {
-          const wsNotes = persisted.notes.filter((n) => n.folderId === f.id)
+          const wsNotes = persisted.notes.filter((n) => n.folder === f.folder)
           const files = buildMarkdownSyncPayload(f, wsNotes)
           const sync = await ws.syncMarkdown({
             cwd,
-            folder: f.id,
+            folder: f.folder,
             files,
             pruneOrphanNoteFiles: true
           })
@@ -479,7 +479,7 @@ export function useNotesAppDisk({
         })
       } else if (persisted.version === 2 && !hasLocal && diskEmpty && ws.syncMarkdown) {
         const defaultFolder = {
-          id: DEFAULT_WORKSPACE_ID,
+          folder: DEFAULT_WORKSPACE_ID,
           name: 'Notes'
         }
         const files = buildMarkdownSyncPayload(defaultFolder, [])
@@ -503,7 +503,7 @@ export function useNotesAppDisk({
         })
       } else if (persisted.version === 3 && diskEmpty && ws.syncMarkdown) {
         const defaultFolder = {
-          id: DEFAULT_WORKSPACE_ID,
+          folder: DEFAULT_WORKSPACE_ID,
           name: 'Notes'
         }
         const files = buildMarkdownSyncPayload(defaultFolder, [])
@@ -529,8 +529,8 @@ export function useNotesAppDisk({
         if (windowSession.selectedNoteId && allNoteIds.has(windowSession.selectedNoteId)) {
           setSelectedId(windowSession.selectedNoteId)
         }
-        if (windowSession.openNoteTabIds) {
-          const validTabs = windowSession.openNoteTabIds.filter((id) => allNoteIds.has(id))
+        if (windowSession.openNoteTabPaths) {
+          const validTabs = windowSession.openNoteTabPaths.filter((id) => allNoteIds.has(id))
           if (validTabs.length > 0) setOpenNoteTabIds(validTabs)
         }
         if (windowSession.chatSidebarOpen) {
@@ -591,11 +591,11 @@ export function useNotesAppDisk({
       void (async () => {
         for (const f of targets) {
           if (gen !== markdownSyncGen.current) return
-          const wsNotes = notes.filter((n) => n.folderId === f.id)
+          const wsNotes = notes.filter((n) => n.folder === f.folder)
           const files = buildMarkdownSyncPayload(f, wsNotes)
           const r = await api.workspace!.syncMarkdown!({
             cwd: f.localGitPath!,
-            folder: f.id,
+            folder: f.folder,
             files,
             pruneOrphanNoteFiles: true
           })

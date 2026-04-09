@@ -122,7 +122,7 @@ function searchRowsToSources(
 ): ChatSource[] {
   return rows
     .map((row) => {
-      const note = notes.find((candidate) => candidate.id === row.note)
+      const note = notes.find((candidate) => candidate.path === row.note)
       return {
         note: row.note,
         title: note?.title || row.title || 'Untitled',
@@ -222,7 +222,7 @@ export function useNotesChat({
           : '')
       if (!trimmedQuery || isLoading) return
       log.info(
-        `sendMessage: workspacePath=${workspacePath ?? '(none)'} modelId=${modelId} selectedNote=${selectedNote?.id ?? '(none)'} query="${trimmedQuery.slice(0, 120)}" explicitNotes=${explicitNoteIds.length} explicitWorkspaces=${explicitWorkspaceIds.length}`
+        `sendMessage: workspacePath=${workspacePath ?? '(none)'} modelId=${modelId} selectedNote=${selectedNote?.path ?? '(none)'} query="${trimmedQuery.slice(0, 120)}" explicitNotes=${explicitNoteIds.length} explicitWorkspaces=${explicitWorkspaceIds.length}`
       )
 
       const isLocalModel = modelId.startsWith('local:')
@@ -263,7 +263,7 @@ export function useNotesChat({
         return updated
       })
 
-      const existingNoteIds = new Set(notes.map((n) => n.id))
+      const existingNoteIds = new Set(notes.map((n) => n.path))
       const searchApi = window.api.embeddings?.searchDocuments
 
       // -----------------------------------------------------------------------
@@ -323,7 +323,7 @@ export function useNotesChat({
 
       log.info(`[1/3] notes in memory: ${notes.length}`)
       notes.slice(0, 15).forEach((n, i) => {
-        log.info(`notes[${i}] id="${n.id}" title="${n.title}" folderId="${n.folderId}"`)
+        log.info(`notes[${i}] id="${n.path}" title="${n.title}" folder="${n.folder}"`)
       })
       if (notes.length > 15) log.info(`… and ${notes.length - 15} more notes in memory`)
 
@@ -353,7 +353,7 @@ export function useNotesChat({
         log.warn('[1/3] document search failed or unavailable', searchRes)
       }
 
-      // @-mention sections first, then top search hits (dedup by noteId + section prefix)
+      // @-mention sections first, then top search hits (dedup by notePath + section prefix)
       {
         const merged: ChatSource[] = []
         const seen = new Set<string>()
@@ -369,7 +369,7 @@ export function useNotesChat({
       // allSources = all sections passed to the AI for context (full detail)
       const allSources = ragSources
 
-      // uniqueSources = deduplicated by noteId for the "Used N sources" display
+      // uniqueSources = deduplicated by notePath for the "Used N sources" display
       const uniqueSources = allSources.filter(
         (s, i, arr) => arr.findIndex((x) => x.note === s.note) === i
       )

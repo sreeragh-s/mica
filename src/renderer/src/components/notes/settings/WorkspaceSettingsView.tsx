@@ -55,9 +55,9 @@ export function WorkspaceSettingsView({
         <h3 className="text-foreground text-sm font-medium">Name</h3>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
           <div className="min-w-0 flex-1 space-y-2">
-            <Label htmlFor={`ws-name-${folder.id}`}>Folder name</Label>
+            <Label htmlFor={`ws-name-${folder.folder}`}>Folder name</Label>
             <Input
-              id={`ws-name-${folder.id}`}
+              id={`ws-name-${folder.folder}`}
               value={nameDraft}
               onChange={(e) => setNameDraft(e.target.value)}
               onKeyDown={(e) => {
@@ -115,9 +115,9 @@ export function WorkspaceSettingsView({
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
-            <Label htmlFor={`ws-delete-confirm-${folder.id}`}>Folder name</Label>
+            <Label htmlFor={`ws-delete-confirm-${folder.folder}`}>Folder name</Label>
             <Input
-              id={`ws-delete-confirm-${folder.id}`}
+              id={`ws-delete-confirm-${folder.folder}`}
               value={deleteConfirmDraft}
               onChange={(e) => setDeleteConfirmDraft(e.target.value)}
               placeholder={folder.name}

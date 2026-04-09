@@ -24,7 +24,7 @@ export function useWorkspaceSettings({
   /* eslint-disable react-hooks/set-state-in-effect -- intentional form reset from props */
   useEffect(() => {
     setNameDraft(folder.name)
-  }, [folder.id, folder.name])
+  }, [folder.folder, folder.name])
   /* eslint-enable react-hooks/set-state-in-effect */
 
   useEffect(() => {

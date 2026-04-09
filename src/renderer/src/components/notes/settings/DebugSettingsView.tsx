@@ -145,7 +145,7 @@ export function DebugSettingsView({
           maxChunks: 10,
           maxSections: 1,
           maxTokens: 160,
-          filter: { workspaceId: { $eq: folder }, noteId: { $eq: note } },
+          filter: { workspaceId: { $eq: folder }, notePath: { $eq: note } },
           isBm25: true,
         })
         if (!searched.ok) {

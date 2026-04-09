@@ -39,23 +39,23 @@ const gridItemVariants = {
 export type NotesTabOverviewProps = {
   notes: SavedNote[]
   folders: Folder[]
-  openNoteTabIds: string[]
-  selectedId: string | null
+  openNoteTabPaths: string[]
+  selectedNotePath: string | null
   macTitlebarStyles: MacTitlebarStyles
   isMacNotelab: boolean
   /** When true (macOS + expanded sidebar), align with the main column beside the overlay sidebar. */
   sidebarOverlayActive: boolean
   onClose: () => void
-  onSelectNote: (noteId: string) => void
+  onSelectNote: (notePath: string) => void
   onNewNote: () => void
-  onCloseTab: (noteId: string) => void
+  onCloseTab: (notePath: string) => void
 }
 
 export function NotesTabOverview({
   notes,
   folders,
-  openNoteTabIds,
-  selectedId,
+  openNoteTabPaths,
+  selectedNotePath,
   macTitlebarStyles,
   isMacNotelab,
   sidebarOverlayActive,
@@ -67,7 +67,7 @@ export function NotesTabOverview({
   const [query, setQuery] = useState('')
 
   const folderNameById = useMemo(() => {
-    const m = new Map(folders.map((f) => [f.id, f.name]))
+    const m = new Map(folders.map((f) => [f.folder, f.name]))
     m.set(DEFAULT_WORKSPACE_ID, 'Root')
     return m
   }, [folders])
@@ -75,18 +75,18 @@ export function NotesTabOverview({
   const tabNotes = useMemo(() => {
     const q = query.trim().toLowerCase()
     const list: SavedNote[] = []
-    for (const id of openNoteTabIds) {
-      const n = notes.find((x) => x.id === id)
+    for (const id of openNoteTabPaths) {
+      const n = notes.find((x) => x.path === id)
       if (!n) continue
       if (q) {
         const title = (n.title || 'Untitled').toLowerCase()
-        const folder = (folderNameById.get(n.folderId) ?? '').toLowerCase()
+        const folder = (folderNameById.get(n.folder) ?? '').toLowerCase()
         if (!title.includes(q) && !folder.includes(q)) continue
       }
       list.push(n)
     }
     return list
-  }, [notes, openNoteTabIds, query, folderNameById])
+  }, [notes, openNoteTabPaths, query, folderNameById])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
@@ -170,7 +170,7 @@ export function NotesTabOverview({
         >
           {tabNotes.map((note) => {
             const title = note.title.trim() || 'Untitled'
-            const active = note.id === selectedId
+            const active = note.path === selectedNotePath
             const drawing = isDrawingNote(note)
             const preview =
               !drawing && note.content
@@ -178,19 +178,19 @@ export function NotesTabOverview({
                 : drawing
                   ? 'Whiteboard canvas'
                   : 'Empty note'
-            const folderName = folderNameById.get(note.folderId) ?? 'Root'
+            const folderName = folderNameById.get(note.folder) ?? 'Root'
 
             return (
               <motion.div
-                key={note.id}
+                key={note.path}
                 role="button"
                 tabIndex={0}
                 variants={gridItemVariants}
-                onClick={() => onCardClick(note.id)}
+                onClick={() => onCardClick(note.path)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' || e.key === ' ') {
                     e.preventDefault()
-                    onCardClick(note.id)
+                    onCardClick(note.path)
                   }
                 }}
                 className={cn(
@@ -207,7 +207,7 @@ export function NotesTabOverview({
                     aria-label={`Close tab ${title}`}
                     onClick={(e) => {
                       e.stopPropagation()
-                      onCloseTab(note.id)
+                      onCloseTab(note.path)
                     }}
                   >
                     <X className="size-3.5" aria-hidden />

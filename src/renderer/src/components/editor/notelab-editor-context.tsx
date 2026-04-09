@@ -8,7 +8,7 @@ export type NotelabEditorContextValue = {
   notes: SavedNote[]
   folders: Folder[]
   currentNoteId: string
-  onOpenInternalNote: (noteId: string) => void
+  onOpenInternalNote: (notePath: string) => void
 }
 
 const NotelabEditorContext = createContext<NotelabEditorContextValue | null>(null)

@@ -104,7 +104,7 @@ export type NotesChatSidebarProps = {
   indexingStatus: NotesAppViewModel['indexingStatus']
   runIndexPending: NotesAppViewModel['runIndexPending']
   selectedNote: SavedNote | null
-  selectNote: (noteId: string) => void
+  selectNote: (notePath: string) => void
   /** Adds extra top offset to clear the macOS titlebar + pill area. */
   isMacNotelab?: boolean
   sidebarOverlayActive?: boolean
@@ -330,9 +330,9 @@ function NotesChatSidebarInner({
   const hasTriggeredAutoIndexRef = useRef(false)
 
   const workspacesForMentions = useMemo(() => {
-    const map = new Map(folders.map((f) => [f.id, { id: f.id, name: f.name }]))
+    const map = new Map(folders.map((f) => [f.folder, { folder: f.folder, name: f.name }]))
     if (!map.has(DEFAULT_WORKSPACE_ID)) {
-      map.set(DEFAULT_WORKSPACE_ID, { id: DEFAULT_WORKSPACE_ID, name: 'Root' })
+      map.set(DEFAULT_WORKSPACE_ID, { folder: DEFAULT_WORKSPACE_ID, name: 'Root' })
     }
     return Array.from(map.values())
   }, [folders])
@@ -363,7 +363,7 @@ function NotesChatSidebarInner({
     [historyMeta, historySearch]
   )
 
-  const validNoteIds = useMemo(() => new Set(notes.map((n) => n.id)), [notes])
+  const validNoteIds = useMemo(() => new Set(notes.map((n) => n.path)), [notes])
 
   const handleSubmit = useCallback(
     async (e?: { preventDefault(): void }) => {
@@ -706,7 +706,7 @@ function NotesChatSidebarInner({
           editorNote={
             selectedNote && canChatEffective
               ? {
-                  id: selectedNote.id,
+                  path: selectedNote.path,
                   title: selectedNote.title,
                   titleEmoji: selectedNote.titleEmoji,
                 }
@@ -861,7 +861,7 @@ function ChatToolbarRow({
                 All workspaces
               </SelectItem>
               {folders.map((f) => (
-                <SelectItem className="text-xs" key={f.id} value={f.id}>
+                <SelectItem className="text-xs" key={f.folder} value={f.folder}>
                   {f.name}
                 </SelectItem>
               ))}

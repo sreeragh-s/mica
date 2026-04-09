@@ -30,13 +30,13 @@ export type PromptInputChatReference =
   | { kind: "workspace"; refId: string; label: string }
 
 export type PromptInputChatMentionNote = {
-  id: string
+  path: string
   title: string
-  folderId: string
+  folder: string
   /** Shown in @-mention rows when set (matches note title emoji). */
   titleEmoji?: string | null
 }
-export type PromptInputChatMentionWorkspace = { id: string; name: string }
+export type PromptInputChatMentionWorkspace = { folder: string; name: string }
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -81,7 +81,7 @@ function displayNoteTitle(title: string): string {
 
 /** Open note in the editor — shown as outline badge until added to references. */
 export type PromptInputChatEditorNote = {
-  id: string
+  path: string
   title: string
   titleEmoji?: string | null
 }
@@ -103,8 +103,7 @@ export function PromptInputChatReferenceChips({
   editorNote,
 }: PromptInputChatReferenceChipsProps) {
   const editorNoteInReferences = Boolean(
-    editorNote &&
-      references.some(r => r.kind === "note" && r.refId === editorNote.id),
+    editorNote && references.some((r) => r.kind === "note" && r.refId === editorNote.path),
   )
   const showOutlineEditorPill = Boolean(editorNote && !editorNoteInReferences)
 
@@ -126,7 +125,7 @@ export function PromptInputChatReferenceChips({
                     addChatReference(prev, {
                       kind: "note",
                       label: displayNoteTitle(editorNote.title),
-                      refId: editorNote.id,
+                      refId: editorNote.path,
                     }),
                   )
                 }
@@ -198,10 +197,10 @@ export type PromptInputChatMentionTextareaHandle = {
 }
 
 type MentionCandidate =
-  | { kind: "workspace"; id: string; label: string }
+  | { kind: "workspace"; folder: string; label: string }
   | {
       kind: "note"
-      id: string
+      path: string
       label: string
       folderLabel: string
       titleEmoji?: string | null
@@ -279,20 +278,20 @@ export const PromptInputChatMentionTextarea = forwardRef<
     const ws: MentionCandidate[] = workspaces
       .filter(w => !q || w.name.toLowerCase().includes(q))
       .slice(0, 8)
-      .map(w => ({ kind: "workspace" as const, id: w.id, label: w.name }))
+      .map((w) => ({ kind: "workspace" as const, folder: w.folder, label: w.name }))
     const ns: MentionCandidate[] = notes
       .filter(n => !q || displayNoteTitle(n.title).toLowerCase().includes(q))
       .slice(0, 12)
       .map(n => {
         const folderLabel =
-          workspaces.find(w => w.id === n.folderId)?.name ??
-          (n.folderId === DEFAULT_WORKSPACE_ID ? "Root" : "Workspace")
-        return {
-          kind: "note" as const,
-          id: n.id,
-          label: displayNoteTitle(n.title),
-          folderLabel,
-          titleEmoji: n.titleEmoji,
+          workspaces.find((w) => w.folder === n.folder)?.name ??
+          (n.folder === DEFAULT_WORKSPACE_ID ? "Root" : "Workspace")
+      return {
+        kind: "note" as const,
+        path: n.path,
+        label: displayNoteTitle(n.title),
+        folderLabel,
+        titleEmoji: n.titleEmoji,
         }
       })
     return [...ws, ...ns]
@@ -325,8 +324,8 @@ export const PromptInputChatMentionTextarea = forwardRef<
 
       const next: PromptInputChatReference =
         item.kind === "note"
-          ? { kind: "note", refId: item.id, label: item.label }
-          : { kind: "workspace", refId: item.id, label: item.label }
+          ? { kind: "note", refId: item.path, label: item.label }
+          : { kind: "workspace", refId: item.folder, label: item.label }
       onReferencesChange(prev => addChatReference(prev, next))
 
       setMentionOpen(false)
@@ -457,7 +456,7 @@ export const PromptInputChatMentionTextarea = forwardRef<
                 const showNotesHeader =
                   c.kind === "note" && (idx === 0 || candidates[idx - 1]!.kind === "workspace")
                 return (
-                  <div key={`${c.kind}-${c.id}`}>
+                  <div key={`${c.kind}-${c.kind === "note" ? c.path : c.folder}`}>
                     {showNotesHeader && (
                       <p
                         className={cn(

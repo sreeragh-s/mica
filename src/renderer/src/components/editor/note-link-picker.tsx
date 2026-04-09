@@ -20,7 +20,7 @@ export function filterLinkableNotes(
 ): SavedNote[] {
   const q = query.trim().toLowerCase()
   return ctx.notes
-    .filter((n) => n.id !== excludeNoteId)
+    .filter((n) => n.path !== excludeNoteId)
     .filter((n) => {
       if (!q) return true
       const title = (n.title?.trim() || "Untitled").toLowerCase()
@@ -34,7 +34,7 @@ export type NoteLinkPickerListProps = {
   onNoteSearchChange: (value: string) => void
   linkableNotes: SavedNote[]
   notelabCtx: NotelabEditorContextValue
-  onSelectNoteId: (noteId: string) => void
+  onSelectNoteId: (notePath: string) => void
 }
 
 export function NoteLinkPickerList({
@@ -56,16 +56,16 @@ export function NoteLinkPickerList({
         <CommandGroup heading="Workspace">
           {linkableNotes.map((note) => {
             const folderName =
-              notelabCtx.folders.find((f) => f.id === note.folderId)?.name ??
+              notelabCtx.folders.find((f) => f.folder === note.folder)?.name ??
               "Workspace"
             const label = note.title?.trim() || "Untitled"
             const kind = isDrawingNote(note) ? "Drawing" : "Note"
             return (
               <CommandItem
-                key={note.id}
-                value={note.id}
+                key={note.path}
+                value={note.path}
                 keywords={[label, folderName, kind]}
-                onSelect={() => onSelectNoteId(note.id)}
+                onSelect={() => onSelectNoteId(note.path)}
               >
                 <span className="min-w-0 flex-1 truncate">{label}</span>
                 <span className="text-muted-foreground shrink-0 text-xs">

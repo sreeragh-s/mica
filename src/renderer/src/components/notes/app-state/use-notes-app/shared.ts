@@ -2,8 +2,8 @@ import type { IndexingNoteStatus, IndexingStatus } from '@/lib/ai/embedding-pipe
 import { DEFAULT_WORKSPACE_ID } from '@/lib/notes/notes-storage'
 
 /** Root notes have no folder node in the tree; only user workspaces expand. */
-export function treeExpandIdsForFolderId(folderId: string): string[] {
-  return folderId === DEFAULT_WORKSPACE_ID ? [] : [`folder:${folderId}`]
+export function treeExpandIdsForFolderId(folder: string): string[] {
+  return folder === DEFAULT_WORKSPACE_ID ? [] : [`folder:${folder}`]
 }
 
 export function summarizeIndexingCounts(

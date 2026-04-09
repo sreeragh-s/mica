@@ -1,10 +1,10 @@
 import type { SerializedEditorState } from "lexical"
 
-/** Stable id for migrated notes without a workspace. */
+/** Stable folder name for migrated notes without a workspace. */
 export const DEFAULT_WORKSPACE_ID = "default"
 
 export type Folder = {
-  id: string
+  folder: string
   name: string
   /** Git remote URL (HTTPS or SSH) for this workspace, if configured. */
   githubRemoteUrl?: string
@@ -15,12 +15,12 @@ export type Folder = {
 export type NoteKind = "note" | "drawing"
 
 export type SavedNote = {
-  id: string
+  path: string
   updatedAt: number
   /** Lexical document; null until the user types (new note). Unused when kind is drawing. */
   content: SerializedEditorState | null
   /** Workspace folder containing this note. */
-  folderId: string
+  folder: string
   /** Sidebar label and base name for the synced Markdown file. */
   title: string
   /** Optional full-width cover image above the title (URL or data URL). */

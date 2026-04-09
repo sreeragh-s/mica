@@ -74,9 +74,9 @@ function computeInsertionIdx(
 }
 
 export type NoteTabStripProps = {
-  openNoteTabIds: string[]
+  openNoteTabPaths: string[]
   notes: SavedNote[]
-  selectedId: string | null
+  selectedNotePath: string | null
   reorderOpenNoteTabs: (fn: (prev: string[]) => string[]) => void
   closeNoteTab: (id: string) => void
   selectNote: (id: string) => void
@@ -85,9 +85,9 @@ export type NoteTabStripProps = {
 }
 
 export function NoteTabStrip({
-  openNoteTabIds,
+  openNoteTabPaths,
   notes,
-  selectedId,
+  selectedNotePath,
   reorderOpenNoteTabs,
   closeNoteTab,
   selectNote,
@@ -106,7 +106,7 @@ export function NoteTabStrip({
   const onPointerDown = useCallback(
     (e: ReactPointerEvent<HTMLElement>, id: string) => {
       if (e.button !== 0) return
-      const idx = openNoteTabIds.indexOf(id)
+      const idx = openNoteTabPaths.indexOf(id)
       if (idx < 0) return
       const el = tabElsRef.current.get(id)
       if (!el) return
@@ -125,7 +125,7 @@ export function NoteTabStrip({
       setDrag(state)
       e.currentTarget.setPointerCapture(e.pointerId)
     },
-    [openNoteTabIds]
+    [openNoteTabPaths]
   )
 
   const onPointerMove = useCallback(
@@ -133,12 +133,12 @@ export function NoteTabStrip({
       const d = dragRef.current
       if (!d || d.id !== id || e.pointerId !== d.pointerId) return
       const deltaX = e.clientX - startPointerXRef.current
-      const insertionIdx = computeInsertionIdx(deltaX, d.dragIdx, openNoteTabIds.length, d.tabWidth)
+      const insertionIdx = computeInsertionIdx(deltaX, d.dragIdx, openNoteTabPaths.length, d.tabWidth)
       const next: DragState = { ...d, deltaX, insertionIdx }
       dragRef.current = next
       setDrag(next)
     },
-    [openNoteTabIds.length]
+    [openNoteTabPaths.length]
   )
 
   const endDrag = useCallback(
@@ -205,12 +205,12 @@ export function NoteTabStrip({
         role="tablist"
       >
         <div className="flex min-h-0 min-w-0 flex-1 overflow-x-auto [scrollbar-width:thin]">
-          {openNoteTabIds.map((id, idx) => {
-            const note = notes.find((n) => n.id === id)
+          {openNoteTabPaths.map((id, idx) => {
+            const note = notes.find((n) => n.path === id)
             if (!note) return null
 
             const title = note.title.trim() || 'Untitled'
-            const active = id === selectedId
+            const active = id === selectedNotePath
             const isDrawing = note.kind === 'drawing'
             const isDragging = drag?.id === id
             const isLifted = isDragging && Math.abs(drag.deltaX) > DRAG_THRESHOLD

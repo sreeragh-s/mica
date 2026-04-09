@@ -66,7 +66,7 @@ import {
   LinkPreviewCardShell,
   UrlFavicon,
 } from "@/components/editor/link-preview-card"
-import { buildInternalNoteLinkHref, parseInternalNoteIdFromHref } from "@/lib/notes/internal-note-link"
+import { buildInternalNoteLinkHref, parseInternalNotePathFromHref } from "@/lib/notes/internal-note-link"
 
 function FloatingLinkEditor({
   editor,
@@ -97,13 +97,13 @@ function FloatingLinkEditor({
   const notelabCtx = useNotelabEditorContext()
 
   const internalTargetId = useMemo(
-    () => (linkUrl ? parseInternalNoteIdFromHref(linkUrl) : null),
+    () => (linkUrl ? parseInternalNotePathFromHref(linkUrl) : null),
     [linkUrl]
   )
 
   const resolvedNote = useMemo(() => {
     if (!internalTargetId || !notelabCtx) return undefined
-    return notelabCtx.notes.find((n) => n.id === internalTargetId)
+    return notelabCtx.notes.find((n) => n.path === internalTargetId)
   }, [internalTargetId, notelabCtx])
 
   const isInternalNoteLink = internalTargetId !== null
@@ -118,14 +118,14 @@ function FloatingLinkEditor({
   }, [notelabCtx, noteSearchPicker])
 
   const applyInternalLinkTarget = useCallback(
-    (noteId: string) => {
+    (notePath: string) => {
       setInternalNotePickerOpen(false)
       setNoteSearchPicker("")
       editor.update(() => {
         if (lastSelection !== null && $isRangeSelection(lastSelection)) {
           $setSelection(lastSelection.clone())
         }
-        $toggleLink(buildInternalNoteLinkHref(noteId))
+        $toggleLink(buildInternalNoteLinkHref(notePath))
       })
       setIsLinkEditMode(false)
     },

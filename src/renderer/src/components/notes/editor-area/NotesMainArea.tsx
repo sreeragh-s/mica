@@ -78,12 +78,12 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
     guestMode,
     onSignOut,
     onConnectGitHub,
-    selectedId,
+    selectedNotePath,
     selectedNote,
     focusedFolder,
     notesByFolder,
     selectNote,
-    openNoteTabIds,
+    openNoteTabPaths,
     reorderOpenNoteTabs,
     closeNoteTab,
     sidebarCollapsed,
@@ -300,7 +300,7 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
   })()
 
   const showNotes = appMode === 'notes'
-  const showTabs = showNotes && openNoteTabIds.length > 0
+  const showTabs = showNotes && openNoteTabPaths.length > 0
   const showNotesChatChrome = showNotes && !zenMode
 
   return (
@@ -366,9 +366,9 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
               >
                 {showTabs ? (
                   <NoteTabStrip
-                    openNoteTabIds={openNoteTabIds}
+                    openNoteTabPaths={openNoteTabPaths}
                     notes={notes}
-                    selectedId={selectedId}
+                    selectedNotePath={selectedNotePath}
                     reorderOpenNoteTabs={reorderOpenNoteTabs}
                     closeNoteTab={closeNoteTab}
                     selectNote={selectNote}
@@ -499,8 +499,8 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
         <NotesTabOverview
           notes={notes}
           folders={folders}
-          openNoteTabIds={openNoteTabIds}
-          selectedId={selectedId}
+          openNoteTabPaths={openNoteTabPaths}
+          selectedNotePath={selectedNotePath}
           macTitlebarStyles={macTitlebarStyles}
           isMacNotelab={isMacNotelab}
           sidebarOverlayActive={sidebarOverlayActive}
