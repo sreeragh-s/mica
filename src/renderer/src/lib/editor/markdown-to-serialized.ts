@@ -16,6 +16,7 @@ import { HR } from "@/components/editor/transformers/markdown-hr-transformer"
 import { IMAGE } from "@/components/editor/transformers/markdown-image-transformer"
 import { TABLE } from "@/components/editor/transformers/markdown-table-transformer"
 import { TWEET } from "@/components/editor/transformers/markdown-tweet-transformer"
+import { stripLeadingTitleHeading } from "../../../../shared/note-markdown"
 
 const MARKDOWN_TRANSFORMERS = [
   TABLE,
@@ -68,7 +69,52 @@ export function markdownToSerializedState(
 }
 
 export function diskBodyToContent(body: string): SerializedEditorState | null {
-  const t = body.trim()
+  const { body: withoutTitle } = stripLeadingTitleHeading(body)
+  const t = withoutTitle.trim()
   if (!t || t === "_Empty note._") return null
   return markdownToSerializedState(t)
+}
+
+export function extractDiskTitleHeading(body: string): string | null {
+  return stripLeadingTitleHeading(body).heading
+}
+
+export function stripSerializedLeadingTitleHeading(
+  serialized: SerializedEditorState,
+  title: string
+): SerializedEditorState {
+  const normalizedTitle = title.trim()
+  if (!normalizedTitle) return serialized
+  const root = serialized.root as {
+    children?: Array<Record<string, unknown>>
+  }
+  const children = Array.isArray(root.children) ? [...root.children] : []
+  const first = children[0]
+  if (!first || first.type !== "heading" || first.tag !== "h1") {
+    return serialized
+  }
+  const text = walkSerializedHeadingText(first).trim()
+  if (text !== normalizedTitle) {
+    return serialized
+  }
+  children.shift()
+  return {
+    ...serialized,
+    root: {
+      ...serialized.root,
+      children: children as typeof serialized.root.children,
+    },
+  }
+}
+
+function walkSerializedHeadingText(node: unknown): string {
+  if (node == null || typeof node !== "object") return ""
+  const record = node as Record<string, unknown>
+  if (record.type === "text" && typeof record.text === "string") {
+    return record.text
+  }
+  if (Array.isArray(record.children)) {
+    return record.children.map(walkSerializedHeadingText).join("")
+  }
+  return ""
 }

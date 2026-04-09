@@ -589,6 +589,21 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
                   <button
                     type="button"
                     data-sidebar-interactive=""
+                    onClick={() => setSettingsSection('editor')}
+                    className={cn(
+                      'hover:bg-sidebar-accent hover:text-sidebar-accent-foreground flex h-8 w-full items-center gap-2 rounded-md px-2 text-left text-[13px] leading-tight transition-colors',
+                      settingsSection === 'editor' &&
+                      'bg-sidebar-accent text-sidebar-accent-foreground'
+                    )}
+                  >
+                    <PencilRuler className="text-muted-foreground size-3.5 shrink-0" aria-hidden />
+                    Editor
+                  </button>
+                </li>
+                <li>
+                  <button
+                    type="button"
+                    data-sidebar-interactive=""
                     onClick={() => setSettingsSection('shortcuts')}
                     className={cn(
                       'hover:bg-sidebar-accent hover:text-sidebar-accent-foreground flex h-8 w-full items-center gap-2 rounded-md px-2 text-left text-[13px] leading-tight transition-colors',

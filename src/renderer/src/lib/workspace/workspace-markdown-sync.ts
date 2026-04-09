@@ -2,6 +2,10 @@ import type { SavedNote, Folder } from "@/lib/notes/notes-storage"
 
 import { serializedStateToMarkdown } from "@/lib/editor/lexical-to-markdown"
 import { DEFAULT_WORKSPACE_ID } from "@/lib/notes/notes-storage"
+import {
+  buildMarkdownNoteBody,
+  buildMarkdownWithOptionalFrontmatter,
+} from "../../../../shared/note-markdown"
 
 function slugifyNoteFilenameSegment(title: string): string {
   const s = title
@@ -35,33 +39,25 @@ export function newFolderPath(displayName: string): string {
 }
 
 export function buildNoteMarkdownDocument(note: SavedNote): string {
-  const title = note.title.trim()
   if (note.kind === "drawing") {
     const scene = note.excalidrawScene?.trim() ?? ""
-    const front = `---
-updated_at: "${new Date(note.updatedAt).toISOString()}"
-title: ${JSON.stringify(title)}
-notelab_kind: drawing
----
-
-`
-    return front + (scene ? `${scene}\n` : "{}\n")
+    return scene ? `${scene}\n` : "{}\n"
   }
-  const body = serializedStateToMarkdown(note.content)
-  const coverLine = note.coverImageSrc
-    ? `cover_image: ${JSON.stringify(note.coverImageSrc)}\n`
-    : ""
-  const emojiLine =
-    note.titleEmoji && note.titleEmoji.trim()
-      ? `title_emoji: ${JSON.stringify(note.titleEmoji.trim())}\n`
-      : ""
-  const front = `---
-updated_at: "${new Date(note.updatedAt).toISOString()}"
-title: ${JSON.stringify(title)}
-${coverLine}${emojiLine}---
-
-`
-  return front + (body.trim() ? `${body}\n` : "_Empty note._\n")
+  const bodyMarkdown = buildMarkdownNoteBody(note.title, serializedStateToMarkdown(note.content))
+  const properties = {
+    ...(note.properties ?? {}),
+    ...(note.coverImageSrc ? { cover_image: note.coverImageSrc } : {}),
+    ...(note.titleEmoji && note.titleEmoji.trim()
+      ? { title_emoji: note.titleEmoji.trim() }
+      : {}),
+  }
+  if (!note.coverImageSrc) delete properties.cover_image
+  if (!note.titleEmoji?.trim()) delete properties.title_emoji
+  return buildMarkdownWithOptionalFrontmatter({
+    hasFrontmatterBlock: Boolean(note.hasFrontmatterBlock),
+    properties,
+    body: bodyMarkdown,
+  })
 }
 
 export function noteMarkdownRelativePath(_folder: string, note: SavedNote): string {
@@ -70,7 +66,7 @@ export function noteMarkdownRelativePath(_folder: string, note: SavedNote): stri
 
 export function buildNoteFileBaseName(title: string, kind: SavedNote["kind"]): string {
   const normalized = slugifyNoteFilenameSegment(title || (kind === "drawing" ? "New drawing" : "Untitled"))
-  return `${normalized}.md`
+  return kind === "drawing" ? `${normalized}.excalidraw` : `${normalized}.md`
 }
 
 export function buildFolderPath(folderName: string): string {
@@ -90,7 +86,7 @@ export function buildUniqueNoteRelativePath(
     taken.delete(current)
   }
   const baseName = buildNoteFileBaseName(title, kind)
-  const suffix = ".md"
+  const suffix = kind === "drawing" ? ".excalidraw" : ".md"
   const bare = baseName.endsWith(suffix) ? baseName.slice(0, -suffix.length) : baseName
   let counter = 1
   while (true) {

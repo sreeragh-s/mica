@@ -1,13 +1,15 @@
 import {
   existsSync,
   mkdirSync,
-  readFileSync,
   readdirSync,
+  readFileSync,
   renameSync,
+  statSync,
   unlinkSync,
   writeFileSync,
 } from 'node:fs'
 import { basename, dirname, extname, join, relative, resolve, sep } from 'node:path'
+import { parseOptionalFrontmatter } from '../../shared/note-markdown'
 
 export const DEFAULT_WORKSPACE_ID = 'default'
 
@@ -28,7 +30,7 @@ function assertSafeRelativePath(cwd: string, rel: string): string {
   return abs
 }
 
-function parseNotelabNoteFile(content: string, filePath: string): {
+function parseNotelabNoteFile(content: string, filePath: string, updatedAtMs: number): {
   note: string
   title: string
   updatedAtMs: number
@@ -36,53 +38,26 @@ function parseNotelabNoteFile(content: string, filePath: string): {
   kind: 'note' | 'drawing'
   coverImageSrc?: string
   titleEmoji?: string
+  properties: Record<string, string>
+  hasFrontmatterBlock: boolean
 } | null {
-  if (!content.startsWith('---')) return null
-  const endFm = content.indexOf('\n---', 3)
-  if (endFm === -1) return null
-  const fm = content.slice(3, endFm).trim()
-  const body = content.slice(endFm + 4).replace(/^\n+/, '')
-  let title = basename(filePath, extname(filePath)).replace(/-/g, ' ')
-  const titleLine = /^title:\s*(.+)$/m.exec(fm)
-  if (titleLine) {
-    const raw = titleLine[1]!.trim()
-    try {
-      title = JSON.parse(raw) as string
-    } catch {
-      title = raw.replace(/^["']|["']$/g, '')
-    }
+  const parsed = parseOptionalFrontmatter(content)
+  const title = basename(filePath, extname(filePath))
+  const kind: 'note' | 'drawing' = extname(filePath).toLowerCase() === '.excalidraw' ? 'drawing' : 'note'
+  const normalizedPath = filePath.replace(/\\/g, '/')
+  const coverImageSrc = parsed.properties.cover_image
+  const titleEmoji = parsed.properties.title_emoji
+  return {
+    note: normalizedPath,
+    title,
+    updatedAtMs,
+    body: parsed.body.replace(/^\n+/, ''),
+    kind,
+    ...(coverImageSrc !== undefined ? { coverImageSrc } : {}),
+    ...(titleEmoji !== undefined ? { titleEmoji } : {}),
+    properties: parsed.properties,
+    hasFrontmatterBlock: parsed.hasFrontmatterBlock,
   }
-  let kind: 'note' | 'drawing' = 'note'
-  const kindLine = /^notelab_kind:\s*(drawing|note)\s*$/m.exec(fm)
-  if (kindLine && kindLine[1] === 'drawing') kind = 'drawing'
-
-  let updatedAtMs = Date.now()
-  const upM = /^updated_at:\s*["']?([^"'\s]+)/m.exec(fm)
-  if (upM) {
-    const t = Date.parse(upM[1]!)
-    if (!Number.isNaN(t)) updatedAtMs = t
-  }
-  let coverImageSrc: string | undefined
-  const coverM = /^cover_image:\s*(.+)$/m.exec(fm)
-  if (coverM) {
-    const raw = coverM[1]!.trim()
-    try {
-      coverImageSrc = JSON.parse(raw) as string
-    } catch {
-      coverImageSrc = raw.replace(/^["']|["']$/g, '')
-    }
-  }
-  let titleEmoji: string | undefined
-  const emojiM = /^title_emoji:\s*(.+)$/m.exec(fm)
-  if (emojiM) {
-    const raw = emojiM[1]!.trim()
-    try {
-      titleEmoji = JSON.parse(raw) as string
-    } catch {
-      titleEmoji = raw.replace(/^["']|["']$/g, '')
-    }
-  }
-  return { note: filePath.replace(/\\/g, '/'), title, updatedAtMs, body, kind, coverImageSrc, titleEmoji }
 }
 
 export function syncMarkdownFilesToDisk(
@@ -107,7 +82,7 @@ export function syncMarkdownFilesToDisk(
   const prefix = isRoot ? '' : `${folder}/`
   for (const ent of readdirSync(scanDir, { withFileTypes: true })) {
     if (isRoot && !ent.isFile()) continue
-    if (!ent.isFile() || !ent.name.endsWith('.md')) continue
+    if (!ent.isFile() || (!ent.name.endsWith('.md') && !ent.name.endsWith('.excalidraw'))) continue
     const rel = `${prefix}${ent.name}`
     if (!writtenRel.has(rel)) {
       unlinkSync(join(scanDir, ent.name))
@@ -154,6 +129,8 @@ export function readNotelabIndexImpl(cwd: string): {
     kind: 'note' | 'drawing'
     coverImageSrc?: string
     titleEmoji?: string
+    properties?: Record<string, string>
+    hasFrontmatterBlock?: boolean
   }[]
 } {
   const folders: { folder: string; name: string }[] = []
@@ -166,13 +143,15 @@ export function readNotelabIndexImpl(cwd: string): {
     kind: 'note' | 'drawing'
     coverImageSrc?: string
     titleEmoji?: string
+    properties?: Record<string, string>
+    hasFrontmatterBlock?: boolean
   }[] = []
   if (!existsSync(cwd)) return { folders, notes }
 
   function pushNote(folder: string, relativeFilePath: string): void {
     const filePath = join(cwd, relativeFilePath)
     const content = readFileSync(filePath, 'utf8')
-    const parsed = parseNotelabNoteFile(content, relativeFilePath)
+    const parsed = parseNotelabNoteFile(content, relativeFilePath, statSync(filePath).mtimeMs)
     if (!parsed) return
     notes.push({
       folder,
@@ -185,11 +164,13 @@ export function readNotelabIndexImpl(cwd: string): {
       ...(parsed.titleEmoji !== undefined && parsed.titleEmoji !== ''
         ? { titleEmoji: parsed.titleEmoji }
         : {}),
+      ...(Object.keys(parsed.properties).length > 0 ? { properties: parsed.properties } : {}),
+      ...(parsed.hasFrontmatterBlock ? { hasFrontmatterBlock: true } : {}),
     })
   }
 
   for (const ent of readdirSync(cwd, { withFileTypes: true })) {
-    if (ent.isFile() && ent.name.endsWith('.md')) {
+    if (ent.isFile() && (ent.name.endsWith('.md') || ent.name.endsWith('.excalidraw'))) {
       pushNote(DEFAULT_WORKSPACE_ID, ent.name)
     } else if (ent.isDirectory()) {
       const folder = ent.name
@@ -197,7 +178,7 @@ export function readNotelabIndexImpl(cwd: string): {
       const wsPath = join(cwd, folder)
       folders.push({ folder, name: folder })
       for (const file of readdirSync(wsPath, { withFileTypes: true })) {
-        if (!file.isFile() || !file.name.endsWith('.md')) continue
+        if (!file.isFile() || (!file.name.endsWith('.md') && !file.name.endsWith('.excalidraw'))) continue
         pushNote(folder, `${folder}/${file.name}`)
       }
     }

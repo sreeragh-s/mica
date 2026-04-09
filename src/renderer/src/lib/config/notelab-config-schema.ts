@@ -23,6 +23,12 @@ export type SavedWorkspace = {
   remoteUrl?: string
 }
 
+export type NotelabEditorSettingsV1 = {
+  enableEmojiProperty?: boolean
+  enableCoverProperty?: boolean
+  newNotesStartWithFrontmatter?: boolean
+}
+
 /** Persisted at ~/.notelab/notelab.config (Notelab). */
 export type NotelabConfigFileV1 = {
   version: 1
@@ -37,6 +43,7 @@ export type NotelabConfigFileV1 = {
   /** Serialized notes index / remote cache (see notes-types NotesState). */
   notes?: unknown
   githubContentShas?: Record<string, string>
+  editorSettings?: NotelabEditorSettingsV1
   /** All known workspaces (path, name, optional remoteUrl). */
   workspaces?: SavedWorkspace[]
 }

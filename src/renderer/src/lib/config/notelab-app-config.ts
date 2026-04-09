@@ -4,6 +4,7 @@ import type {
   NotelabThemeConfigV1,
   NotelabSetupState,
   SavedWorkspace,
+  NotelabEditorSettingsV1,
 } from "./notelab-config-schema"
 import { normalizeNotesStateFromStorage } from "../notes/notes-state-normalize"
 import { NotesState } from "../notes/notes-types"
@@ -317,6 +318,45 @@ export function loadGithubContentShas(): Record<string, string> {
     if (typeof v === "string" && v.length > 0) out[k] = v
   }
   return out
+}
+
+function defaultEditorSettings(): Required<NotelabEditorSettingsV1> {
+  return {
+    enableEmojiProperty: true,
+    enableCoverProperty: true,
+    newNotesStartWithFrontmatter: true,
+  }
+}
+
+export function loadEditorSettings(): Required<NotelabEditorSettingsV1> {
+  const defaults = defaultEditorSettings()
+  const raw = cache.editorSettings
+  if (!raw || typeof raw !== "object") return defaults
+  return {
+    enableEmojiProperty:
+      typeof raw.enableEmojiProperty === "boolean"
+        ? raw.enableEmojiProperty
+        : defaults.enableEmojiProperty,
+    enableCoverProperty:
+      typeof raw.enableCoverProperty === "boolean"
+        ? raw.enableCoverProperty
+        : defaults.enableCoverProperty,
+    newNotesStartWithFrontmatter:
+      typeof raw.newNotesStartWithFrontmatter === "boolean"
+        ? raw.newNotesStartWithFrontmatter
+        : defaults.newNotesStartWithFrontmatter,
+  }
+}
+
+export function saveEditorSettings(settings: NotelabEditorSettingsV1): void {
+  setCache({
+    ...cache,
+    version: 1,
+    editorSettings: {
+      ...loadEditorSettings(),
+      ...settings,
+    },
+  })
 }
 
 export function saveGithubContentShas(map: Record<string, string>): void {

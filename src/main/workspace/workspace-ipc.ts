@@ -439,6 +439,8 @@ export function registerWorkspaceIpc(): void {
             kind: 'note' | 'drawing'
             coverImageSrc?: string
             titleEmoji?: string
+            properties?: Record<string, string>
+            hasFrontmatterBlock?: boolean
           }[]
         }
       | { ok: false; error: string }

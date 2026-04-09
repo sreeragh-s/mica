@@ -126,6 +126,8 @@ export type NotelabApi = {
             kind: "note" | "drawing"
             coverImageSrc?: string
             titleEmoji?: string
+            properties?: Record<string, string>
+            hasFrontmatterBlock?: boolean
           }[]
         }
       | { ok: false; error: string }

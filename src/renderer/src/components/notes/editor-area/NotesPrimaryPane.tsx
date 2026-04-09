@@ -8,7 +8,9 @@ import { Button } from '@/components/ui/button'
 import type { SavedNote, Folder } from '@/lib/notes/notes-storage'
 import { ExcalidrawView } from '@/components/notes/views/ExcalidrawView'
 import { NoteTitleInput } from '@/components/notes/editor-area/NoteTitleInput'
+import { NotePropertiesPanel } from '@/components/notes/editor-area/NotePropertiesPanel'
 import { NOTE_DRAG_MIME } from '@/components/notes/notes-app-utils'
+import type { NotelabEditorSettingsV1 } from '@/lib/config/notelab-config-schema'
 
 export type NotesPrimaryPaneProps = { 
   selectedNote: SavedNote | null
@@ -24,6 +26,8 @@ export type NotesPrimaryPaneProps = {
   onRenameNote: (id: string, title: string) => void
   onSetNoteCover: (id: string, src: string | null) => void
   onSetNoteTitleEmoji: (id: string, emoji: string | null) => void
+  onSetNoteProperty: (id: string, key: string, value: string | null) => void
+  editorSettings: Required<NotelabEditorSettingsV1>
   onDragOver?: (e: DragEvent) => void
   onDrop?: (e: DragEvent) => void
   /** When set, editor bottom bar (stats + tools) is portaled into this element (e.g. below terminal). */
@@ -42,11 +46,17 @@ export function NotesPrimaryPane({
   onRenameNote,
   onSetNoteCover,
   onSetNoteTitleEmoji,
+  onSetNoteProperty,
+  editorSettings,
   onDragOver,
   onDrop,
   bottomChromePortal
 }: NotesPrimaryPaneProps): JSX.Element {
   if (selectedNote) {
+    const allowCoverProperty =
+      selectedNote.hasFrontmatterBlock || Boolean(selectedNote.coverImageSrc) || editorSettings.enableCoverProperty
+    const allowEmojiProperty =
+      selectedNote.hasFrontmatterBlock || Boolean(selectedNote.titleEmoji) || editorSettings.enableEmojiProperty
     if (selectedNote.kind === 'drawing') {
       return (
         <ExcalidrawView
@@ -69,15 +79,22 @@ export function NotesPrimaryPane({
           className="min-h-0 flex-1"
           notelabEditor={{ notes, folders, currentNoteId: selectedNote.path, onOpenInternalNote: onSelectNote }}
           header={
-            <NoteTitleInput
-              value={selectedNote.title}
-              onChange={(title) => onRenameNote(selectedNote.path, title)}
-            />
+            <>
+              <NoteTitleInput
+                value={selectedNote.title}
+                onChange={(title) => onRenameNote(selectedNote.path, title)}
+              />
+              <NotePropertiesPanel
+                note={selectedNote}
+                editorSettings={editorSettings}
+                onSetProperty={(key, value) => onSetNoteProperty(selectedNote.path, key, value)}
+              />
+            </>
           }
           coverImageSrc={selectedNote.kind === 'note' ? selectedNote.coverImageSrc : undefined}
-          onCoverChange={(src) => onSetNoteCover(selectedNote.path, src)}
+          onCoverChange={allowCoverProperty ? (src) => onSetNoteCover(selectedNote.path, src) : undefined}
           titleEmoji={selectedNote.kind === 'note' ? selectedNote.titleEmoji : undefined}
-          onTitleEmojiChange={(emoji) => onSetNoteTitleEmoji(selectedNote.path, emoji)}
+          onTitleEmojiChange={allowEmojiProperty ? (emoji) => onSetNoteTitleEmoji(selectedNote.path, emoji) : undefined}
           bottomChromePortal={bottomChromePortal}
         />
       </div>

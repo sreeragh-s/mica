@@ -14,6 +14,8 @@ export type Folder = {
 
 export type NoteKind = "note" | "drawing"
 
+export type NotePropertyMap = Record<string, string>
+
 export type SavedNote = {
   path: string
   updatedAt: number
@@ -27,6 +29,10 @@ export type SavedNote = {
   coverImageSrc?: string | null
   /** Optional emoji shown to the left of the title and in sidebar/search lists. */
   titleEmoji?: string | null
+  /** Raw frontmatter properties preserved from disk. */
+  properties?: NotePropertyMap
+  /** True when the markdown file contains a frontmatter block, even if empty. */
+  hasFrontmatterBlock?: boolean
   /** Defaults to note. Drawings use Excalidraw scene JSON in excalidrawScene. */
   kind?: NoteKind
   /** Serialized Excalidraw document (serializeAsJSON) when kind is drawing. */

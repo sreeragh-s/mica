@@ -11,6 +11,7 @@ import type { SerializedEditorState } from 'lexical'
 
 import { getApi } from '@/lib/auth/auth-bridge'
 import { isMacNotelab as checkIsMac } from '@/lib/core/electron-env'
+import { stripSerializedLeadingTitleHeading } from '@/lib/editor/markdown-to-serialized'
 import type { AppSidebarView } from '@/lib/notes/notes-types'
 import {
   DEFAULT_WORKSPACE_ID,
@@ -22,6 +23,10 @@ import {
   loadShortcutBindings,
   type ShortcutBindingsMap
 } from '@/lib/config/shortcuts-storage'
+import {
+  loadEditorSettings,
+  saveEditorSettings,
+} from '@/lib/config/notelab-app-config'
 import {
   buildFolderPath,
   buildUniqueNoteRelativePath,
@@ -101,6 +106,7 @@ export function useNotesApp({
 
   const [shortcutBindings, setShortcutBindings] =
     useState<ShortcutBindingsMap>(loadShortcutBindings)
+  const [editorSettings, setEditorSettings] = useState(() => loadEditorSettings())
   const shortcutBindingsRef = useRef(shortcutBindings)
   shortcutBindingsRef.current = shortcutBindings
   const shortcutsSuppressedRef = useRef(false)
@@ -121,7 +127,6 @@ export function useNotesApp({
   const openNoteTabIdsRef = useRef(openNoteTabPaths)
   openNoteTabIdsRef.current = openNoteTabPaths
   const noteFlushTimers = useRef<Map<string, number>>(new Map())
-  const noteRenameTimers = useRef<Map<string, number>>(new Map())
   const pendingDiskWrites = useRef<Set<string>>(new Set())
 
   // App sidebar: explorer (notes tree), source control, or settings nav
@@ -236,38 +241,6 @@ export function useNotesApp({
     setSelectedId((prev) => (prev === from ? to : prev))
     setOpenNoteTabIds((prev) => prev.map((path) => (path === from ? to : path)))
   }, [])
-
-  const scheduleNotePathRename = useCallback(
-    (currentPath: string) => {
-      const existingTimer = noteRenameTimers.current.get(currentPath)
-      if (existingTimer !== undefined) {
-        window.clearTimeout(existingTimer)
-      }
-      const timerId = window.setTimeout(() => {
-        noteRenameTimers.current.delete(currentPath)
-        const note = notesRef.current.find((entry) => entry.path === currentPath)
-        if (!note) return
-        const nextPath = buildNotePath(note.folder, note.title, note.kind, note.path)
-        if (nextPath === note.path) return
-        setNotes((prev) =>
-          prev.map((entry) => (entry.path === currentPath ? { ...entry, path: nextPath } : entry))
-        )
-        replaceTrackedNoteId(currentPath, nextPath)
-        const flushTimer = noteFlushTimers.current.get(currentPath)
-        if (flushTimer !== undefined) {
-          window.clearTimeout(flushTimer)
-          noteFlushTimers.current.delete(currentPath)
-        }
-        if (diskMode) {
-          void flushNoteMoveToDisk(currentPath, note.folder, note.folder)
-        } else if (useGithubApiSync) {
-          setGithubApiDirty(true)
-        }
-      }, 420)
-      noteRenameTimers.current.set(currentPath, timerId)
-    },
-    [buildNotePath, diskMode, flushNoteMoveToDisk, replaceTrackedNoteId, useGithubApiSync]
-  )
 
   const treeSelectedIds = useMemo(() => {
     if (workspaceSettingsFolderId) return [treeFolderPath(workspaceSettingsFolderId)]
@@ -462,11 +435,7 @@ export function useNotesApp({
       for (const timerId of noteFlushTimers.current.values()) {
         window.clearTimeout(timerId)
       }
-      for (const timerId of noteRenameTimers.current.values()) {
-        window.clearTimeout(timerId)
-      }
       noteFlushTimers.current.clear()
-      noteRenameTimers.current.clear()
     }
   }, [])
 
@@ -576,6 +545,7 @@ export function useNotesApp({
     setTabOverviewOpen(false)
     const notePath = buildNotePath(fid, '', 'note')
     const note = createEmptyNote(fid, notePath)
+    note.hasFrontmatterBlock = editorSettings.newNotesStartWithFrontmatter
     setNotes((prev) => [note, ...prev])
     setSelectedId(note.path)
     setFocusedFolderId(null)
@@ -586,17 +556,21 @@ export function useNotesApp({
     if (diskMode) {
       window.setTimeout(() => scheduleNoteFlush(note.path), 0)
     }
-  }, [buildNotePath, newNoteDestinationFolderId, diskMode, scheduleNoteFlush, pushOpenNoteTab])
+  }, [buildNotePath, newNoteDestinationFolderId, diskMode, scheduleNoteFlush, pushOpenNoteTab, editorSettings])
 
   const handleNoteSerializedChange = useCallback(
     (notePath: string, serialized: SerializedEditorState) => {
       const current = notesRef.current.find((n) => n.path === notePath)
-      if (current && serializedEditorStatesEqual(current.content, serialized)) {
+      const normalized =
+        current?.kind === 'note'
+          ? stripSerializedLeadingTitleHeading(serialized, current.title)
+          : serialized
+      if (current && serializedEditorStatesEqual(current.content, normalized)) {
         return
       }
       setNotes((prev) =>
         prev.map((n) =>
-          n.path === notePath ? { ...n, content: serialized, updatedAt: Date.now() } : n
+          n.path === notePath ? { ...n, content: normalized, updatedAt: Date.now() } : n
         )
       )
       scheduleNoteFlush(notePath)
@@ -645,15 +619,29 @@ export function useNotesApp({
   const renameNote = useCallback(
     (notePath: string, title: string) => {
       const trimmed = title.trim()
-      setNotes((prev) =>
-        prev.map((n) =>
-          n.path === notePath ? { ...n, title: trimmed, updatedAt: Date.now() } : n
-        )
-      )
-      scheduleNoteFlush(notePath)
-      scheduleNotePathRename(notePath)
+      const current = notesRef.current.find((n) => n.path === notePath)
+      if (!current) return
+      const nextPath = buildNotePath(current.folder, trimmed, current.kind, current.path)
+      const nextNote = {
+        ...current,
+        path: nextPath,
+        title: trimmed || nextPath.split('/').pop()?.replace(/\.[^.]+$/g, '') || 'Untitled',
+        updatedAt: Date.now()
+      }
+      setNotes((prev) => prev.map((n) => (n.path === notePath ? nextNote : n)))
+      replaceTrackedNoteId(notePath, nextPath)
+      const flushTid = noteFlushTimers.current.get(notePath)
+      if (flushTid !== undefined) {
+        window.clearTimeout(flushTid)
+        noteFlushTimers.current.delete(notePath)
+      }
+      if (diskMode) {
+        void flushNoteMoveToDisk(notePath, nextNote)
+      } else if (useGithubApiSync) {
+        setGithubApiDirty(true)
+      }
     },
-    [scheduleNoteFlush, scheduleNotePathRename]
+    [buildNotePath, diskMode, flushNoteMoveToDisk, replaceTrackedNoteId, useGithubApiSync]
   )
 
   const setNoteCover = useCallback(
@@ -662,10 +650,11 @@ export function useNotesApp({
         prev.map((n) =>
           n.path === notePath
             ? {
-                ...n,
+              ...n,
                 ...(coverImageSrc === null || coverImageSrc === ''
                   ? { coverImageSrc: undefined }
                   : { coverImageSrc }),
+                ...(coverImageSrc ? { hasFrontmatterBlock: true } : {}),
                 updatedAt: Date.now()
               }
             : n
@@ -683,8 +672,9 @@ export function useNotesApp({
         prev.map((n) =>
           n.path === notePath
             ? {
-                ...n,
+              ...n,
                 ...(trimmed === '' ? { titleEmoji: undefined } : { titleEmoji: trimmed }),
+                ...(trimmed !== '' ? { hasFrontmatterBlock: true } : {}),
                 updatedAt: Date.now()
               }
             : n
@@ -693,6 +683,40 @@ export function useNotesApp({
       scheduleNoteFlush(notePath)
     },
     [scheduleNoteFlush]
+  )
+
+  const setNoteProperty = useCallback(
+    (notePath: string, key: string, value: string | null) => {
+      const trimmedKey = key.trim()
+      if (!trimmedKey) return
+      if (trimmedKey === 'cover_image') {
+        setNoteCover(notePath, value)
+        return
+      }
+      if (trimmedKey === 'title_emoji') {
+        setNoteTitleEmoji(notePath, value)
+        return
+      }
+      setNotes((prev) =>
+        prev.map((n) => {
+          if (n.path !== notePath) return n
+          const nextProperties = { ...(n.properties ?? {}) }
+          if (value == null || value.trim() === '') {
+            delete nextProperties[trimmedKey]
+          } else {
+            nextProperties[trimmedKey] = value
+          }
+          return {
+            ...n,
+            properties: nextProperties,
+            hasFrontmatterBlock: n.hasFrontmatterBlock || Object.keys(nextProperties).length > 0,
+            updatedAt: Date.now()
+          }
+        })
+      )
+      scheduleNoteFlush(notePath)
+    },
+    [scheduleNoteFlush, setNoteCover, setNoteTitleEmoji]
   )
 
   const moveNoteToFolder = useCallback(
@@ -704,7 +728,6 @@ export function useNotesApp({
         foldersRef.current.some((f) => f.folder === targetFolderId)
       if (!targetOk) return
 
-      const fromFolderId = note.folder
       const nextId = buildNotePath(targetFolderId, note.title, note.kind, note.path)
       setGraphViewOpen(false)
       setNotes((prev) =>
@@ -724,12 +747,13 @@ export function useNotesApp({
       const tid = noteFlushTimers.current.get(notePath)
       if (tid !== undefined) window.clearTimeout(tid)
       noteFlushTimers.current.delete(notePath)
-      const renameTid = noteRenameTimers.current.get(notePath)
-      if (renameTid !== undefined) window.clearTimeout(renameTid)
-      noteRenameTimers.current.delete(notePath)
-
       if (diskMode) {
-        void flushNoteMoveToDisk(notePath, fromFolderId, targetFolderId)
+        void flushNoteMoveToDisk(notePath, {
+          ...note,
+          path: nextId,
+          folder: targetFolderId,
+          updatedAt: Date.now()
+        })
       } else if (useGithubApiSync) {
         setGithubApiDirty(true)
       }
@@ -766,9 +790,6 @@ export function useNotesApp({
       const tid = noteFlushTimers.current.get(notePath)
       if (tid !== undefined) window.clearTimeout(tid)
       noteFlushTimers.current.delete(notePath)
-      const renameTid = noteRenameTimers.current.get(notePath)
-      if (renameTid !== undefined) window.clearTimeout(renameTid)
-      noteRenameTimers.current.delete(notePath)
       const snapshotNotes = notesRef.current
       const snapshotSelected = selectedNotePath
       const deleted = snapshotNotes.find((n) => n.path === notePath)
@@ -1099,6 +1120,12 @@ export function useNotesApp({
     appMode,
     settingsSection,
     setSettingsSection,
+    editorSettings,
+    setEditorSettings: (patch: Partial<typeof editorSettings>) => {
+      const next = { ...editorSettings, ...patch }
+      setEditorSettings(next)
+      saveEditorSettings(next)
+    },
     folders,
     notesByFolder,
     canCreateNote,
@@ -1138,6 +1165,7 @@ export function useNotesApp({
     renameNote,
     setNoteCover,
     setNoteTitleEmoji,
+    setNoteProperty,
     moveNoteToFolder,
     reorderFolders,
     reorderFolderToEnd,

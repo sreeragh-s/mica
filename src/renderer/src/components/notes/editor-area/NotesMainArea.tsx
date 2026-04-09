@@ -8,6 +8,7 @@ import { enableInfinityCanvas } from '@/lib/core/vite-flags'
 import { AccountSettingsView } from '@/components/notes/settings/AccountSettingsView'
 import { AppearanceSettingsView } from '@/components/notes/settings/AppearanceSettingsView'
 import { DebugSettingsView } from '@/components/notes/settings/DebugSettingsView'
+import { EditorSettingsView } from '@/components/notes/settings/EditorSettingsView'
 import { EmbeddingsSettingsView } from '@/components/notes/settings/EmbeddingsSettingsView'
 import { GitHubSettingsView } from '@/components/notes/settings/GitHubSettingsView'
 import { NotesCanvasView } from '@/components/notes/views/NotesCanvasView'
@@ -94,8 +95,11 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
     renameNote,
     setNoteCover,
     setNoteTitleEmoji,
+    setNoteProperty,
     canCreateNote,
     shortcutBindings,
+    editorSettings,
+    setEditorSettings,
     updateShortcutBinding,
     resetShortcutsToDefaults,
     setShortcutsCaptureActive,
@@ -170,6 +174,8 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
     onRenameNote: renameNote,
     onSetNoteCover: setNoteCover,
     onSetNoteTitleEmoji: setNoteTitleEmoji,
+    onSetNoteProperty: setNoteProperty,
+    editorSettings,
     onDragOver: onDragOverMain,
     onDrop: onDropPrimaryPane,
     bottomChromePortal: showEditorBottomChrome ? editorBottomBarEl : undefined
@@ -181,7 +187,7 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
 
     // Conflict view takes over the main area when a conflict file is open
     if (conflictViewPath) {
-      
+
       return (
         <div className="flex min-h-0 flex-1 flex-col">
           <NotesConflictView vm={vm} />
@@ -318,180 +324,187 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
       */}
       <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-transparent">
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        <div
-          className={cn(
-            'relative flex min-h-0 min-w-0 flex-1 flex-row bg-background',
-            sidebarOverlayActive && 'pl-[min(100%,360px)]'
-          )}
-        >
-          <div className="relative z-0 flex min-h-0 min-w-0 flex-1 flex-col">
-          {!zenMode && (
-            <div
-              className={cn(
-                'bg-background relative z-10 flex shrink-0 flex-col',
-                isMacNotelab && 'pointer-events-none'
-              )}
-            >
-              {/* Search bar row */}
-              {showNotes ? (
-                <NotesSearchBar
-                  notes={notes}
-                  folders={folders}
-                  onSelectNote={selectNote}
-                  macTitlebarStyles={macTitlebarStyles}
-                  sidebarOverlayActive={sidebarOverlayActive}
-                  isMacNotelab={isMacNotelab}
-                  nativeLiquidGlassAttached={nativeLiquidGlassAttached}
-                  sidebarCollapsed={sidebarCollapsed}
-                  toggleSidebar={toggleSidebar}
-                />
-              ) : (
+          <div
+            className={cn(
+              'relative flex min-h-0 min-w-0 flex-1 flex-row bg-background',
+              sidebarOverlayActive && 'pl-[min(100%,360px)]'
+            )}
+          >
+            <div className="relative z-0 flex min-h-0 min-w-0 flex-1 flex-col">
+              {!zenMode && (
                 <div
                   className={cn(
-                    'h-12 shrink-0',
-                    sidebarOverlayActive && 'pr-1.5',
+                    'bg-background relative z-10 flex shrink-0 flex-col',
                     isMacNotelab && 'pointer-events-none'
                   )}
-                  aria-hidden
-                />
+                >
+                  {/* Search bar row */}
+                  {showNotes ? (
+                    <NotesSearchBar
+                      notes={notes}
+                      folders={folders}
+                      onSelectNote={selectNote}
+                      macTitlebarStyles={macTitlebarStyles}
+                      sidebarOverlayActive={sidebarOverlayActive}
+                      isMacNotelab={isMacNotelab}
+                      nativeLiquidGlassAttached={nativeLiquidGlassAttached}
+                      sidebarCollapsed={sidebarCollapsed}
+                      toggleSidebar={toggleSidebar}
+                    />
+                  ) : (
+                    <div
+                      className={cn(
+                        'h-12 shrink-0',
+                        sidebarOverlayActive && 'pr-1.5',
+                        isMacNotelab && 'pointer-events-none'
+                      )}
+                      aria-hidden
+                    />
+                  )}
+
+                  {/* Tab strip row */}
+                  <div
+                    className={cn(
+                      'flex min-h-0 w-full min-w-0 shrink-0 items-center py-1.5',
+                      !sidebarOverlayActive && isMacNotelab && sidebarCollapsed && 'pl-[92px]',
+                      isMacNotelab && 'pointer-events-none'
+                    )}
+                  >
+                    {showTabs ? (
+                      <NoteTabStrip
+                        openNoteTabPaths={openNoteTabPaths}
+                        notes={notes}
+                        selectedNotePath={selectedNotePath}
+                        reorderOpenNoteTabs={reorderOpenNoteTabs}
+                        closeNoteTab={closeNoteTab}
+                        selectNote={selectNote}
+                        isMacNotelab={isMacNotelab}
+                        macTitlebarStyles={macTitlebarStyles}
+                      />
+                    ) : (
+                      <div className="min-h-8 min-w-0 flex-1" aria-hidden />
+                    )}
+                  </div>
+                </div>
               )}
 
-              {/* Tab strip row */}
-              <div
-                className={cn(
-                  'flex min-h-0 w-full min-w-0 shrink-0 items-center py-1.5',
-                  !sidebarOverlayActive && isMacNotelab && sidebarCollapsed && 'pl-[92px]',
-                  isMacNotelab && 'pointer-events-none'
-                )}
-              >
-                {showTabs ? (
-                  <NoteTabStrip
-                    openNoteTabPaths={openNoteTabPaths}
-                    notes={notes}
-                    selectedNotePath={selectedNotePath}
-                    reorderOpenNoteTabs={reorderOpenNoteTabs}
-                    closeNoteTab={closeNoteTab}
-                    selectNote={selectNote}
-                    isMacNotelab={isMacNotelab}
-                    macTitlebarStyles={macTitlebarStyles}
-                  />
-                ) : (
-                  <div className="min-h-8 min-w-0 flex-1" aria-hidden />
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Main content — re-enable hits below the titlebar chrome (search/tabs are pointer-events-none). */}
-          <div className="pointer-events-auto flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-background">
-            {/*
+              {/* Main content — re-enable hits below the titlebar chrome (search/tabs are pointer-events-none). */}
+              <div className="pointer-events-auto flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-background">
+                {/*
               Mounts first in DOM so the editor can portal the bottom bar (stats + tools) here.
               flex order: editor (1), terminal (2), bottom bar (3).
             */}
-            {showEditorBottomChrome ? (
-              <div
-                ref={setEditorBottomBarEl}
-                className="bg-background order-3 min-h-10 shrink-0"
-              />
-            ) : null}
-            <div className="order-1 flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto">
-            {appMode === 'settings' && settingsSection === 'account' ? (
-              <AccountSettingsView
-                user={user}
-                guestMode={guestMode}
-                onSignOut={onSignOut}
-                onConnectGitHub={onConnectGitHub}
-                isMacNotelab={isMacNotelab}
-                macTitlebarStyles={macTitlebarStyles}
-              />
-            ) : appMode === 'settings' && (settingsSection === 'workspace' || settingsSection === 'github') ? (
-              <GitHubSettingsView
-                isMacNotelab={isMacNotelab}
-                macTitlebarStyles={macTitlebarStyles}
-                workspaceRoot={workspaceRoot}
-                onWorkspaceRootChange={handleWorkspaceRootChange}
-              />
-            ) : appMode === 'settings' && settingsSection === 'appearance' ? (
-              <AppearanceSettingsView
-                isMacNotelab={isMacNotelab}
-                macTitlebarStyles={macTitlebarStyles}
-              />
-            ) : appMode === 'settings' && settingsSection === 'shortcuts' ? (
-              <ShortcutsSettingsView
-                isMacNotelab={isMacNotelab}
-                macTitlebarStyles={macTitlebarStyles}
-                bindings={shortcutBindings}
-                onChangeBinding={updateShortcutBinding}
-                onResetAll={resetShortcutsToDefaults}
-                onCaptureModeChange={setShortcutsCaptureActive}
-              />
-            ) : appMode === 'settings' && settingsSection === 'debug' ? (
-              <DebugSettingsView
-                isMacNotelab={isMacNotelab}
-                macTitlebarStyles={macTitlebarStyles}
+                {showEditorBottomChrome ? (
+                  <div
+                    ref={setEditorBottomBarEl}
+                    className="bg-background order-3 min-h-10 shrink-0"
+                  />
+                ) : null}
+                <div className="order-1 flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto">
+                  {appMode === 'settings' && settingsSection === 'account' ? (
+                    <AccountSettingsView
+                      user={user}
+                      guestMode={guestMode}
+                      onSignOut={onSignOut}
+                      onConnectGitHub={onConnectGitHub}
+                      isMacNotelab={isMacNotelab}
+                      macTitlebarStyles={macTitlebarStyles}
+                    />
+                  ) : appMode === 'settings' && (settingsSection === 'workspace' || settingsSection === 'github') ? (
+                    <GitHubSettingsView
+                      isMacNotelab={isMacNotelab}
+                      macTitlebarStyles={macTitlebarStyles}
+                      workspaceRoot={workspaceRoot}
+                      onWorkspaceRootChange={handleWorkspaceRootChange}
+                    />
+                  ) : appMode === 'settings' && settingsSection === 'appearance' ? (
+                    <AppearanceSettingsView
+                      isMacNotelab={isMacNotelab}
+                      macTitlebarStyles={macTitlebarStyles}
+                    />
+                  ) : appMode === 'settings' && settingsSection === 'editor' ? (
+                    <EditorSettingsView
+                      isMacNotelab={isMacNotelab}
+                      macTitlebarStyles={macTitlebarStyles}
+                      settings={editorSettings}
+                      onChange={setEditorSettings}
+                    />
+                  ) : appMode === 'settings' && settingsSection === 'shortcuts' ? (
+                    <ShortcutsSettingsView
+                      isMacNotelab={isMacNotelab}
+                      macTitlebarStyles={macTitlebarStyles}
+                      bindings={shortcutBindings}
+                      onChangeBinding={updateShortcutBinding}
+                      onResetAll={resetShortcutsToDefaults}
+                      onCaptureModeChange={setShortcutsCaptureActive}
+                    />
+                  ) : appMode === 'settings' && settingsSection === 'debug' ? (
+                    <DebugSettingsView
+                      isMacNotelab={isMacNotelab}
+                      macTitlebarStyles={macTitlebarStyles}
+                      workspacePath={dataRootPath}
+                      localGitPath={gitToolbarFolder?.localGitPath ?? null}
+                      githubRemoteUrl={githubRemoteUrl}
+                      foldersCount={folders.length}
+                      notesCount={notesCount}
+                      dirtyByWorkspaceId={dirtyByWorkspaceId}
+                      onRefreshGitStatus={() => void refreshWorkspaceGitStatuses()}
+                    />
+                  ) : appMode === 'settings' && settingsSection === 'indexing' ? (
+                    <EmbeddingsSettingsView
+                      isMacNotelab={isMacNotelab}
+                      macTitlebarStyles={macTitlebarStyles}
+                      workspacePath={dataRootPath}
+                      guestMode={guestMode}
+                      isLoggedIn={Boolean(user?.email || user?.name)}
+                      indexingStatus={indexingStatus}
+                      refreshIndexingStatus={refreshIndexingStatus}
+                      runIndexPending={runIndexPending}
+                      runReindexAll={runReindexAll}
+                    />
+                  ) : appMode === 'notes' ? (
+                    notesContent
+                  ) : null}
+                </div>
+              </div>
+            </div>
+            {showNotesChatChrome && (
+              <NotesChatSidebar
+                open={chatSidebarOpen}
+                notes={notes}
+                folders={folders}
                 workspacePath={dataRootPath}
-                localGitPath={gitToolbarFolder?.localGitPath ?? null}
-                githubRemoteUrl={githubRemoteUrl}
-                foldersCount={folders.length}
-                notesCount={notesCount}
-                dirtyByWorkspaceId={dirtyByWorkspaceId}
-                onRefreshGitStatus={() => void refreshWorkspaceGitStatuses()}
-              />
-            ) : appMode === 'settings' && settingsSection === 'indexing' ? (
-              <EmbeddingsSettingsView
-                isMacNotelab={isMacNotelab}
-                macTitlebarStyles={macTitlebarStyles}
-                workspacePath={dataRootPath}
-                guestMode={guestMode}
-                isLoggedIn={Boolean(user?.email || user?.name)}
+                canAutoIndex={Boolean(user?.email || user?.name) && !guestMode}
                 indexingStatus={indexingStatus}
-                refreshIndexingStatus={refreshIndexingStatus}
                 runIndexPending={runIndexPending}
-                runReindexAll={runReindexAll}
-              />
-            ) : appMode === 'notes' ? (
-              notesContent
-            ) : null}
-            </div>
-          </div>
-          </div>
-          {showNotesChatChrome && (
-            <NotesChatSidebar
-              open={chatSidebarOpen}
-              notes={notes}
-              folders={folders}
-              workspacePath={dataRootPath}
-              canAutoIndex={Boolean(user?.email || user?.name) && !guestMode}
-              indexingStatus={indexingStatus}
-              runIndexPending={runIndexPending}
-              selectedNote={selectedNote}
-              selectNote={selectNote}
-              isMacNotelab={isMacNotelab}
-              sidebarOverlayActive={sidebarOverlayActive}
-            />
-          )}
-          {/* After chat in DOM + z-index above chat: open chat uses transform layers that stack above earlier siblings. */}
-          {showNotes && !zenMode && (
-            <div
-              className={cn(
-                'pointer-events-auto absolute z-[100] flex h-12 items-center',
-                sidebarOverlayActive ? 'right-1.5' : 'right-2',
-                'top-0'
-              )}
-              style={isMacNotelab ? macTitlebarStyles.noDrag : undefined}
-            >
-              <NotesToolbarPill
+                selectedNote={selectedNote}
+                selectNote={selectNote}
                 isMacNotelab={isMacNotelab}
-                macTitlebarStyles={macTitlebarStyles}
-                nativeLiquidGlassAttached={nativeLiquidGlassAttached}
-                onOpenTabOverview={openTabOverview}
-                onNewNote={handleNewNote}
-                chatSidebarOpen={chatSidebarOpen}
-                onToggleChatSidebar={toggleChatSidebar}
+                sidebarOverlayActive={sidebarOverlayActive}
               />
-            </div>
-          )}
-        </div>
+            )}
+            {/* After chat in DOM + z-index above chat: open chat uses transform layers that stack above earlier siblings. */}
+            {showNotes && !zenMode && (
+              <div
+                className={cn(
+                  'pointer-events-auto absolute z-[100] flex h-12 items-center',
+                  sidebarOverlayActive ? 'right-1.5' : 'right-2',
+                  'top-0'
+                )}
+                style={isMacNotelab ? macTitlebarStyles.noDrag : undefined}
+              >
+                <NotesToolbarPill
+                  isMacNotelab={isMacNotelab}
+                  macTitlebarStyles={macTitlebarStyles}
+                  nativeLiquidGlassAttached={nativeLiquidGlassAttached}
+                  onOpenTabOverview={openTabOverview}
+                  onNewNote={handleNewNote}
+                  chatSidebarOpen={chatSidebarOpen}
+                  onToggleChatSidebar={toggleChatSidebar}
+                />
+              </div>
+            )}
+          </div>
         </div>
       </main>
 

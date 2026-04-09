@@ -30,8 +30,10 @@ export function createEmptyNote(folder: string, notePath: string): SavedNote {
     updatedAt: Date.now(),
     content: null,
     folder,
-    title: '',
-    kind: 'note'
+    title: notePath.split('/').pop()?.replace(/\.md$/i, '') ?? 'Untitled',
+    kind: 'note',
+    properties: {},
+    hasFrontmatterBlock: true,
   }
 }
 

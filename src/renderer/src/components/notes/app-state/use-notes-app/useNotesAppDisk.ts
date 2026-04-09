@@ -14,7 +14,7 @@ import { getApi } from '@/lib/auth/auth-bridge'
 import { mergeGithubContentShas, loadGithubContentShas } from '@/lib/workspace/github-shas-storage'
 import { loadSetupState } from '@/lib/workspace/setup-storage'
 import { switchDataRoot } from '@/lib/config/notelab-app-config'
-import { diskBodyToContent } from '@/lib/editor/markdown-to-serialized'
+import { diskBodyToContent, extractDiskTitleHeading } from '@/lib/editor/markdown-to-serialized'
 import {
   DEFAULT_WORKSPACE_ID,
   type SavedNote,
@@ -146,10 +146,11 @@ export function useNotesAppDisk({
             excalidrawScene: n.markdownBody.trim() || null
           }
         }
+        const derivedTitle = extractDiskTitleHeading(n.markdownBody)?.trim() || n.title
         return {
           path: n.note,
           folder: n.folder,
-          title: n.title,
+          title: derivedTitle,
           updatedAt: n.updatedAtMs,
           content: diskBodyToContent(n.markdownBody),
           kind: 'note' as const,
@@ -157,6 +158,9 @@ export function useNotesAppDisk({
           ...(n.titleEmoji !== undefined && n.titleEmoji !== ''
             ? { titleEmoji: n.titleEmoji }
             : {})
+          ,
+          ...(n.properties ? { properties: n.properties } : {}),
+          ...(n.hasFrontmatterBlock ? { hasFrontmatterBlock: true } : {})
         }
       })
       if (idx.folders.length === 0 && idx.notes.length === 0) {
@@ -363,28 +367,26 @@ export function useNotesAppDisk({
   )
 
   const flushNoteMoveToDisk = useCallback(
-    async (notePath: string, _fromFolderId: string, toFolderId: string) => {
+    async (previousPath: string, note: SavedNote) => {
       const api = getApi()
       const cwd = dataRootRef.current
       if (!cwd || !api?.workspace?.writeNoteFile || !api.workspace.renamePath) return
-      /** `setNotes` runs before the next render; `notesRef` may still hold the pre-move folder. */
-      const raw = notesRef.current.find((n) => n.path === notePath)
-      if (!raw) return
-      const note = { ...raw, folder: toFolderId }
-      const targetRoot = toFolderId === DEFAULT_WORKSPACE_ID
-      const targetFolder = foldersRef.current.find((f) => f.folder === toFolderId)
+      const targetRoot = note.folder === DEFAULT_WORKSPACE_ID
+      const targetFolder = foldersRef.current.find((f) => f.folder === note.folder)
       const writeCwd = targetRoot ? cwd : targetFolder?.localGitPath
       if (!writeCwd) return
-      pendingDiskWrites.current.add(notePath)
+      pendingDiskWrites.current.add(previousPath)
       try {
-        const rel = noteMarkdownRelativePath(toFolderId, note)
-        const move = await api.workspace.renamePath({
-          cwd,
-          from: notePath,
-          to: rel
-        })
-        if (!move.ok && move.error !== 'missing_source') {
-          console.error('[notelab] move note file failed', move.error)
+        const rel = noteMarkdownRelativePath(note.folder, note)
+        if (previousPath !== rel) {
+          const move = await api.workspace.renamePath({
+            cwd,
+            from: previousPath,
+            to: rel
+          })
+          if (!move.ok && move.error !== 'missing_source') {
+            console.error('[notelab] move note file failed', move.error)
+          }
         }
         const wr = await api.workspace.writeNoteFile({
           cwd: writeCwd,
@@ -399,13 +401,12 @@ export function useNotesAppDisk({
         }
         await refreshWorkspaceGitStatuses()
       } finally {
-        pendingDiskWrites.current.delete(notePath)
+        pendingDiskWrites.current.delete(previousPath)
       }
     },
     [
       dataRootRef,
       foldersRef,
-      notesRef,
       pendingDiskWrites,
       refreshWorkspaceGitStatuses,
       useGithubApiSync

@@ -27,5 +27,7 @@ export type NotelabIndexOk = {
     kind?: 'note' | 'drawing'
     coverImageSrc?: string
     titleEmoji?: string
+    properties?: Record<string, string>
+    hasFrontmatterBlock?: boolean
   }[]
 }
