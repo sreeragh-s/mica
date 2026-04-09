@@ -1,8 +1,8 @@
 import { useId, type JSX } from "react"
 
-import type { NotelabThemeConfigV1 } from "@/lib/notelab-config-schema"
-import { humanizeThemeTokenKey } from "@/lib/theme-config-utils"
-import { THEME_STYLE_VAR_KEYS } from "@/lib/theme-preset-apply"
+import type { NotelabThemeConfigV1 } from "@/lib/config/notelab-config-schema"
+import { humanizeThemeTokenKey } from "@/lib/theme/theme-config-utils"
+import { THEME_STYLE_VAR_KEYS } from "@/lib/theme/theme-preset-apply"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { ScrollArea } from "@/components/ui/scroll-area"

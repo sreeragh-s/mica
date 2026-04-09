@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { serverFetchJson } from '@/lib/server-api'
+import { serverFetchJson } from '@/lib/core/server-api'
 
 export type BillingStatus = {
   status: 'active' | 'on_hold' | 'cancelled' | 'expired' | 'none'

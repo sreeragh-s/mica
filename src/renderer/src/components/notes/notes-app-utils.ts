@@ -1,8 +1,8 @@
 import type { CSSProperties } from 'react'
 import type { SerializedEditorState } from 'lexical'
 
-import type { SavedNote, Folder } from '@/lib/notes-storage'
-import type { MacTitlebarStyles } from './notes-app-types'
+import type { SavedNote, Folder } from '@/lib/notes/notes-storage'
+import type { MacTitlebarStyles } from '@/components/notes/notes-app-types'
 
 /** True when the editor output matches stored note content (avoids bumping `updatedAt` on selection/mount). */
 export function serializedEditorStatesEqual(

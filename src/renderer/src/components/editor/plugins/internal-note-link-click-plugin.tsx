@@ -4,7 +4,7 @@ import { useEffect } from "react"
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext"
 
 import { useNotelabEditorContext } from "@/components/editor/notelab-editor-context"
-import { parseInternalNoteIdFromHref } from "@/lib/internal-note-link"
+import { parseInternalNoteIdFromHref } from "@/lib/notes/internal-note-link"
 
 /**
  * Intercepts clicks on internal #notelab/note/… links before Lexical's default

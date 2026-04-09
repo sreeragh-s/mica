@@ -70,7 +70,7 @@ import { HR } from "@/components/editor/transformers/markdown-hr-transformer"
 import { IMAGE } from "@/components/editor/transformers/markdown-image-transformer"
 import { TABLE } from "@/components/editor/transformers/markdown-table-transformer"
 import { TWEET } from "@/components/editor/transformers/markdown-tweet-transformer"
-import { enableShareContent, enableSpeechToText } from "@/lib/vite-flags"
+import { enableShareContent, enableSpeechToText } from "@/lib/core/vite-flags"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import {

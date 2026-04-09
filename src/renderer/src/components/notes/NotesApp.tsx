@@ -4,14 +4,14 @@ import { cn } from '@/lib/utils'
 
 import { MAC_WINDOW_OUTER_CORNER_RADIUS_PX } from '../../../../shared/mac-window-chrome'
 
-import type { NotesAppProps } from './notes-app-types'
-import { macTitlebarStyles } from './notes-app-utils'
-import { GitRemoteDialog } from './GitRemoteDialog'
-import { NotesMainArea } from './NotesMainArea'
-import { NotesSidebar } from './NotesSidebar'
-import { useNotesApp } from './useNotesApp'
+import type { NotesAppProps } from '@/components/notes/notes-app-types'
+import { macTitlebarStyles } from '@/components/notes/notes-app-utils'
+import { GitRemoteDialog } from '@/components/notes/git/GitRemoteDialog'
+import { NotesMainArea } from '@/components/notes/editor-area/NotesMainArea'
+import { NotesSidebar } from '@/components/notes/sidebar/NotesSidebar'
+import { useNotesApp } from '@/components/notes/app-state/useNotesApp'
 
-export type { NotesAppProps } from './notes-app-types'
+export type { NotesAppProps } from '@/components/notes/notes-app-types'
 
 export function NotesApp(props: NotesAppProps): JSX.Element {
   const vm = useNotesApp(props)

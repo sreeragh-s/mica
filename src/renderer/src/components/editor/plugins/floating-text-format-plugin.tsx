@@ -59,7 +59,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 import { Separator } from "@/components/ui/separator"
-import { buildInternalNoteLinkHref } from "@/lib/internal-note-link"
+import { buildInternalNoteLinkHref } from "@/lib/notes/internal-note-link"
 import {
   ToggleGroup,
   ToggleGroupItem,

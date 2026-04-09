@@ -12,15 +12,15 @@ import {
   loadThemeConfig,
   loadThemePresetId,
   loadUiFont,
-} from '@/lib/appearance-storage'
+} from '@/lib/theme/appearance-storage'
 import {
   applyThemeToDocument,
   getResolvedAppearanceMode,
-} from '@/lib/theme-preset-apply'
-import { getApi, parseSession } from '@/lib/auth-bridge'
-import { hydrateAppConfig } from '@/lib/notelab-app-config'
-import { clearGuestMode, isGuestMode, setGuestMode } from '@/lib/guest-session'
-import { loadSetupState, saveSetupState } from '@/lib/setup-storage'
+} from '@/lib/theme/theme-preset-apply'
+import { getApi, parseSession } from '@/lib/auth/auth-bridge'
+import { hydrateAppConfig } from '@/lib/config/notelab-app-config'
+import { clearGuestMode, isGuestMode, setGuestMode } from '@/lib/auth/guest-session'
+import { loadSetupState, saveSetupState } from '@/lib/workspace/setup-storage'
 import { UpdateBanner } from '@/components/update/UpdateBanner'
 
 type AppPhase = 'loading' | 'auth' | 'setup' | 'app'

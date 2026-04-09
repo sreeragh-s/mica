@@ -11,9 +11,9 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { humanizeThemeTokenKey } from "@/lib/theme-config-utils"
-import type { NotelabThemeConfigV1 } from "@/lib/notelab-config-schema"
-import { THEME_COLOR_GROUPS, THEME_OTHER_KEYS } from "@/lib/theme-token-groups"
+import { humanizeThemeTokenKey } from "@/lib/theme/theme-config-utils"
+import type { NotelabThemeConfigV1 } from "@/lib/config/notelab-config-schema"
+import { THEME_COLOR_GROUPS, THEME_OTHER_KEYS } from "@/lib/theme/theme-token-groups"
 import { cn } from "@/lib/utils"
 
 export type ThemeConfigEditorPanelProps = {

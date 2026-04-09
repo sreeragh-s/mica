@@ -2,7 +2,7 @@ import type { JSX } from "react"
 // import { Github } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
-import { isMacNotelab } from "@/lib/electron-env"
+import { isMacNotelab } from "@/lib/core/electron-env"
 import { cn } from "@/lib/utils"
 
 type Props = {

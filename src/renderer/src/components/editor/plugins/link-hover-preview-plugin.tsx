@@ -13,7 +13,7 @@ import {
   UrlFavicon,
   ExternalUrlPreviewBody,
 } from "@/components/editor/link-preview-card"
-import { parseInternalNoteIdFromHref } from "@/lib/internal-note-link"
+import { parseInternalNoteIdFromHref } from "@/lib/notes/internal-note-link"
 
 type HoverPayload =
   | {

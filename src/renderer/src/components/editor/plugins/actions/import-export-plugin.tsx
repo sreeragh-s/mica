@@ -9,7 +9,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
-import { serializedStateToMarkdown } from "@/lib/lexical-to-markdown"
+import { serializedStateToMarkdown } from "@/lib/editor/lexical-to-markdown"
 
 export function ImportExportPlugin() {
   const [editor] = useLexicalComposerContext()

@@ -5,11 +5,11 @@ import { useTheme } from "next-themes"
 import {
   loadThemeConfig,
   loadThemePresetId,
-} from "@/lib/appearance-storage"
+} from "@/lib/theme/appearance-storage"
 import {
   applyThemeToDocument,
   THEME_PRESET_CHANGED_EVENT,
-} from "@/lib/theme-preset-apply"
+} from "@/lib/theme/theme-preset-apply"
 
 /**
  * Keeps CSS variables on `document.documentElement` in sync with the selected

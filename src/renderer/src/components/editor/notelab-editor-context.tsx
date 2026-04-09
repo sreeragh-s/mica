@@ -2,7 +2,7 @@
 
 import { createContext, useContext, type ReactNode } from "react"
 
-import type { SavedNote, Folder } from "@/lib/notes-storage"
+import type { SavedNote, Folder } from "@/lib/notes/notes-storage"
 
 export type NotelabEditorContextValue = {
   notes: SavedNote[]

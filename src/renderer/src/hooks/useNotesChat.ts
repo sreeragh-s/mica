@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { EmbeddingsSearchRow } from '@/lib/auth-bridge'
-import { createElectronLogger } from '@/lib/electron-log'
-import type { SavedNote, Folder } from '@/lib/notes-storage'
+import type { EmbeddingsSearchRow } from '@/lib/auth/auth-bridge'
+import { createElectronLogger } from '@/lib/core/electron-log'
+import type { SavedNote, Folder } from '@/lib/notes/notes-storage'
 
 const LOG = '[useNotesChat]'
 const log = createElectronLogger(LOG)

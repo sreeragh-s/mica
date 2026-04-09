@@ -18,7 +18,7 @@ import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { InputGroupTextarea } from "@/components/ui/input-group"
 import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover"
-import { DEFAULT_WORKSPACE_ID } from "@/lib/notes-storage"
+import { DEFAULT_WORKSPACE_ID } from "@/lib/notes/notes-storage"
 import { cn } from "@/lib/utils"
 
 // ---------------------------------------------------------------------------

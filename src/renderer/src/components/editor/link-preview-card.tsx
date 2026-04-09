@@ -11,7 +11,7 @@ import {
   extractPreviewText,
   formatNoteTime,
   type SavedNote,
-} from "@/lib/notes-storage"
+} from "@/lib/notes/notes-storage"
 
 /** Single card surface — use once per floating panel (avoid stacking with an outer wrapper). */
 export function LinkPreviewCardShell({

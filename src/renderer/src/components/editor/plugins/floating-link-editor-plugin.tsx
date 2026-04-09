@@ -66,7 +66,7 @@ import {
   LinkPreviewCardShell,
   UrlFavicon,
 } from "@/components/editor/link-preview-card"
-import { buildInternalNoteLinkHref, parseInternalNoteIdFromHref } from "@/lib/internal-note-link"
+import { buildInternalNoteLinkHref, parseInternalNoteIdFromHref } from "@/lib/notes/internal-note-link"
 
 function FloatingLinkEditor({
   editor,

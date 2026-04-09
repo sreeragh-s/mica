@@ -3,10 +3,10 @@ import { useCallback, useEffect, useState, type JSX } from 'react'
 import { Check, FolderOpen, Loader2, RefreshCw, X } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
-import { isMacNotelab } from '@/lib/electron-env'
-import { saveSetupState } from '@/lib/setup-storage'
+import { isMacNotelab } from '@/lib/core/electron-env'
+import { saveSetupState } from '@/lib/workspace/setup-storage'
 import { cn } from '@/lib/utils'
-import type { NotelabApi } from '@/lib/auth-bridge'
+import type { NotelabApi } from '@/lib/auth/auth-bridge'
 
 type InitialRootResult = {
   path: string

@@ -5,7 +5,7 @@ import { createRoot } from 'react-dom/client'
 
 import App from './App'
 import { TooltipProvider } from './components/ui/tooltip'
-import { applyUiFontToDocument, loadUiFont } from './lib/appearance-storage'
+import { applyUiFontToDocument, loadUiFont } from './lib/theme/appearance-storage'
 
 applyUiFontToDocument(loadUiFont())
 

@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/command"
 import { isDrawingNote } from "@/components/notes/notes-app-utils"
 import type { NotelabEditorContextValue } from "@/components/editor/notelab-editor-context"
-import type { SavedNote } from "@/lib/notes-storage"
+import type { SavedNote } from "@/lib/notes/notes-storage"
 
 export function filterLinkableNotes(
   ctx: NotelabEditorContextValue,

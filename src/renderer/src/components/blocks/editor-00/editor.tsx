@@ -15,7 +15,7 @@ import { cn } from "@/lib/utils"
 import { NotelabEditorProvider } from "@/components/editor/notelab-editor-context"
 import { nodes } from "@/components/editor/nodes/nodes"
 import { Plugins } from "@/components/editor/plugins/plugins"
-import type { SavedNote, Folder } from "@/lib/notes-storage"
+import type { SavedNote, Folder } from "@/lib/notes/notes-storage"
 
 const editorConfig: InitialConfigType = {
   namespace: "Editor",

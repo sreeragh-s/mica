@@ -20,7 +20,7 @@ import {
 } from "lexical"
 import { useEffect } from "react"
 
-import { markdownToSerializedState } from "@/lib/markdown-to-serialized"
+import { markdownToSerializedState } from "@/lib/editor/markdown-to-serialized"
 
 /**
  * `PASTE_COMMAND` is fired with a ClipboardEvent from the `paste` listener, but also with an
