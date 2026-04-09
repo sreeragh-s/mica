@@ -314,6 +314,11 @@ export type NotelabApi = {
       | { ok: false; error: string }
     >
   }
+  log?: {
+    info: (scope: string, ...args: unknown[]) => void
+    warn: (scope: string, ...args: unknown[]) => void
+    error: (scope: string, ...args: unknown[]) => void
+  }
 }
 
 export function getApi(): NotelabApi | null {

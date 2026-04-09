@@ -25,8 +25,7 @@ import log from 'electron-log/main'
 
 declare const __APP_SERVER_URL__: string
 
-type UpdateStatus = 'idle' | 'available' | 'error'
-
+    
 type UpdateState =
   | { status: 'idle' }
   | { status: 'available'; version: string; downloadUrl: string }

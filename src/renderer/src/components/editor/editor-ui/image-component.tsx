@@ -327,15 +327,6 @@ export default function ImageComponent({
     setSelected,
   ])
 
-  const setShowCaption = () => {
-    editor.update(() => {
-      const node = $getNodeByKey(nodeKey)
-      if ($isImageNode(node)) {
-        node.setShowCaption(true)
-      }
-    })
-  }
-
   const onResizeEnd = (
     nextWidth: "inherit" | number,
     nextHeight: "inherit" | number

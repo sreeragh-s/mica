@@ -27,5 +27,7 @@ function HeadingIcons({ n }: { n: number }) {
       return <Heading2Icon className="size-4" />
     case 3:
       return <Heading3Icon className="size-4" />
+    default:
+      return null
   }
 }

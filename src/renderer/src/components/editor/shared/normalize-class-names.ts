@@ -8,11 +8,12 @@
 
 export default function normalizeClassNames(
   ...classNames: Array<typeof undefined | boolean | null | string>
-): Array<string> {
-  const rval = []
+): string[] {
+  const rval: string[] = []
   for (const className of classNames) {
     if (className && typeof className === "string") {
-      for (const [s] of Array.from(className.matchAll(/\S+/g))) {
+      for (const match of Array.from(className.matchAll(/\S+/g))) {
+        const s = match[0]
         rval.push(s)
       }
     }

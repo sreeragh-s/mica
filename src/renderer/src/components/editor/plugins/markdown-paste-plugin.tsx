@@ -12,6 +12,7 @@ import {
   $getSelection,
   $isRangeSelection,
   COMMAND_PRIORITY_CRITICAL,
+  PasteCommandType,
   isDOMNode,
   isSelectionCapturedInDecoratorInput,
   PASTE_COMMAND,
@@ -108,7 +109,7 @@ export function MarkdownPastePlugin(): null {
     return editor.registerCommand(
       PASTE_COMMAND,
       (event: Event) => {
-        const [, files, hasTextContent] = eventFiles(event)
+        const [, files, hasTextContent] = eventFiles(event as PasteCommandType)
         if (files.length > 0 && !hasTextContent) return false
         if (
           isDOMNode(event.target) &&

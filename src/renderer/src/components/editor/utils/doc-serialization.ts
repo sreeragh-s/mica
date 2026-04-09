@@ -25,7 +25,7 @@ async function* generateReader<T = any>(
 async function readBytestoString(
   reader: ReadableStreamDefaultReader
 ): Promise<string> {
-  const output = []
+  const output: string[] = []
   const chunkSize = 0x8000
   for await (const value of generateReader(reader)) {
     for (let i = 0; i < value.length; i += chunkSize) {
@@ -65,7 +65,7 @@ export async function docFromHash(
     array[i] = b64.charCodeAt(i)
   }
   const closed = writer.write(array).then(() => writer.close())
-  const output = []
+  const output: string[] = []
   for await (const chunk of generateReader(
     ds.readable.pipeThrough(new TextDecoderStream()).getReader()
   )) {

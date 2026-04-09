@@ -34,12 +34,11 @@ interface CounterCharacterPluginProps {
   charset?: "UTF-8" | "UTF-16"
 }
 
-const strlen = (text: string, charset: "UTF-8" | "UTF-16") => {
+const strlen = (text: string, charset: "UTF-8" | "UTF-16"): number => {
   if (charset === "UTF-8") {
     return utf8Length(text)
-  } else if (charset === "UTF-16") {
-    return text.length
   }
+  return text.length
 }
 
 const countWords = (text: string) => {

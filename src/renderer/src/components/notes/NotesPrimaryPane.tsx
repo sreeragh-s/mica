@@ -7,10 +7,9 @@ import { Editor } from '@/components/blocks/editor-00/editor'
 import { Button } from '@/components/ui/button'
 import type { SavedNote, Folder } from '@/lib/notes-storage'
 import { ExcalidrawView } from './ExcalidrawView'
-import { WorkspaceNotesList } from './WorkspaceNotesList'
 import { NOTE_DRAG_MIME } from './notes-app-utils'
 
-export type NotesPrimaryPaneProps = {
+export type NotesPrimaryPaneProps = { 
   selectedNote: SavedNote | null
   focusedFolder: Folder | null
   notes: SavedNote[]
@@ -32,10 +31,8 @@ export type NotesPrimaryPaneProps = {
 
 export function NotesPrimaryPane({
   selectedNote,
-  focusedFolder,
   notes,
   folders,
-  notesByFolder,
   canCreateNote,
   onSelectNote,
   onNewNote,

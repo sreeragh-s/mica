@@ -152,7 +152,6 @@ export function NotesConflictView({ vm }: { vm: NotesAppViewModel }): JSX.Elemen
   const {
     conflictViewPath,
     closeConflictView,
-    handleGitAcceptResolution,
     refreshGitSourceControl,
     gitToolbarFolder,
     isMacNotelab,

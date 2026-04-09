@@ -72,6 +72,7 @@ function composeRefs<T>(...refs: PossibleRef<T>[]): React.RefCallback<T> {
         }
       }
     }
+    return undefined
   }
 }
 
@@ -1475,6 +1476,8 @@ function ColorPickerInput(props: ColorPickerInputProps) {
       />
     )
   }
+
+  return null
 }
 
 const inputGroupItemVariants = cva(
