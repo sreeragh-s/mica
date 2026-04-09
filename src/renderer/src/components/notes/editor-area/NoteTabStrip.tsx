@@ -199,7 +199,7 @@ export function NoteTabStrip({
     >
       <div
         className={cn(
-          'isolate flex h-12 w-full min-w-0 flex-1 items-stretch overflow-hidden rounded-full px-3',
+          'isolate flex h-8 w-full min-w-0 flex-1 items-stretch overflow-hidden rounded-full',
           NOTES_APP_PILL_SURFACE
         )}
         role="tablist"

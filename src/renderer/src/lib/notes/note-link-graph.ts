@@ -26,6 +26,67 @@ export function collectInternalNoteLinkTargets(
   return [...out]
 }
 
+export type InternalNoteLinkMention = {
+  target: string
+  linkText: string
+  contextText: string
+}
+
+function extractNodeText(node: unknown): string {
+  if (node === null || node === undefined) return ""
+  if (typeof node !== "object") return ""
+  const o = node as Record<string, unknown>
+  if (o.type === "text" && typeof o.text === "string") return o.text
+  if (Array.isArray(o.children)) {
+    return o.children.map(extractNodeText).join("")
+  }
+  return ""
+}
+
+function normalizeSnippet(text: string, maxLen = 180): string {
+  const normalized = text.replace(/\s+/g, " ").trim()
+  if (!normalized) return ""
+  return normalized.length > maxLen ? `${normalized.slice(0, maxLen).trimEnd()}…` : normalized
+}
+
+/** Collect every internal note link with the surrounding block text for previews/highlights. */
+export function collectInternalNoteLinkMentions(
+  serialized: SerializedEditorState | null | undefined
+): InternalNoteLinkMention[] {
+  const mentions: InternalNoteLinkMention[] = []
+
+  function walk(node: unknown): void {
+    if (node === null || node === undefined) return
+    if (typeof node !== "object") return
+
+    const o = node as Record<string, unknown>
+    const children = Array.isArray(o.children) ? o.children : null
+
+    if (children) {
+      const contextText = normalizeSnippet(children.map(extractNodeText).join(""))
+      for (const child of children) {
+        if (child && typeof child === "object") {
+          const childObj = child as Record<string, unknown>
+          if (childObj.type === "link" && typeof childObj.url === "string") {
+            const target = parseInternalNotePathFromHref(childObj.url)
+            if (target) {
+              mentions.push({
+                target,
+                linkText: normalizeSnippet(extractNodeText(childObj), 80),
+                contextText,
+              })
+            }
+          }
+        }
+        walk(child)
+      }
+    }
+  }
+
+  walk(serialized?.root)
+  return mentions
+}
+
 export type NoteGraphNode = {
   id: string
   title: string

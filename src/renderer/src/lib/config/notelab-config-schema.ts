@@ -29,6 +29,11 @@ export type NotelabEditorSettingsV1 = {
   newNotesStartWithFrontmatter?: boolean
 }
 
+export type NotelabAppearanceSettingsV1 = {
+  sidebarInsetView?: boolean
+  animationsEnabled?: boolean
+}
+
 /** Persisted at <workspaceRoot>/.notelab.config (Notelab). */
 export type NotelabConfigFileV1 = {
   version: 1
@@ -44,6 +49,7 @@ export type NotelabConfigFileV1 = {
   notes?: unknown
   githubContentShas?: Record<string, string>
   editorSettings?: NotelabEditorSettingsV1
+  appearanceSettings?: NotelabAppearanceSettingsV1
   /** All known workspaces (path, name, optional remoteUrl). */
   workspaces?: SavedWorkspace[]
 }

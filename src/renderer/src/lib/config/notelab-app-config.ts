@@ -5,6 +5,7 @@ import type {
   NotelabSetupState,
   SavedWorkspace,
   NotelabEditorSettingsV1,
+  NotelabAppearanceSettingsV1,
 } from "./notelab-config-schema"
 import { normalizeNotesStateFromStorage } from "../notes/notes-state-normalize"
 import { NotesState } from "../notes/notes-types"
@@ -328,6 +329,13 @@ function defaultEditorSettings(): Required<NotelabEditorSettingsV1> {
   }
 }
 
+function defaultAppearanceSettings(): Required<NotelabAppearanceSettingsV1> {
+  return {
+    sidebarInsetView: true,
+    animationsEnabled: true,
+  }
+}
+
 export function loadEditorSettings(): Required<NotelabEditorSettingsV1> {
   const defaults = defaultEditorSettings()
   const raw = cache.editorSettings
@@ -354,6 +362,35 @@ export function saveEditorSettings(settings: NotelabEditorSettingsV1): void {
     version: 1,
     editorSettings: {
       ...loadEditorSettings(),
+      ...settings,
+    },
+  })
+}
+
+export function loadAppearanceSettings(): Required<NotelabAppearanceSettingsV1> {
+  const defaults = defaultAppearanceSettings()
+  const raw = cache.appearanceSettings
+  if (!raw || typeof raw !== "object") return defaults
+  return {
+    sidebarInsetView:
+      typeof raw.sidebarInsetView === "boolean"
+        ? raw.sidebarInsetView
+        : defaults.sidebarInsetView,
+    animationsEnabled:
+      typeof raw.animationsEnabled === "boolean"
+        ? raw.animationsEnabled
+        : defaults.animationsEnabled,
+  }
+}
+
+export function saveAppearanceSettings(
+  settings: NotelabAppearanceSettingsV1
+): void {
+  setCache({
+    ...cache,
+    version: 1,
+    appearanceSettings: {
+      ...loadAppearanceSettings(),
       ...settings,
     },
   })

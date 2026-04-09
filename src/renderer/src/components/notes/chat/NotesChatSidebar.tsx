@@ -1,15 +1,18 @@
 import {
   AlertCircleIcon,
+  ArrowLeftIcon,
   BookOpenIcon,
   BotIcon,
   CopyIcon,
   HistoryIcon,
+  Link2Icon,
   Loader2Icon,
   ArrowUpIcon,
   PaperclipIcon,
   PlusIcon,
   ScanTextIcon,
   Search,
+  SparklesIcon,
   XIcon,
 } from 'lucide-react'
 import {
@@ -76,6 +79,7 @@ import {
 } from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
 import { Separator } from '@/components/ui/separator'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { copyPlainTextToClipboard } from '@/lib/core/copy-to-clipboard'
 import {
@@ -83,8 +87,14 @@ import {
   type SearchMatchSegment,
 } from '@/lib/notes/notes-search'
 import { cn } from '@/lib/utils'
-import { DEFAULT_WORKSPACE_ID, type SavedNote, type Folder } from '@/lib/notes/notes-storage'
+import {
+  DEFAULT_WORKSPACE_ID,
+  formatNoteTime,
+  type SavedNote,
+  type Folder,
+} from '@/lib/notes/notes-storage'
 import { macTitlebarStyles, NOTES_APP_PILL_SURFACE } from '@/components/notes/notes-app-utils'
+import { collectInternalNoteLinkMentions } from '@/lib/notes/note-link-graph'
 import type { ChatHistoryMeta } from '@/hooks/useNotesChat'
 import { useNotesChat } from '@/hooks/useNotesChat'
 import { useBillingStatus } from '@/hooks/useBillingStatus'
@@ -94,6 +104,8 @@ import type { NotesAppViewModel } from '@/components/notes/app-state/useNotesApp
 // ---------------------------------------------------------------------------
 // Props
 // ---------------------------------------------------------------------------
+
+export type NotesChatSidebarMode = 'chat' | 'linked' | 'linking'
 
 export type NotesChatSidebarProps = {
   open: boolean
@@ -105,6 +117,8 @@ export type NotesChatSidebarProps = {
   runIndexPending: NotesAppViewModel['runIndexPending']
   selectedNote: SavedNote | null
   selectNote: (notePath: string) => void
+  mode: NotesChatSidebarMode
+  onModeChange: (mode: NotesChatSidebarMode) => void
   /** Adds extra top offset to clear the macOS titlebar + pill area. */
   isMacNotelab?: boolean
   sidebarOverlayActive?: boolean
@@ -228,6 +242,8 @@ export function NotesChatSidebar({
   runIndexPending,
   selectedNote,
   selectNote,
+  mode,
+  onModeChange,
   isMacNotelab,
   sidebarOverlayActive,
 }: NotesChatSidebarProps): JSX.Element {
@@ -260,6 +276,8 @@ export function NotesChatSidebar({
           workspacePath={workspacePath}
           selectNote={selectNote}
           selectedNote={selectedNote}
+          mode={mode}
+          onModeChange={onModeChange}
           sidebarOverlayActive={sidebarOverlayActive}
         />
       </div>
@@ -278,6 +296,8 @@ function NotesChatSidebarInner({
   runIndexPending,
   selectedNote,
   selectNote,
+  mode,
+  onModeChange,
   isMacNotelab,
   sidebarOverlayActive,
 }: NotesChatSidebarProps): JSX.Element {
@@ -364,6 +384,78 @@ function NotesChatSidebarInner({
   )
 
   const validNoteIds = useMemo(() => new Set(notes.map((n) => n.path)), [notes])
+  const workspacesById = useMemo(
+    () =>
+      new Map(
+        folders.map((folder) => [folder.folder, folder.name ?? 'Workspace'])
+      ),
+    [folders]
+  )
+
+  const noteLinkData = useMemo(() => {
+    if (!selectedNote || selectedNote.kind !== 'note') {
+      return { backlinks: [], outgoing: [] } as const
+    }
+
+    const noteById = new Map(notes.map((note) => [note.path, note]))
+    const outgoingMentions = collectInternalNoteLinkMentions(selectedNote.content)
+      .filter((mention) => mention.target !== selectedNote.path)
+      .reduce<Map<string, { note: SavedNote; contexts: string[]; linkText: string[] }>>((acc, mention) => {
+        const targetNote = noteById.get(mention.target)
+        if (!targetNote) return acc
+        const existing = acc.get(targetNote.path)
+        if (existing) {
+          if (mention.contextText && !existing.contexts.includes(mention.contextText)) {
+            existing.contexts.push(mention.contextText)
+          }
+          if (mention.linkText && !existing.linkText.includes(mention.linkText)) {
+            existing.linkText.push(mention.linkText)
+          }
+          return acc
+        }
+        acc.set(targetNote.path, {
+          note: targetNote,
+          contexts: mention.contextText ? [mention.contextText] : [],
+          linkText: mention.linkText ? [mention.linkText] : [],
+        })
+        return acc
+      }, new Map())
+
+    const backlinks = notes
+      .filter((note) => note.path !== selectedNote.path && note.kind === 'note')
+      .flatMap((note) =>
+        collectInternalNoteLinkMentions(note.content)
+          .filter((mention) => mention.target === selectedNote.path)
+          .slice(0, 6)
+          .map((mention) => ({ note, mention }))
+      )
+      .reduce<Map<string, { note: SavedNote; contexts: string[] }>>((acc, entry) => {
+        const existing = acc.get(entry.note.path)
+        if (existing) {
+          if (entry.mention.contextText && !existing.contexts.includes(entry.mention.contextText)) {
+            existing.contexts.push(entry.mention.contextText)
+          }
+          return acc
+        }
+        acc.set(entry.note.path, {
+          note: entry.note,
+          contexts: entry.mention.contextText ? [entry.mention.contextText] : [],
+        })
+        return acc
+      }, new Map())
+
+    return {
+      backlinks: Array.from(backlinks.values()).sort((a, b) => b.note.updatedAt - a.note.updatedAt),
+      outgoing: Array.from(outgoingMentions.values()).sort((a, b) => b.note.updatedAt - a.note.updatedAt),
+    } as const
+  }, [notes, selectedNote])
+
+  useEffect(() => {
+    if (mode === 'chat') return
+    if (!selectedNote || selectedNote.kind !== 'note') {
+      onModeChange('chat')
+    }
+  }, [mode, onModeChange, selectedNote])
 
   const handleSubmit = useCallback(
     async (e?: { preventDefault(): void }) => {
@@ -487,6 +579,24 @@ function NotesChatSidebarInner({
     />
   )
 
+  const modeTabs = (
+    <div className="px-3 pb-2">
+      <Tabs onValueChange={(value) => onModeChange(value as NotesChatSidebarMode)} value={mode}>
+        <TabsList className="grid w-full grid-cols-3 rounded-xl bg-muted/60 p-1">
+          <TabsTrigger className="text-xs" value="chat">
+            Chat
+          </TabsTrigger>
+          <TabsTrigger className="text-xs" value="linked">
+            Linked
+          </TabsTrigger>
+          <TabsTrigger className="text-xs" value="linking">
+            Linking
+          </TabsTrigger>
+        </TabsList>
+      </Tabs>
+    </div>
+  )
+
   if (showHistory) {
     return (
       <aside
@@ -494,6 +604,7 @@ function NotesChatSidebarInner({
         className="border-border bg-background flex min-h-0 min-w-0 flex-1 flex-col"
       >
         {pillSpacer}
+        {modeTabs}
         <ChatToolbarRow
           folders={folders}
           filterWorkspaceId={filterWorkspaceId}
@@ -538,6 +649,7 @@ function NotesChatSidebarInner({
         className="border-border bg-background flex min-h-0 min-w-0 flex-1 flex-col"
       >
         {pillSpacer}
+        {modeTabs}
         <LocalModelSetupPanel
           onClose={() => setLocalSetupOpen(false)}
           ollama={ollama}
@@ -569,6 +681,17 @@ function NotesChatSidebarInner({
       className="border-border bg-background relative flex min-h-0 min-w-0 flex-1 flex-col"
     >
       {pillSpacer}
+      {modeTabs}
+      {mode !== 'chat' ? (
+        <NoteLinksPanel
+          foldersById={workspacesById}
+          mode={mode}
+          noteLinkData={noteLinkData}
+          onOpenNote={selectNote}
+          selectedNote={selectedNote}
+        />
+      ) : (
+        <>
       <ChatToolbarRow
         folders={folders}
         filterWorkspaceId={filterWorkspaceId}
@@ -782,6 +905,8 @@ function NotesChatSidebarInner({
           </InputGroupAddon>
         </InputGroup>
       </form>
+        </>
+      )}
     </aside>
   )
 }
@@ -943,5 +1068,115 @@ function HistoryItem({
         </div>
       </button>
     </li>
+  )
+}
+
+function NoteLinksPanel({
+  selectedNote,
+  foldersById,
+  noteLinkData,
+  mode,
+  onOpenNote,
+}: {
+  selectedNote: SavedNote | null
+  foldersById: Map<string, string>
+  noteLinkData: {
+    backlinks: Array<{ note: SavedNote; contexts: string[] }>
+    outgoing: Array<{ note: SavedNote; contexts: string[]; linkText: string[] }>
+  }
+  mode: NotesChatSidebarMode
+  onOpenNote: (notePath: string) => void
+}): JSX.Element {
+  if (!selectedNote || selectedNote.kind !== 'note') {
+    return (
+      <div className="flex flex-1 items-center justify-center px-6 py-10 text-center">
+        <div className="max-w-xs space-y-2">
+          <div className="bg-muted mx-auto flex size-10 items-center justify-center rounded-2xl">
+            <Link2Icon className="text-muted-foreground size-5" />
+          </div>
+          <p className="text-sm font-medium">Select a note to browse links</p>
+          <p className="text-muted-foreground text-xs">
+            Link relationships are available for markdown notes.
+          </p>
+        </div>
+      </div>
+    )
+  }
+
+  const items = mode === 'linked' ? noteLinkData.backlinks : noteLinkData.outgoing
+  const emptyLabel =
+    mode === 'linked'
+      ? 'No notes link back to this note yet.'
+      : 'This note is not linking to any other notes yet.'
+
+  return (
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="border-border border-b px-3 pb-3">
+        <div className="bg-muted/35 rounded-2xl border border-border/60 px-3 py-3">
+          <div className="flex items-center gap-2">
+            {mode === 'linked' ? (
+              <ArrowLeftIcon className="text-muted-foreground size-4" />
+            ) : (
+              <SparklesIcon className="text-muted-foreground size-4" />
+            )}
+            <p className="min-w-0 truncate text-sm font-medium">
+              {selectedNote.title.trim() || 'Untitled'}
+            </p>
+          </div>
+          <p className="text-muted-foreground mt-1 text-xs leading-relaxed">
+            {mode === 'linked'
+              ? 'Notes that reference the current note.'
+              : 'Notes referenced from the current note, with the exact linked section preview.'}
+          </p>
+        </div>
+      </div>
+      <div className="flex-1 overflow-y-auto p-3">
+        {items.length === 0 ? (
+          <div className="text-muted-foreground flex h-full items-center justify-center rounded-2xl border border-dashed px-6 text-center text-sm">
+            {emptyLabel}
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {items.map((item) => (
+              <button
+                key={item.note.path}
+                className="bg-card hover:bg-accent/35 border-border/70 w-full rounded-2xl border p-3 text-left transition-colors"
+                onClick={() => onOpenNote(item.note.path)}
+                type="button"
+              >
+                <div className="flex items-start gap-3">
+                  <div className="bg-muted flex size-9 shrink-0 items-center justify-center rounded-xl">
+                    <BookOpenIcon className="text-muted-foreground size-4" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="truncate text-sm font-medium">
+                        {item.note.title.trim() || 'Untitled'}
+                      </p>
+                      <span className="text-muted-foreground shrink-0 text-[11px]">
+                        {formatNoteTime(item.note.updatedAt)}
+                      </span>
+                    </div>
+                    <p className="text-muted-foreground mt-0.5 text-xs">
+                      {foldersById.get(item.note.folder) ?? 'Workspace'}
+                    </p>
+                    <div className="mt-3 space-y-2">
+                      {item.contexts.slice(0, 3).map((context, index) => (
+                        <div
+                          key={`${item.note.path}-${index}`}
+                          className="bg-muted/45 rounded-xl border border-border/50 px-3 py-2"
+                        >
+                          <p className="text-foreground/90 text-xs leading-relaxed">{context}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
   )
 }

@@ -46,6 +46,7 @@ import {
   DEFAULT_THEME_PRESET_ID,
 } from '@/lib/theme/theme-preset-apply'
 import type { NotelabThemeConfigV1 } from '@/lib/config/notelab-config-schema'
+import type { NotelabAppearanceSettingsV1 } from '@/lib/config/notelab-config-schema'
 import type { MacTitlebarStyles } from '@/components/notes/notes-app-types'
 
 function ThemeSwatchStrip({
@@ -81,11 +82,41 @@ const THEME_PRESET_SELECT_OPTIONS = [
 export type AppearanceSettingsViewProps = {
   isMacNotelab: boolean
   macTitlebarStyles: MacTitlebarStyles
+  settings: Required<NotelabAppearanceSettingsV1>
+  onChange: (patch: Partial<NotelabAppearanceSettingsV1>) => void
+}
+
+type ToggleRowProps = {
+  label: string
+  description: string
+  value: boolean
+  onChange: (next: boolean) => void
+}
+
+function ToggleRow({ label, description, value, onChange }: ToggleRowProps): JSX.Element {
+  return (
+    <div className="flex items-start justify-between gap-4 rounded-lg border p-4">
+      <div className="min-w-0 flex-1">
+        <h3 className="text-sm font-medium">{label}</h3>
+        <p className="text-muted-foreground mt-1 text-sm leading-relaxed">{description}</p>
+      </div>
+      <Button
+        type="button"
+        variant={value ? 'default' : 'outline'}
+        size="sm"
+        onClick={() => onChange(!value)}
+      >
+        {value ? 'On' : 'Off'}
+      </Button>
+    </div>
+  )
 }
 
 export function AppearanceSettingsView({
   isMacNotelab,
-  macTitlebarStyles
+  macTitlebarStyles,
+  settings,
+  onChange
 }: AppearanceSettingsViewProps): JSX.Element {
   const { theme, setTheme, resolvedTheme } = useTheme()
   const [font, setFont] = useState<UiFontId>(() => loadUiFont())
@@ -358,6 +389,24 @@ export function AppearanceSettingsView({
         <p className="text-muted-foreground max-w-md text-xs">
           {UI_FONT_OPTIONS.find((o) => o.id === font)?.sample}
         </p>
+      </section>
+
+      <section className="flex flex-col gap-3">
+        <Label className="text-foreground text-sm font-medium">Motion and layout</Label>
+        <div className="flex flex-col gap-3">
+          <ToggleRow
+            label="Sidebar inset view"
+            description="Use the inset-style sidebar surface. Turn this off for a standard flat sidebar."
+            value={settings.sidebarInsetView}
+            onChange={(next) => onChange({ sidebarInsetView: next })}
+          />
+          <ToggleRow
+            label="Animations"
+            description="Enable interface animations and transitions in the notes sidebar."
+            value={settings.animationsEnabled}
+            onChange={(next) => onChange({ animationsEnabled: next })}
+          />
+        </div>
       </section>
     </div>
   )

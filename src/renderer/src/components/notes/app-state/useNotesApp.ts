@@ -25,7 +25,9 @@ import {
 } from '@/lib/config/shortcuts-storage'
 import {
   loadEditorSettings,
+  loadAppearanceSettings,
   saveEditorSettings,
+  saveAppearanceSettings,
 } from '@/lib/config/notelab-app-config'
 import {
   buildFolderPath,
@@ -107,11 +109,15 @@ export function useNotesApp({
   const [shortcutBindings, setShortcutBindings] =
     useState<ShortcutBindingsMap>(loadShortcutBindings)
   const [editorSettings, setEditorSettings] = useState(() => loadEditorSettings())
+  const [appearanceSettings, setAppearanceSettings] = useState(() =>
+    loadAppearanceSettings()
+  )
   const shortcutBindingsRef = useRef(shortcutBindings)
   shortcutBindingsRef.current = shortcutBindings
   const shortcutsSuppressedRef = useRef(false)
 
   const [chatSidebarOpen, setChatSidebarOpen] = useState(false)
+  const [chatSidebarMode, setChatSidebarMode] = useState<'chat' | 'linked' | 'linking'>('chat')
   const [graphViewOpen, setGraphViewOpen] = useState(false)
   const [canvasViewOpen, setCanvasViewOpen] = useState(false)
   const [tabOverviewOpen, setTabOverviewOpen] = useState(false)
@@ -1038,7 +1044,7 @@ export function useNotesApp({
     nativeLiquidGlassAttached,
     backToNotes,
     toggleSidebar,
-    toggleChatSidebar,
+    toggleChatSidebar: toggleChatSidebarBase,
     closeGraphView,
     openGraphView,
     openTabOverview,
@@ -1088,6 +1094,24 @@ export function useNotesApp({
     lastZenEscPressRef
   })
 
+  const toggleChatSidebar = useCallback(() => {
+    if (chatSidebarOpen && chatSidebarMode === 'chat') {
+      toggleChatSidebarBase()
+      return
+    }
+    setChatSidebarMode('chat')
+    setChatSidebarOpen(true)
+  }, [chatSidebarMode, chatSidebarOpen, toggleChatSidebarBase])
+
+  const openLinkedNotesSidebar = useCallback(() => {
+    if (chatSidebarOpen && chatSidebarMode === 'linked') {
+      setChatSidebarOpen(false)
+      return
+    }
+    setChatSidebarMode('linked')
+    setChatSidebarOpen(true)
+  }, [chatSidebarMode, chatSidebarOpen])
+
   const startFolderCreate = useCallback(() => {
     setFolderCreateOpen(true)
     setFolderDraft('')
@@ -1121,10 +1145,16 @@ export function useNotesApp({
     settingsSection,
     setSettingsSection,
     editorSettings,
+    appearanceSettings,
     setEditorSettings: (patch: Partial<typeof editorSettings>) => {
       const next = { ...editorSettings, ...patch }
       setEditorSettings(next)
       saveEditorSettings(next)
+    },
+    setAppearanceSettings: (patch: Partial<typeof appearanceSettings>) => {
+      const next = { ...appearanceSettings, ...patch }
+      setAppearanceSettings(next)
+      saveAppearanceSettings(next)
     },
     folders,
     notesByFolder,
@@ -1253,7 +1283,10 @@ export function useNotesApp({
     gitRemoteDialogOpen,
     setGitRemoteDialogOpen,
     chatSidebarOpen,
+    chatSidebarMode,
     toggleChatSidebar,
+    setChatSidebarMode,
+    openLinkedNotesSidebar,
     triggerRenameSelectedRef,
     openShortcuts,
   }

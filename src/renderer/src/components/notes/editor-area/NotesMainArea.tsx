@@ -17,6 +17,7 @@ import { NotesGraphView } from '@/components/notes/views/NotesGraphView'
 import { NotesChatSidebar } from '@/components/notes/chat/NotesChatSidebar'
 import { NoteTabStrip } from '@/components/notes/editor-area/NoteTabStrip'
 import { NotesPrimaryPane, getNoteDragId, isNoteDragEvent } from '@/components/notes/editor-area/NotesPrimaryPane'
+import { NotesSearchBar } from '@/components/notes/editor-area/NotesSearchBar'
 import { NotesTabOverview } from '@/components/notes/views/NotesTabOverview'
 import { NotesToolbarPill } from '@/components/notes/editor-area/NotesToolbarPill'
 import { ShortcutsSettingsView } from '@/components/notes/settings/ShortcutsSettingsView'
@@ -87,6 +88,7 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
     reorderOpenNoteTabs,
     closeNoteTab,
     sidebarCollapsed,
+    toggleSidebar,
     handleNoteSerializedChange,
     handleNewNote,
     handleExcalidrawSceneChange,
@@ -98,6 +100,8 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
     shortcutBindings,
     editorSettings,
     setEditorSettings,
+    appearanceSettings,
+    setAppearanceSettings,
     updateShortcutBinding,
     resetShortcutsToDefaults,
     setShortcutsCaptureActive,
@@ -120,6 +124,8 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
     handleWorkspaceRootChange,
     chatSidebarOpen,
     toggleChatSidebar,
+    chatSidebarMode,
+    openLinkedNotesSidebar,
   } = vm
 
   const [zenHintVisible, setZenHintVisible] = useState(false)
@@ -336,10 +342,34 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
                     isMacNotelab && 'pointer-events-none'
                   )}
                 >
+                  {/* Search bar row */}
+                  {showNotes ? (
+                    <NotesSearchBar
+                      notes={notes}
+                      folders={folders}
+                      onSelectNote={selectNote}
+                      macTitlebarStyles={macTitlebarStyles}
+                      sidebarOverlayActive={sidebarOverlayActive}
+                      isMacNotelab={isMacNotelab}
+                      nativeLiquidGlassAttached={nativeLiquidGlassAttached}
+                      sidebarCollapsed={sidebarCollapsed}
+                      toggleSidebar={toggleSidebar}
+                    />
+                  ) : (
+                    <div
+                      className={cn(
+                        'h-12 shrink-0',
+                        sidebarOverlayActive && 'pr-1.5',
+                        isMacNotelab && 'pointer-events-none'
+                      )}
+                      aria-hidden
+                    />
+                  )}
+
                   {/* Tab strip row */}
                   <div
                     className={cn(
-                      'flex min-h-0 w-full min-w-0 shrink-0 items-center',
+                      'flex min-h-0 w-full min-w-0 shrink-0 items-center pb-1.5',
                       !sidebarOverlayActive && isMacNotelab && sidebarCollapsed && 'pl-[92px]',
                       isMacNotelab && 'pointer-events-none'
                     )}
@@ -356,7 +386,7 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
                         macTitlebarStyles={macTitlebarStyles}
                       />
                     ) : (
-                      <div className="h-12 min-w-0 flex-1" aria-hidden />
+                      <div className="min-h-8 min-w-0 flex-1" aria-hidden />
                     )}
                   </div>
                 </div>
@@ -395,6 +425,8 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
                     <AppearanceSettingsView
                       isMacNotelab={isMacNotelab}
                       macTitlebarStyles={macTitlebarStyles}
+                      settings={appearanceSettings}
+                      onChange={setAppearanceSettings}
                     />
                   ) : appMode === 'settings' && settingsSection === 'editor' ? (
                     <EditorSettingsView
@@ -453,6 +485,8 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
                 runIndexPending={runIndexPending}
                 selectedNote={selectedNote}
                 selectNote={selectNote}
+                mode={chatSidebarMode}
+                onModeChange={vm.setChatSidebarMode}
                 isMacNotelab={isMacNotelab}
                 sidebarOverlayActive={sidebarOverlayActive}
               />
@@ -475,6 +509,8 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
                   onNewNote={handleNewNote}
                   chatSidebarOpen={chatSidebarOpen}
                   onToggleChatSidebar={toggleChatSidebar}
+                  linkSidebarActive={chatSidebarOpen && chatSidebarMode !== 'chat'}
+                  onOpenLinkedSidebar={openLinkedNotesSidebar}
                 />
               </div>
             )}

@@ -170,7 +170,7 @@ export function NotesSearchBar({
           </div>
         ) : null}
       </div>
-      <div className="min-w-0 max-w-md w-full">
+      <div className="min-w-0 max-w-xl w-full">
         <Popover
           open={showPopover}
           onOpenChange={(next) => {

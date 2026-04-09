@@ -60,6 +60,7 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
   const {
     isMacNotelab,
     nativeLiquidGlassAttached,
+    appearanceSettings,
     macTitlebarStyles,
     appMode,
     settingsSection,
@@ -271,7 +272,9 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
   }
 
   const macInsetSidebar = isMacNotelab
+    && appearanceSettings.sidebarInsetView
   const nativeGlassUi = isMacNotelab && nativeLiquidGlassAttached
+  const animationsEnabled = appearanceSettings.animationsEnabled
   const inboxNotes = notesByFolder.get(DEFAULT_WORKSPACE_ID) ?? []
 
   return (
@@ -354,57 +357,198 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
           {appMode === 'notes' && appSidebarView === 'explorer' ? (
             <AnimatePresence mode="wait" initial={false}>
               {searchOpen ? (
-                <motion.div
-                  key="search-bar"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.15 }}
-                  className={cn(
-                    'relative z-10 flex w-full shrink-0 flex-row flex-nowrap items-stretch justify-start gap-0.5 py-1.5',
-                    isMacNotelab ? 'pointer-events-none px-4 pr-2' : 'px-2'
-                  )}
-                >
-                  <div
-                    className="pointer-events-auto flex min-w-0 flex-1 items-center gap-1"
-                    style={isMacNotelab ? macTitlebarStyles.noDrag : undefined}
+                animationsEnabled ? (
+                  <motion.div
+                    key="search-bar"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.15 }}
+                    className={cn(
+                      'relative z-10 flex w-full shrink-0 flex-row flex-nowrap items-stretch justify-start gap-0.5 py-1.5',
+                      isMacNotelab ? 'pointer-events-none px-4 pr-2' : 'px-2'
+                    )}
                   >
-                    <Input
-                      ref={searchInputRef}
-                      placeholder="Search notes…"
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="h-8 flex-1"
-                      aria-label="Search notes"
-                    />
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="ghost"
-                      className="text-muted-foreground size-8 shrink-0 p-0"
-                      aria-label="Close search"
-                      onClick={closeSearch}
+                    <div
+                      className="pointer-events-auto flex min-w-0 flex-1 items-center gap-1"
+                      style={isMacNotelab ? macTitlebarStyles.noDrag : undefined}
                     >
-                      <X className="size-4" aria-hidden />
-                    </Button>
-                  </div>
-                </motion.div>
-              ) : (
-                <motion.div
-                  key="toolbar"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.15 }}
-                  className={cn(
-                    'relative z-10 flex w-full shrink-0 flex-row flex-nowrap items-stretch justify-start gap-0.5 py-1.5',
-                    isMacNotelab ? 'pointer-events-none px-4 pr-2' : 'px-2'
-                  )}
-                >
+                      <Input
+                        ref={searchInputRef}
+                        placeholder="Search notes…"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="h-8 flex-1"
+                        aria-label="Search notes"
+                      />
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        className="text-muted-foreground size-8 shrink-0 p-0"
+                        aria-label="Close search"
+                        onClick={closeSearch}
+                      >
+                        <X className="size-4" aria-hidden />
+                      </Button>
+                    </div>
+                  </motion.div>
+                ) : (
                   <div
-                    className="pointer-events-auto flex min-w-0 flex-1 items-center justify-between gap-0.5"
-                    style={isMacNotelab ? macTitlebarStyles.noDrag : undefined}
+                    key="search-bar"
+                    className={cn(
+                      'relative z-10 flex w-full shrink-0 flex-row flex-nowrap items-stretch justify-start gap-0.5 py-1.5',
+                      isMacNotelab ? 'pointer-events-none px-4 pr-2' : 'px-2'
+                    )}
                   >
+                    <div
+                      className="pointer-events-auto flex min-w-0 flex-1 items-center gap-1"
+                      style={isMacNotelab ? macTitlebarStyles.noDrag : undefined}
+                    >
+                      <Input
+                        ref={searchInputRef}
+                        placeholder="Search notes…"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="h-8 flex-1"
+                        aria-label="Search notes"
+                      />
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        className="text-muted-foreground size-8 shrink-0 p-0"
+                        aria-label="Close search"
+                        onClick={closeSearch}
+                      >
+                        <X className="size-4" aria-hidden />
+                      </Button>
+                    </div>
+                  </div>
+                )
+              ) : (
+                animationsEnabled ? (
+                  <motion.div
+                    key="toolbar"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.15 }}
+                    className={cn(
+                      'relative z-10 flex w-full shrink-0 flex-row flex-nowrap items-stretch justify-start gap-0.5 py-1.5',
+                      isMacNotelab ? 'pointer-events-none px-4 pr-2' : 'px-2'
+                    )}
+                  >
+                    <div
+                      className="pointer-events-auto flex min-w-0 flex-1 items-center justify-between gap-0.5"
+                      style={isMacNotelab ? macTitlebarStyles.noDrag : undefined}
+                    >
+                      <div className="flex min-w-0 flex-none items-center gap-0.5">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          className="text-muted-foreground size-8 shrink-0 p-0"
+                          aria-label="New folder"
+                          onClick={startFolderCreate}
+                          data-sidebar-interactive=""
+                          style={isMacNotelab ? macTitlebarStyles.noDrag : undefined}
+                        >
+                          <FolderPlus className="size-4" aria-hidden />
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          className="text-muted-foreground size-8 shrink-0 p-0"
+                          aria-label="New note"
+                          disabled={!canCreateNote}
+                          onClick={handleNewNote}
+                          data-sidebar-interactive=""
+                          style={isMacNotelab ? macTitlebarStyles.noDrag : undefined}
+                        >
+                          <SquarePen className="size-4" aria-hidden />
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          className="text-muted-foreground size-8 shrink-0 p-0"
+                          title="New drawing"
+                          aria-label="New drawing"
+                          disabled={!canCreateNote}
+                          onClick={handleNewDrawing}
+                          data-sidebar-interactive=""
+                          style={isMacNotelab ? macTitlebarStyles.noDrag : undefined}
+                        >
+                          <PencilRuler className="size-4" aria-hidden />
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant={graphViewOpen ? 'secondary' : 'ghost'}
+                          className={cn(
+                            'size-8 shrink-0 p-0',
+                            graphViewOpen ? 'text-foreground' : 'text-muted-foreground'
+                          )}
+                          title="Note link graph"
+                          aria-label="Note link graph"
+                          aria-pressed={graphViewOpen}
+                          disabled={!canCreateNote}
+                          onClick={() => (graphViewOpen ? closeGraphView() : openGraphView())}
+                          data-sidebar-interactive=""
+                          style={isMacNotelab ? macTitlebarStyles.noDrag : undefined}
+                        >
+                          <Network className="size-4" aria-hidden />
+                        </Button>
+                        {enableInfinityCanvas ? (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant={canvasViewOpen ? 'secondary' : 'ghost'}
+                            className={cn(
+                              'size-8 shrink-0 p-0',
+                              canvasViewOpen ? 'text-foreground' : 'text-muted-foreground'
+                            )}
+                            title="Infinity canvas"
+                            aria-label="Infinity canvas"
+                            aria-pressed={canvasViewOpen}
+                            disabled={!canCreateNote}
+                            onClick={() => (canvasViewOpen ? closeCanvasView() : openCanvasView())}
+                            data-sidebar-interactive=""
+                            style={isMacNotelab ? macTitlebarStyles.noDrag : undefined}
+                          >
+                            <LayoutDashboard className="size-4" aria-hidden />
+                          </Button>
+                        ) : null}
+                      </div>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        className="text-muted-foreground size-8 shrink-0 p-0"
+                        title="Search notes"
+                        aria-label="Search notes"
+                        onClick={openSearch}
+                        data-sidebar-interactive=""
+                        style={isMacNotelab ? macTitlebarStyles.noDrag : undefined}
+                      >
+                        <Search className="size-4" aria-hidden />
+                      </Button>
+                    </div>
+                  </motion.div>
+                ) : (
+                  <div
+                    key="toolbar"
+                    className={cn(
+                      'relative z-10 flex w-full shrink-0 flex-row flex-nowrap items-stretch justify-start gap-0.5 py-1.5',
+                      isMacNotelab ? 'pointer-events-none px-4 pr-2' : 'px-2'
+                    )}
+                  >
+                    <div
+                      className="pointer-events-auto flex min-w-0 flex-1 items-center justify-between gap-0.5"
+                      style={isMacNotelab ? macTitlebarStyles.noDrag : undefined}
+                    >
                     <div className="flex min-w-0 flex-none items-center gap-0.5">
                       <Button
                         type="button"
@@ -497,8 +641,9 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
                     >
                       <Search className="size-4" aria-hidden />
                     </Button>
+                    </div>
                   </div>
-                </motion.div>
+                )
               )}
             </AnimatePresence>
           ) : null}
