@@ -41,7 +41,6 @@ type NoteCanvasCardData = {
   onNoteSerializedChange: (id: string, serialized: SerializedEditorState) => void
   onExcalidrawSceneChange: (id: string, json: string) => void
   onSelectNote: (noteId: string) => void
-  onRenameNote: (id: string, title: string) => void
   onSetNoteCover: (id: string, src: string | null) => void
   onSetNoteTitleEmoji: (id: string, emoji: string | null) => void
 }
@@ -85,7 +84,6 @@ function NoteCanvasCard({ data }: NodeProps<NoteCanvasCardNode>): JSX.Element {
     onNoteSerializedChange,
     onExcalidrawSceneChange,
     onSelectNote,
-    onRenameNote,
     onSetNoteCover,
     onSetNoteTitleEmoji
   } = data
@@ -143,8 +141,6 @@ function NoteCanvasCard({ data }: NodeProps<NoteCanvasCardNode>): JSX.Element {
                 currentNoteId: note.id,
                 onOpenInternalNote: onSelectNote
               }}
-              title={note.title}
-              onTitleChange={(t) => onRenameNote(note.id, t)}
               coverImageSrc={note.kind === 'note' ? note.coverImageSrc : undefined}
               onCoverChange={(src) => onSetNoteCover(note.id, src)}
               titleEmoji={note.kind === 'note' ? note.titleEmoji : undefined}
@@ -178,7 +174,6 @@ function NotesCanvasViewInner({
   onClose,
   onNoteSerializedChange,
   onExcalidrawSceneChange,
-  onRenameNote,
   onSetNoteCover,
   onSetNoteTitleEmoji
 }: NotesCanvasViewProps): JSX.Element {
@@ -208,7 +203,6 @@ function NotesCanvasViewInner({
         onNoteSerializedChange,
         onExcalidrawSceneChange,
         onSelectNote,
-        onRenameNote,
         onSetNoteCover,
         onSetNoteTitleEmoji
       }
@@ -233,7 +227,6 @@ function NotesCanvasViewInner({
     onNoteSerializedChange,
     onExcalidrawSceneChange,
     onSelectNote,
-    onRenameNote,
     onSetNoteCover,
     onSetNoteTitleEmoji
   ])

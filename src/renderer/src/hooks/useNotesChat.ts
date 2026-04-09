@@ -11,9 +11,9 @@ const log = createElectronLogger(LOG)
 // ---------------------------------------------------------------------------
 
 export type ChatSource = {
-  noteId: string
-  noteTitle: string
-  workspaceId: string
+  note: string
+  title: string
+  folder: string
   chunkText: string
 }
 
@@ -122,15 +122,15 @@ function searchRowsToSources(
 ): ChatSource[] {
   return rows
     .map((row) => {
-      const note = notes.find((candidate) => candidate.id === row.note_id)
+      const note = notes.find((candidate) => candidate.id === row.note)
       return {
-        noteId: row.note_id,
-        noteTitle: note?.title || row.note_title || 'Untitled',
-        workspaceId: row.workspace_id,
+        note: row.note,
+        title: note?.title || row.title || 'Untitled',
+        folder: row.folder,
         chunkText: row.text,
       }
     })
-    .filter((source) => existingNoteIds.has(source.noteId))
+    .filter((source) => existingNoteIds.has(source.note))
 }
 
 function parseSSEChunks(raw: string): { tokens: string[]; done: boolean } {
@@ -280,12 +280,12 @@ export function useNotesChat({
             maxChunks: 24,
             maxSections: 1,
             maxTokens: 320,
-            filter: { noteId: { $in: explicitNoteIds } },
+            filter: { note: { $in: explicitNoteIds } },
             isBm25: true,
           })
           if (res.ok) {
             for (const source of searchRowsToSources(res.rows, notes, existingNoteIds)) {
-              const key = `${source.noteId}:${source.chunkText.slice(0, 40)}`
+              const key = `${source.note}:${source.chunkText.slice(0, 40)}`
               if (seenMention.has(key)) continue
               seenMention.add(key)
               mentionSources.push(source)
@@ -300,12 +300,12 @@ export function useNotesChat({
             maxChunks: 32,
             maxSections: 1,
             maxTokens: 320,
-            filter: { workspaceId: { $in: explicitWorkspaceIds } },
+            filter: { folder: { $in: explicitWorkspaceIds } },
             isBm25: true,
           })
           if (res.ok) {
             for (const source of searchRowsToSources(res.rows, notes, existingNoteIds)) {
-              const key = `${source.noteId}:${source.chunkText.slice(0, 40)}`
+              const key = `${source.note}:${source.chunkText.slice(0, 40)}`
               if (seenMention.has(key)) continue
               seenMention.add(key)
               mentionSources.push(source)
@@ -318,7 +318,7 @@ export function useNotesChat({
       }
 
       const workspaceFilter = filterWorkspaceId
-        ? { workspaceId: { $eq: filterWorkspaceId } }
+        ? { folder: { $eq: filterWorkspaceId } }
         : undefined
 
       log.info(`[1/3] notes in memory: ${notes.length}`)
@@ -358,7 +358,7 @@ export function useNotesChat({
         const merged: ChatSource[] = []
         const seen = new Set<string>()
         for (const s of [...mentionSources, ...ragSources]) {
-          const key = `${s.noteId}:${s.chunkText.slice(0, 30)}`
+          const key = `${s.note}:${s.chunkText.slice(0, 30)}`
           if (seen.has(key)) continue
           seen.add(key)
           merged.push(s)
@@ -371,7 +371,7 @@ export function useNotesChat({
 
       // uniqueSources = deduplicated by noteId for the "Used N sources" display
       const uniqueSources = allSources.filter(
-        (s, i, arr) => arr.findIndex((x) => x.noteId === s.noteId) === i
+        (s, i, arr) => arr.findIndex((x) => x.note === s.note) === i
       )
       log.info(`[1/3] ${allSources.length} section(s) → ${uniqueSources.length} unique note(s)`)
 
@@ -379,7 +379,7 @@ export function useNotesChat({
       // 2. Build context for the AI (all sections, not deduplicated)
       // -----------------------------------------------------------------------
       const contextChunks = allSources.map(
-        (s) => `[Source: "${s.noteTitle}"]\n${s.chunkText}`
+        (s) => `[Source: "${s.title}"]\n${s.chunkText}`
       )
 
       log.info(`[2/3] context — ${contextChunks.length} section(s)`)

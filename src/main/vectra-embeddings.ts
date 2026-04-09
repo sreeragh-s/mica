@@ -20,8 +20,8 @@ const REQUIRED_INDEXED_FIELDS = [
   'documentId',
   'startPos',
   'endPos',
-  'workspaceId',
-  'noteId',
+  'folder',
+  'note',
   // Keep title inline so Vectra doesn't create one external metadata file per chunk.
   'title',
   'kind',
@@ -31,17 +31,17 @@ const REQUIRED_INDEXED_FIELDS = [
 type NoteKind = 'note' | 'drawing'
 
 type NoteDocumentMetadata = {
-  workspaceId: string
-  noteId: string
+  folder: string
+  note: string
   title: string
   kind: NoteKind
   contentHash: string
 }
 
 type SearchDocumentRow = {
-  note_id: string
-  workspace_id: string
-  note_title: string
+  note: string
+  folder: string
+  title: string
   kind: NoteKind
   text: string
   score: number
@@ -80,8 +80,8 @@ export function getVectraDirectory(workspacePath: string): string {
   return join(normalizeWorkspacePath(workspacePath), '.notelab', 'vectra')
 }
 
-function noteDocumentUri(noteId: string): string {
-  return `notelab://note/${encodeURIComponent(noteId)}`
+function noteDocumentUri(note: string): string {
+  return `notelab://note/${encodeURIComponent(note)}`
 }
 
 function logInfo(...args: unknown[]): void {
@@ -119,21 +119,21 @@ function isLocalEmbeddingModelName(name: string): boolean {
 }
 
 function parseMetadata(record: Record<string, MetadataTypes>): NoteDocumentMetadata | null {
-  const workspaceId = record['workspaceId']
-  const noteId = record['noteId']
+  const folder = record['folder']
+  const note = record['note']
   const title = record['title']
   const kind = record['kind']
   const contentHash = record['contentHash']
   if (
-    typeof workspaceId !== 'string' ||
-    typeof noteId !== 'string' ||
+    typeof folder !== 'string' ||
+    typeof note !== 'string' ||
     typeof title !== 'string' ||
     (kind !== 'note' && kind !== 'drawing') ||
     typeof contentHash !== 'string'
   ) {
     return null
   }
-  return { workspaceId, noteId, title, kind, contentHash }
+  return { folder, note, title, kind, contentHash }
 }
 
 async function readStoredDocuments(indexPath: string): Promise<StoredDocumentRow[]> {
@@ -349,7 +349,7 @@ async function ensureIndexReady(
     for (let i = 0; i < storedDocuments.length; i++) {
       const document = storedDocuments[i]
       logInfo(
-        `migrating stored document ${i + 1}/${storedDocuments.length} noteId=${document.metadata.noteId} uri=${document.uri} chars=${document.text.length}`
+        `migrating stored document ${i + 1}/${storedDocuments.length} note=${document.metadata.note} uri=${document.uri} chars=${document.text.length}`
       )
       await activeIndex.upsertDocument(
         document.uri,
@@ -471,11 +471,11 @@ export function registerVectraEmbeddingsIpc(): void {
       try {
         const index = await getWorkspaceIndex(payload.workspacePath)
         const rows = await listDocumentsWithMetadata(index)
-        const hashes: Record<string, { contentHash: string; workspaceId: string }> = {}
+        const hashes: Record<string, { contentHash: string; folder: string }> = {}
         for (const row of rows) {
-          hashes[row.metadata.noteId] = {
+          hashes[row.metadata.note] = {
             contentHash: row.metadata.contentHash,
-            workspaceId: row.metadata.workspaceId,
+            folder: row.metadata.folder,
           }
         }
         logInfo(`get-indexed-hashes workspacePath=${payload.workspacePath} count=${Object.keys(hashes).length}`)
@@ -494,8 +494,8 @@ export function registerVectraEmbeddingsIpc(): void {
       _event,
       payload: {
         workspacePath: string
-        workspaceId: string
-        noteId: string
+        folder: string
+        note: string
         title: string
         kind: NoteKind
         contentHash: string
@@ -504,33 +504,33 @@ export function registerVectraEmbeddingsIpc(): void {
       }
     ) => {
       try {
-        const { workspacePath, workspaceId, noteId, title, kind, contentHash, text, docType } = payload
-        if (!workspaceId || !noteId) {
-          return { ok: false as const, error: 'workspaceId and noteId are required' }
+        const { workspacePath, folder, note, title, kind, contentHash, text, docType } = payload
+        if (!folder || !note) {
+          return { ok: false as const, error: 'folder and note are required' }
         }
         if (!contentHash) {
           return { ok: false as const, error: 'contentHash is required' }
         }
         logInfo(
-          `upsert-note-document workspacePath=${workspacePath} indexPath=${getVectraDirectory(workspacePath)} workspaceId=${workspaceId} noteId=${noteId} kind=${kind} docType=${docType ?? '(default)'} chars=${text.length} hash=${contentHash.slice(0, 8)} preview="${previewText(text)}"`
+          `upsert-note-document workspacePath=${workspacePath} indexPath=${getVectraDirectory(workspacePath)} folder=${folder} note=${note} kind=${kind} docType=${docType ?? '(default)'} chars=${text.length} hash=${contentHash.slice(0, 8)} preview="${previewText(text)}"`
         )
         const index = await getWorkspaceIndex(workspacePath)
         await index.upsertDocument(
-          noteDocumentUri(noteId),
+          noteDocumentUri(note),
           text,
           docType ?? documentTypeForKind(kind),
           {
-            workspaceId,
-            noteId,
+            folder,
+            note,
             title,
             kind,
             contentHash,
           }
         )
         const chunks = await index.listItemsByMetadata({
-          noteId: { $eq: noteId },
+          note: { $eq: note },
         })
-        logInfo(`upsert-note-document stored workspaceId=${workspaceId} noteId=${noteId} chunks=${chunks.length}`)
+        logInfo(`upsert-note-document stored folder=${folder} note=${note} chunks=${chunks.length}`)
         return { ok: true as const, indexed: chunks.length }
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error)
@@ -579,9 +579,9 @@ export function registerVectraEmbeddingsIpc(): void {
           const sections = await result.renderSections(maxTokens, maxSections, true)
           sections.forEach((section, indexInDocument) => {
             rows.push({
-              note_id: metadata.noteId,
-              workspace_id: metadata.workspaceId,
-              note_title: metadata.title,
+              note: metadata.note,
+              folder: metadata.folder,
+              title: metadata.title,
               kind: metadata.kind,
               text: section.text,
               score: section.score,
@@ -593,7 +593,7 @@ export function registerVectraEmbeddingsIpc(): void {
         }
         rows.sort((left, right) => right.score - left.score)
         logInfo(
-          `search-documents renderedRows=${rows.length} topResults=${rows.slice(0, 5).map((row) => `${row.note_id}:${row.score.toFixed(4)}`).join(', ')}`
+          `search-documents renderedRows=${rows.length} topResults=${rows.slice(0, 5).map((row) => `${row.note}:${row.score.toFixed(4)}`).join(', ')}`
         )
         return { ok: true as const, rows }
       } catch (error) {
@@ -606,18 +606,18 @@ export function registerVectraEmbeddingsIpc(): void {
 
   ipcMain.handle(
     'embeddings:delete-note-document',
-    async (_event, payload: { workspacePath: string; noteId: string }) => {
+    async (_event, payload: { workspacePath: string; note: string }) => {
       try {
-        const { workspacePath, noteId } = payload
-        if (!noteId) {
-          return { ok: false as const, error: 'noteId is required' }
+        const { workspacePath, note } = payload
+        if (!note) {
+          return { ok: false as const, error: 'note is required' }
         }
         const index = await getWorkspaceIndex(workspacePath)
-        const existed = Boolean(await index.getDocumentId(noteDocumentUri(noteId)))
+        const existed = Boolean(await index.getDocumentId(noteDocumentUri(note)))
         if (existed) {
-          await index.deleteDocument(noteDocumentUri(noteId))
+          await index.deleteDocument(noteDocumentUri(note))
         }
-        logInfo(`delete-note-document workspacePath=${workspacePath} noteId=${noteId} deleted=${existed}`)
+        logInfo(`delete-note-document workspacePath=${workspacePath} note=${note} deleted=${existed}`)
         return { ok: true as const, deleted: existed }
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error)
@@ -639,7 +639,7 @@ export function registerVectraEmbeddingsIpc(): void {
         const rows = await listDocumentsWithMetadata(index)
         let deletedCount = 0
         for (const row of rows) {
-          if (row.metadata.workspaceId !== workspaceId) continue
+          if (row.metadata.folder !== workspaceId) continue
           await index.deleteDocument(row.uri)
           deletedCount++
         }

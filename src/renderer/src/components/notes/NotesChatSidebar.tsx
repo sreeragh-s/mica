@@ -617,7 +617,7 @@ function NotesChatSidebarInner({
             session.messages.map((msg) => {
               const visibleSources =
                 msg.role === 'assistant' && msg.sources
-                  ? msg.sources.filter((s) => validNoteIds.has(s.noteId))
+                  ? msg.sources.filter((s) => validNoteIds.has(s.note))
                   : []
               return (
               <div key={msg.id}>
@@ -637,13 +637,13 @@ function NotesChatSidebarInner({
                       <SourcesContent>
                         {visibleSources.map((src, i) => (
                           <Source
-                            key={`${src.noteId}-${i}`}
+                            key={`${src.note}-${i}`}
                             href="#"
                             onClick={(e) => {
                               e.preventDefault()
-                              selectNote(src.noteId)
+                              selectNote(src.note)
                             }}
-                            title={src.noteTitle}
+                            title={src.title}
                           />
                         ))}
                       </SourcesContent>

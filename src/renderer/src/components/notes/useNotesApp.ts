@@ -121,6 +121,7 @@ export function useNotesApp({
   const openNoteTabIdsRef = useRef(openNoteTabIds)
   openNoteTabIdsRef.current = openNoteTabIds
   const noteFlushTimers = useRef<Map<string, number>>(new Map())
+  const noteRenameTimers = useRef<Map<string, number>>(new Map())
   const pendingDiskWrites = useRef<Set<string>>(new Set())
 
   // App sidebar: explorer (notes tree), source control, or settings nav
@@ -228,6 +229,44 @@ export function useNotesApp({
     (folderId: string, title: string, kind: SavedNote['kind'], currentPath?: string) =>
       buildUniqueNoteRelativePath(folderId, title, kind, takenNotePaths(), currentPath),
     [takenNotePaths]
+  )
+
+  const replaceTrackedNoteId = useCallback((from: string, to: string) => {
+    if (from === to) return
+    setSelectedId((prev) => (prev === from ? to : prev))
+    setOpenNoteTabIds((prev) => prev.map((id) => (id === from ? to : id)))
+  }, [])
+
+  const scheduleNotePathRename = useCallback(
+    (currentPath: string) => {
+      const existingTimer = noteRenameTimers.current.get(currentPath)
+      if (existingTimer !== undefined) {
+        window.clearTimeout(existingTimer)
+      }
+      const timerId = window.setTimeout(() => {
+        noteRenameTimers.current.delete(currentPath)
+        const note = notesRef.current.find((entry) => entry.id === currentPath)
+        if (!note) return
+        const nextPath = buildNotePath(note.folderId, note.title, note.kind, note.id)
+        if (nextPath === note.id) return
+        setNotes((prev) =>
+          prev.map((entry) => (entry.id === currentPath ? { ...entry, id: nextPath } : entry))
+        )
+        replaceTrackedNoteId(currentPath, nextPath)
+        const flushTimer = noteFlushTimers.current.get(currentPath)
+        if (flushTimer !== undefined) {
+          window.clearTimeout(flushTimer)
+          noteFlushTimers.current.delete(currentPath)
+        }
+        if (diskMode) {
+          void flushNoteMoveToDisk(currentPath, note.folderId, note.folderId)
+        } else if (useGithubApiSync) {
+          setGithubApiDirty(true)
+        }
+      }, 420)
+      noteRenameTimers.current.set(currentPath, timerId)
+    },
+    [buildNotePath, diskMode, flushNoteMoveToDisk, replaceTrackedNoteId, useGithubApiSync]
   )
 
   const treeSelectedIds = useMemo(() => {
@@ -418,6 +457,19 @@ export function useNotesApp({
     })
   }, [notes])
 
+  useEffect(() => {
+    return () => {
+      for (const timerId of noteFlushTimers.current.values()) {
+        window.clearTimeout(timerId)
+      }
+      for (const timerId of noteRenameTimers.current.values()) {
+        window.clearTimeout(timerId)
+      }
+      noteFlushTimers.current.clear()
+      noteRenameTimers.current.clear()
+    }
+  }, [])
+
   const pushOpenNoteTab = useCallback((noteId: string) => {
     if (!notesRef.current.some((n) => n.id === noteId)) return
     setOpenNoteTabIds((prev) => (prev.includes(noteId) ? prev : [...prev, noteId]))
@@ -593,19 +645,15 @@ export function useNotesApp({
   const renameNote = useCallback(
     (noteId: string, title: string) => {
       const trimmed = title.trim()
-      const current = notesRef.current.find((n) => n.id === noteId)
-      if (!current) return
-      const nextId = buildNotePath(current.folderId, trimmed, current.kind, current.id)
       setNotes((prev) =>
         prev.map((n) =>
-          n.id === noteId ? { ...n, id: nextId, title: trimmed, updatedAt: Date.now() } : n
+          n.id === noteId ? { ...n, title: trimmed, updatedAt: Date.now() } : n
         )
       )
-      setSelectedId((prev) => (prev === noteId ? nextId : prev))
-      setOpenNoteTabIds((prev) => prev.map((id) => (id === noteId ? nextId : id)))
-      scheduleNoteFlush(nextId)
+      scheduleNoteFlush(noteId)
+      scheduleNotePathRename(noteId)
     },
-    [buildNotePath, scheduleNoteFlush]
+    [scheduleNoteFlush, scheduleNotePathRename]
   )
 
   const setNoteCover = useCallback(
@@ -676,6 +724,9 @@ export function useNotesApp({
       const tid = noteFlushTimers.current.get(noteId)
       if (tid !== undefined) window.clearTimeout(tid)
       noteFlushTimers.current.delete(noteId)
+      const renameTid = noteRenameTimers.current.get(noteId)
+      if (renameTid !== undefined) window.clearTimeout(renameTid)
+      noteRenameTimers.current.delete(noteId)
 
       if (diskMode) {
         void flushNoteMoveToDisk(noteId, fromFolderId, targetFolderId)
@@ -715,6 +766,9 @@ export function useNotesApp({
       const tid = noteFlushTimers.current.get(noteId)
       if (tid !== undefined) window.clearTimeout(tid)
       noteFlushTimers.current.delete(noteId)
+      const renameTid = noteRenameTimers.current.get(noteId)
+      if (renameTid !== undefined) window.clearTimeout(renameTid)
+      noteRenameTimers.current.delete(noteId)
       const snapshotNotes = notesRef.current
       const snapshotSelected = selectedId
       const deleted = snapshotNotes.find((n) => n.id === noteId)

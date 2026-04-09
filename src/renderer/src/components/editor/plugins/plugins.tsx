@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, type ReactNode } from "react"
 import { createPortal } from "react-dom"
 import { EmojiPicker } from "frimousse"
 import { ImageIcon, Smile, X } from "lucide-react"
@@ -44,7 +44,6 @@ import { FloatingLinkEditorPlugin } from "@/components/editor/plugins/floating-l
 import { FloatingTextFormatToolbarPlugin } from "@/components/editor/plugins/floating-text-format-plugin"
 import { InternalNoteLinkClickPlugin } from "@/components/editor/plugins/internal-note-link-click-plugin"
 import { LinkHoverPreviewPlugin } from "@/components/editor/plugins/link-hover-preview-plugin"
-import { TitlePlugin } from "@/components/editor/plugins/title-plugin"
 import { MarkdownPastePlugin } from "@/components/editor/plugins/markdown-paste-plugin"
 import {
   ImageSourceTabs,
@@ -144,16 +143,14 @@ function TitleEmojiPickerContent({
 }
 
 export function Plugins({
-  title,
-  onTitleChange,
+  header,
   coverImageSrc,
   onCoverChange,
   titleEmoji,
   onTitleEmojiChange,
   bottomChromePortal,
 }: {
-  title?: string
-  onTitleChange?: (title: string) => void
+  header?: ReactNode
   coverImageSrc?: string | null
   onCoverChange?: (src: string | null) => void
   titleEmoji?: string | null
@@ -234,7 +231,7 @@ export function Plugins({
               )}
               <div className="mx-auto min-h-full w-full max-w-3xl">
                 <div className="relative flex min-h-full flex-col" ref={onRef}>
-                  {onTitleChange !== undefined && (
+                  {(onCoverChange || onTitleEmojiChange) && (
                     <>
                       <Dialog open={coverDialogOpen} onOpenChange={setCoverDialogOpen}>
                         <DialogContent className="sm:max-w-lg">
@@ -347,6 +344,7 @@ export function Plugins({
                           </Button>
                         </div>
                       ) : null}
+                      {header ? <div className="shrink-0">{header}</div> : null}
                     </>
                   )}
                   <div className="relative">
@@ -354,10 +352,8 @@ export function Plugins({
                       placeholder={placeholder}
                       className={cn(
                         "ContentEditable__root relative block min-h-full px-8 pb-4 focus:outline-none",
-                        onTitleChange !== undefined
-                          ? showTopMediaBar || (onTitleEmojiChange && titleEmoji)
-                            ? "pt-2"
-                            : "pt-8"
+                        showTopMediaBar || (onTitleEmojiChange && titleEmoji)
+                          ? "pt-2"
                           : "pt-4"
                       )}
                     />
@@ -368,11 +364,6 @@ export function Plugins({
           }
           ErrorBoundary={LexicalErrorBoundary}
         />
-
-        {onTitleChange !== undefined && (
-          <TitlePlugin title={title} onTitleChange={onTitleChange} />
-        )}
-
         <ClickableLinkPlugin />
         <InternalNoteLinkClickPlugin />
         <LinkHoverPreviewPlugin />

@@ -12,7 +12,14 @@ import {
   writeFileSync,
 } from 'node:fs'
 import { homedir } from 'node:os'
-import { basename, dirname, extname, join, relative, resolve, sep } from 'node:path'
+import { dirname, join, relative, resolve, sep } from 'node:path'
+import {
+  deleteNoteFile,
+  readNotelabIndexImpl,
+  renameWorkspacePath,
+  syncMarkdownFilesToDisk,
+  writeNotelabFile,
+} from './workspace-fs'
 
 const LOG = '[notelab-workspace]'
 /** Git + markdown live under ~/.notelab (legacy name was ~/.notelab.io). */
@@ -97,18 +104,6 @@ function allowWorkspaceFs(cwd: string): boolean {
 function isInsideRepoRoot(repoRoot: string, absolutePath: string): boolean {
   const rel = relative(repoRoot, absolutePath)
   return rel !== '' && !rel.startsWith('..') && !rel.includes(`..${sep}`)
-}
-
-function assertSafeRelativePath(cwd: string, rel: string): string {
-  const norm = rel.replace(/\\/g, '/')
-  if (norm.includes('..') || norm.startsWith('/')) {
-    throw new Error('Invalid relative path')
-  }
-  const abs = resolve(cwd, rel)
-  if (!isInsideRepoRoot(cwd, abs)) {
-    throw new Error('Path escapes repository root')
-  }
-  return abs
 }
 
 function checkGitBinary():
@@ -310,200 +305,6 @@ function setUpstreamToOriginIfPossible(cwd: string, branch: string): void {
   } else {
     console.info(LOG, 'branch', branch, 'tracks', `origin/${branch}`)
   }
-}
-
-function syncMarkdownFilesToDisk(
-  cwd: string,
-  workspaceId: string,
-  files: { relativePath: string; content: string }[],
-  pruneOrphanNoteFiles = true
-): void {
-  const writtenRel = new Set<string>()
-  for (const f of files) {
-    const abs = assertSafeRelativePath(cwd, f.relativePath)
-    mkdirSync(dirname(abs), { recursive: true })
-    writeFileSync(abs, f.content, 'utf8')
-    writtenRel.add(f.relativePath.replace(/\\/g, '/'))
-  }
-
-  if (!pruneOrphanNoteFiles) return
-
-  const isRoot = workspaceId === DEFAULT_WORKSPACE_ID
-  // cwd is the notes root; folder notes live in <cwd>/<workspaceId>/
-  const scanDir = isRoot ? cwd : join(cwd, workspaceId)
-  if (!existsSync(scanDir)) return
-  const prefix = isRoot ? '' : `${workspaceId}/`
-  for (const ent of readdirSync(scanDir, { withFileTypes: true })) {
-    // For root: only prune .md files (not subdirectories which are folders)
-    if (isRoot && !ent.isFile()) continue
-    if (!ent.isFile() || !ent.name.endsWith('.md')) continue
-    const rel = `${prefix}${ent.name}`
-    if (!writtenRel.has(rel)) {
-      unlinkSync(join(scanDir, ent.name))
-      console.info(LOG, 'removed stale note file', ent.name)
-    }
-  }
-}
-
-function parseNotelabNoteFile(content: string, filePath: string): {
-  note: string
-  title: string
-  updatedAtMs: number
-  body: string
-  kind: 'note' | 'drawing'
-  coverImageSrc?: string
-  titleEmoji?: string
-} | null {
-  if (!content.startsWith('---')) return null
-  const endFm = content.indexOf('\n---', 3)
-  if (endFm === -1) return null
-  const fm = content.slice(3, endFm).trim()
-  const body = content.slice(endFm + 4).replace(/^\n+/, '')
-  let title = basename(filePath, extname(filePath)).replace(/-/g, ' ')
-  const titleLine = /^title:\s*(.+)$/m.exec(fm)
-  if (titleLine) {
-    const raw = titleLine[1]!.trim()
-    try {
-      title = JSON.parse(raw) as string
-    } catch {
-      title = raw.replace(/^["']|["']$/g, '')
-    }
-  }
-  let kind: 'note' | 'drawing' = 'note'
-  const kindLine = /^notelab_kind:\s*(drawing|note)\s*$/m.exec(fm)
-  if (kindLine && kindLine[1] === 'drawing') kind = 'drawing'
-
-  let updatedAtMs = Date.now()
-  const upM = /^updated_at:\s*["']?([^"'\s]+)/m.exec(fm)
-  if (upM) {
-    const t = Date.parse(upM[1]!)
-    if (!Number.isNaN(t)) updatedAtMs = t
-  }
-  let coverImageSrc: string | undefined
-  const coverM = /^cover_image:\s*(.+)$/m.exec(fm)
-  if (coverM) {
-    const raw = coverM[1]!.trim()
-    try {
-      coverImageSrc = JSON.parse(raw) as string
-    } catch {
-      coverImageSrc = raw.replace(/^["']|["']$/g, '')
-    }
-  }
-  let titleEmoji: string | undefined
-  const emojiM = /^title_emoji:\s*(.+)$/m.exec(fm)
-  if (emojiM) {
-    const raw = emojiM[1]!.trim()
-    try {
-      titleEmoji = JSON.parse(raw) as string
-    } catch {
-      titleEmoji = raw.replace(/^["']|["']$/g, '')
-    }
-  }
-  return { note: filePath.replace(/\\/g, '/'), title, updatedAtMs, body, kind, coverImageSrc, titleEmoji }
-}
-
-function writeNotelabFile(
-  cwd: string,
-  relativePath: string,
-  content: string
-): void {
-  const abs = assertSafeRelativePath(cwd, relativePath)
-  mkdirSync(dirname(abs), { recursive: true })
-  writeFileSync(abs, content, 'utf8')
-}
-
-function normalizeRelativePathForCompare(p: string): string {
-  return p.trim().replace(/\\/g, '/').replace(/\/+/g, '/')
-}
-
-function deleteNoteFile(cwd: string, relativePath: string): void {
-  const abs = assertSafeRelativePath(cwd, relativePath)
-  if (!existsSync(abs)) return
-  unlinkSync(abs)
-  console.info(LOG, 'deleted note file', relativePath)
-}
-
-function renameWorkspacePath(cwd: string, fromRelativePath: string, toRelativePath: string): void {
-  const fromAbs = assertSafeRelativePath(cwd, fromRelativePath)
-  const toAbs = assertSafeRelativePath(cwd, toRelativePath)
-  if (!existsSync(fromAbs)) {
-    throw new Error('missing_source')
-  }
-  if (normalizeRelativePathForCompare(fromRelativePath) === normalizeRelativePathForCompare(toRelativePath)) {
-    return
-  }
-  if (existsSync(toAbs)) {
-    throw new Error('destination_exists')
-  }
-  mkdirSync(dirname(toAbs), { recursive: true })
-  renameSync(fromAbs, toAbs)
-  console.info(LOG, 'renamed workspace path', fromRelativePath, '→', toRelativePath)
-}
-
-function readNotelabIndexImpl(cwd: string): {
-  folders: { folder: string; name: string }[]
-  notes: {
-    folder: string
-    note: string
-    title: string
-    updatedAtMs: number
-    markdownBody: string
-    kind: 'note' | 'drawing'
-    coverImageSrc?: string
-    titleEmoji?: string
-  }[]
-} {
-  const folders: { folder: string; name: string }[] = []
-  const notes: {
-    folder: string
-    note: string
-    title: string
-    updatedAtMs: number
-    markdownBody: string
-    kind: 'note' | 'drawing'
-    coverImageSrc?: string
-    titleEmoji?: string
-  }[] = []
-  // cwd is the notes root directly — .md files at root level are inbox notes, subdirs are folders
-  if (!existsSync(cwd)) return { folders, notes }
-
-  function pushNote(folder: string, relativeFilePath: string): void {
-    const filePath = join(cwd, relativeFilePath)
-    const content = readFileSync(filePath, 'utf8')
-    const parsed = parseNotelabNoteFile(content, relativeFilePath)
-    if (!parsed) return
-    notes.push({
-      folder,
-      note: parsed.note,
-      title: parsed.title,
-      updatedAtMs: parsed.updatedAtMs,
-      markdownBody: parsed.body,
-      kind: parsed.kind,
-      ...(parsed.coverImageSrc !== undefined ? { coverImageSrc: parsed.coverImageSrc } : {}),
-      ...(parsed.titleEmoji !== undefined && parsed.titleEmoji !== ''
-        ? { titleEmoji: parsed.titleEmoji }
-        : {}),
-    })
-  }
-
-  for (const ent of readdirSync(cwd, { withFileTypes: true })) {
-    if (ent.isFile() && ent.name.endsWith('.md')) {
-      // Root-level .md files belong to the default (inbox) folder
-      pushNote(DEFAULT_WORKSPACE_ID, ent.name)
-    } else if (ent.isDirectory()) {
-      const folder = ent.name
-      // Skip hidden dirs and git internals
-      if (folder.startsWith('.')) continue
-      const wsPath = join(cwd, folder)
-      const name = folder
-      folders.push({ folder, name })
-      for (const f of readdirSync(wsPath, { withFileTypes: true })) {
-        if (!f.isFile() || !f.name.endsWith('.md')) continue
-        pushNote(folder, `${folder}/${f.name}`)
-      }
-    }
-  }
-  return { folders, notes }
 }
 
 export function registerWorkspaceGitIpc(): void {

@@ -42,9 +42,9 @@ type EmbeddingsFilter = {
 }
 
 type EmbeddingsSearchRow = {
-  note_id: string
-  workspace_id: string
-  note_title: string
+  note: string
+  folder: string
+  title: string
   kind: 'note' | 'drawing'
   text: string
   score: number

@@ -6,6 +6,7 @@ import {
 } from "@lexical/react/LexicalComposer"
 import { OnChangePlugin } from "@lexical/react/LexicalOnChangePlugin"
 import { EditorState, SerializedEditorState } from "lexical"
+import type { ReactNode } from "react"
 
 import { editorTheme } from "@/components/editor/themes/editor-theme"
 import { TooltipProvider } from "@/components/ui/tooltip"
@@ -32,8 +33,7 @@ export function Editor({
   onSerializedChange,
   className,
   notelabEditor,
-  title,
-  onTitleChange,
+  header,
   coverImageSrc,
   onCoverChange,
   titleEmoji,
@@ -52,8 +52,7 @@ export function Editor({
     currentNoteId: string
     onOpenInternalNote: (noteId: string) => void
   } | null
-  title?: string
-  onTitleChange?: (title: string) => void
+  header?: ReactNode
   coverImageSrc?: string | null
   onCoverChange?: (src: string | null) => void
   titleEmoji?: string | null
@@ -80,8 +79,7 @@ export function Editor({
           <TooltipProvider>
             <div className="flex h-full min-h-0 flex-1 flex-col">
               <Plugins
-                title={title}
-                onTitleChange={onTitleChange}
+                header={header}
                 coverImageSrc={coverImageSrc}
                 onCoverChange={onCoverChange}
                 titleEmoji={titleEmoji}

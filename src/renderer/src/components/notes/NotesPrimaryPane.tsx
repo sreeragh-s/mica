@@ -7,6 +7,7 @@ import { Editor } from '@/components/blocks/editor-00/editor'
 import { Button } from '@/components/ui/button'
 import type { SavedNote, Folder } from '@/lib/notes-storage'
 import { ExcalidrawView } from './ExcalidrawView'
+import { NoteTitleInput } from './NoteTitleInput'
 import { NOTE_DRAG_MIME } from './notes-app-utils'
 
 export type NotesPrimaryPaneProps = { 
@@ -67,8 +68,12 @@ export function NotesPrimaryPane({
           onSerializedChange={(s) => onNoteSerializedChange(selectedNote.id, s)}
           className="min-h-0 flex-1"
           notelabEditor={{ notes, folders, currentNoteId: selectedNote.id, onOpenInternalNote: onSelectNote }}
-          title={selectedNote.title}
-          onTitleChange={(t) => onRenameNote(selectedNote.id, t)}
+          header={
+            <NoteTitleInput
+              value={selectedNote.title}
+              onChange={(title) => onRenameNote(selectedNote.id, title)}
+            />
+          }
           coverImageSrc={selectedNote.kind === 'note' ? selectedNote.coverImageSrc : undefined}
           onCoverChange={(src) => onSetNoteCover(selectedNote.id, src)}
           titleEmoji={selectedNote.kind === 'note' ? selectedNote.titleEmoji : undefined}

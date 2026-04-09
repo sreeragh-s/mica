@@ -527,10 +527,10 @@ const api = {
     }): Promise<
       | {
           ok: true
-          rows: {
-            note_id: string
-            workspace_id: string
-            note_title: string
+        rows: {
+            note: string
+            folder: string
+            title: string
             kind: 'note' | 'drawing'
             text: string
             score: number
