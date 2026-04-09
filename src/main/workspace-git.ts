@@ -12,7 +12,7 @@ import {
   writeFileSync,
 } from 'node:fs'
 import { homedir } from 'node:os'
-import { dirname, join, relative, resolve, sep } from 'node:path'
+import { basename, dirname, extname, join, relative, resolve, sep } from 'node:path'
 
 const LOG = '[notelab-workspace]'
 /** Git + markdown live under ~/.notelab (legacy name was ~/.notelab.io). */
@@ -345,8 +345,8 @@ function syncMarkdownFilesToDisk(
   }
 }
 
-function parseNotelabNoteFile(content: string): {
-  id: string
+function parseNotelabNoteFile(content: string, filePath: string): {
+  note: string
   title: string
   updatedAtMs: number
   body: string
@@ -359,10 +359,7 @@ function parseNotelabNoteFile(content: string): {
   if (endFm === -1) return null
   const fm = content.slice(3, endFm).trim()
   const body = content.slice(endFm + 4).replace(/^\n+/, '')
-  const idM = /^notelab_note_id:\s*["']?([^"'\s]+)/m.exec(fm)
-  if (!idM) return null
-  const id = idM[1]!
-  let title = 'New note'
+  let title = basename(filePath, extname(filePath)).replace(/-/g, ' ')
   const titleLine = /^title:\s*(.+)$/m.exec(fm)
   if (titleLine) {
     const raw = titleLine[1]!.trim()
@@ -402,7 +399,7 @@ function parseNotelabNoteFile(content: string): {
       titleEmoji = raw.replace(/^["']|["']$/g, '')
     }
   }
-  return { id, title, updatedAtMs, body, kind, coverImageSrc, titleEmoji }
+  return { note: filePath.replace(/\\/g, '/'), title, updatedAtMs, body, kind, coverImageSrc, titleEmoji }
 }
 
 function writeNotelabFile(
@@ -419,45 +416,35 @@ function normalizeRelativePathForCompare(p: string): string {
   return p.trim().replace(/\\/g, '/').replace(/\/+/g, '/')
 }
 
-/**
- * Removes on-disk note files for `noteId`. If `exceptRelativePath` is set, that
- * path is skipped (used when we will overwrite the same file — avoids noisy
- * delete+rewrite logs and redundant unlinks).
- */
-function deleteNoteFilesForId(
-  cwd: string,
-  workspaceId: string,
-  noteId: string,
-  exceptRelativePath?: string
-): void {
-  const isRoot = workspaceId === DEFAULT_WORKSPACE_ID
-  // cwd is the notes root; root notes live directly in cwd, folder notes in cwd/<workspaceId>/
-  const wsDir = isRoot ? cwd : join(cwd, workspaceId)
-  if (!existsSync(wsDir)) return
-  const exceptNorm = exceptRelativePath
-    ? normalizeRelativePathForCompare(exceptRelativePath)
-    : null
-  const suffix = `--${noteId}.md`
-  const legacy = `${noteId}.md`
-  const relBase = isRoot ? '' : `${workspaceId}/`
-  for (const ent of readdirSync(wsDir, { withFileTypes: true })) {
-    if (!ent.isFile()) continue
-    if (ent.name.endsWith(suffix) || ent.name === legacy) {
-      const rel = `${relBase}${ent.name}`
-      if (exceptNorm && normalizeRelativePathForCompare(rel) === exceptNorm) {
-        continue
-      }
-      unlinkSync(join(wsDir, ent.name))
-      console.info(LOG, 'deleted note file', ent.name)
-    }
+function deleteNoteFile(cwd: string, relativePath: string): void {
+  const abs = assertSafeRelativePath(cwd, relativePath)
+  if (!existsSync(abs)) return
+  unlinkSync(abs)
+  console.info(LOG, 'deleted note file', relativePath)
+}
+
+function renameWorkspacePath(cwd: string, fromRelativePath: string, toRelativePath: string): void {
+  const fromAbs = assertSafeRelativePath(cwd, fromRelativePath)
+  const toAbs = assertSafeRelativePath(cwd, toRelativePath)
+  if (!existsSync(fromAbs)) {
+    throw new Error('missing_source')
   }
+  if (normalizeRelativePathForCompare(fromRelativePath) === normalizeRelativePathForCompare(toRelativePath)) {
+    return
+  }
+  if (existsSync(toAbs)) {
+    throw new Error('destination_exists')
+  }
+  mkdirSync(dirname(toAbs), { recursive: true })
+  renameSync(fromAbs, toAbs)
+  console.info(LOG, 'renamed workspace path', fromRelativePath, '→', toRelativePath)
 }
 
 function readNotelabIndexImpl(cwd: string): {
-  folders: { id: string; name: string }[]
+  folders: { folder: string; name: string }[]
   notes: {
-    folderId: string
-    noteId: string
+    folder: string
+    note: string
     title: string
     updatedAtMs: number
     markdownBody: string
@@ -466,10 +453,10 @@ function readNotelabIndexImpl(cwd: string): {
     titleEmoji?: string
   }[]
 } {
-  const folders: { id: string; name: string }[] = []
+  const folders: { folder: string; name: string }[] = []
   const notes: {
-    folderId: string
-    noteId: string
+    folder: string
+    note: string
     title: string
     updatedAtMs: number
     markdownBody: string
@@ -480,13 +467,14 @@ function readNotelabIndexImpl(cwd: string): {
   // cwd is the notes root directly — .md files at root level are inbox notes, subdirs are folders
   if (!existsSync(cwd)) return { folders, notes }
 
-  function pushNote(folderId: string, filePath: string): void {
+  function pushNote(folder: string, relativeFilePath: string): void {
+    const filePath = join(cwd, relativeFilePath)
     const content = readFileSync(filePath, 'utf8')
-    const parsed = parseNotelabNoteFile(content)
+    const parsed = parseNotelabNoteFile(content, relativeFilePath)
     if (!parsed) return
     notes.push({
-      folderId,
-      noteId: parsed.id,
+      folder,
+      note: parsed.note,
       title: parsed.title,
       updatedAtMs: parsed.updatedAtMs,
       markdownBody: parsed.body,
@@ -501,18 +489,17 @@ function readNotelabIndexImpl(cwd: string): {
   for (const ent of readdirSync(cwd, { withFileTypes: true })) {
     if (ent.isFile() && ent.name.endsWith('.md')) {
       // Root-level .md files belong to the default (inbox) folder
-      pushNote(DEFAULT_WORKSPACE_ID, join(cwd, ent.name))
+      pushNote(DEFAULT_WORKSPACE_ID, ent.name)
     } else if (ent.isDirectory()) {
-      const id = ent.name
+      const folder = ent.name
       // Skip hidden dirs and git internals
-      if (id.startsWith('.')) continue
-      const wsPath = join(cwd, id)
-      // Derive folder name from the directory name slug (before the -- suffix)
-      const name = id.includes('--') ? id.slice(0, id.lastIndexOf('--')).replace(/-/g, ' ') : id
-      folders.push({ id, name: name || id })
+      if (folder.startsWith('.')) continue
+      const wsPath = join(cwd, folder)
+      const name = folder
+      folders.push({ folder, name })
       for (const f of readdirSync(wsPath, { withFileTypes: true })) {
         if (!f.isFile() || !f.name.endsWith('.md')) continue
-        pushNote(id, join(wsPath, f.name))
+        pushNote(folder, `${folder}/${f.name}`)
       }
     }
   }
@@ -844,23 +831,23 @@ export function registerWorkspaceGitIpc(): void {
       _evt,
       payload: {
         cwd: string
-        folderId: string
+        folder: string
         files: { relativePath: string; content: string }[]
         pruneOrphanNoteFiles?: boolean
       }
     ): Promise<{ ok: true } | { ok: false; error: string }> => {
       const cwd = payload.cwd?.trim() ?? ''
-      const folderId = payload.folderId?.trim() ?? ''
+      const folder = payload.folder?.trim() ?? ''
       if (!cwd || !allowWorkspaceFs(cwd)) {
         return { ok: false, error: 'not_a_workspace' }
       }
-      if (!folderId) {
+      if (!folder) {
         return { ok: false, error: 'missing_folder' }
       }
       try {
         syncMarkdownFilesToDisk(
           cwd,
-          folderId,
+          folder,
           payload.files ?? [],
           payload.pruneOrphanNoteFiles !== false
         )
@@ -881,10 +868,10 @@ export function registerWorkspaceGitIpc(): void {
     ): Promise<
       | {
           ok: true
-          folders: { id: string; name: string }[]
+          folders: { folder: string; name: string }[]
           notes: {
-            folderId: string
-            noteId: string
+            folder: string
+            note: string
             title: string
             updatedAtMs: number
             markdownBody: string
@@ -940,24 +927,24 @@ export function registerWorkspaceGitIpc(): void {
     'workspace:delete-folder',
     async (
       _evt,
-      payload: { cwd: string; folderId: string }
+      payload: { cwd: string; folder: string }
     ): Promise<{ ok: true } | { ok: false; error: string }> => {
       const cwd = payload.cwd?.trim() ?? ''
-      const folderId = payload.folderId?.trim() ?? ''
+      const folder = payload.folder?.trim() ?? ''
       if (!cwd || !allowWorkspaceFs(cwd)) {
         return { ok: false, error: 'not_a_workspace' }
       }
       if (
-        !folderId ||
-        folderId === DEFAULT_WORKSPACE_ID ||
-        folderId.includes('..') ||
-        /[/\\]/.test(folderId)
+        !folder ||
+        folder === DEFAULT_WORKSPACE_ID ||
+        folder.includes('..') ||
+        /[/\\]/.test(folder)
       ) {
         return { ok: false, error: 'invalid_folder' }
       }
       // cwd is the notes root; folders live directly in cwd
       const workspaceRoot = resolve(cwd)
-      const resolvedFolder = resolve(workspaceRoot, folderId)
+      const resolvedFolder = resolve(workspaceRoot, folder)
       if (dirname(resolvedFolder) !== workspaceRoot) {
         return { ok: false, error: 'invalid_folder' }
       }
@@ -965,7 +952,7 @@ export function registerWorkspaceGitIpc(): void {
         return { ok: false, error: 'missing_folder' }
       }
       rmSync(resolvedFolder, { recursive: true, force: true })
-      console.info(LOG, 'deleted folder', folderId)
+      console.info(LOG, 'deleted folder', folder)
       return { ok: true }
     }
   )
@@ -974,16 +961,16 @@ export function registerWorkspaceGitIpc(): void {
     'workspace:create-folder',
     async (
       _evt,
-      payload: { cwd: string; folderId: string }
+      payload: { cwd: string; folder: string }
     ): Promise<{ ok: true } | { ok: false; error: string }> => {
       const cwd = payload.cwd?.trim() ?? ''
-      const folderId = payload.folderId?.trim() ?? ''
+      const folder = payload.folder?.trim() ?? ''
       if (!cwd || !allowWorkspaceFs(cwd)) return { ok: false, error: 'not_a_workspace' }
-      if (!folderId || folderId.includes('..') || /[/\\]/.test(folderId)) {
-        return { ok: false, error: 'invalid_folder_id' }
+      if (!folder || folder.includes('..') || /[/\\]/.test(folder)) {
+        return { ok: false, error: 'invalid_folder' }
       }
       try {
-        mkdirSync(join(cwd, folderId), { recursive: true })
+        mkdirSync(join(cwd, folder), { recursive: true })
         return { ok: true }
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e)
@@ -993,35 +980,54 @@ export function registerWorkspaceGitIpc(): void {
   )
 
   ipcMain.handle(
-    'workspace:delete-note-files',
+    'workspace:delete-note-file',
     async (
       _evt,
       payload: {
         cwd: string
-        folderId: string
-        noteId: string
-        exceptRelativePath?: string
+        note: string
       }
     ): Promise<{ ok: true } | { ok: false; error: string }> => {
       const cwd = payload.cwd?.trim() ?? ''
-      const folderId = payload.folderId?.trim() ?? ''
-      const noteId = payload.noteId?.trim() ?? ''
-      const exceptRel =
-        typeof payload.exceptRelativePath === 'string'
-          ? payload.exceptRelativePath.trim()
-          : undefined
+      const note = payload.note?.trim() ?? ''
       if (!cwd || !allowWorkspaceFs(cwd)) {
         return { ok: false, error: 'not_a_workspace' }
       }
-      if (!folderId || !noteId) {
-        return { ok: false, error: 'missing_ids' }
+      if (!note) {
+        return { ok: false, error: 'missing_note' }
       }
       try {
-        deleteNoteFilesForId(cwd, folderId, noteId, exceptRel)
+        deleteNoteFile(cwd, note)
         return { ok: true }
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e)
-        console.error(LOG, 'delete-note-files', msg)
+        console.error(LOG, 'delete-note-file', msg)
+        return { ok: false, error: msg }
+      }
+    }
+  )
+
+  ipcMain.handle(
+    'workspace:rename-path',
+    async (
+      _evt,
+      payload: { cwd: string; from: string; to: string }
+    ): Promise<{ ok: true } | { ok: false; error: string }> => {
+      const cwd = payload.cwd?.trim() ?? ''
+      const from = payload.from?.trim() ?? ''
+      const to = payload.to?.trim() ?? ''
+      if (!cwd || !allowWorkspaceFs(cwd)) {
+        return { ok: false, error: 'not_a_workspace' }
+      }
+      if (!from || !to) {
+        return { ok: false, error: 'missing_path' }
+      }
+      try {
+        renameWorkspacePath(cwd, from, to)
+        return { ok: true }
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e)
+        console.error(LOG, 'rename-path', msg)
         return { ok: false, error: msg }
       }
     }

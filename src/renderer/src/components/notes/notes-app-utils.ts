@@ -24,9 +24,9 @@ export const NOTES_APP_PILL_SURFACE =
 
 /** Main window drag uses a single full-width band in `NotesApp` (macOS Notelab); avoid extra `drag` rows. */
 
-export function createEmptyNote(folderId: string): SavedNote {
+export function createEmptyNote(folderId: string, notePath: string): SavedNote {
   return {
-    id: crypto.randomUUID(),
+    id: notePath,
     updatedAt: Date.now(),
     content: null,
     folderId,
@@ -35,9 +35,9 @@ export function createEmptyNote(folderId: string): SavedNote {
   }
 }
 
-export function createEmptyDrawing(folderId: string): SavedNote {
+export function createEmptyDrawing(folderId: string, notePath: string): SavedNote {
   return {
-    id: crypto.randomUUID(),
+    id: notePath,
     updatedAt: Date.now(),
     content: null,
     folderId,

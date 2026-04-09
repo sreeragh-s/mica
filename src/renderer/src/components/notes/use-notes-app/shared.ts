@@ -17,10 +17,10 @@ export function summarizeIndexingCounts(
 
 export type NotelabIndexOk = {
   ok: true
-  folders: { id: string; name: string }[]
+  folders: { folder: string; name: string }[]
   notes: {
-    folderId: string
-    noteId: string
+    folder: string
+    note: string
     title: string
     updatedAtMs: number
     markdownBody: string

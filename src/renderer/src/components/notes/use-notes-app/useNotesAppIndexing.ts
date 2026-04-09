@@ -32,8 +32,8 @@ export function useNotesAppIndexing({ dataRootRef }: UseNotesAppIndexingArgs) {
     const idx = await api.workspace.readNotelabIndex({ cwd })
     if (!idx.ok) return
     const allNotes = idx.notes.map((n) => ({
-      workspaceId: n.folderId,
-      noteId: n.noteId,
+      folder: n.folder,
+      note: n.note,
       title: n.title,
       content: n.markdownBody,
       kind: n.kind
@@ -55,8 +55,8 @@ export function useNotesAppIndexing({ dataRootRef }: UseNotesAppIndexingArgs) {
     }
 
     const allNotes = idx.notes.map((note) => ({
-      workspaceId: note.folderId,
-      noteId: note.noteId,
+      folder: note.folder,
+      note: note.note,
       title: note.title,
       content: note.markdownBody,
       kind: note.kind
@@ -65,7 +65,7 @@ export function useNotesAppIndexing({ dataRootRef }: UseNotesAppIndexingArgs) {
     setIndexingStatus({ ...nextStatus, running: true })
 
     const pendingNoteIds = new Set(
-      nextStatus.notes.filter((note) => note.state === 'pending').map((note) => note.noteId)
+      nextStatus.notes.filter((note) => note.state === 'pending').map((note) => note.note)
     )
     if (pendingNoteIds.size === 0) {
       setIndexingStatus((prev) => ({ ...prev, running: false }))
@@ -77,7 +77,7 @@ export function useNotesAppIndexing({ dataRootRef }: UseNotesAppIndexingArgs) {
     const hashRes = await api.embeddings?.getIndexedHashes?.({ workspacePath: cwd })
     const storedHashes = hashRes?.ok ? hashRes.hashes : {}
 
-    const toIndex = idx.notes.filter((note) => pendingNoteIds.has(note.noteId))
+    const toIndex = idx.notes.filter((note) => pendingNoteIds.has(note.note))
 
     for (const n of toIndex) {
       if (indexingAbortRef.current) break
@@ -85,7 +85,7 @@ export function useNotesAppIndexing({ dataRootRef }: UseNotesAppIndexingArgs) {
         running: prev.running,
         ...(() => {
           const notes = prev.notes.map((ns) =>
-            ns.noteId === n.noteId ? { ...ns, state: 'indexing' as const, error: undefined } : ns
+            ns.note === n.note ? { ...ns, state: 'indexing' as const, error: undefined } : ns
           )
           return {
             notes,
@@ -95,19 +95,19 @@ export function useNotesAppIndexing({ dataRootRef }: UseNotesAppIndexingArgs) {
       }))
       const result = await indexNote({
         workspacePath: cwd,
-        workspaceId: n.folderId,
-        noteId: n.noteId,
+        folder: n.folder,
+        note: n.note,
         title: n.title,
         content: n.markdownBody,
         kind: n.kind,
-        storedHash: storedHashes[n.noteId]?.contentHash
+        storedHash: storedHashes[n.note]?.contentHash
       })
       setIndexingStatus((prev) => ({
         running: prev.running,
         ...(() => {
           const nextState: IndexingNoteStatus['state'] = result.ok ? 'indexed' : 'error'
           const notes = prev.notes.map((ns) =>
-            ns.noteId === n.noteId
+            ns.note === n.note
               ? {
                   ...ns,
                   state: nextState,
@@ -149,19 +149,19 @@ export function useNotesAppIndexing({ dataRootRef }: UseNotesAppIndexingArgs) {
       setIndexingStatus((prev) => ({
         ...prev,
         notes: prev.notes.map((ns) =>
-          ns.noteId === n.noteId ? { ...ns, state: 'indexing' } : ns
+          ns.note === n.note ? { ...ns, state: 'indexing' } : ns
         )
       }))
       // Pass no storedHash to force re-embed
       const result = await indexNote({
         workspacePath: cwd,
-        workspaceId: n.folderId,
-        noteId: n.noteId,
+        folder: n.folder,
+        note: n.note,
         title: n.title,
         content: n.markdownBody,
         kind: n.kind
       })
-      updated[n.noteId] = result.ok ? 'indexed' : 'error'
+      updated[n.note] = result.ok ? 'indexed' : 'error'
       // Notes with no indexable content are treated as 'indexed' (buildIndexingStatus handles them)
     }
 
@@ -169,10 +169,10 @@ export function useNotesAppIndexing({ dataRootRef }: UseNotesAppIndexingArgs) {
       ...prev,
       running: false,
       notes: prev.notes.map((ns) =>
-        updated[ns.noteId] !== undefined ? { ...ns, state: updated[ns.noteId]! } : ns
+        updated[ns.note] !== undefined ? { ...ns, state: updated[ns.note]! } : ns
       ),
       pendingCount: 0,
-      indexedCount: prev.notes.filter((ns) => updated[ns.noteId] === 'indexed').length
+      indexedCount: prev.notes.filter((ns) => updated[ns.note] === 'indexed').length
     }))
   }, [dataRootRef])
 

@@ -127,9 +127,9 @@ export function useNotesAppDisk({
     (idx: NotelabIndexOk, cwd: string) => {
       /** Root bucket `default/` is shown as top-level notes only, not a second folder row. */
       const mappedFolders: Folder[] = idx.folders
-        .filter((w) => w.id !== DEFAULT_WORKSPACE_ID)
+        .filter((w) => w.folder !== DEFAULT_WORKSPACE_ID)
         .map((w) => ({
-          id: w.id,
+          id: w.folder,
           name: w.name,
           localGitPath: cwd
         }))
@@ -137,8 +137,8 @@ export function useNotesAppDisk({
         const kind = n.kind ?? 'note'
         if (kind === 'drawing') {
           return {
-            id: n.noteId,
-            folderId: n.folderId,
+            id: n.note,
+            folderId: n.folder,
             title: n.title,
             updatedAt: n.updatedAtMs,
             content: null,
@@ -147,8 +147,8 @@ export function useNotesAppDisk({
           }
         }
         return {
-          id: n.noteId,
-          folderId: n.folderId,
+          id: n.note,
+          folderId: n.folder,
           title: n.title,
           updatedAt: n.updatedAtMs,
           content: diskBodyToContent(n.markdownBody),
@@ -316,7 +316,7 @@ export function useNotesAppDisk({
     async (noteId: string) => {
       const api = getApi()
       const cwd = dataRootRef.current
-      if (!cwd || !api?.workspace?.writeNoteFile || !api.workspace.deleteNoteFiles) return
+      if (!cwd || !api?.workspace?.writeNoteFile || !api.workspace.deleteNoteFile) return
       const note = notesRef.current.find((n) => n.id === noteId)
       if (!note) return
       const isRoot = note.folderId === DEFAULT_WORKSPACE_ID
@@ -326,14 +326,15 @@ export function useNotesAppDisk({
       pendingDiskWrites.current.add(noteId)
       try {
         const rel = noteMarkdownRelativePath(note.folderId, note)
-        const del = await api.workspace.deleteNoteFiles({
-          cwd: effectiveCwd,
-          folderId: note.folderId,
-          noteId,
-          exceptRelativePath: rel
-        })
-        if (!del.ok) {
-          console.error('[notelab] delete before write failed', del.error)
+        if (rel !== noteId && api.workspace.renamePath) {
+          const rename = await api.workspace.renamePath({
+            cwd: effectiveCwd,
+            from: noteId,
+            to: rel
+          })
+          if (!rename.ok) {
+            console.error('[notelab] rename before write failed', rename.error)
+          }
         }
         const wr = await api.workspace.writeNoteFile({
           cwd: effectiveCwd,
@@ -362,10 +363,10 @@ export function useNotesAppDisk({
   )
 
   const flushNoteMoveToDisk = useCallback(
-    async (noteId: string, fromFolderId: string, toFolderId: string) => {
+    async (noteId: string, _fromFolderId: string, toFolderId: string) => {
       const api = getApi()
       const cwd = dataRootRef.current
-      if (!cwd || !api?.workspace?.writeNoteFile || !api.workspace.deleteNoteFiles) return
+      if (!cwd || !api?.workspace?.writeNoteFile || !api.workspace.renamePath) return
       /** `setNotes` runs before the next render; `notesRef` may still hold the pre-move folder. */
       const raw = notesRef.current.find((n) => n.id === noteId)
       if (!raw) return
@@ -376,15 +377,15 @@ export function useNotesAppDisk({
       if (!writeCwd) return
       pendingDiskWrites.current.add(noteId)
       try {
-        const del = await api.workspace.deleteNoteFiles({
-          cwd,
-          folderId: fromFolderId,
-          noteId
-        })
-        if (!del.ok) {
-          console.error('[notelab] delete note files after move failed', del.error)
-        }
         const rel = noteMarkdownRelativePath(toFolderId, note)
+        const move = await api.workspace.renamePath({
+          cwd,
+          from: noteId,
+          to: rel
+        })
+        if (!move.ok && move.error !== 'missing_source') {
+          console.error('[notelab] move note file failed', move.error)
+        }
         const wr = await api.workspace.writeNoteFile({
           cwd: writeCwd,
           relativePath: rel,
@@ -464,7 +465,7 @@ export function useNotesAppDisk({
           const files = buildMarkdownSyncPayload(f, wsNotes)
           const sync = await ws.syncMarkdown({
             cwd,
-            folderId: f.id,
+            folder: f.id,
             files,
             pruneOrphanNoteFiles: true
           })
@@ -484,7 +485,7 @@ export function useNotesAppDisk({
         const files = buildMarkdownSyncPayload(defaultFolder, [])
         const sync = await ws.syncMarkdown({
           cwd,
-          folderId: DEFAULT_WORKSPACE_ID,
+          folder: DEFAULT_WORKSPACE_ID,
           files,
           pruneOrphanNoteFiles: false
         })
@@ -508,7 +509,7 @@ export function useNotesAppDisk({
         const files = buildMarkdownSyncPayload(defaultFolder, [])
         const sync = await ws.syncMarkdown({
           cwd,
-          folderId: DEFAULT_WORKSPACE_ID,
+          folder: DEFAULT_WORKSPACE_ID,
           files,
           pruneOrphanNoteFiles: false
         })
@@ -524,7 +525,7 @@ export function useNotesAppDisk({
 
       // Restore last selected note and open tabs from window session.
       if (windowSession) {
-        const allNoteIds = new Set(fresh.notes.map((n) => n.noteId))
+        const allNoteIds = new Set(fresh.notes.map((n) => n.note))
         if (windowSession.selectedNoteId && allNoteIds.has(windowSession.selectedNoteId)) {
           setSelectedId(windowSession.selectedNoteId)
         }
@@ -588,7 +589,7 @@ export function useNotesAppDisk({
           const files = buildMarkdownSyncPayload(f, wsNotes)
           const r = await api.workspace!.syncMarkdown!({
             cwd: f.localGitPath!,
-            folderId: f.id,
+            folder: f.id,
             files,
             pruneOrphanNoteFiles: true
           })

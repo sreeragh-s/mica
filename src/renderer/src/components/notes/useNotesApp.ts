@@ -22,7 +22,11 @@ import {
   loadShortcutBindings,
   type ShortcutBindingsMap
 } from '@/lib/shortcuts-storage'
-import { newFolderId } from '@/lib/workspace-markdown-sync'
+import {
+  buildFolderPath,
+  buildUniqueNoteRelativePath,
+  newFolderId
+} from '@/lib/workspace-markdown-sync'
 import type { AppMode, NotesAppProps, SettingsSection } from './notes-app-types'
 import {
   createEmptyDrawing,
@@ -217,6 +221,14 @@ export function useNotesApp({
     }
     return map
   }, [folders, notes])
+
+  const takenNotePaths = useCallback(() => notesRef.current.map((note) => note.id), [])
+
+  const buildNotePath = useCallback(
+    (folderId: string, title: string, kind: SavedNote['kind'], currentPath?: string) =>
+      buildUniqueNoteRelativePath(folderId, title, kind, takenNotePaths(), currentPath),
+    [takenNotePaths]
+  )
 
   const treeSelectedIds = useMemo(() => {
     if (workspaceSettingsFolderId) return [treeFolderId(workspaceSettingsFolderId)]
@@ -468,7 +480,7 @@ export function useNotesApp({
       setFolders((prev) => [...prev, { id, name, ...(root ? { localGitPath: root } : {}) }])
       if (diskMode && root) {
         const api = getApi()
-        void api?.workspace?.createFolder?.({ cwd: root, folderId: id })
+        void api?.workspace?.createFolder?.({ cwd: root, folder: id })
         if (useGithubApiSync) setGithubApiDirty(true)
         void refreshWorkspaceGitStatuses()
       }
@@ -510,7 +522,8 @@ export function useNotesApp({
     setAppSidebarView('explorer')
     setGraphViewOpen(false)
     setTabOverviewOpen(false)
-    const note = createEmptyNote(fid)
+    const notePath = buildNotePath(fid, '', 'note')
+    const note = createEmptyNote(fid, notePath)
     setNotes((prev) => [note, ...prev])
     setSelectedId(note.id)
     setFocusedFolderId(null)
@@ -521,7 +534,7 @@ export function useNotesApp({
     if (diskMode) {
       window.setTimeout(() => scheduleNoteFlush(note.id), 0)
     }
-  }, [newNoteDestinationFolderId, diskMode, scheduleNoteFlush, pushOpenNoteTab])
+  }, [buildNotePath, newNoteDestinationFolderId, diskMode, scheduleNoteFlush, pushOpenNoteTab])
 
   const handleNoteSerializedChange = useCallback(
     (noteId: string, serialized: SerializedEditorState) => {
@@ -549,7 +562,8 @@ export function useNotesApp({
     setAppSidebarView('explorer')
     setGraphViewOpen(false)
     setTabOverviewOpen(false)
-    const note = createEmptyDrawing(fid)
+    const notePath = buildNotePath(fid, 'New drawing', 'drawing')
+    const note = createEmptyDrawing(fid, notePath)
     setNotes((prev) => [note, ...prev])
     setSelectedId(note.id)
     setFocusedFolderId(null)
@@ -560,7 +574,7 @@ export function useNotesApp({
     if (diskMode) {
       window.setTimeout(() => scheduleNoteFlush(note.id), 0)
     }
-  }, [newNoteDestinationFolderId, diskMode, scheduleNoteFlush, pushOpenNoteTab])
+  }, [buildNotePath, newNoteDestinationFolderId, diskMode, scheduleNoteFlush, pushOpenNoteTab])
 
   const handleExcalidrawSceneChange = useCallback(
     (noteId: string, json: string) => {
@@ -578,12 +592,20 @@ export function useNotesApp({
 
   const renameNote = useCallback(
     (noteId: string, title: string) => {
+      const trimmed = title.trim()
+      const current = notesRef.current.find((n) => n.id === noteId)
+      if (!current) return
+      const nextId = buildNotePath(current.folderId, trimmed, current.kind, current.id)
       setNotes((prev) =>
-        prev.map((n) => (n.id === noteId ? { ...n, title: title.trim(), updatedAt: Date.now() } : n))
+        prev.map((n) =>
+          n.id === noteId ? { ...n, id: nextId, title: trimmed, updatedAt: Date.now() } : n
+        )
       )
-      scheduleNoteFlush(noteId)
+      setSelectedId((prev) => (prev === noteId ? nextId : prev))
+      setOpenNoteTabIds((prev) => prev.map((id) => (id === noteId ? nextId : id)))
+      scheduleNoteFlush(nextId)
     },
-    [scheduleNoteFlush]
+    [buildNotePath, scheduleNoteFlush]
   )
 
   const setNoteCover = useCallback(
@@ -635,12 +657,17 @@ export function useNotesApp({
       if (!targetOk) return
 
       const fromFolderId = note.folderId
+      const nextId = buildNotePath(targetFolderId, note.title, note.kind, note.id)
       setGraphViewOpen(false)
       setNotes((prev) =>
         prev.map((n) =>
-          n.id === noteId ? { ...n, folderId: targetFolderId, updatedAt: Date.now() } : n
+          n.id === noteId
+            ? { ...n, id: nextId, folderId: targetFolderId, updatedAt: Date.now() }
+            : n
         )
       )
+      setSelectedId((prev) => (prev === noteId ? nextId : prev))
+      setOpenNoteTabIds((prev) => prev.map((id) => (id === noteId ? nextId : id)))
       setFocusedFolderId(targetFolderId)
       setNewNoteDestinationFolderId(targetFolderId)
       setTreeExpandIds(treeExpandIdsForFolderId(targetFolderId))
@@ -656,7 +683,7 @@ export function useNotesApp({
         setGithubApiDirty(true)
       }
     },
-    [diskMode, flushNoteMoveToDisk, useGithubApiSync]
+    [buildNotePath, diskMode, flushNoteMoveToDisk, useGithubApiSync]
   )
 
   const reorderFolders = useCallback((draggedFolderId: string, targetFolderId: string) => {
@@ -694,11 +721,10 @@ export function useNotesApp({
       void (async () => {
         const api = getApi()
         const cwd = dataRootRef.current
-        if (diskMode && cwd && api?.workspace?.deleteNoteFiles && deleted) {
-          const r = await api.workspace.deleteNoteFiles({
+        if (diskMode && cwd && api?.workspace?.deleteNoteFile && deleted) {
+          const r = await api.workspace.deleteNoteFile({
             cwd,
-            folderId: deleted.folderId,
-            noteId
+            note: noteId
           })
           if (!r.ok) {
             console.error('[notelab] delete note files failed', r.error)
@@ -709,7 +735,7 @@ export function useNotesApp({
         if (deleted && cwd && api?.embeddings?.deleteNoteDocument) {
           const emb = await api.embeddings.deleteNoteDocument({
             workspacePath: cwd,
-            noteId,
+            note: noteId,
           })
           if (!emb.ok) {
             console.error('[notelab] deleteNoteDocument failed', emb.error)
@@ -838,9 +864,46 @@ export function useNotesApp({
   }, [])
 
   const renameFolder = useCallback(
-    (folderId: string, name: string) => {
-      setFolders((prev) => prev.map((f) => (f.id === folderId ? { ...f, name } : f)))
+    async (folderId: string, name: string) => {
+      const current = foldersRef.current.find((f) => f.id === folderId)
+      if (!current) return
+      const nextFolderId = buildFolderPath(name)
       const root = dataRootRef.current
+      if (diskMode && root && folderId !== nextFolderId) {
+        const rename = await getApi()?.workspace?.renamePath?.({
+          cwd: root,
+          from: folderId,
+          to: nextFolderId
+        })
+        if (!rename?.ok) {
+          console.error('[notelab] rename folder failed', rename?.error)
+          return
+        }
+      }
+      setFolders((prev) =>
+        prev.map((f) => (f.id === folderId ? { ...f, id: nextFolderId, name } : f))
+      )
+      setNotes((prev) =>
+        prev.map((note) =>
+          note.folderId !== folderId
+            ? note
+            : {
+                ...note,
+                folderId: nextFolderId,
+                id: note.id.startsWith(`${folderId}/`)
+                  ? `${nextFolderId}/${note.id.slice(folderId.length + 1)}`
+                  : note.id
+              }
+        )
+      )
+      setSelectedId((prev) =>
+        prev?.startsWith(`${folderId}/`) ? `${nextFolderId}/${prev.slice(folderId.length + 1)}` : prev
+      )
+      setOpenNoteTabIds((prev) =>
+        prev.map((id) =>
+          id.startsWith(`${folderId}/`) ? `${nextFolderId}/${id.slice(folderId.length + 1)}` : id
+        )
+      )
       if (diskMode && root) {
         if (useGithubApiSync) setGithubApiDirty(true)
         void refreshWorkspaceGitStatuses()
@@ -864,7 +927,7 @@ export function useNotesApp({
 
       const r = await api.workspace.deleteFolder({
         cwd: root,
-        folderId
+        folder: folderId
       })
       if (!r.ok) {
         console.error('[notelab] delete workspace failed', r.error)

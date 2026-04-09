@@ -203,7 +203,7 @@ export function EmbeddingsSettingsView({
           <div className="border-border divide-border divide-y rounded-lg border">
             {notes.map((n) => (
               <div
-                key={n.noteId}
+                key={n.note}
                 className="flex items-center gap-3 px-3 py-2"
               >
                 <StatusIcon state={n.state} />

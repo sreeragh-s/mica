@@ -137,7 +137,7 @@ const api = {
     ): Promise<{ ok: true; copiedFiles: number } | { ok: false; error: string }> =>
       ipcRenderer.invoke('workspace:migrate-workspace', payload),
     createFolder: (
-      payload: { cwd: string; folderId: string }
+      payload: { cwd: string; folder: string }
     ): Promise<{ ok: true } | { ok: false; error: string }> =>
       ipcRenderer.invoke('workspace:create-folder', payload),
     setSyncMode: (
@@ -152,7 +152,7 @@ const api = {
       ipcRenderer.invoke('workspace:set-git-remote', payload),
     syncMarkdown: (payload: {
       cwd: string
-      folderId: string
+      folder: string
       files: { relativePath: string; content: string }[]
       pruneOrphanNoteFiles?: boolean
     }): Promise<{ ok: true } | { ok: false; error: string }> =>
@@ -162,10 +162,10 @@ const api = {
     ): Promise<
       | {
           ok: true
-          folders: { id: string; name: string }[]
+          folders: { folder: string; name: string }[]
           notes: {
-            folderId: string
-            noteId: string
+            folder: string
+            note: string
             title: string
             updatedAtMs: number
             markdownBody: string
@@ -182,16 +182,20 @@ const api = {
       content: string
     }): Promise<{ ok: true } | { ok: false; error: string }> =>
       ipcRenderer.invoke('workspace:write-note-file', payload),
-    deleteNoteFiles: (payload: {
+    deleteNoteFile: (payload: {
       cwd: string
-      folderId: string
-      noteId: string
-      exceptRelativePath?: string
+      note: string
     }): Promise<{ ok: true } | { ok: false; error: string }> =>
-      ipcRenderer.invoke('workspace:delete-note-files', payload),
+      ipcRenderer.invoke('workspace:delete-note-file', payload),
+    renamePath: (payload: {
+      cwd: string
+      from: string
+      to: string
+    }): Promise<{ ok: true } | { ok: false; error: string }> =>
+      ipcRenderer.invoke('workspace:rename-path', payload),
     deleteFolder: (payload: {
       cwd: string
-      folderId: string
+      folder: string
     }): Promise<{ ok: true } | { ok: false; error: string }> =>
       ipcRenderer.invoke('workspace:delete-folder', payload),
     gitStatus: (
@@ -496,13 +500,13 @@ const api = {
     getIndexedHashes: (payload: {
       workspacePath: string
     }): Promise<
-      | { ok: true; hashes: Record<string, { contentHash: string; workspaceId: string }> }
+      | { ok: true; hashes: Record<string, { contentHash: string; folder: string }> }
       | { ok: false; error: string }
     > => ipcRenderer.invoke('embeddings:get-indexed-hashes', payload),
     upsertNoteDocument: (payload: {
       workspacePath: string
-      workspaceId: string
-      noteId: string
+      folder: string
+      note: string
       title: string
       kind: 'note' | 'drawing'
       contentHash: string
@@ -539,7 +543,7 @@ const api = {
     > => ipcRenderer.invoke('embeddings:search-documents', payload),
     deleteNoteDocument: (payload: {
       workspacePath: string
-      noteId: string
+      note: string
     }): Promise<
       | { ok: true; deleted: boolean }
       | { ok: false; error: string }

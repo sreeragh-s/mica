@@ -1,6 +1,7 @@
 import type { SavedNote, Folder } from "@/lib/notes-storage"
 
 import { serializedStateToMarkdown } from "@/lib/lexical-to-markdown"
+import { DEFAULT_WORKSPACE_ID } from "@/lib/notes-storage"
 
 function slugifyNoteFilenameSegment(title: string): string {
   const s = title
@@ -30,9 +31,7 @@ function slugifyWorkspaceDirSegment(displayName: string): string {
  * Uses a readable slug from the display name plus a short unique suffix (not a bare UUID).
  */
 export function newFolderId(displayName: string): string {
-  const slug = slugifyWorkspaceDirSegment(displayName)
-  const hex = crypto.randomUUID().replace(/-/g, "")
-  return `${slug}--${hex.slice(0, 8)}`
+  return slugifyWorkspaceDirSegment(displayName)
 }
 
 export function buildNoteMarkdownDocument(note: SavedNote): string {
@@ -40,7 +39,6 @@ export function buildNoteMarkdownDocument(note: SavedNote): string {
   if (note.kind === "drawing") {
     const scene = note.excalidrawScene?.trim() ?? ""
     const front = `---
-notelab_note_id: "${note.id}"
 updated_at: "${new Date(note.updatedAt).toISOString()}"
 title: ${JSON.stringify(title)}
 notelab_kind: drawing
@@ -58,7 +56,6 @@ notelab_kind: drawing
       ? `title_emoji: ${JSON.stringify(note.titleEmoji.trim())}\n`
       : ""
   const front = `---
-notelab_note_id: "${note.id}"
 updated_at: "${new Date(note.updatedAt).toISOString()}"
 title: ${JSON.stringify(title)}
 ${coverLine}${emojiLine}---
@@ -67,16 +64,44 @@ ${coverLine}${emojiLine}---
   return front + (body.trim() ? `${body}\n` : "_Empty note._\n")
 }
 
-const DEFAULT_WORKSPACE_ID = 'default'
+export function noteMarkdownRelativePath(_folderId: string, note: SavedNote): string {
+  return note.id
+}
 
-export function noteMarkdownRelativePath(folderId: string, note: SavedNote): string {
-  const title = note.title.trim() || "Untitled"
-  const fileBase = `${slugifyNoteFilenameSegment(title)}--${note.id}.md`
-  if (folderId === DEFAULT_WORKSPACE_ID) {
-    // Root notes live directly in the notes root (cwd)
-    return fileBase
+export function buildNoteFileBaseName(title: string, kind: SavedNote["kind"]): string {
+  const normalized = slugifyNoteFilenameSegment(title || (kind === "drawing" ? "New drawing" : "Untitled"))
+  return `${normalized}.md`
+}
+
+export function buildFolderPath(folderName: string): string {
+  return slugifyWorkspaceDirSegment(folderName)
+}
+
+export function buildUniqueNoteRelativePath(
+  folderId: string,
+  title: string,
+  kind: SavedNote["kind"],
+  takenRelativePaths: Iterable<string>,
+  currentRelativePath?: string
+): string {
+  const taken = new Set(Array.from(takenRelativePaths, (value) => value.replace(/\\/g, "/")))
+  const current = currentRelativePath?.replace(/\\/g, "/")
+  if (current) {
+    taken.delete(current)
   }
-  return `${folderId}/${fileBase}`
+  const baseName = buildNoteFileBaseName(title, kind)
+  const suffix = ".md"
+  const bare = baseName.endsWith(suffix) ? baseName.slice(0, -suffix.length) : baseName
+  let counter = 1
+  while (true) {
+    const candidateBase = counter === 1 ? baseName : `${bare}-${counter}.md`
+    const candidate =
+      folderId === DEFAULT_WORKSPACE_ID ? candidateBase : `${folderId}/${candidateBase}`
+    if (!taken.has(candidate)) {
+      return candidate
+    }
+    counter += 1
+  }
 }
 
 /**

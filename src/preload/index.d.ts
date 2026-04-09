@@ -131,7 +131,7 @@ type NotelabApi = {
     }) => Promise<{ ok: true; copiedFiles: number } | { ok: false; error: string }>
     createFolder: (payload: {
       cwd: string
-      folderId: string
+      folder: string
     }) => Promise<{ ok: true } | { ok: false; error: string }>
     setSyncMode?: (payload: {
       cwd: string
@@ -144,7 +144,7 @@ type NotelabApi = {
     }) => Promise<{ ok: true } | { ok: false; error: string }>
     syncMarkdown: (payload: {
       cwd: string
-      folderId: string
+      folder: string
       files: { relativePath: string; content: string }[]
       pruneOrphanNoteFiles?: boolean
     }) => Promise<{ ok: true } | { ok: false; error: string }>
@@ -153,10 +153,10 @@ type NotelabApi = {
     }) => Promise<
       | {
           ok: true
-          folders: { id: string; name: string }[]
+          folders: { folder: string; name: string }[]
           notes: {
-            folderId: string
-            noteId: string
+            folder: string
+            note: string
             title: string
             updatedAtMs: number
             markdownBody: string
@@ -172,15 +172,18 @@ type NotelabApi = {
       relativePath: string
       content: string
     }) => Promise<{ ok: true } | { ok: false; error: string }>
-    deleteNoteFiles: (payload: {
+    deleteNoteFile: (payload: {
       cwd: string
-      folderId: string
-      noteId: string
-      exceptRelativePath?: string
+      note: string
+    }) => Promise<{ ok: true } | { ok: false; error: string }>
+    renamePath: (payload: {
+      cwd: string
+      from: string
+      to: string
     }) => Promise<{ ok: true } | { ok: false; error: string }>
     deleteFolder: (payload: {
       cwd: string
-      folderId: string
+      folder: string
     }) => Promise<{ ok: true } | { ok: false; error: string }>
     gitStatus: (payload: {
       cwd: string
@@ -335,13 +338,13 @@ type NotelabApi = {
     getIndexedHashes: (payload: {
       workspacePath: string
     }) => Promise<
-      | { ok: true; hashes: Record<string, { contentHash: string; workspaceId: string }> }
+      | { ok: true; hashes: Record<string, { contentHash: string; folder: string }> }
       | { ok: false; error: string }
     >
     upsertNoteDocument: (payload: {
       workspacePath: string
-      workspaceId: string
-      noteId: string
+      folder: string
+      note: string
       title: string
       kind: 'note' | 'drawing'
       contentHash: string
@@ -363,7 +366,7 @@ type NotelabApi = {
     >
     deleteNoteDocument: (payload: {
       workspacePath: string
-      noteId: string
+      note: string
     }) => Promise<
       | { ok: true; deleted: boolean }
       | { ok: false; error: string }

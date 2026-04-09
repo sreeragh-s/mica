@@ -47,44 +47,44 @@ export type IndexNoteResult =
  */
 export async function indexNote(opts: {
   workspacePath: string
-  workspaceId: string
-  noteId: string
+  folder: string
+  note: string
   title: string
   content: string
   kind: NoteKind
   storedHash?: string
 }): Promise<IndexNoteResult> {
-  const { workspacePath, workspaceId, noteId, title, content, kind, storedHash } = opts
+  const { workspacePath, folder, note, title, content, kind, storedHash } = opts
   const api = getApi()
   if (!api?.embeddings?.upsertNoteDocument || !api.embeddings.deleteNoteDocument) {
-    log.error(`indexNote(${noteId}): embeddings API unavailable`)
+    log.error(`indexNote(${note}): embeddings API unavailable`)
     return { ok: false, error: 'Embeddings API unavailable' }
   }
 
   const contentHash = await computeContentHash(content)
   log.info(
-    `indexNote(${noteId}): workspacePath=${workspacePath} workspaceId=${workspaceId} kind=${kind} title="${title.slice(0, 80)}" hash=${contentHash.slice(0, 8)}… storedHash=${storedHash?.slice(0, 8) ?? 'none'}`
+    `indexNote(${note}): workspacePath=${workspacePath} folder=${folder} kind=${kind} title="${title.slice(0, 80)}" hash=${contentHash.slice(0, 8)}… storedHash=${storedHash?.slice(0, 8) ?? 'none'}`
   )
 
   // Skip if content hasn't changed.
   if (storedHash && storedHash === contentHash) {
-    log.info(`indexNote(${noteId}): skipping because content is unchanged`)
+    log.info(`indexNote(${note}): skipping because content is unchanged`)
     return { ok: true, indexed: 0, skipped: true, reason: 'content unchanged' }
   }
 
   const indexableText = buildIndexableText(content, kind)
-  log.info(`indexNote(${noteId}): prepared indexable text chars=${indexableText.length}`)
+  log.info(`indexNote(${note}): prepared indexable text chars=${indexableText.length}`)
 
   if (!indexableText) {
-    log.info(`indexNote(${noteId}): no indexable content, deleting any previously indexed document`)
-    await api.embeddings.deleteNoteDocument({ workspacePath, noteId })
+    log.info(`indexNote(${note}): no indexable content, deleting any previously indexed document`)
+    await api.embeddings.deleteNoteDocument({ workspacePath, note })
     return { ok: true, indexed: 0, skipped: true, reason: 'no indexable content' }
   }
 
   const result = await api.embeddings.upsertNoteDocument({
     workspacePath,
-    workspaceId,
-    noteId,
+    folder,
+    note,
     title,
     kind,
     contentHash,
@@ -93,17 +93,17 @@ export async function indexNote(opts: {
   })
 
   if (!result.ok) {
-    log.error(`indexNote(${noteId}): Vectra upsert failed`, result.error)
+    log.error(`indexNote(${note}): Vectra upsert failed`, result.error)
     return { ok: false, error: result.error }
   }
 
-  log.info(`indexNote(${noteId}): stored ${result.indexed} chunk(s) in workspace-local Vectra index`)
+  log.info(`indexNote(${note}): stored ${result.indexed} chunk(s) in workspace-local Vectra index`)
   return { ok: true, indexed: result.indexed, skipped: false }
 }
 
 export type IndexingNoteStatus = {
-  workspaceId: string
-  noteId: string
+  folder: string
+  note: string
   title: string
   kind: NoteKind
   /** 'pending' = not indexed or changed. 'indexed' = up to date or no content. 'error' = last attempt failed. */
@@ -129,10 +129,10 @@ export type IndexingStatus = {
  */
 export async function buildIndexingStatus(
   workspacePath: string,
-  allNotes: { workspaceId: string; noteId: string; title: string; content: string; kind: NoteKind }[]
+  allNotes: { folder: string; note: string; title: string; content: string; kind: NoteKind }[]
 ): Promise<Omit<IndexingStatus, 'running'>> {
   const api = getApi()
-  let storedHashes: Record<string, { contentHash: string; workspaceId: string }> = {}
+  let storedHashes: Record<string, { contentHash: string; folder: string }> = {}
 
   if (api?.embeddings?.getIndexedHashes) {
     const r = await api.embeddings.getIndexedHashes({ workspacePath })
@@ -148,22 +148,22 @@ export async function buildIndexingStatus(
     allNotes.map(async (n) => {
       const indexableText = buildIndexableText(n.content, n.kind)
       if (!indexableText) {
-        return { workspaceId: n.workspaceId, noteId: n.noteId, title: n.title, kind: n.kind, state: 'indexed' as const }
+        return { folder: n.folder, note: n.note, title: n.title, kind: n.kind, state: 'indexed' as const }
       }
 
-      const stored = storedHashes[n.noteId]
+      const stored = storedHashes[n.note]
       if (!stored) {
-        return { workspaceId: n.workspaceId, noteId: n.noteId, title: n.title, kind: n.kind, state: 'pending' as const }
+        return { folder: n.folder, note: n.note, title: n.title, kind: n.kind, state: 'pending' as const }
       }
 
       const currentHash = await computeContentHash(n.content)
       const state = stored.contentHash === currentHash ? 'indexed' as const : 'pending' as const
       if (state === 'pending') {
         log.info(
-          `buildIndexingStatus: noteId=${n.noteId} hash mismatch stored=${stored.contentHash.slice(0, 8)}… current=${currentHash.slice(0, 8)}…`
+          `buildIndexingStatus: note=${n.note} hash mismatch stored=${stored.contentHash.slice(0, 8)}… current=${currentHash.slice(0, 8)}…`
         )
       }
-      return { workspaceId: n.workspaceId, noteId: n.noteId, title: n.title, kind: n.kind, state }
+      return { folder: n.folder, note: n.note, title: n.title, kind: n.kind, state }
     })
   )
 

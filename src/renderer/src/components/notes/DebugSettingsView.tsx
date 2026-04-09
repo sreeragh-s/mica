@@ -58,7 +58,7 @@ export function DebugSettingsView({
         syncMarkdown: typeof w.syncMarkdown === 'function',
         readNotelabIndex: typeof w.readNotelabIndex === 'function',
         writeNoteFile: typeof w.writeNoteFile === 'function',
-        deleteNoteFiles: typeof w.deleteNoteFiles === 'function',
+        deleteNoteFile: typeof w.deleteNoteFile === 'function',
         gitStatus: typeof w.gitStatus === 'function',
         gitCommit: typeof w.gitCommit === 'function',
         gitPull: typeof w.gitPull === 'function',
@@ -113,8 +113,8 @@ export function DebugSettingsView({
       setStorePingText('No workspace is currently open.')
       return
     }
-    const workspaceId = '__notelab_debug__'
-    const noteId = '__vectra_ping__'
+    const folder = '__notelab_debug__'
+    const note = '__vectra_ping__'
     setStorePingBusy(true)
     setStorePingText(null)
     void (async () => {
@@ -126,8 +126,8 @@ export function DebugSettingsView({
         }
         const indexed = await emb.upsertNoteDocument({
           workspacePath,
-          workspaceId,
-          noteId,
+          folder,
+          note,
           title: 'Vectra ping',
           kind: 'note',
           contentHash: 'debug-ping',
@@ -145,14 +145,14 @@ export function DebugSettingsView({
           maxChunks: 10,
           maxSections: 1,
           maxTokens: 160,
-          filter: { workspaceId: { $eq: workspaceId }, noteId: { $eq: noteId } },
+          filter: { workspaceId: { $eq: folder }, noteId: { $eq: note } },
           isBm25: true,
         })
         if (!searched.ok) {
           setStorePingText(`searchDocuments failed: ${searched.error}`)
           return
         }
-        const deleted = await emb.deleteNoteDocument({ workspacePath, noteId })
+        const deleted = await emb.deleteNoteDocument({ workspacePath, note })
         if (!deleted.ok) {
           setStorePingText(`deleteNoteDocument failed: ${deleted.error}`)
           return
