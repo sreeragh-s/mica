@@ -230,7 +230,7 @@ export function Plugins({
                   </div>
                 </div>
               )}
-              <div className="mx-auto min-h-full w-full max-w-3xl">
+              <div className="mx-auto min-h-full w-full max-w-4xl">
                 <div className="relative flex min-h-full flex-col" ref={onRef}>
                   {(onCoverChange || onTitleEmojiChange) && (
                     <>

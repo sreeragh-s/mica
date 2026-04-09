@@ -99,8 +99,9 @@ export function SetupScreen({ api, initialRoot, onDone }: Props): JSX.Element {
         <div className="border-border space-y-2 rounded-lg border px-3 py-2.5">
           <h2 className="text-foreground text-sm font-semibold">Workspace folder</h2>
           <p className="text-muted-foreground text-xs leading-snug">
-            All notes and config will be stored here. Defaults to{' '}
-            <code className="text-xs">~/.notelab</code>.
+            Choose a folder for your notes. A{' '}
+            <code className="text-xs">.notelab.config</code> file will be created inside it. Defaults to{' '}
+            <code className="text-xs">~/Documents/notelab</code>.
           </p>
           <div className="flex items-center gap-2">
             <div className="border-input bg-muted/30 min-w-0 flex-1 truncate rounded-md border px-2.5 py-1.5 font-mono text-xs">

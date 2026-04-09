@@ -99,17 +99,16 @@ export default function App(): JSX.Element {
 
   useEffect(() => {
     void (async () => {
-      const api = getApi()
-      let dataRoot: string | null = null
+      const savedRoot = loadSetupState().workspaceRoot
       if (api?.workspace?.ensureDataRoot) {
-        const savedRoot = loadSetupState().workspaceRoot
         const r = await api.workspace.ensureDataRoot(savedRoot ? { path: savedRoot } : undefined)
         if (r.ok) {
-          dataRoot = r.configRoot
           setInitialRoot(r)
+          await hydrateAppConfig(r.path)
         }
+      } else {
+        await hydrateAppConfig(null)
       }
-      await hydrateAppConfig(dataRoot)
       applyUiFontToDocument(loadUiFont())
       applyThemeToDocument(
         loadThemePresetId(),

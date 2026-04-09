@@ -46,6 +46,16 @@ interface SpeechRecognitionConstructor {
 interface Window {
   SpeechRecognition?: SpeechRecognitionConstructor
   webkitSpeechRecognition?: SpeechRecognitionConstructor
+  __NOTELAB_SESSION__?: {
+    version: 1
+    windows: {
+      workspacePath?: string
+      selectedNoteId?: string | null
+      openNoteTabPaths?: string[]
+      chatSidebarOpen?: boolean
+      bounds?: { x: number; y: number; width: number; height: number }
+    }[]
+  }
 }
 
 interface ImportMetaEnv {

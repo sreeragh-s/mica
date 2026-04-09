@@ -17,7 +17,6 @@ import { NotesGraphView } from '@/components/notes/views/NotesGraphView'
 import { NotesChatSidebar } from '@/components/notes/chat/NotesChatSidebar'
 import { NoteTabStrip } from '@/components/notes/editor-area/NoteTabStrip'
 import { NotesPrimaryPane, getNoteDragId, isNoteDragEvent } from '@/components/notes/editor-area/NotesPrimaryPane'
-import { NotesSearchBar } from '@/components/notes/editor-area/NotesSearchBar'
 import { NotesTabOverview } from '@/components/notes/views/NotesTabOverview'
 import { NotesToolbarPill } from '@/components/notes/editor-area/NotesToolbarPill'
 import { ShortcutsSettingsView } from '@/components/notes/settings/ShortcutsSettingsView'
@@ -88,7 +87,6 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
     reorderOpenNoteTabs,
     closeNoteTab,
     sidebarCollapsed,
-    toggleSidebar,
     handleNoteSerializedChange,
     handleNewNote,
     handleExcalidrawSceneChange,
@@ -338,34 +336,10 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
                     isMacNotelab && 'pointer-events-none'
                   )}
                 >
-                  {/* Search bar row */}
-                  {showNotes ? (
-                    <NotesSearchBar
-                      notes={notes}
-                      folders={folders}
-                      onSelectNote={selectNote}
-                      macTitlebarStyles={macTitlebarStyles}
-                      sidebarOverlayActive={sidebarOverlayActive}
-                      isMacNotelab={isMacNotelab}
-                      nativeLiquidGlassAttached={nativeLiquidGlassAttached}
-                      sidebarCollapsed={sidebarCollapsed}
-                      toggleSidebar={toggleSidebar}
-                    />
-                  ) : (
-                    <div
-                      className={cn(
-                        'h-12 shrink-0',
-                        sidebarOverlayActive && 'pr-1.5',
-                        isMacNotelab && 'pointer-events-none'
-                      )}
-                      aria-hidden
-                    />
-                  )}
-
                   {/* Tab strip row */}
                   <div
                     className={cn(
-                      'flex min-h-0 w-full min-w-0 shrink-0 items-center py-1.5',
+                      'flex min-h-0 w-full min-w-0 shrink-0 items-center',
                       !sidebarOverlayActive && isMacNotelab && sidebarCollapsed && 'pl-[92px]',
                       isMacNotelab && 'pointer-events-none'
                     )}
@@ -382,7 +356,7 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
                         macTitlebarStyles={macTitlebarStyles}
                       />
                     ) : (
-                      <div className="min-h-8 min-w-0 flex-1" aria-hidden />
+                      <div className="h-12 min-w-0 flex-1" aria-hidden />
                     )}
                   </div>
                 </div>

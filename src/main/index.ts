@@ -23,7 +23,7 @@ import { electronApp } from '@electron-toolkit/utils'
 import log from 'electron-log/main'
 
 import { createWindow, macLiquidGlassStateByWebContents } from './core/window'
-import { readAppSession, persistCurrentSession, windowSessionData, type WindowSession } from './core/session'
+import { windowSessionData, type WindowSession } from './core/session'
 import { watchWindowShortcutsDetachedDevTools, zenShortcutBindings, type ZenShortcutBinding } from './core/shortcuts'
 
 import { registerAuthIpc } from './auth/auth'
@@ -150,28 +150,12 @@ app.whenReady().then(() => {
     return { ok: true as const }
   })
 
-  // --- Restore previous session ---
-
-  const prevSession = readAppSession()
-  if (prevSession.windows.length > 0) {
-    for (const ws of prevSession.windows) {
-      createWindow(ws)
-    }
-  } else {
-    createWindow()
-  }
+  // --- Create first window ---
+  createWindow()
 
   app.on('activate', function () {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })
-})
-
-// ---------------------------------------------------------------------------
-// App lifecycle
-// ---------------------------------------------------------------------------
-
-app.on('before-quit', () => {
-  persistCurrentSession()
 })
 
 app.on('window-all-closed', () => {

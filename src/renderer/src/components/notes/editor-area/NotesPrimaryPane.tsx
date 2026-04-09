@@ -92,6 +92,7 @@ export function NotesPrimaryPane({
               />
               <NotePropertiesPanel
                 note={selectedNote}
+                notes={notes}
                 editorSettings={editorSettings}
                 onSetProperty={(key, value) => onSetNoteProperty(selectedNote.path, key, value)}
               />

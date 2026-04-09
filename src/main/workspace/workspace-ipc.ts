@@ -12,7 +12,6 @@ import {
   mkdirSync,
   readFileSync,
   readdirSync,
-  renameSync,
   rmSync,
   unlinkSync,
   writeFileSync,
@@ -30,31 +29,15 @@ import { checkGitBinary, runGit } from '../git/git-runner'
 
 const LOG = '[notelab-workspace]'
 
-/** Git + markdown live under ~/.notelab (legacy name was ~/.notelab.io). */
-const NOTELAB_HOME_DIR = '.notelab'
-const LEGACY_NOTELAB_HOME_DIR = '.notelab.io'
-/** Markdown and folders live under `notelab/<folder>/` relative to the root. */
-const DATA_DIR = 'notelab'
-/** Virtual inbox id; root notes live directly in `notelab/`, not in a subfolder. */
+/** Virtual inbox id; root notes live directly in the workspace root. */
 const DEFAULT_WORKSPACE_ID = 'default'
 const MODE_FILE = '.notelab-mode'
-/** App settings JSON: <dataRoot>/notelab.config (data root is ~/.notelab). */
-const APP_CONFIG_FILENAME = 'notelab.config'
+/** Unified app config + session stored at the workspace root. */
+const APP_CONFIG_FILENAME = 'notelab.json'
 
 // ---------------------------------------------------------------------------
 // Internal helpers
 // ---------------------------------------------------------------------------
-
-/** Renames ~/.notelab.io → ~/.notelab when the new path does not exist yet. */
-function migrateNotelabHomeDirIfNeeded(): void {
-  const home = homedir()
-  const next = join(home, NOTELAB_HOME_DIR)
-  const prev = join(home, LEGACY_NOTELAB_HOME_DIR)
-  if (existsSync(next)) return
-  if (!existsSync(prev)) return
-  renameSync(prev, next)
-  console.info(LOG, 'migrated data root', prev, '→', next)
-}
 
 function assertNotelabDataRoot(cwd: string): boolean {
   const root = cwd?.trim() ?? ''
@@ -66,35 +49,6 @@ function assertNotelabDataRoot(cwd: string): boolean {
 
 function appConfigFilePath(cwd: string): string {
   return join(cwd, APP_CONFIG_FILENAME)
-}
-
-function migrateLegacyDataLayout(root: string): void {
-  const legacyWs = join(root, 'notelab.io', 'workspaces')
-  if (!existsSync(legacyWs)) return
-  const dataRoot = join(root, DATA_DIR)
-  mkdirSync(dataRoot, { recursive: true })
-  for (const ent of readdirSync(legacyWs, { withFileTypes: true })) {
-    if (!ent.isDirectory()) continue
-    const src = join(legacyWs, ent.name)
-    const dst = join(dataRoot, ent.name)
-    if (existsSync(dst)) {
-      console.warn(LOG, 'skip migrate folder', ent.name, 'data path exists')
-      continue
-    }
-    renameSync(src, dst)
-    console.info(LOG, 'migrated folder', ent.name, '→', DATA_DIR)
-  }
-  try {
-    if (existsSync(legacyWs) && readdirSync(legacyWs).length === 0) {
-      rmSync(legacyWs, { recursive: true })
-      const legacyApp = join(root, 'notelab.io')
-      if (existsSync(legacyApp) && readdirSync(legacyApp).length === 0) {
-        rmSync(legacyApp, { recursive: true })
-      }
-    }
-  } catch (e) {
-    console.warn(LOG, 'legacy path cleanup', e)
-  }
 }
 
 function allowWorkspaceFs(cwd: string): boolean {
@@ -138,21 +92,17 @@ export function registerWorkspaceIpc(): void {
       | { ok: false; error: string }
     > => {
       try {
-        migrateNotelabHomeDirIfNeeded()
         const requestedPath = payload?.path?.trim()
-        const defaultRoot = join(homedir(), NOTELAB_HOME_DIR)
-        const configRoot = defaultRoot
-        mkdirSync(configRoot, { recursive: true })
+        const documentsDir = join(homedir(), 'Documents')
+        const defaultRoot = join(documentsDir, 'notelab')
 
         let notesRoot: string
-        if (requestedPath && requestedPath.length > 0 && resolve(requestedPath) !== resolve(defaultRoot)) {
-          notesRoot = requestedPath
-          mkdirSync(notesRoot, { recursive: true })
+        if (requestedPath && requestedPath.length > 0) {
+          notesRoot = resolve(requestedPath)
         } else {
-          notesRoot = join(defaultRoot, DATA_DIR)
-          mkdirSync(notesRoot, { recursive: true })
-          migrateLegacyDataLayout(defaultRoot)
+          notesRoot = resolve(defaultRoot)
         }
+        mkdirSync(notesRoot, { recursive: true })
 
         const gitDir = join(notesRoot, '.git')
         const gitCheck = checkGitBinary()
@@ -174,8 +124,8 @@ export function registerWorkspaceIpc(): void {
           if (existsSync(modePath)) unlinkSync(modePath)
         }
 
-        console.info(LOG, 'data root', notesRoot, { configRoot, gitAvailable, gitInitialized, filesystemOnly })
-        return { ok: true, path: notesRoot, configRoot, gitAvailable, filesystemOnly, gitInitialized }
+        console.info(LOG, 'workspace root', notesRoot, { gitAvailable, gitInitialized, filesystemOnly })
+        return { ok: true, path: notesRoot, configRoot: notesRoot, gitAvailable, filesystemOnly, gitInitialized }
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e)
         console.error(LOG, 'ensure-data-root failed', msg)
@@ -265,22 +215,25 @@ export function registerWorkspaceIpc(): void {
           copiedFiles++
         }
 
-        const dataSrc = join(from, DATA_DIR)
-        if (existsSync(dataSrc)) {
-          const copyDir = (src: string, dst: string): void => {
-            mkdirSync(dst, { recursive: true })
-            for (const ent of readdirSync(src, { withFileTypes: true })) {
-              const srcPath = join(src, ent.name)
-              const dstPath = join(dst, ent.name)
-              if (ent.isDirectory()) {
-                copyDir(srcPath, dstPath)
-              } else if (ent.isFile()) {
-                copyFileSync(srcPath, dstPath)
-                copiedFiles++
-              }
+        const copyDir = (src: string, dst: string): void => {
+          mkdirSync(dst, { recursive: true })
+          for (const ent of readdirSync(src, { withFileTypes: true })) {
+            const srcPath = join(src, ent.name)
+            const dstPath = join(dst, ent.name)
+            if (ent.isDirectory()) {
+              copyDir(srcPath, dstPath)
+            } else if (ent.isFile()) {
+              copyFileSync(srcPath, dstPath)
+              copiedFiles++
             }
           }
-          copyDir(dataSrc, join(to, DATA_DIR))
+        }
+
+        for (const entry of readdirSync(from, { withFileTypes: true })) {
+          if (entry.name === APP_CONFIG_FILENAME || entry.name === MODE_FILE || entry.name.startsWith('.')) continue
+          if (entry.isDirectory() || entry.isFile()) {
+            copyDir(join(from, entry.name), join(to, entry.name))
+          }
         }
 
         const modePath = join(to, MODE_FILE)

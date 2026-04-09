@@ -10,7 +10,7 @@ export type NotelabSetupState = {
   githubRepoFullName?: string
   /** Last known default branch tip on remote (API sync) */
   lastRemoteCommitSha?: string
-  /** Absolute path to the workspace root directory chosen by the user. Defaults to ~/.notelab. */
+  /** Absolute path to the workspace root directory chosen by the user. Defaults to ~/Documents/notelab. */
   workspaceRoot?: string
 }
 
@@ -29,7 +29,7 @@ export type NotelabEditorSettingsV1 = {
   newNotesStartWithFrontmatter?: boolean
 }
 
-/** Persisted at ~/.notelab/notelab.config (Notelab). */
+/** Persisted at <workspaceRoot>/.notelab.config (Notelab). */
 export type NotelabConfigFileV1 = {
   version: 1
   setup?: NotelabSetupState

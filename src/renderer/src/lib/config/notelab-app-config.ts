@@ -28,7 +28,7 @@ import type { UiFontId } from "../theme/ui-font-types"
 const BROWSER_CONFIG_KEY = "notelab-config-v1"
 
 let dataRootPath: string | null = null
-/** True when using ~/.notelab/notelab.config (Notelab). */
+/** True when using <workspaceRoot>/.notelab.config (Notelab). */
 let persistToFile = false
 let cache: NotelabConfigFileV1 = { version: 1 }
 let persistTimer: ReturnType<typeof setTimeout> | null = null
@@ -146,7 +146,7 @@ function normalizeThemeCacheAfterLoad(): void {
 }
 
 /**
- * Load persisted settings from ~/.notelab/notelab.config (Notelab)
+ * Load persisted settings from <workspaceRoot>/.notelab.config (Notelab)
  * or from a single localStorage blob (browser).
  */
 export async function hydrateAppConfig(dataRoot: string | null): Promise<void> {

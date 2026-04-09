@@ -23,6 +23,35 @@ export type FolderSearchResult = {
   nameSegments: SearchMatchSegment[]
 }
 
+/** Tokenize query into non-empty lower-case tokens. */
+function tokenizeQuery(query: string): string[] {
+  return query.toLowerCase().split(/\s+/).filter(Boolean)
+}
+
+/** Check if all query tokens appear as prefixes of words in the text (stem match). */
+function matchAsPrefixes(text: string, tokens: string[]): boolean {
+  const lowerText = text.toLowerCase()
+  const words = lowerText.split(/[\s\-_\/.,;:'"()[\]{}]+/)
+  return tokens.every((tok) => words.some((word) => word.startsWith(tok)))
+}
+
+/** Find prefix match positions in text, returning indices of each token's start position. */
+function findPrefixPositions(text: string, tokens: string[]): { tokenIdx: number; startIndex: number }[] {
+  const lowerText = text.toLowerCase()
+  const words = lowerText.split(/[\s\-_\/.,;:'"()[\]{}]+/)
+  const positions: { tokenIdx: number; startIndex: number }[] = []
+  let wordOffset = 0
+  for (const word of words) {
+    for (let i = 0; i < tokens.length; i++) {
+      if (word.startsWith(tokens[i]!)) {
+        positions.push({ tokenIdx: i, startIndex: wordOffset })
+      }
+    }
+    wordOffset += word.length + 1
+  }
+  return positions
+}
+
 /** Subsequence match positions in haystack (same length as query when matched). */
 function findSubsequenceIndices(haystack: string, query: string): number[] | null {
   const h = haystack.toLowerCase()
@@ -53,62 +82,125 @@ function segmentsFromIndexSet(str: string, highlight: Set<number>): SearchMatchS
   return out
 }
 
+function buildSegmentsFromPositions(
+  str: string,
+  positions: { tokenIdx: number; startIndex: number }[],
+  tokenLengths: number[]
+): SearchMatchSegment[] {
+  if (positions.length === 0) return [{ text: str, highlight: false }]
+  const highlightRanges: [number, number][] = positions.map((p, i) => [
+    p.startIndex,
+    p.startIndex + tokenLengths[i]!
+  ])
+  highlightRanges.sort((a, b) => a[0] - b[0])
+  const merged: [number, number][] = []
+  for (const range of highlightRanges) {
+    if (merged.length > 0 && merged[merged.length - 1]![1] >= range[0]) {
+      merged[merged.length - 1]![1] = Math.max(merged[merged.length - 1]![1], range[1])
+    } else {
+      merged.push(range)
+    }
+  }
+  const segments: SearchMatchSegment[] = []
+  let pos = 0
+  for (const [start, end] of merged) {
+    if (start > pos) segments.push({ text: str.slice(pos, start), highlight: false })
+    segments.push({ text: str.slice(start, end), highlight: true })
+    pos = end
+  }
+  if (pos < str.length) segments.push({ text: str.slice(pos), highlight: false })
+  return segments
+}
+
 export function buildHighlightSegments(haystack: string, query: string): SearchMatchSegment[] {
   const q = query.trim()
   if (!q || !haystack) return [{ text: haystack, highlight: false }]
-  const lowerH = haystack.toLowerCase()
-  const lowerQ = q.toLowerCase()
-  const idx = lowerH.indexOf(lowerQ)
-  if (idx !== -1) {
-    const parts: SearchMatchSegment[] = []
-    if (idx > 0) parts.push({ text: haystack.slice(0, idx), highlight: false })
-    parts.push({ text: haystack.slice(idx, idx + q.length), highlight: true })
-    if (idx + q.length < haystack.length) {
-      parts.push({ text: haystack.slice(idx + q.length), highlight: false })
+  const tokens = tokenizeQuery(q)
+  if (tokens.length === 0) return [{ text: haystack, highlight: false }]
+  if (tokens.length === 1) {
+    const lowerH = haystack.toLowerCase()
+    const lowerQ = tokens[0]!
+    const idx = lowerH.indexOf(lowerQ)
+    if (idx !== -1) {
+      const parts: SearchMatchSegment[] = []
+      if (idx > 0) parts.push({ text: haystack.slice(0, idx), highlight: false })
+      parts.push({ text: haystack.slice(idx, idx + q.length), highlight: true })
+      if (idx + q.length < haystack.length) {
+        parts.push({ text: haystack.slice(idx + q.length), highlight: false })
+      }
+      return parts
     }
-    return parts
+    const sub = findSubsequenceIndices(haystack, q)
+    if (!sub) return [{ text: haystack, highlight: false }]
+    const set = new Set(sub)
+    return segmentsFromIndexSet(haystack, set)
   }
-  const sub = findSubsequenceIndices(haystack, q)
-  if (!sub) return [{ text: haystack, highlight: false }]
-  const set = new Set(sub)
-  return segmentsFromIndexSet(haystack, set)
+  const positions = findPrefixPositions(haystack, tokens)
+  if (positions.length < tokens.length) return [{ text: haystack, highlight: false }]
+  const tokenLengths = tokens.map((t) => t.length)
+  return buildSegmentsFromPositions(haystack, positions, tokenLengths)
 }
 
 function scoreMatch(query: string, haystack: string): number | null {
-  const q = query.trim().toLowerCase()
-  const h = haystack.toLowerCase()
+  const q = query.trim()
   if (!q.length) return null
+  const h = haystack.toLowerCase()
   if (!h.length) return null
-  const idx = h.indexOf(q)
-  if (idx !== -1) {
-    return 100_000 - idx - q.length
-  }
-  let qi = 0
-  let score = 0
-  let streak = 0
-  for (let i = 0; i < h.length && qi < q.length; i++) {
-    if (h[i] === q[qi]) {
-      streak++
-      score += 40 + streak * 8
-      if (i > 0 && (/\s/.test(h[i - 1]!) || h[i - 1] === '/' || h[i - 1] === '(')) {
-        score += 12
+  const tokens = tokenizeQuery(q)
+  if (tokens.length === 0) return null
+  if (tokens.length === 1) {
+    const idx = h.indexOf(tokens[0]!)
+    if (idx !== -1) return 100_000 - idx - q.length
+    let qi = 0
+    let score = 0
+    let streak = 0
+    for (let i = 0; i < h.length && qi < q.length; i++) {
+      if (h[i] === q[qi]) {
+        streak++
+        score += 40 + streak * 8
+        if (i > 0 && (/\s/.test(h[i - 1]!) || h[i - 1] === '/' || h[i - 1] === '(')) {
+          score += 12
+        }
+        qi++
+      } else {
+        streak = 0
       }
-      qi++
-    } else {
-      streak = 0
     }
+    if (qi < q.length) return null
+    return 500 + score
   }
-  if (qi < q.length) return null
-  return 500 + score
+  if (tokens.length > 1) {
+    if (!matchAsPrefixes(haystack, tokens)) return null
+    const positions = findPrefixPositions(haystack, tokens)
+    if (positions.length < tokens.length) return null
+    let score = 0
+    const sortedPos = [...positions].sort((a, b) => a.startIndex - b.startIndex)
+    for (let i = 0; i < sortedPos.length; i++) {
+      score += 100 - sortedPos[i]!.startIndex
+      if (i > 0) {
+        const gap = sortedPos[i]!.startIndex - sortedPos[i - 1]!.startIndex
+        if (gap < 8) score += 20
+      }
+    }
+    return score
+  }
+  return null
 }
 
 function firstMatchCharIndex(body: string, query: string): number {
-  const q = query.trim().toLowerCase()
+  const q = query.trim()
+  if (!q) return 0
   const lowerB = body.toLowerCase()
-  const idx = lowerB.indexOf(q)
-  if (idx !== -1) return idx
-  const sub = findSubsequenceIndices(lowerB, q)
-  return sub && sub.length > 0 ? sub[0]! : 0
+  const tokens = tokenizeQuery(q)
+  if (tokens.length === 1) {
+    const idx = lowerB.indexOf(tokens[0]!)
+    if (idx !== -1) return idx
+    const sub = findSubsequenceIndices(lowerB, tokens[0]!)
+    return sub && sub.length > 0 ? sub[0]! : 0
+  }
+  const positions = findPrefixPositions(body, tokens)
+  if (positions.length === 0) return 0
+  return Math.min(...positions.map((p) => p.startIndex))
 }
 
 function snippetSlice(body: string, query: string): { core: string; sliceStart: number } {
@@ -132,33 +224,52 @@ function highlightInBodySlice(
   const prefix = sliceStart > 0 ? '…' : ''
   const suffix = sliceStart + core.length < fullBody.length ? '…' : ''
   const rel = core
-  const lowerRel = rel.toLowerCase()
-  const lowerQ = q.toLowerCase()
-  const idx = lowerRel.indexOf(lowerQ)
-  if (idx !== -1) {
-    const mid: SearchMatchSegment[] = []
-    if (idx > 0) mid.push({ text: rel.slice(0, idx), highlight: false })
-    mid.push({ text: rel.slice(idx, idx + q.length), highlight: true })
-    if (idx + q.length < rel.length) mid.push({ text: rel.slice(idx + q.length), highlight: false })
+  const tokens = tokenizeQuery(q)
+  if (tokens.length === 0) return [{ text: rel, highlight: false }]
+  if (tokens.length === 1) {
+    const lowerRel = rel.toLowerCase()
+    const lowerQ = tokens[0]!
+    const idx = lowerRel.indexOf(lowerQ)
+    if (idx !== -1) {
+      const mid: SearchMatchSegment[] = []
+      if (idx > 0) mid.push({ text: rel.slice(0, idx), highlight: false })
+      mid.push({ text: rel.slice(idx, idx + tokens[0]!.length), highlight: true })
+      if (idx + tokens[0]!.length < rel.length) mid.push({ text: rel.slice(idx + tokens[0]!.length), highlight: false })
+      return [
+        ...(prefix ? [{ text: prefix, highlight: false as const }] : []),
+        ...mid,
+        ...(suffix ? [{ text: suffix, highlight: false as const }] : [])
+      ]
+    }
+    const sub = findSubsequenceIndices(rel, tokens[0]!)
+    if (!sub) {
+      return [
+        ...(prefix ? [{ text: prefix, highlight: false as const }] : []),
+        { text: rel, highlight: false },
+        ...(suffix ? [{ text: suffix, highlight: false as const }] : [])
+      ]
+    }
+    const set = new Set(sub)
+    const mid = segmentsFromIndexSet(rel, set)
     return [
       ...(prefix ? [{ text: prefix, highlight: false as const }] : []),
       ...mid,
       ...(suffix ? [{ text: suffix, highlight: false as const }] : [])
     ]
   }
-  const sub = findSubsequenceIndices(rel, q)
-  if (!sub) {
+  const positions = findPrefixPositions(rel, tokens)
+  if (positions.length < tokens.length) {
     return [
       ...(prefix ? [{ text: prefix, highlight: false as const }] : []),
       { text: rel, highlight: false },
       ...(suffix ? [{ text: suffix, highlight: false as const }] : [])
     ]
   }
-  const set = new Set(sub)
-  const mid = segmentsFromIndexSet(rel, set)
+  const tokenLengths = tokens.map((t) => t.length)
+  const merged = buildSegmentsFromPositions(rel, positions, tokenLengths)
   return [
     ...(prefix ? [{ text: prefix, highlight: false as const }] : []),
-    ...mid,
+    ...merged,
     ...(suffix ? [{ text: suffix, highlight: false as const }] : [])
   ]
 }
