@@ -142,6 +142,13 @@ type NotelabApi = {
       cwd: string
       url: string
     }) => Promise<{ ok: true } | { ok: false; error: string }>
+    gitCheckConfig: (payload: { cwd: string }) => Promise<
+      | { ok: true; hasName: boolean; hasEmail: boolean; name: string | null; email: string | null }
+      | { ok: false; error: string }
+    >
+    gitSetConfig: (payload: { cwd: string; name: string; email: string }) => Promise<
+      { ok: true } | { ok: false; error: string }
+    >
     syncMarkdown: (payload: {
       cwd: string
       folder: string

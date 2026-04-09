@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useState, type DragEvent, type JSX } from 'react'
 
-import { X } from 'lucide-react'
+import {
+  AlertCircleIcon,
+  Loader2Icon,
+  ScanTextIcon,
+  X
+} from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -16,7 +21,11 @@ import { NotesConflictView } from '@/components/notes/views/NotesConflictView'
 import { NotesGraphView } from '@/components/notes/views/NotesGraphView'
 import { NotesChatSidebar } from '@/components/notes/chat/NotesChatSidebar'
 import { NoteTabStrip } from '@/components/notes/editor-area/NoteTabStrip'
-import { NotesPrimaryPane, getNoteDragId, isNoteDragEvent } from '@/components/notes/editor-area/NotesPrimaryPane'
+import {
+  NotesPrimaryPane,
+  getNoteDragId,
+  isNoteDragEvent
+} from '@/components/notes/editor-area/NotesPrimaryPane'
 import { NotesSearchBar } from '@/components/notes/editor-area/NotesSearchBar'
 import { NotesTabOverview } from '@/components/notes/views/NotesTabOverview'
 import { NotesToolbarPill } from '@/components/notes/editor-area/NotesToolbarPill'
@@ -53,10 +62,110 @@ function GraphPaneTopBar({
       >
         <X className="size-4" aria-hidden />
       </Button>
-      <span className="text-foreground min-w-0 truncate px-1 text-center text-sm font-medium" title={title}>
+      <span
+        className="text-foreground min-w-0 truncate px-1 text-center text-sm font-medium"
+        title={title}
+      >
         {title}
       </span>
       <span className="block w-full shrink-0" aria-hidden />
+    </div>
+  )
+}
+
+function MainAreaIndexingOverlay({
+  indexingStatus
+}: {
+  indexingStatus: NotesAppViewModel['indexingStatus']
+}): JSX.Element | null {
+  const [dismissed, setDismissed] = useState(false)
+  const { notes, running } = indexingStatus
+  const totalCount = notes.length
+  const pendingCount = notes.filter((note) => note.state === 'pending').length
+  const indexingCount = notes.filter((note) => note.state === 'indexing').length
+  const indexedCount = notes.filter((note) => note.state === 'indexed').length
+  const errorCount = notes.filter((note) => note.state === 'error').length
+
+  if (totalCount === 0 || (!running && pendingCount === 0 && errorCount === 0)) {
+    return null
+  }
+
+  // Reset dismissed state when indexing starts again
+  useEffect(() => {
+    if (running) {
+      setDismissed(false)
+    }
+  }, [running])
+
+  if (dismissed) {
+    return null
+  }
+
+  const processedCount = totalCount - pendingCount - indexingCount
+  const progressPercent =
+    totalCount > 0 ? Math.max(0, Math.min(100, Math.round((processedCount / totalCount) * 100))) : 0
+  const noteLabel = (count: number): string => `${count} note${count === 1 ? '' : 's'}`
+
+  let title = 'Preparing note index'
+  let detail = `${noteLabel(pendingCount)} pending`
+  let containerClassName = 'border-border/80 bg-background/95 text-foreground'
+  let progressClassName = 'bg-primary'
+  let Icon = ScanTextIcon
+
+  if (running) {
+    title = 'Indexing notes for chat'
+    detail =
+      indexingCount > 0
+        ? `${processedCount} of ${totalCount} done, ${noteLabel(indexingCount)} in progress`
+        : `${processedCount} of ${totalCount} done`
+    Icon = Loader2Icon
+  } else if (errorCount > 0 && pendingCount === 0) {
+    title = 'Indexing finished with errors'
+    detail = `${noteLabel(errorCount)} failed, ${indexedCount} indexed`
+    containerClassName = 'border-destructive/30 bg-background/95 text-foreground'
+    progressClassName = 'bg-destructive'
+    Icon = AlertCircleIcon
+  }
+
+  return (
+    <div className="pointer-events-none absolute inset-x-3 top-0 z-20 flex justify-center">
+      <div
+        className={cn(
+          'pointer-events-auto mt-3 w-full max-w-sm rounded-xl border shadow-lg backdrop-blur supports-[backdrop-filter]:bg-background/85',
+          containerClassName
+        )}
+      >
+        <div className="flex items-start gap-2 px-3 py-2.5">
+          <Icon
+            className={cn(
+              'mt-0.5 size-4 shrink-0',
+              running && 'animate-spin',
+              errorCount > 0 && !running ? 'text-destructive' : 'text-primary'
+            )}
+            aria-hidden
+          />
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-medium leading-none">{title}</p>
+            <p className="text-muted-foreground mt-1 text-xs leading-snug">{detail}</p>
+            <div className="bg-muted mt-2 h-1.5 overflow-hidden rounded-full">
+              <div
+                className={cn('h-full rounded-full transition-all duration-300', progressClassName)}
+                style={{ width: `${progressPercent}%` }}
+              />
+            </div>
+          </div>
+          <Button
+            className="size-6 shrink-0 rounded-md p-0"
+            onClick={() => setDismissed(true)}
+            size="icon-xs"
+            type="button"
+            variant="ghost"
+          >
+            <X className="size-3" aria-hidden />
+            <span className="sr-only">Dismiss</span>
+          </Button>
+        </div>
+      </div>
     </div>
   )
 }
@@ -124,9 +233,12 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
     handleWorkspaceRootChange,
     chatSidebarOpen,
     toggleChatSidebar,
-    chatSidebarMode,
-    openLinkedNotesSidebar,
+    chatSidebarPanel,
+    chatSidebarLinkMode,
+    openLinkedNotesSidebar
   } = vm
+
+  const canAutoIndex = Boolean(user?.email || user?.name) && !guestMode
 
   const [zenHintVisible, setZenHintVisible] = useState(false)
   const [editorBottomBarEl, setEditorBottomBarEl] = useState<HTMLDivElement | null>(null)
@@ -159,10 +271,7 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
   )
 
   const showEditorBottomChrome =
-    !zenMode &&
-    appMode === 'notes' &&
-    !conflictViewPath &&
-    selectedNote?.kind === 'note'
+    !zenMode && appMode === 'notes' && !conflictViewPath && selectedNote?.kind === 'note'
 
   const primaryPaneProps = {
     selectedNote,
@@ -191,7 +300,6 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
 
     // Conflict view takes over the main area when a conflict file is open
     if (conflictViewPath) {
-
       return (
         <div className="flex min-h-0 flex-1 flex-col">
           <NotesConflictView vm={vm} />
@@ -257,7 +365,11 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
     // Graph only (no note or drawing selected)
     if (graphViewOpen && (!selectedNote || selectedNote.kind === 'drawing')) {
       return (
-        <div className="flex min-h-0 flex-1 flex-col" onDragOver={onDragOverMain} onDrop={onDropPrimaryPane}>
+        <div
+          className="flex min-h-0 flex-1 flex-col"
+          onDragOver={onDragOverMain}
+          onDrop={onDropPrimaryPane}
+        >
           <NotesGraphView
             notes={notes}
             folders={folders}
@@ -303,7 +415,11 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
     }
 
     return (
-      <div className="flex min-h-0 flex-1 flex-col" onDragOver={onDragOverMain} onDrop={onDropPrimaryPane}>
+      <div
+        className="flex min-h-0 flex-1 flex-col"
+        onDragOver={onDragOverMain}
+        onDrop={onDropPrimaryPane}
+      >
         <NotesPrimaryPane {...primaryPaneProps} />
       </div>
     )
@@ -405,6 +521,9 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
                   />
                 ) : null}
                 <div className="order-1 flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto">
+                  {appMode === 'notes' && canAutoIndex && (
+                    <MainAreaIndexingOverlay indexingStatus={indexingStatus} />
+                  )}
                   {appMode === 'settings' && settingsSection === 'account' ? (
                     <AccountSettingsView
                       user={user}
@@ -414,7 +533,8 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
                       isMacNotelab={isMacNotelab}
                       macTitlebarStyles={macTitlebarStyles}
                     />
-                  ) : appMode === 'settings' && (settingsSection === 'workspace' || settingsSection === 'github') ? (
+                  ) : appMode === 'settings' &&
+                    (settingsSection === 'workspace' || settingsSection === 'github') ? (
                     <GitHubSettingsView
                       isMacNotelab={isMacNotelab}
                       macTitlebarStyles={macTitlebarStyles}
@@ -485,8 +605,9 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
                 runIndexPending={runIndexPending}
                 selectedNote={selectedNote}
                 selectNote={selectNote}
-                mode={chatSidebarMode}
-                onModeChange={vm.setChatSidebarMode}
+                panel={chatSidebarPanel}
+                linkMode={chatSidebarLinkMode}
+                onLinkModeChange={vm.setChatSidebarLinkMode}
                 isMacNotelab={isMacNotelab}
                 sidebarOverlayActive={sidebarOverlayActive}
               />
@@ -509,7 +630,7 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
                   onNewNote={handleNewNote}
                   chatSidebarOpen={chatSidebarOpen}
                   onToggleChatSidebar={toggleChatSidebar}
-                  linkSidebarActive={chatSidebarOpen && chatSidebarMode !== 'chat'}
+                  linkSidebarActive={chatSidebarOpen && chatSidebarPanel === 'links'}
                   onOpenLinkedSidebar={openLinkedNotesSidebar}
                 />
               </div>

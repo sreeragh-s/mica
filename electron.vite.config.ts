@@ -17,27 +17,26 @@ export default defineConfig(({ mode }) => {
       },
       build: {
         rollupOptions: {
-          /** Native addons and runtime-loaded modules — must load from node_modules at runtime */
           external: ['electron-liquid-glass', 'electron-ollama'],
         },
       },
     },
     preload: {},
     renderer: {
-    build: {
-      rollupOptions: {
-        input: {
-          index: resolve(__dirname, 'src/renderer/index.html'),
-        }
-      }
+      build: {
+        rollupOptions: {
+          input: {
+            index: resolve(__dirname, 'src/renderer/index.html'),
+          },
+        },
+      },
+      resolve: {
+        alias: {
+          '@': resolve('src/renderer/src'),
+          '@renderer': resolve('src/renderer/src'),
+        },
+      },
+      plugins: [react(), tailwindcss()],
     },
-    resolve: {
-      alias: {
-        '@': resolve('src/renderer/src'),
-        '@renderer': resolve('src/renderer/src')
-      }
-    },
-    plugins: [react(), tailwindcss()],
-  },
-}
+  }
 })

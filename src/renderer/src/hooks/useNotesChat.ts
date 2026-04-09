@@ -628,7 +628,7 @@ export function useNotesChat({
     const fresh = emptySession()
     setSession(fresh)
     saveCurrentSession(fresh)
-    setShowHistory(true) // show history so user can see past sessions
+    setShowHistory(false) // stay on chat view
     log.info(`started new chat session: ${fresh.id}`)
   }, [session])
 

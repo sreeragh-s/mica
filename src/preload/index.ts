@@ -150,6 +150,16 @@ const api = {
       payload: { cwd: string; url: string }
     ): Promise<{ ok: true } | { ok: false; error: string }> =>
       ipcRenderer.invoke('workspace:set-git-remote', payload),
+    gitCheckConfig: (
+      payload: { cwd: string }
+    ): Promise<
+      | { ok: true; hasName: boolean; hasEmail: boolean; name: string | null; email: string | null }
+      | { ok: false; error: string }
+    > => ipcRenderer.invoke('workspace:git-check-config', payload),
+    gitSetConfig: (
+      payload: { cwd: string; name: string; email: string }
+    ): Promise<{ ok: true } | { ok: false; error: string }> =>
+      ipcRenderer.invoke('workspace:git-set-config', payload),
     syncMarkdown: (payload: {
       cwd: string
       folder: string

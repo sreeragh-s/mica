@@ -19,15 +19,12 @@ import {
   type SavedNote,
   type Folder
 } from '@/lib/notes/notes-storage'
-import {
-  loadShortcutBindings,
-  type ShortcutBindingsMap
-} from '@/lib/config/shortcuts-storage'
+import { loadShortcutBindings, type ShortcutBindingsMap } from '@/lib/config/shortcuts-storage'
 import {
   loadEditorSettings,
   loadAppearanceSettings,
   saveEditorSettings,
-  saveAppearanceSettings,
+  saveAppearanceSettings
 } from '@/lib/config/notelab-app-config'
 import {
   buildFolderPath,
@@ -109,15 +106,14 @@ export function useNotesApp({
   const [shortcutBindings, setShortcutBindings] =
     useState<ShortcutBindingsMap>(loadShortcutBindings)
   const [editorSettings, setEditorSettings] = useState(() => loadEditorSettings())
-  const [appearanceSettings, setAppearanceSettings] = useState(() =>
-    loadAppearanceSettings()
-  )
+  const [appearanceSettings, setAppearanceSettings] = useState(() => loadAppearanceSettings())
   const shortcutBindingsRef = useRef(shortcutBindings)
   shortcutBindingsRef.current = shortcutBindings
   const shortcutsSuppressedRef = useRef(false)
 
   const [chatSidebarOpen, setChatSidebarOpen] = useState(false)
-  const [chatSidebarMode, setChatSidebarMode] = useState<'chat' | 'linked' | 'linking'>('chat')
+  const [chatSidebarPanel, setChatSidebarPanel] = useState<'chat' | 'links'>('chat')
+  const [chatSidebarLinkMode, setChatSidebarLinkMode] = useState<'linked' | 'linking'>('linked')
   const [graphViewOpen, setGraphViewOpen] = useState(false)
   const [canvasViewOpen, setCanvasViewOpen] = useState(false)
   const [tabOverviewOpen, setTabOverviewOpen] = useState(false)
@@ -337,13 +333,13 @@ export function useNotesApp({
     handleGitContinueRebase,
     conflictViewPath,
     openConflictView,
-    closeConflictView,
+    closeConflictView
   } = useNotesGitSourceControl({
     primaryGitFolder,
     user,
     refreshWorkspaceGitStatuses,
     setAppSidebarView,
-    setAppMode,
+    setAppMode
   })
 
   const {
@@ -356,7 +352,7 @@ export function useNotesApp({
     handleGitCommitAndPush,
     handleSaveGithubRemote,
     handleGitRemoteConnected,
-    handleApplyGithubRemote,
+    handleApplyGithubRemote
   } = useNotesGitSync({
     primaryGitFolder,
     selectedNoteFolderId: selectedNote?.folder ?? null,
@@ -394,7 +390,7 @@ export function useNotesApp({
     reloadNotesFromDisk,
     refreshWorkspaceGitStatuses,
     refreshGitSourceControl,
-    revealConflictResolver,
+    revealConflictResolver
   })
 
   const gitUiBusy = gitSyncBusy || gitSourceControlBusy
@@ -562,7 +558,14 @@ export function useNotesApp({
     if (diskMode) {
       window.setTimeout(() => scheduleNoteFlush(note.path), 0)
     }
-  }, [buildNotePath, newNoteDestinationFolderId, diskMode, scheduleNoteFlush, pushOpenNoteTab, editorSettings])
+  }, [
+    buildNotePath,
+    newNoteDestinationFolderId,
+    diskMode,
+    scheduleNoteFlush,
+    pushOpenNoteTab,
+    editorSettings
+  ])
 
   const handleNoteSerializedChange = useCallback(
     (notePath: string, serialized: SerializedEditorState) => {
@@ -631,7 +634,13 @@ export function useNotesApp({
       const nextNote = {
         ...current,
         path: nextPath,
-        title: trimmed || nextPath.split('/').pop()?.replace(/\.[^.]+$/g, '') || 'Untitled',
+        title:
+          trimmed ||
+          nextPath
+            .split('/')
+            .pop()
+            ?.replace(/\.[^.]+$/g, '') ||
+          'Untitled',
         updatedAt: Date.now()
       }
       setNotes((prev) => prev.map((n) => (n.path === notePath ? nextNote : n)))
@@ -656,7 +665,7 @@ export function useNotesApp({
         prev.map((n) =>
           n.path === notePath
             ? {
-              ...n,
+                ...n,
                 ...(coverImageSrc === null || coverImageSrc === ''
                   ? { coverImageSrc: undefined }
                   : { coverImageSrc }),
@@ -678,7 +687,7 @@ export function useNotesApp({
         prev.map((n) =>
           n.path === notePath
             ? {
-              ...n,
+                ...n,
                 ...(trimmed === '' ? { titleEmoji: undefined } : { titleEmoji: trimmed }),
                 ...(trimmed !== '' ? { hasFrontmatterBlock: true } : {}),
                 updatedAt: Date.now()
@@ -816,7 +825,7 @@ export function useNotesApp({
         if (deleted && cwd && api?.embeddings?.deleteNoteDocument) {
           const emb = await api.embeddings.deleteNoteDocument({
             workspacePath: cwd,
-            note: notePath,
+            note: notePath
           })
           if (!emb.ok) {
             console.error('[notelab] deleteNoteDocument failed', emb.error)
@@ -1028,15 +1037,13 @@ export function useNotesApp({
       await reloadNotesFromDisk()
       await refreshWorkspaceGitStatuses()
     },
-    [
-      diskMode,
-      reloadNotesFromDisk,
-      refreshWorkspaceGitStatuses,
-      useGithubApiSync
-    ]
+    [diskMode, reloadNotesFromDisk, refreshWorkspaceGitStatuses, useGithubApiSync]
   )
 
-  const defaultExpandedFolderIds = useMemo(() => folders.map((f) => treeFolderPath(f.folder)), [folders])
+  const defaultExpandedFolderIds = useMemo(
+    () => folders.map((f) => treeFolderPath(f.folder)),
+    [folders]
+  )
 
   const canCreateNote = true
 
@@ -1095,22 +1102,22 @@ export function useNotesApp({
   })
 
   const toggleChatSidebar = useCallback(() => {
-    if (chatSidebarOpen && chatSidebarMode === 'chat') {
+    if (chatSidebarOpen && chatSidebarPanel === 'chat') {
       toggleChatSidebarBase()
       return
     }
-    setChatSidebarMode('chat')
+    setChatSidebarPanel('chat')
     setChatSidebarOpen(true)
-  }, [chatSidebarMode, chatSidebarOpen, toggleChatSidebarBase])
+  }, [chatSidebarOpen, chatSidebarPanel, toggleChatSidebarBase])
 
   const openLinkedNotesSidebar = useCallback(() => {
-    if (chatSidebarOpen && chatSidebarMode === 'linked') {
+    if (chatSidebarOpen && chatSidebarPanel === 'links') {
       setChatSidebarOpen(false)
       return
     }
-    setChatSidebarMode('linked')
+    setChatSidebarPanel('links')
     setChatSidebarOpen(true)
-  }, [chatSidebarMode, chatSidebarOpen])
+  }, [chatSidebarOpen, chatSidebarPanel])
 
   const startFolderCreate = useCallback(() => {
     setFolderCreateOpen(true)
@@ -1283,12 +1290,14 @@ export function useNotesApp({
     gitRemoteDialogOpen,
     setGitRemoteDialogOpen,
     chatSidebarOpen,
-    chatSidebarMode,
+    chatSidebarPanel,
+    chatSidebarLinkMode,
     toggleChatSidebar,
-    setChatSidebarMode,
+    setChatSidebarPanel,
+    setChatSidebarLinkMode,
     openLinkedNotesSidebar,
     triggerRenameSelectedRef,
-    openShortcuts,
+    openShortcuts
   }
 }
 

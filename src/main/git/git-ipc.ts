@@ -489,4 +489,52 @@ export function registerGitIpc(): void {
       }
     }
   )
+
+  ipcMain.handle(
+    'workspace:git-check-config',
+    async (
+      _evt,
+      payload: { cwd: string }
+    ): Promise<
+      | { ok: true; hasName: boolean; hasEmail: boolean; name: string | null; email: string | null }
+      | { ok: false; error: string }
+    > => {
+      const cwd = payload.cwd?.trim() ?? ''
+      if (!cwd || !existsSync(join(cwd, '.git'))) {
+        return { ok: false, error: 'not_a_git_repo' }
+      }
+      const nameR = runGitResult(['config', 'user.name'], cwd)
+      const emailR = runGitResult(['config', 'user.email'], cwd)
+      const name = nameR.ok ? nameR.stdout.trim() || null : null
+      const email = emailR.ok ? emailR.stdout.trim() || null : null
+      return { ok: true, hasName: !!name, hasEmail: !!email, name, email }
+    }
+  )
+
+  ipcMain.handle(
+    'workspace:git-set-config',
+    async (
+      _evt,
+      payload: { cwd: string; name: string; email: string }
+    ): Promise<{ ok: true } | { ok: false; error: string }> => {
+      const cwd = payload.cwd?.trim() ?? ''
+      const name = payload.name?.trim() ?? ''
+      const email = payload.email?.trim() ?? ''
+      if (!cwd || !existsSync(join(cwd, '.git'))) {
+        return { ok: false, error: 'not_a_git_repo' }
+      }
+      if (!name) return { ok: false, error: 'empty_name' }
+      if (!email) return { ok: false, error: 'empty_email' }
+      try {
+        runGit(['config', 'user.name', name], cwd)
+        runGit(['config', 'user.email', email], cwd)
+        console.info(LOG, 'git config user.name/email set', cwd)
+        return { ok: true }
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e)
+        console.error(LOG, 'git-set-config failed', msg)
+        return { ok: false, error: msg }
+      }
+    }
+  )
 }

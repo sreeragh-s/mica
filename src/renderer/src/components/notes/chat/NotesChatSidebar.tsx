@@ -4,7 +4,6 @@ import {
   BookOpenIcon,
   BotIcon,
   CopyIcon,
-  HistoryIcon,
   Link2Icon,
   Loader2Icon,
   ArrowUpIcon,
@@ -12,86 +11,58 @@ import {
   PlusIcon,
   ScanTextIcon,
   Search,
-  SparklesIcon,
-  XIcon,
+  SparklesIcon
 } from 'lucide-react'
-import {
-  type JSX,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react'
+import { type JSX, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import {
   PromptInputChatMentionTextarea,
   type PromptInputChatMentionTextareaHandle,
   PromptInputChatReferenceChips,
-  type PromptInputChatReference,
+  type PromptInputChatReference
 } from '@/components/ai/prompt-input'
 import {
   NoteLabModelPicker,
   DEFAULT_NOTELAB_MODEL_ID,
-  LOCAL_MODEL_PREFIX,
+  LOCAL_MODEL_PREFIX
 } from '@/components/ai/model-selector'
 import {
   LocalModelSetupPanel,
   hasLocalEmbeddingModel,
   isLocalEmbeddingOnlyModel,
-  LOCAL_EMBEDDING_MODEL,
+  LOCAL_EMBEDDING_MODEL
 } from '@/components/ai/LocalModelSetupDialog'
 import { Action, Actions } from '@/components/ai/actions'
 import {
   Conversation,
   ConversationContent,
   ConversationEmptyState,
-  ConversationScrollButton,
+  ConversationScrollButton
 } from '@/components/ai/conversation'
-import {
-  Message,
-  MessageActions,
-  MessageContent,
-  MessageResponse,
-} from '@/components/ai/message'
-import {
-  Source,
-  Sources,
-  SourcesContent,
-  SourcesTrigger,
-} from '@/components/ai/sources'
-import {
-  Suggestion,
-  Suggestions,
-} from '@/components/ai/suggestion'
+import { Message, MessageActions, MessageContent, MessageResponse } from '@/components/ai/message'
+import { Source, Sources, SourcesContent, SourcesTrigger } from '@/components/ai/sources'
+import { Suggestion, Suggestions } from '@/components/ai/suggestion'
 import { Button } from '@/components/ui/button'
-import {
-  InputGroup,
-  InputGroupAddon,
-  InputGroupButton,
-} from '@/components/ui/input-group'
+import { InputGroup, InputGroupAddon, InputGroupButton } from '@/components/ui/input-group'
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
-  SelectValue,
+  SelectValue
 } from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
 import { Separator } from '@/components/ui/separator'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { copyPlainTextToClipboard } from '@/lib/core/copy-to-clipboard'
-import {
-  searchChatHistorySessions,
-  type SearchMatchSegment,
-} from '@/lib/notes/notes-search'
+import { searchChatHistorySessions, type SearchMatchSegment } from '@/lib/notes/notes-search'
 import { cn } from '@/lib/utils'
 import {
   DEFAULT_WORKSPACE_ID,
   formatNoteTime,
   type SavedNote,
-  type Folder,
+  type Folder
 } from '@/lib/notes/notes-storage'
 import { macTitlebarStyles, NOTES_APP_PILL_SURFACE } from '@/components/notes/notes-app-utils'
 import { collectInternalNoteLinkMentions } from '@/lib/notes/note-link-graph'
@@ -105,7 +76,13 @@ import type { NotesAppViewModel } from '@/components/notes/app-state/useNotesApp
 // Props
 // ---------------------------------------------------------------------------
 
-export type NotesChatSidebarMode = 'chat' | 'linked' | 'linking'
+export type NotesChatSidebarPanel = 'chat' | 'links'
+export type NotesChatSidebarLinkMode = 'linked' | 'linking'
+
+type NoteLinksData = {
+  backlinks: Array<{ note: SavedNote; contexts: string[] }>
+  outgoing: Array<{ note: SavedNote; contexts: string[]; linkText: string[] }>
+}
 
 export type NotesChatSidebarProps = {
   open: boolean
@@ -117,8 +94,9 @@ export type NotesChatSidebarProps = {
   runIndexPending: NotesAppViewModel['runIndexPending']
   selectedNote: SavedNote | null
   selectNote: (notePath: string) => void
-  mode: NotesChatSidebarMode
-  onModeChange: (mode: NotesChatSidebarMode) => void
+  panel: NotesChatSidebarPanel
+  linkMode: NotesChatSidebarLinkMode
+  onLinkModeChange: (mode: NotesChatSidebarLinkMode) => void
   /** Adds extra top offset to clear the macOS titlebar + pill area. */
   isMacNotelab?: boolean
   sidebarOverlayActive?: boolean
@@ -150,83 +128,8 @@ function SearchHighlight({ segments }: { segments: SearchMatchSegment[] }): JSX.
 const STARTER_SUGGESTIONS = [
   'Summarize my recent notes',
   'What did I write about last week?',
-  'Find todos across my notes',
+  'Find todos across my notes'
 ]
-
-function ChatIndexingOverlay({
-  indexingStatus
-}: {
-  indexingStatus: NotesAppViewModel['indexingStatus']
-}): JSX.Element | null {
-  const { notes, running } = indexingStatus
-  const totalCount = notes.length
-  const pendingCount = notes.filter((note) => note.state === 'pending').length
-  const indexingCount = notes.filter((note) => note.state === 'indexing').length
-  const indexedCount = notes.filter((note) => note.state === 'indexed').length
-  const errorCount = notes.filter((note) => note.state === 'error').length
-
-  if (totalCount === 0 || (!running && pendingCount === 0 && errorCount === 0)) {
-    return null
-  }
-
-  const processedCount = totalCount - pendingCount - indexingCount
-  const progressPercent =
-    totalCount > 0 ? Math.max(0, Math.min(100, Math.round((processedCount / totalCount) * 100))) : 0
-  const noteLabel = (count: number): string => `${count} note${count === 1 ? '' : 's'}`
-
-  let title = 'Preparing note index'
-  let detail = `${noteLabel(pendingCount)} pending`
-  let containerClassName = 'border-border/80 bg-background/95 text-foreground'
-  let progressClassName = 'bg-primary'
-  let Icon = ScanTextIcon
-
-  if (running) {
-    title = 'Indexing notes for chat'
-    detail =
-      indexingCount > 0
-        ? `${processedCount} of ${totalCount} done, ${noteLabel(indexingCount)} in progress`
-        : `${processedCount} of ${totalCount} done`
-    Icon = Loader2Icon
-  } else if (errorCount > 0 && pendingCount === 0) {
-    title = 'Indexing finished with errors'
-    detail = `${noteLabel(errorCount)} failed, ${indexedCount} indexed`
-    containerClassName = 'border-destructive/30 bg-background/95 text-foreground'
-    progressClassName = 'bg-destructive'
-    Icon = AlertCircleIcon
-  }
-
-  return (
-    <div className="pointer-events-none absolute inset-x-3 top-24 z-20 flex justify-center">
-      <div
-        className={cn(
-          'w-full max-w-sm rounded-xl border shadow-lg backdrop-blur supports-[backdrop-filter]:bg-background/85',
-          containerClassName
-        )}
-      >
-        <div className="flex items-start gap-2 px-3 py-2.5">
-          <Icon
-            className={cn(
-              'mt-0.5 size-4 shrink-0',
-              running && 'animate-spin',
-              errorCount > 0 && !running ? 'text-destructive' : 'text-primary'
-            )}
-            aria-hidden
-          />
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-medium leading-none">{title}</p>
-            <p className="text-muted-foreground mt-1 text-xs leading-snug">{detail}</p>
-            <div className="bg-muted mt-2 h-1.5 overflow-hidden rounded-full">
-              <div
-                className={cn('h-full rounded-full transition-all duration-300', progressClassName)}
-                style={{ width: `${progressPercent}%` }}
-              />
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
 
 // ---------------------------------------------------------------------------
 // Component
@@ -242,10 +145,11 @@ export function NotesChatSidebar({
   runIndexPending,
   selectedNote,
   selectNote,
-  mode,
-  onModeChange,
+  panel,
+  linkMode,
+  onLinkModeChange,
   isMacNotelab,
-  sidebarOverlayActive,
+  sidebarOverlayActive
 }: NotesChatSidebarProps): JSX.Element {
   return (
     <div
@@ -260,9 +164,7 @@ export function NotesChatSidebar({
         className={cn(
           'flex h-full min-h-0 w-[min(100%,440px)] flex-col border-l transition-[opacity,transform] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] will-change-[opacity,transform]',
           'border-border bg-background',
-          open
-            ? 'translate-x-0 opacity-100'
-            : 'pointer-events-none translate-x-2 opacity-0'
+          open ? 'translate-x-0 opacity-100' : 'pointer-events-none translate-x-2 opacity-0'
         )}
       >
         <NotesChatSidebarInner
@@ -276,8 +178,9 @@ export function NotesChatSidebar({
           workspacePath={workspacePath}
           selectNote={selectNote}
           selectedNote={selectedNote}
-          mode={mode}
-          onModeChange={onModeChange}
+          panel={panel}
+          linkMode={linkMode}
+          onLinkModeChange={onLinkModeChange}
           sidebarOverlayActive={sidebarOverlayActive}
         />
       </div>
@@ -296,10 +199,11 @@ function NotesChatSidebarInner({
   runIndexPending,
   selectedNote,
   selectNote,
-  mode,
-  onModeChange,
+  panel,
+  linkMode,
+  onLinkModeChange,
   isMacNotelab,
-  sidebarOverlayActive,
+  sidebarOverlayActive
 }: NotesChatSidebarProps): JSX.Element {
   // Selected model: a NoteLabModelId or "local:<ollamaModelName>"
   const [selectedModelId, setSelectedModelId] = useState<string>(DEFAULT_NOTELAB_MODEL_ID)
@@ -328,7 +232,7 @@ function NotesChatSidebarInner({
     setShowHistory,
     sendMessage,
     newChat,
-    loadHistorySession,
+    loadHistorySession
   } = useNotesChat({ notes, folders, workspacePath, selectedNote, modelId: selectedModelId })
 
   const { billing, canChat, creditsLow } = useBillingStatus()
@@ -346,6 +250,7 @@ function NotesChatSidebarInner({
   const [input, setInput] = useState('')
   const [chatReferences, setChatReferences] = useState<PromptInputChatReference[]>([])
   const [historySearch, setHistorySearch] = useState('')
+  const [chatTab, setChatTab] = useState<'chat' | 'history'>('chat')
   const textareaRef = useRef<PromptInputChatMentionTextareaHandle>(null)
   const hasTriggeredAutoIndexRef = useRef(false)
 
@@ -358,8 +263,19 @@ function NotesChatSidebarInner({
   }, [folders])
 
   useEffect(() => {
-    if (!showHistory) setHistorySearch('')
-  }, [showHistory])
+    if (chatTab !== 'history') setHistorySearch('')
+  }, [chatTab])
+
+  useEffect(() => {
+    if (panel !== 'links') return
+    setChatTab('chat')
+    setShowHistory(false)
+    setLocalSetupOpen(false)
+  }, [panel, setShowHistory])
+
+  useEffect(() => {
+    setShowHistory(chatTab === 'history')
+  }, [chatTab, setShowHistory])
 
   useEffect(() => {
     if (!open) {
@@ -385,41 +301,41 @@ function NotesChatSidebarInner({
 
   const validNoteIds = useMemo(() => new Set(notes.map((n) => n.path)), [notes])
   const workspacesById = useMemo(
-    () =>
-      new Map(
-        folders.map((folder) => [folder.folder, folder.name ?? 'Workspace'])
-      ),
+    () => new Map(folders.map((folder) => [folder.folder, folder.name ?? 'Workspace'])),
     [folders]
   )
 
-  const noteLinkData = useMemo(() => {
+  const noteLinkData = useMemo<NoteLinksData>(() => {
     if (!selectedNote || selectedNote.kind !== 'note') {
-      return { backlinks: [], outgoing: [] } as const
+      return { backlinks: [], outgoing: [] }
     }
 
     const noteById = new Map(notes.map((note) => [note.path, note]))
     const outgoingMentions = collectInternalNoteLinkMentions(selectedNote.content)
       .filter((mention) => mention.target !== selectedNote.path)
-      .reduce<Map<string, { note: SavedNote; contexts: string[]; linkText: string[] }>>((acc, mention) => {
-        const targetNote = noteById.get(mention.target)
-        if (!targetNote) return acc
-        const existing = acc.get(targetNote.path)
-        if (existing) {
-          if (mention.contextText && !existing.contexts.includes(mention.contextText)) {
-            existing.contexts.push(mention.contextText)
+      .reduce<Map<string, { note: SavedNote; contexts: string[]; linkText: string[] }>>(
+        (acc, mention) => {
+          const targetNote = noteById.get(mention.target)
+          if (!targetNote) return acc
+          const existing = acc.get(targetNote.path)
+          if (existing) {
+            if (mention.contextText && !existing.contexts.includes(mention.contextText)) {
+              existing.contexts.push(mention.contextText)
+            }
+            if (mention.linkText && !existing.linkText.includes(mention.linkText)) {
+              existing.linkText.push(mention.linkText)
+            }
+            return acc
           }
-          if (mention.linkText && !existing.linkText.includes(mention.linkText)) {
-            existing.linkText.push(mention.linkText)
-          }
+          acc.set(targetNote.path, {
+            note: targetNote,
+            contexts: mention.contextText ? [mention.contextText] : [],
+            linkText: mention.linkText ? [mention.linkText] : []
+          })
           return acc
-        }
-        acc.set(targetNote.path, {
-          note: targetNote,
-          contexts: mention.contextText ? [mention.contextText] : [],
-          linkText: mention.linkText ? [mention.linkText] : [],
-        })
-        return acc
-      }, new Map())
+        },
+        new Map()
+      )
 
     const backlinks = notes
       .filter((note) => note.path !== selectedNote.path && note.kind === 'note')
@@ -439,31 +355,24 @@ function NotesChatSidebarInner({
         }
         acc.set(entry.note.path, {
           note: entry.note,
-          contexts: entry.mention.contextText ? [entry.mention.contextText] : [],
+          contexts: entry.mention.contextText ? [entry.mention.contextText] : []
         })
         return acc
       }, new Map())
 
     return {
       backlinks: Array.from(backlinks.values()).sort((a, b) => b.note.updatedAt - a.note.updatedAt),
-      outgoing: Array.from(outgoingMentions.values()).sort((a, b) => b.note.updatedAt - a.note.updatedAt),
-    } as const
-  }, [notes, selectedNote])
-
-  useEffect(() => {
-    if (mode === 'chat') return
-    if (!selectedNote || selectedNote.kind !== 'note') {
-      onModeChange('chat')
+      outgoing: Array.from(outgoingMentions.values()).sort(
+        (a, b) => b.note.updatedAt - a.note.updatedAt
+      )
     }
-  }, [mode, onModeChange, selectedNote])
+  }, [notes, selectedNote])
 
   const handleSubmit = useCallback(
     async (e?: { preventDefault(): void }) => {
       e?.preventDefault()
       const q = input.trim()
-      const explicitNoteIds = chatReferences
-        .filter((r) => r.kind === 'note')
-        .map((r) => r.refId)
+      const explicitNoteIds = chatReferences.filter((r) => r.kind === 'note').map((r) => r.refId)
       const explicitWorkspaceIds = chatReferences
         .filter((r) => r.kind === 'workspace')
         .map((r) => r.refId)
@@ -491,13 +400,10 @@ function NotesChatSidebarInner({
     [handleSubmit]
   )
 
-  const handleSuggestion = useCallback(
-    (s: string) => {
-      setInput(s)
-      setTimeout(() => textareaRef.current?.focus(), 0)
-    },
-    []
-  )
+  const handleSuggestion = useCallback((s: string) => {
+    setInput(s)
+    setTimeout(() => textareaRef.current?.focus(), 0)
+  }, [])
 
   const handleCopy = useCallback((content: string) => {
     void copyPlainTextToClipboard(content).catch((err) => {
@@ -533,7 +439,7 @@ function NotesChatSidebarInner({
       on_hold: 'Payment issue — please update your payment method at notelab.io.',
       cancelled: 'Your subscription has been cancelled.',
       expired: 'Your subscription has expired.',
-      none: 'A Notelab subscription is required to use AI chat.',
+      none: 'A Notelab subscription is required to use AI chat.'
     }
 
     return (
@@ -579,13 +485,28 @@ function NotesChatSidebarInner({
     />
   )
 
-  const modeTabs = (
+  const chatTabs = (
     <div className="px-3 pb-2">
-      <Tabs onValueChange={(value) => onModeChange(value as NotesChatSidebarMode)} value={mode}>
-        <TabsList className="grid w-full grid-cols-3 rounded-xl bg-muted/60 p-1">
+      <Tabs onValueChange={(value) => setChatTab(value as 'chat' | 'history')} value={chatTab}>
+        <TabsList className="grid w-full grid-cols-2 rounded-xl bg-muted/60 p-1">
           <TabsTrigger className="text-xs" value="chat">
             Chat
           </TabsTrigger>
+          <TabsTrigger className="text-xs" value="history">
+            History
+          </TabsTrigger>
+        </TabsList>
+      </Tabs>
+    </div>
+  )
+
+  const linkTabs = (
+    <div className="px-3 pb-2">
+      <Tabs
+        onValueChange={(value) => onLinkModeChange(value as NotesChatSidebarLinkMode)}
+        value={linkMode}
+      >
+        <TabsList className="grid w-full grid-cols-2 rounded-xl bg-muted/60 p-1">
           <TabsTrigger className="text-xs" value="linked">
             Linked
           </TabsTrigger>
@@ -597,14 +518,14 @@ function NotesChatSidebarInner({
     </div>
   )
 
-  if (showHistory) {
+  if (panel === 'chat' && showHistory) {
     return (
       <aside
         aria-label="Chat history"
         className="border-border bg-background flex min-h-0 min-w-0 flex-1 flex-col"
       >
         {pillSpacer}
-        {modeTabs}
+        {chatTabs}
         <ChatToolbarRow
           folders={folders}
           filterWorkspaceId={filterWorkspaceId}
@@ -613,8 +534,7 @@ function NotesChatSidebarInner({
           newChat={() => void newChat()}
           setFilterWorkspaceId={setFilterWorkspaceId}
           setHistorySearch={setHistorySearch}
-          setShowHistory={setShowHistory}
-          showHistory
+          showHistory={chatTab === 'history'}
         />
         <div className="flex-1 overflow-y-auto p-3">
           {historyMeta.length === 0 ? (
@@ -642,14 +562,14 @@ function NotesChatSidebarInner({
   // Local model setup view — replaces the entire sidebar content
   // ---------------------------------------------------------------------------
 
-  if (localSetupOpen) {
+  if (panel === 'chat' && localSetupOpen) {
     return (
       <aside
         aria-label="Local model setup"
         className="border-border bg-background flex min-h-0 min-w-0 flex-1 flex-col"
       >
         {pillSpacer}
-        {modeTabs}
+        {chatTabs}
         <LocalModelSetupPanel
           onClose={() => setLocalSetupOpen(false)}
           ollama={ollama}
@@ -681,230 +601,228 @@ function NotesChatSidebarInner({
       className="border-border bg-background relative flex min-h-0 min-w-0 flex-1 flex-col"
     >
       {pillSpacer}
-      {modeTabs}
-      {mode !== 'chat' ? (
+      {panel === 'chat' ? chatTabs : linkTabs}
+      {panel === 'links' ? (
         <NoteLinksPanel
           foldersById={workspacesById}
-          mode={mode}
+          mode={linkMode}
           noteLinkData={noteLinkData}
           onOpenNote={selectNote}
           selectedNote={selectedNote}
         />
       ) : (
         <>
-      <ChatToolbarRow
-        folders={folders}
-        filterWorkspaceId={filterWorkspaceId}
-        historySearch={historySearch}
-        isMacNotelab={isMacNotelab}
-        newChat={() => void newChat()}
-        setFilterWorkspaceId={setFilterWorkspaceId}
-        setHistorySearch={setHistorySearch}
-        setShowHistory={setShowHistory}
-        showHistory={false}
-      />
-      {canAutoIndex ? <ChatIndexingOverlay indexingStatus={indexingStatus} /> : null}
-
-      {isLocalModelSelected &&
-        ollama.status?.running &&
-        !ollama.modelsLoading &&
-        !hasLocalEmbeddingModel(ollama.localModels) && (
-        <div className="border-border shrink-0 border-b bg-muted/30 px-3 py-2">
-          <p className="text-muted-foreground flex items-start gap-2 text-xs leading-snug">
-            <ScanTextIcon className="size-3.5 shrink-0 mt-0.5" aria-hidden />
-            <span>
-              Pull <span className="font-mono text-foreground">{LOCAL_EMBEDDING_MODEL}</span> in{' '}
-              <button
-                className="text-primary underline underline-offset-2"
-                onClick={() => setLocalSetupOpen(true)}
-                type="button"
-              >
-                local setup
-              </button>{' '}
-              for offline semantic search over your notes.
-            </span>
-          </p>
-        </div>
-      )}
-
-      {/* Message list */}
-      <Conversation className="flex-1">
-        <ConversationContent>
-          {session.messages.length === 0 ? (
-            <ConversationEmptyState
-              description="Ask anything about your notes"
-              icon={<BotIcon className="size-8" />}
-              title="Chat with your notes"
-            />
-          ) : (
-            session.messages.map((msg) => {
-              const visibleSources =
-                msg.role === 'assistant' && msg.sources
-                  ? msg.sources.filter((s) => validNoteIds.has(s.note))
-                  : []
-              return (
-              <div key={msg.id}>
-                <Message from={msg.role}>
-                  <MessageContent>
-                    {msg.role === 'assistant' ? (
-                      <MessageResponse>{msg.content || ' '}</MessageResponse>
-                    ) : (
-                      <p>{msg.content}</p>
-                    )}
-                  </MessageContent>
-
-                  {/* Sources for assistant messages (hide entries for deleted notes) */}
-                  {msg.role === 'assistant' && visibleSources.length > 0 && (
-                    <Sources className="mt-1">
-                      <SourcesTrigger count={visibleSources.length} />
-                      <SourcesContent>
-                        {visibleSources.map((src, i) => (
-                          <Source
-                            key={`${src.note}-${i}`}
-                            href="#"
-                            onClick={(e) => {
-                              e.preventDefault()
-                              selectNote(src.note)
-                            }}
-                            title={src.title}
-                          />
-                        ))}
-                      </SourcesContent>
-                    </Sources>
-                  )}
-
-                  {/* Actions for assistant messages */}
-                  {msg.role === 'assistant' && msg.content && (
-                    <MessageActions>
-                      <Actions>
-                        <Action
-                          onClick={() => handleCopy(msg.content)}
-                          tooltip="Copy response"
-                        >
-                          <CopyIcon className="size-4" />
-                        </Action>
-                      </Actions>
-                    </MessageActions>
-                  )}
-                </Message>
-
-                {/* Loading indicator after the last user message */}
-                {isLoading &&
-                  msg.role === 'user' &&
-                  msg.id === session.messages.at(-2)?.id && (
-                    <Message from="assistant">
-                      <MessageContent>
-                        <Loader2Icon className="size-4 animate-spin text-muted-foreground" />
-                      </MessageContent>
-                    </Message>
-                  )}
-              </div>
-            )
-            })
-          )}
-        </ConversationContent>
-        <ConversationScrollButton />
-      </Conversation>
-
-      {/* Starter suggestions when empty */}
-      {session.messages.length === 0 && canChatEffective && (
-        <div className="px-3 pb-2">
-          <Suggestions>
-            {STARTER_SUGGESTIONS.map((s) => (
-              <Suggestion key={s} onClick={handleSuggestion} suggestion={s} />
-            ))}
-          </Suggestions>
-        </div>
-      )}
-
-      {/* Paywall / low-credits banner */}
-      {paywallBanner}
-
-      <form
-        className="border-border border-t p-3"
-        onSubmit={(e) => void handleSubmit(e)}
-      >
-        <PromptInputChatReferenceChips
-          className="mb-2"
-          editorNote={
-            selectedNote && canChatEffective
-              ? {
-                  path: selectedNote.path,
-                  title: selectedNote.title,
-                  titleEmoji: selectedNote.titleEmoji,
-                }
-              : null
-          }
-          onReferencesChange={setChatReferences}
-          onRemove={(r) =>
-            setChatReferences((prev) => prev.filter((x) => !(x.kind === r.kind && x.refId === r.refId)))
-          }
-          references={chatReferences}
-        />
-        <InputGroup className="bg-background overflow-hidden">
-          <PromptInputChatMentionTextarea
-            ref={textareaRef}
-            className="max-h-48 min-h-20 resize-none text-sm"
-            disabled={isLoading || !canChatEffective}
-            notes={notes}
-            onChange={setInput}
-            onKeyDown={handleKeyDown}
-            onReferencesChange={setChatReferences}
-            placeholder={`${inputPlaceholder} Type @ to reference notes or workspaces.`}
-            rows={1}
-            value={input}
-            workspaces={workspacesForMentions}
+          <ChatToolbarRow
+            folders={folders}
+            filterWorkspaceId={filterWorkspaceId}
+            historySearch={historySearch}
+            isMacNotelab={isMacNotelab}
+            newChat={() => void newChat()}
+            setFilterWorkspaceId={setFilterWorkspaceId}
+            setHistorySearch={setHistorySearch}
+            showHistory={false}
           />
-          <InputGroupAddon align="block-end" className="flex flex-wrap items-center gap-2">
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <InputGroupButton
-                    aria-label="Reference notes or workspaces"
-                    disabled={isLoading || !canChatEffective}
-                    onClick={() => textareaRef.current?.openReferencePicker()}
-                    size="icon-xs"
-                    type="button"
-                    variant="ghost"
-                  >
-                    <PaperclipIcon className="size-4" />
-                  </InputGroupButton>
-                </TooltipTrigger>
-                <TooltipContent side="top">
-                  Add references (same as typing @)
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-            <div className="ml-auto flex min-w-0 items-center gap-2">
-              <NoteLabModelPicker
-                selectedModelId={selectedModelId}
-                onModelChange={setSelectedModelId}
-                localModels={ollama.localModels}
-                ollamaRunning={ollama.status?.running ?? false}
-                onOpenLocalSetup={() => setLocalSetupOpen(true)}
-                localOnly={isUnpaidUser && !canChat}
-              />
-              <Separator className="!h-4" orientation="vertical" />
-              <InputGroupButton
-                className="rounded-full"
-                disabled={
-                  (!input.trim() && chatReferences.length === 0) || isLoading || !canChatEffective
-                }
-                size="icon-xs"
-                type="submit"
-                variant="default"
-              >
-                {isLoading ? (
-                  <Loader2Icon className="size-4 animate-spin" />
-                ) : (
-                  <ArrowUpIcon className="size-4" />
-                )}
-                <span className="sr-only">Send</span>
-              </InputGroupButton>
+
+          {isLocalModelSelected &&
+            ollama.status?.running &&
+            !ollama.modelsLoading &&
+            !hasLocalEmbeddingModel(ollama.localModels) && (
+              <div className="border-border shrink-0 border-b bg-muted/30 px-3 py-2">
+                <p className="text-muted-foreground flex items-start gap-2 text-xs leading-snug">
+                  <ScanTextIcon className="size-3.5 shrink-0 mt-0.5" aria-hidden />
+                  <span>
+                    Pull <span className="font-mono text-foreground">{LOCAL_EMBEDDING_MODEL}</span>{' '}
+                    in{' '}
+                    <button
+                      className="text-primary underline underline-offset-2"
+                      onClick={() => setLocalSetupOpen(true)}
+                      type="button"
+                    >
+                      local setup
+                    </button>{' '}
+                    for offline semantic search over your notes.
+                  </span>
+                </p>
+              </div>
+            )}
+
+          {/* Message list */}
+          <Conversation className="flex-1">
+            <ConversationContent>
+              {session.messages.length === 0 ? (
+                <ConversationEmptyState
+                  description="Ask anything about your notes"
+                  icon={<BotIcon className="size-8" />}
+                  title="Chat with your notes"
+                />
+              ) : (
+                session.messages.map((msg) => {
+                  const visibleSources =
+                    msg.role === 'assistant' && msg.sources
+                      ? msg.sources.filter((s) => validNoteIds.has(s.note))
+                      : []
+                  return (
+                    <div key={msg.id}>
+                      <Message from={msg.role}>
+                        <MessageContent>
+                          {msg.role === 'assistant' ? (
+                            <MessageResponse>{msg.content || ' '}</MessageResponse>
+                          ) : (
+                            <p>{msg.content}</p>
+                          )}
+                        </MessageContent>
+
+                        {/* Sources for assistant messages (hide entries for deleted notes) */}
+                        {msg.role === 'assistant' && visibleSources.length > 0 && (
+                          <Sources className="mt-1">
+                            <SourcesTrigger count={visibleSources.length} />
+                            <SourcesContent>
+                              {visibleSources.map((src, i) => (
+                                <Source
+                                  key={`${src.note}-${i}`}
+                                  href="#"
+                                  onClick={(e) => {
+                                    e.preventDefault()
+                                    selectNote(src.note)
+                                  }}
+                                  title={src.title}
+                                />
+                              ))}
+                            </SourcesContent>
+                          </Sources>
+                        )}
+
+                        {/* Actions for assistant messages */}
+                        {msg.role === 'assistant' && msg.content && (
+                          <MessageActions>
+                            <Actions>
+                              <Action
+                                onClick={() => handleCopy(msg.content)}
+                                tooltip="Copy response"
+                              >
+                                <CopyIcon className="size-4" />
+                              </Action>
+                            </Actions>
+                          </MessageActions>
+                        )}
+                      </Message>
+
+                      {/* Loading indicator after the last user message */}
+                      {isLoading &&
+                        msg.role === 'user' &&
+                        msg.id === session.messages.at(-2)?.id && (
+                          <Message from="assistant">
+                            <MessageContent>
+                              <Loader2Icon className="size-4 animate-spin text-muted-foreground" />
+                            </MessageContent>
+                          </Message>
+                        )}
+                    </div>
+                  )
+                })
+              )}
+            </ConversationContent>
+            <ConversationScrollButton />
+          </Conversation>
+
+          {/* Starter suggestions when empty */}
+          {session.messages.length === 0 && canChatEffective && (
+            <div className="px-3 pb-2">
+              <Suggestions>
+                {STARTER_SUGGESTIONS.map((s) => (
+                  <Suggestion key={s} onClick={handleSuggestion} suggestion={s} />
+                ))}
+              </Suggestions>
             </div>
-          </InputGroupAddon>
-        </InputGroup>
-      </form>
+          )}
+
+          {/* Paywall / low-credits banner */}
+          {paywallBanner}
+
+          <form className="border-border border-t p-3" onSubmit={(e) => void handleSubmit(e)}>
+            <PromptInputChatReferenceChips
+              className="mb-2"
+              editorNote={
+                selectedNote && canChatEffective
+                  ? {
+                      path: selectedNote.path,
+                      title: selectedNote.title,
+                      titleEmoji: selectedNote.titleEmoji
+                    }
+                  : null
+              }
+              onReferencesChange={setChatReferences}
+              onRemove={(r) =>
+                setChatReferences((prev) =>
+                  prev.filter((x) => !(x.kind === r.kind && x.refId === r.refId))
+                )
+              }
+              references={chatReferences}
+            />
+            <InputGroup className="bg-background overflow-hidden">
+              <PromptInputChatMentionTextarea
+                ref={textareaRef}
+                className="max-h-48 min-h-20 resize-none text-sm"
+                disabled={isLoading || !canChatEffective}
+                notes={notes}
+                onChange={setInput}
+                onKeyDown={handleKeyDown}
+                onReferencesChange={setChatReferences}
+                placeholder={`${inputPlaceholder} Type @ to reference notes or workspaces.`}
+                rows={1}
+                value={input}
+                workspaces={workspacesForMentions}
+              />
+              <InputGroupAddon align="block-end" className="flex flex-wrap items-center gap-2">
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <InputGroupButton
+                        aria-label="Reference notes or workspaces"
+                        disabled={isLoading || !canChatEffective}
+                        onClick={() => textareaRef.current?.openReferencePicker()}
+                        size="icon-xs"
+                        type="button"
+                        variant="ghost"
+                      >
+                        <PaperclipIcon className="size-4" />
+                      </InputGroupButton>
+                    </TooltipTrigger>
+                    <TooltipContent side="top">Add references (same as typing @)</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+                <div className="ml-auto flex min-w-0 items-center gap-2">
+                  <NoteLabModelPicker
+                    selectedModelId={selectedModelId}
+                    onModelChange={setSelectedModelId}
+                    localModels={ollama.localModels}
+                    ollamaRunning={ollama.status?.running ?? false}
+                    onOpenLocalSetup={() => setLocalSetupOpen(true)}
+                    localOnly={isUnpaidUser && !canChat}
+                  />
+                  <Separator className="!h-4" orientation="vertical" />
+                  <InputGroupButton
+                    className="rounded-full"
+                    disabled={
+                      (!input.trim() && chatReferences.length === 0) ||
+                      isLoading ||
+                      !canChatEffective
+                    }
+                    size="icon-xs"
+                    type="submit"
+                    variant="default"
+                  >
+                    {isLoading ? (
+                      <Loader2Icon className="size-4 animate-spin" />
+                    ) : (
+                      <ArrowUpIcon className="size-4" />
+                    )}
+                    <span className="sr-only">Send</span>
+                  </InputGroupButton>
+                </div>
+              </InputGroupAddon>
+            </InputGroup>
+          </form>
         </>
       )}
     </aside>
@@ -920,17 +838,15 @@ function ChatToolbarRow({
   filterWorkspaceId,
   setFilterWorkspaceId,
   showHistory,
-  setShowHistory,
   historySearch,
   setHistorySearch,
   newChat,
-  isMacNotelab,
+  isMacNotelab
 }: {
   folders: Folder[]
   filterWorkspaceId: string | null
   setFilterWorkspaceId: (id: string | null) => void
   showHistory: boolean
-  setShowHistory: (v: boolean) => void
   historySearch: string
   setHistorySearch: (v: string) => void
   newChat: () => void
@@ -1003,35 +919,12 @@ function ChatToolbarRow({
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button
-                onClick={newChat}
-                size="icon-sm"
-                type="button"
-                variant="ghost"
-              >
+              <Button onClick={newChat} size="icon-sm" type="button" variant="ghost">
                 <PlusIcon className="size-3.5" />
                 <span className="sr-only">New chat</span>
               </Button>
             </TooltipTrigger>
             <TooltipContent>New chat</TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                onClick={() => setShowHistory(!showHistory)}
-                size="icon-sm"
-                type="button"
-                variant="ghost"
-              >
-                {showHistory ? (
-                  <XIcon className="size-3.5" />
-                ) : (
-                  <HistoryIcon className="size-3.5" />
-                )}
-                <span className="sr-only">{showHistory ? 'Back to chat' : 'View history'}</span>
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>{showHistory ? 'Back to chat' : 'View history'}</TooltipContent>
           </Tooltip>
         </TooltipProvider>
       </div>
@@ -1042,7 +935,7 @@ function ChatToolbarRow({
 function HistoryItem({
   meta,
   onLoad,
-  titleSegments,
+  titleSegments
 }: {
   meta: ChatHistoryMeta
   onLoad: (meta: ChatHistoryMeta) => Promise<void>
@@ -1076,15 +969,12 @@ function NoteLinksPanel({
   foldersById,
   noteLinkData,
   mode,
-  onOpenNote,
+  onOpenNote
 }: {
   selectedNote: SavedNote | null
   foldersById: Map<string, string>
-  noteLinkData: {
-    backlinks: Array<{ note: SavedNote; contexts: string[] }>
-    outgoing: Array<{ note: SavedNote; contexts: string[]; linkText: string[] }>
-  }
-  mode: NotesChatSidebarMode
+  noteLinkData: NoteLinksData
+  mode: NotesChatSidebarLinkMode
   onOpenNote: (notePath: string) => void
 }): JSX.Element {
   if (!selectedNote || selectedNote.kind !== 'note') {
@@ -1103,7 +993,6 @@ function NoteLinksPanel({
     )
   }
 
-  const items = mode === 'linked' ? noteLinkData.backlinks : noteLinkData.outgoing
   const emptyLabel =
     mode === 'linked'
       ? 'No notes link back to this note yet.'
@@ -1131,49 +1020,104 @@ function NoteLinksPanel({
         </div>
       </div>
       <div className="flex-1 overflow-y-auto p-3">
-        {items.length === 0 ? (
+        {(mode === 'linked' ? noteLinkData.backlinks.length : noteLinkData.outgoing.length) ===
+        0 ? (
           <div className="text-muted-foreground flex h-full items-center justify-center rounded-2xl border border-dashed px-6 text-center text-sm">
             {emptyLabel}
           </div>
         ) : (
           <div className="space-y-3">
-            {items.map((item) => (
-              <button
-                key={item.note.path}
-                className="bg-card hover:bg-accent/35 border-border/70 w-full rounded-2xl border p-3 text-left transition-colors"
-                onClick={() => onOpenNote(item.note.path)}
-                type="button"
-              >
-                <div className="flex items-start gap-3">
-                  <div className="bg-muted flex size-9 shrink-0 items-center justify-center rounded-xl">
-                    <BookOpenIcon className="text-muted-foreground size-4" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center justify-between gap-3">
-                      <p className="truncate text-sm font-medium">
-                        {item.note.title.trim() || 'Untitled'}
-                      </p>
-                      <span className="text-muted-foreground shrink-0 text-[11px]">
-                        {formatNoteTime(item.note.updatedAt)}
-                      </span>
-                    </div>
-                    <p className="text-muted-foreground mt-0.5 text-xs">
-                      {foldersById.get(item.note.folder) ?? 'Workspace'}
-                    </p>
-                    <div className="mt-3 space-y-2">
-                      {item.contexts.slice(0, 3).map((context, index) => (
-                        <div
-                          key={`${item.note.path}-${index}`}
-                          className="bg-muted/45 rounded-xl border border-border/50 px-3 py-2"
-                        >
-                          <p className="text-foreground/90 text-xs leading-relaxed">{context}</p>
+            {mode === 'linked'
+              ? noteLinkData.backlinks.map((item) => (
+                  <button
+                    key={item.note.path}
+                    className="bg-card hover:bg-accent/35 border-border/70 w-full rounded-2xl border p-3 text-left transition-colors"
+                    onClick={() => onOpenNote(item.note.path)}
+                    type="button"
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className="bg-muted flex size-9 shrink-0 items-center justify-center rounded-xl">
+                        <BookOpenIcon className="text-muted-foreground size-4" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center justify-between gap-3">
+                          <p className="truncate text-sm font-medium">
+                            {item.note.title.trim() || 'Untitled'}
+                          </p>
+                          <span className="text-muted-foreground shrink-0 text-[11px]">
+                            {formatNoteTime(item.note.updatedAt)}
+                          </span>
                         </div>
-                      ))}
+                        <p className="text-muted-foreground mt-0.5 text-xs">
+                          {foldersById.get(item.note.folder) ?? 'Workspace'}
+                        </p>
+                        <div className="mt-3 space-y-2">
+                          {item.contexts.slice(0, 3).map((context, index) => (
+                            <div
+                              key={`${item.note.path}-${index}`}
+                              className="bg-muted/45 rounded-xl border border-border/50 px-3 py-2"
+                            >
+                              <p className="text-foreground/90 text-xs leading-relaxed">
+                                {context}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                </div>
-              </button>
-            ))}
+                  </button>
+                ))
+              : noteLinkData.outgoing.map((item) => (
+                  <button
+                    key={item.note.path}
+                    className="bg-card hover:bg-accent/35 border-border/70 w-full rounded-2xl border p-3 text-left transition-colors"
+                    onClick={() => onOpenNote(item.note.path)}
+                    type="button"
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className="bg-muted flex size-9 shrink-0 items-center justify-center rounded-xl">
+                        <BookOpenIcon className="text-muted-foreground size-4" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center justify-between gap-3">
+                          <p className="truncate text-sm font-medium">
+                            {item.note.title.trim() || 'Untitled'}
+                          </p>
+                          <span className="text-muted-foreground shrink-0 text-[11px]">
+                            {formatNoteTime(item.note.updatedAt)}
+                          </span>
+                        </div>
+                        <p className="text-muted-foreground mt-0.5 text-xs">
+                          {foldersById.get(item.note.folder) ?? 'Workspace'}
+                        </p>
+                        {item.linkText.length > 0 ? (
+                          <div className="mt-2 flex flex-wrap gap-1.5">
+                            {item.linkText.slice(0, 2).map((label) => (
+                              <span
+                                key={`${item.note.path}-${label}`}
+                                className="bg-primary/10 text-primary inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium"
+                              >
+                                {label}
+                              </span>
+                            ))}
+                          </div>
+                        ) : null}
+                        <div className="mt-3 space-y-2">
+                          {item.contexts.slice(0, 3).map((context, index) => (
+                            <div
+                              key={`${item.note.path}-${index}`}
+                              className="bg-muted/45 rounded-xl border border-border/50 px-3 py-2"
+                            >
+                              <p className="text-foreground/90 text-xs leading-relaxed">
+                                {context}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </button>
+                ))}
           </div>
         )}
       </div>

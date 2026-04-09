@@ -111,7 +111,9 @@ export function useNotesAppIndexing({ dataRootRef }: UseNotesAppIndexingArgs) {
               ? {
                   ...ns,
                   state: nextState,
-                  ...(result.ok ? { error: undefined } : { error: result.error })
+                  ...(result.ok
+                    ? { error: undefined }
+                    : { error: typeof result.error === 'string' ? result.error : String(result.error) })
                 }
               : ns
           )
