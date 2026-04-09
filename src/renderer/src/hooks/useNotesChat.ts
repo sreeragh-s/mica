@@ -628,7 +628,7 @@ export function useNotesChat({
     const fresh = emptySession()
     setSession(fresh)
     saveCurrentSession(fresh)
-    setShowHistory(false) // stay on chat view
+    setShowHistory(false) // stay in chat view to start the new conversation
     log.info(`started new chat session: ${fresh.id}`)
   }, [session])
 

@@ -7,6 +7,7 @@ import { MAC_WINDOW_OUTER_CORNER_RADIUS_PX } from '../../../../shared/mac-window
 import type { NotesAppProps } from '@/components/notes/notes-app-types'
 import { macTitlebarStyles } from '@/components/notes/notes-app-utils'
 import { GitRemoteDialog } from '@/components/notes/git/GitRemoteDialog'
+import { GitUserConfigDialog } from '@/components/notes/git/GitUserConfigDialog'
 import { NotesMainArea } from '@/components/notes/editor-area/NotesMainArea'
 import { NotesSidebar } from '@/components/notes/sidebar/NotesSidebar'
 import { useNotesApp } from '@/components/notes/app-state/useNotesApp'
@@ -104,6 +105,19 @@ export function NotesApp(props: NotesAppProps): JSX.Element {
         githubUsername={vm.user?.name ?? null}
         onRemoteSet={async (url) => {
           await vm.handleGitRemoteConnected(url)
+        }}
+      />
+
+      <GitUserConfigDialog
+        open={vm.gitUserConfigDialogOpen}
+        onOpenChange={vm.setGitUserConfigDialogOpen}
+        cwd={cwd}
+        onConfigured={async () => {
+          const retry = vm.gitPendingRetry
+          if (retry) {
+            vm.setGitPendingRetry(null)
+            await retry()
+          }
         }}
       />
     </div>

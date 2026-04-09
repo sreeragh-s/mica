@@ -53,6 +53,8 @@ type UseNotesGitSyncArgs = {
   setGitInitBusy: Dispatch<SetStateAction<boolean>>
   gitInitError: string | null
   setGitInitError: Dispatch<SetStateAction<string | null>>
+  setGitUserConfigDialogOpen: Dispatch<SetStateAction<boolean>>
+  setGitPendingRetry: Dispatch<SetStateAction<(() => Promise<void>) | null>>
   user?: NotesUser | null
   useGithubApiSync: boolean
   handleGithubApiPull: () => Promise<void>
@@ -94,6 +96,8 @@ export function useNotesGitSync({
   setGitInitBusy,
   gitInitError,
   setGitInitError,
+  setGitUserConfigDialogOpen,
+  setGitPendingRetry,
   user,
   useGithubApiSync,
   handleGithubApiPull,
@@ -168,6 +172,12 @@ export function useNotesGitSync({
     try {
       const r = await api.workspace.initGit({ cwd })
       if (!r.ok) {
+        const err = r.error.toLowerCase()
+        if (err.includes('user.name') || err.includes('user.email') || err.includes('please tell me who you are')) {
+          setGitPendingRetry(() => handleInitGit)
+          setGitUserConfigDialogOpen(true)
+          return
+        }
         setGitInitError(r.error)
         return
       }
@@ -181,7 +191,7 @@ export function useNotesGitSync({
     } finally {
       setGitInitBusy(false)
     }
-  }, [primaryGitFolder?.localGitPath, refreshGitRepositoryStatus, refreshGitSourceControl, refreshWorkspaceGitStatuses])
+  }, [primaryGitFolder?.localGitPath, refreshGitRepositoryStatus, refreshGitSourceControl, refreshWorkspaceGitStatuses, setGitUserConfigDialogOpen, setGitPendingRetry])
 
   const handleGitCommit = useCallback(async (workspaceId?: string) => {
     if (useGithubApiSync) {
@@ -449,6 +459,17 @@ export function useNotesGitSync({
     try {
       const r = await api.workspace.setGitRemote({ cwd, url })
       if (!r.ok) {
+        const err = r.error.toLowerCase()
+        if (
+          err.includes('user.name') ||
+          err.includes('user.email') ||
+          err.includes('please tell me who you are')
+        ) {
+          setGitPendingRetry(() => async () => { await handleApplyGithubRemote() })
+          setGitUserConfigDialogOpen(true)
+          setGitHubBusy(false)
+          return
+        }
         setGitHubMessage(r.error)
         return
       }
@@ -463,7 +484,7 @@ export function useNotesGitSync({
     } finally {
       setGitHubBusy(false)
     }
-  }, [githubRemoteUrl, primaryGitFolder?.localGitPath, refreshGitRepositoryStatus, refreshGitSourceControl, refreshWorkspaceGitStatuses, updateSavedRemoteUrl])
+  }, [githubRemoteUrl, primaryGitFolder?.localGitPath, refreshGitRepositoryStatus, refreshGitSourceControl, refreshWorkspaceGitStatuses, updateSavedRemoteUrl, setGitUserConfigDialogOpen, setGitPendingRetry])
 
   const gitToolbarFolder = useMemo((): Folder | null => {
     if (!primaryGitFolder?.localGitPath) return null

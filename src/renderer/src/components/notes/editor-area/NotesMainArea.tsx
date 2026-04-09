@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type DragEvent, type JSX } from 'react'
+import { useCallback, useEffect, useRef, useState, type DragEvent, type JSX } from 'react'
 
 import {
   AlertCircleIcon,
@@ -74,11 +74,12 @@ function GraphPaneTopBar({
 }
 
 function MainAreaIndexingOverlay({
-  indexingStatus
+  indexingStatus,
+  onDismiss
 }: {
   indexingStatus: NotesAppViewModel['indexingStatus']
+  onDismiss: () => void
 }): JSX.Element | null {
-  const [dismissed, setDismissed] = useState(false)
   const { notes, running } = indexingStatus
   const totalCount = notes.length
   const pendingCount = notes.filter((note) => note.state === 'pending').length
@@ -87,17 +88,6 @@ function MainAreaIndexingOverlay({
   const errorCount = notes.filter((note) => note.state === 'error').length
 
   if (totalCount === 0 || (!running && pendingCount === 0 && errorCount === 0)) {
-    return null
-  }
-
-  // Reset dismissed state when indexing starts again
-  useEffect(() => {
-    if (running) {
-      setDismissed(false)
-    }
-  }, [running])
-
-  if (dismissed) {
     return null
   }
 
@@ -155,14 +145,14 @@ function MainAreaIndexingOverlay({
             </div>
           </div>
           <Button
-            className="size-6 shrink-0 rounded-md p-0"
-            onClick={() => setDismissed(true)}
-            size="icon-xs"
             type="button"
+            size="icon"
             variant="ghost"
+            className="text-muted-foreground hover:text-foreground -mr-1 -mt-1 size-7 shrink-0"
+            aria-label="Dismiss indexing status"
+            onClick={onDismiss}
           >
-            <X className="size-3" aria-hidden />
-            <span className="sr-only">Dismiss</span>
+            <X className="size-4" aria-hidden />
           </Button>
         </div>
       </div>
@@ -242,6 +232,19 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
 
   const [zenHintVisible, setZenHintVisible] = useState(false)
   const [editorBottomBarEl, setEditorBottomBarEl] = useState<HTMLDivElement | null>(null)
+  const [indexingOverlayDismissed, setIndexingOverlayDismissed] = useState(false)
+
+  const indexingOverlayPhase = (() => {
+    const { notes, running } = indexingStatus
+    const pendingCount = notes.filter((note) => note.state === 'pending').length
+    const errorCount = notes.filter((note) => note.state === 'error').length
+
+    if (notes.length === 0 || (!running && pendingCount === 0 && errorCount === 0)) return 'idle'
+    if (running) return 'running'
+    if (errorCount > 0 && pendingCount === 0) return 'error'
+    return 'pending'
+  })()
+  const previousIndexingOverlayPhaseRef = useRef(indexingOverlayPhase)
 
   useEffect(() => {
     if (!zenMode) {
@@ -252,6 +255,23 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
     const id = window.setTimeout(() => setZenHintVisible(false), 4500)
     return () => clearTimeout(id)
   }, [zenMode])
+
+  useEffect(() => {
+    if (
+      indexingOverlayPhase !== 'idle' &&
+      indexingOverlayPhase !== previousIndexingOverlayPhaseRef.current
+    ) {
+      setIndexingOverlayDismissed(false)
+    }
+    previousIndexingOverlayPhaseRef.current = indexingOverlayPhase
+  }, [indexingOverlayPhase])
+
+  // Close chat sidebar when graph view opens
+  useEffect(() => {
+    if (graphViewOpen && chatSidebarOpen) {
+      toggleChatSidebar()
+    }
+  }, [graphViewOpen, chatSidebarOpen, toggleChatSidebar])
 
   const onDragOverMain = useCallback((e: DragEvent) => {
     if (isNoteDragEvent(e)) {
@@ -362,8 +382,8 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
       )
     }
 
-    // Graph only (no note or drawing selected)
-    if (graphViewOpen && (!selectedNote || selectedNote.kind === 'drawing')) {
+    // Graph only (no note selected)
+    if (graphViewOpen && !selectedNote) {
       return (
         <div
           className="flex min-h-0 flex-1 flex-col"
@@ -381,8 +401,8 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
       )
     }
 
-    // Graph side-by-side with editor
-    if (graphViewOpen && selectedNote && selectedNote.kind !== 'drawing') {
+    // Graph side-by-side with editor or excalidraw
+    if (graphViewOpen && selectedNote) {
       return (
         <div className="flex min-h-0 flex-1 flex-row">
           <div className="border-border flex min-h-0 min-w-0 flex-1 flex-col border-r">
@@ -521,8 +541,11 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
                   />
                 ) : null}
                 <div className="order-1 flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto">
-                  {appMode === 'notes' && canAutoIndex && (
-                    <MainAreaIndexingOverlay indexingStatus={indexingStatus} />
+                  {appMode === 'notes' && canAutoIndex && !indexingOverlayDismissed && (
+                    <MainAreaIndexingOverlay
+                      indexingStatus={indexingStatus}
+                      onDismiss={() => setIndexingOverlayDismissed(true)}
+                    />
                   )}
                   {appMode === 'settings' && settingsSection === 'account' ? (
                     <AccountSettingsView

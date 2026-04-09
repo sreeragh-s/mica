@@ -79,6 +79,9 @@ export function useNotesAppDisk({
   const [gitHubBusy, setGitHubBusy] = useState(false)
   const [gitHubMessage, setGitHubMessage] = useState<string | null>(null)
   const [gitRemoteDialogOpen, setGitRemoteDialogOpen] = useState(false)
+  const [gitUserConfigDialogOpen, setGitUserConfigDialogOpen] = useState(false)
+  /** The operation to retry after the user configures git user.name/email. */
+  const [gitPendingRetry, setGitPendingRetry] = useState<(() => Promise<void>) | null>(null)
   const [gitRepoReady, setGitRepoReady] = useState<boolean | null>(null)
   const [gitHasOriginRemote, setGitHasOriginRemote] = useState(false)
   const [gitInitBusy, setGitInitBusy] = useState(false)
@@ -688,6 +691,10 @@ export function useNotesAppDisk({
     setGitHubMessage,
     gitRemoteDialogOpen,
     setGitRemoteDialogOpen,
+    gitUserConfigDialogOpen,
+    setGitUserConfigDialogOpen,
+    gitPendingRetry,
+    setGitPendingRetry,
     gitRepoReady,
     setGitRepoReady,
     gitHasOriginRemote,

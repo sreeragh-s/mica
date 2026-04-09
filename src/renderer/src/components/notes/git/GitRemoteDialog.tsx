@@ -17,6 +17,10 @@ type Props = {
   defaultRepoName: string
   githubUsername: string | null
   onRemoteSet: (remoteUrl: string) => Promise<void>
+  /** Called when setGitRemote fails due to missing git user.name/email config. */
+  onRequestUserConfig?: () => void
+  /** The operation to retry after the user configures git. */
+  onRetryWithUserConfig?: (retry: () => Promise<void>) => void
 }
 
 export function GitRemoteDialog({
@@ -26,6 +30,8 @@ export function GitRemoteDialog({
   defaultRepoName: _defaultRepoName,
   githubUsername: _githubUsername,
   onRemoteSet,
+  onRequestUserConfig,
+  onRetryWithUserConfig,
 }: Props): JSX.Element {
   const [existingUrl, setExistingUrl] = useState('')
   const [existingBusy, setExistingBusy] = useState(false)
@@ -33,20 +39,47 @@ export function GitRemoteDialog({
 
   const handleConnectExisting = useCallback(async () => {
     const api = getApi()
-    if (!api?.workspace?.setGitRemote) return
+    const workspace = api?.workspace
+    if (!workspace?.setGitRemote) return
     const url = existingUrl.trim()
     if (!url) { setExistingError('Enter a repository URL.'); return }
     setExistingBusy(true)
     setExistingError(null)
     try {
-      const r = await api.workspace.setGitRemote({ cwd, url })
-      if (!r.ok) { setExistingError(r.error); return }
+      const r = await workspace.setGitRemote({ cwd, url })
+      if (!r.ok) {
+        const err = r.error.toLowerCase()
+        if (
+          err.includes('user.name') ||
+          err.includes('user.email') ||
+          err.includes('please tell me who you are')
+        ) {
+          onRequestUserConfig?.()
+          if (onRetryWithUserConfig) {
+            onRetryWithUserConfig(async () => {
+              setExistingBusy(true)
+              setExistingError(null)
+              try {
+                const retryR = await workspace.setGitRemote({ cwd, url })
+                if (!retryR.ok) { setExistingError(retryR.error); return }
+                await onRemoteSet(url)
+                onOpenChange(false)
+              } finally {
+                setExistingBusy(false)
+              }
+            })
+          }
+          return
+        }
+        setExistingError(r.error)
+        return
+      }
       await onRemoteSet(url)
       onOpenChange(false)
     } finally {
       setExistingBusy(false)
     }
-  }, [cwd, existingUrl, onRemoteSet, onOpenChange])
+  }, [cwd, existingUrl, onRemoteSet, onOpenChange, onRequestUserConfig, onRetryWithUserConfig])
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
