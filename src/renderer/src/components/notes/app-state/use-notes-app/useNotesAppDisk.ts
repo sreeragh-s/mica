@@ -550,15 +550,21 @@ export function useNotesAppDisk({
   ])
 
   useEffect(() => {
+    if (!diskMode) return
     const t = window.setTimeout(() => {
       const remote = githubRemoteUrl.trim()
-      if (diskMode) {
-        saveNotesState({
-          version: 3,
-          ...(remote ? { githubRemoteUrl: remote } : {})
-        })
-        return
-      }
+      saveNotesState({
+        version: 3,
+        ...(remote ? { githubRemoteUrl: remote } : {})
+      })
+    }, 350)
+    return () => window.clearTimeout(t)
+  }, [diskMode, githubRemoteUrl])
+
+  useEffect(() => {
+    if (diskMode) return
+    const t = window.setTimeout(() => {
+      const remote = githubRemoteUrl.trim()
       saveNotesState({
         version: 2,
         folders,
