@@ -27,19 +27,16 @@ export function NotePropertiesPanel({
     [note.properties]
   )
 
-  if (
-    !note.hasFrontmatterBlock &&
-    genericProperties.length === 0 &&
-    !note.coverImageSrc &&
-    !note.titleEmoji
-  ) {
+  const showPanel =
+    editorSettings.newNotesStartWithFrontmatter ||
+    note.hasFrontmatterBlock ||
+    genericProperties.length > 0 ||
+    Boolean(note.coverImageSrc) ||
+    Boolean(note.titleEmoji)
+
+  if (!showPanel) {
     return null
   }
-
-  const canAddCover =
-    (note.hasFrontmatterBlock || editorSettings.enableCoverProperty) && !note.coverImageSrc
-  const canAddEmoji =
-    (note.hasFrontmatterBlock || editorSettings.enableEmojiProperty) && !note.titleEmoji
 
   return (
     <div className="px-8 pb-4">
@@ -55,20 +52,6 @@ export function NotePropertiesPanel({
           {genericProperties.map(([key, value]) => (
             <PropertyRow key={key} label={key} value={value} onChange={(next) => onSetProperty(key, next)} />
           ))}
-          {(canAddCover || canAddEmoji) && (
-            <div className="flex flex-wrap gap-2 pt-1">
-              {canAddCover ? (
-                <Button type="button" variant="ghost" size="sm" onClick={() => onSetProperty('cover_image', '')}>
-                  Add cover property
-                </Button>
-              ) : null}
-              {canAddEmoji ? (
-                <Button type="button" variant="ghost" size="sm" onClick={() => onSetProperty('title_emoji', '')}>
-                  Add emoji property
-                </Button>
-              ) : null}
-            </div>
-          )}
           <div className="flex items-center gap-2 pt-1">
             <Input
               value={draftKey}

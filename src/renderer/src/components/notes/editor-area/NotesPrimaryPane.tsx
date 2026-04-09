@@ -12,7 +12,7 @@ import { NotePropertiesPanel } from '@/components/notes/editor-area/NoteProperti
 import { NOTE_DRAG_MIME } from '@/components/notes/notes-app-utils'
 import type { NotelabEditorSettingsV1 } from '@/lib/config/notelab-config-schema'
 
-export type NotesPrimaryPaneProps = { 
+export type NotesPrimaryPaneProps = {
   selectedNote: SavedNote | null
   focusedFolder: Folder | null
   notes: SavedNote[]
@@ -54,9 +54,15 @@ export function NotesPrimaryPane({
 }: NotesPrimaryPaneProps): JSX.Element {
   if (selectedNote) {
     const allowCoverProperty =
-      selectedNote.hasFrontmatterBlock || Boolean(selectedNote.coverImageSrc) || editorSettings.enableCoverProperty
+      Boolean(selectedNote.coverImageSrc) ||
+      editorSettings.enableCoverProperty ||
+      editorSettings.newNotesStartWithFrontmatter ||
+      selectedNote.hasFrontmatterBlock
     const allowEmojiProperty =
-      selectedNote.hasFrontmatterBlock || Boolean(selectedNote.titleEmoji) || editorSettings.enableEmojiProperty
+      Boolean(selectedNote.titleEmoji) ||
+      editorSettings.enableEmojiProperty ||
+      editorSettings.newNotesStartWithFrontmatter ||
+      selectedNote.hasFrontmatterBlock
     if (selectedNote.kind === 'drawing') {
       return (
         <ExcalidrawView

@@ -59,7 +59,7 @@ export function EditorSettingsView({
       <div className="flex flex-col gap-3">
         <ToggleRow
           label="New notes start with frontmatter"
-          description="Creates new markdown notes with an empty frontmatter placeholder before the title heading."
+          description="Shows the properties panel for new markdown notes. The frontmatter block is only written to the file if a property is added."
           value={settings.newNotesStartWithFrontmatter}
           onChange={(next) => onChange({ newNotesStartWithFrontmatter: next })}
         />

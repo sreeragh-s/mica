@@ -60,7 +60,7 @@ export function buildMarkdownWithOptionalFrontmatter(args: {
     ([key, value]) => key.trim().length > 0 && value != null
   ) as Array<[string, string]>
 
-  if (!args.hasFrontmatterBlock && entries.length === 0) {
+  if (entries.length === 0) {
     return normalizedBody
   }
 

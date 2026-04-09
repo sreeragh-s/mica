@@ -44,6 +44,7 @@ import { FloatingLinkEditorPlugin } from "@/components/editor/plugins/floating-l
 import { FloatingTextFormatToolbarPlugin } from "@/components/editor/plugins/floating-text-format-plugin"
 import { InternalNoteLinkClickPlugin } from "@/components/editor/plugins/internal-note-link-click-plugin"
 import { LinkHoverPreviewPlugin } from "@/components/editor/plugins/link-hover-preview-plugin"
+import { WikiLinkPlugin } from "@/components/editor/plugins/wiki-link-plugin"
 import { MarkdownPastePlugin } from "@/components/editor/plugins/markdown-paste-plugin"
 import {
   ImageSourceTabs,
@@ -344,9 +345,9 @@ export function Plugins({
                           </Button>
                         </div>
                       ) : null}
-                      {header ? <div className="shrink-0">{header}</div> : null}
                     </>
                   )}
+                  {header ? <div className="shrink-0">{header}</div> : null}
                   <div className="relative">
                     <ContentEditable
                       placeholder={placeholder}
@@ -421,6 +422,7 @@ export function Plugins({
           dynamicOptionsFn={DynamicTablePickerPlugin}
         />
 
+        <WikiLinkPlugin />
         <ContextMenuPlugin />
         <MarkdownPastePlugin />
         <DragDropPastePlugin />
