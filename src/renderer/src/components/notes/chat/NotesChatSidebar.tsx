@@ -1,6 +1,5 @@
 import {
   AlertCircleIcon,
-  ArrowLeftIcon,
   BookOpenIcon,
   BotIcon,
   CopyIcon,
@@ -12,7 +11,6 @@ import {
   PlusIcon,
   ScanTextIcon,
   Search,
-  SparklesIcon,
   X
 } from 'lucide-react'
 import {
@@ -81,6 +79,7 @@ import {
   NOTES_APP_PILL_ROUNDED,
   NOTES_APP_PILL_SURFACE
 } from '@/components/notes/notes-app-utils'
+import { toolbarChromeFieldClass } from '@/lib/platform/toolbar-chrome'
 import { collectInternalNoteLinkMentions } from '@/lib/notes/note-link-graph'
 import type { ChatHistoryMeta } from '@/hooks/useNotesChat'
 import { useNotesChat } from '@/hooks/useNotesChat'
@@ -183,13 +182,16 @@ function ChatSidebarTopBar({
   isMacNotelab,
   leading,
   tabs,
-  trailing
+  trailing,
+  tabsFill
 }: {
   isMacNotelab?: boolean
   /** Workspace filter or history search; omit when empty (e.g. links panel). */
   leading?: ReactNode
   tabs: ReactNode
   trailing?: ReactNode | null
+  /** When true, tab strip grows to full row width (links Linked / Linking). */
+  tabsFill?: boolean
 }): JSX.Element {
   return (
     <div
@@ -205,7 +207,10 @@ function ChatSidebarTopBar({
           </ChatSidebarMacHitLayer>
         </div>
       ) : null}
-      <ChatSidebarMacHitLayer isMacNotelab={isMacNotelab} className="shrink-0">
+      <ChatSidebarMacHitLayer
+        isMacNotelab={isMacNotelab}
+        className={tabsFill ? 'min-w-0 flex-1' : 'shrink-0'}
+      >
         {tabs}
       </ChatSidebarMacHitLayer>
       {trailing != null ? (
@@ -217,34 +222,23 @@ function ChatSidebarTopBar({
   )
 }
 
-function ChatSidebarNewChatButton({
-  disabled,
-  onClick
-}: {
-  disabled?: boolean
-  onClick: () => void
-}): JSX.Element {
+function ChatSidebarNewChatButton({ onClick }: { onClick: () => void }): JSX.Element {
   return (
     <TooltipProvider>
       <Tooltip>
         <TooltipTrigger asChild>
-          <span className={cn('inline-flex', disabled && 'cursor-not-allowed')}>
-            <Button
-              className="size-7 min-h-0"
-              disabled={disabled}
-              onClick={onClick}
-              size="icon-sm"
-              type="button"
-              variant="ghost"
-            >
-              <PlusIcon className="size-3" />
-              <span className="sr-only">New chat</span>
-            </Button>
-          </span>
+          <Button
+            className="text-muted-foreground size-7 shrink-0 rounded-md"
+            onClick={onClick}
+            size="icon"
+            type="button"
+            variant="ghost"
+          >
+            <PlusIcon className="size-3.5" aria-hidden />
+            <span className="sr-only">New chat</span>
+          </Button>
         </TooltipTrigger>
-        <TooltipContent>
-          {disabled ? 'Send a message in this chat to start another tab' : 'New chat'}
-        </TooltipContent>
+        <TooltipContent>New chat</TooltipContent>
       </Tooltip>
     </TooltipProvider>
   )
@@ -268,14 +262,14 @@ function ChatSidebarToolbarLeading({
 }): JSX.Element | null {
   if (showHistory) {
     return (
-      <div className="relative min-w-0 w-full max-w-full">
+      <div className={cn(toolbarChromeFieldClass, 'min-w-0 max-w-full')}>
         <Search
           aria-hidden
-          className="text-muted-foreground pointer-events-none absolute left-2 top-1/2 z-10 size-3 -translate-y-1/2 opacity-70"
+          className="text-muted-foreground pointer-events-none absolute left-2 top-1/2 z-10 size-3.5 -translate-y-1/2 opacity-70"
         />
         <Input
           aria-label="Search chat history"
-          className="border-border bg-background h-7 w-full pl-7 text-xs"
+          className="h-7 w-full min-w-0 flex-1 border-0 bg-transparent pl-8 pr-2 text-xs shadow-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-0"
           onChange={(e) => setHistorySearch(e.target.value)}
           placeholder="Search history…"
           type="search"
@@ -286,20 +280,18 @@ function ChatSidebarToolbarLeading({
   }
   if (folders.length > 0) {
     return (
-      <div className="min-w-0 w-full max-w-full">
+      <div className={cn(toolbarChromeFieldClass, 'min-w-0 max-w-full')}>
         <Select
           onValueChange={(v) => setFilterWorkspaceId(v === '__all__' ? null : v)}
           value={filterWorkspaceId ?? '__all__'}
         >
           <SelectTrigger
-            size="sm"
             className={cn(
-              NOTES_APP_PILL_SURFACE,
-              NOTES_APP_PILL_ROUNDED,
-              'h-7 w-full min-w-0 border px-2 py-0 text-[11px] shadow-none',
+              'h-7 min-h-0 w-full min-w-0 flex-1 border-0 bg-transparent px-2 py-0 text-[11px] shadow-none',
               'focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-0',
               '[&_svg]:size-3 [&_svg]:opacity-70'
             )}
+            size="sm"
           >
             <SelectValue placeholder="All workspaces" />
           </SelectTrigger>
@@ -746,8 +738,6 @@ function NotesChatSidebarInner({
     })
   }, [])
 
-  const canStartNewChatTab = session.messages.length > 0
-
   const onNewChat = useCallback(async () => {
     if (session.messages.length === 0) return
     const priorId = session.id
@@ -892,12 +882,7 @@ function NotesChatSidebarInner({
   const chatTabStrip = (
     <ChatSidebarPanelTabs
       leading={
-        panel === 'chat' ? (
-          <ChatSidebarNewChatButton
-            disabled={!canStartNewChatTab}
-            onClick={() => void onNewChat()}
-          />
-        ) : undefined
+        panel === 'chat' ? <ChatSidebarNewChatButton onClick={() => void onNewChat()} /> : undefined
       }
       items={[
         { value: 'chat', label: 'Chat', icon: BotIcon },
@@ -920,6 +905,7 @@ function NotesChatSidebarInner({
       ]}
       onValueChange={(v) => onLinkModeChange(v as NotesChatSidebarLinkMode)}
       value={linkMode}
+      variant="segmented"
     />
   )
 
@@ -979,6 +965,7 @@ function NotesChatSidebarInner({
           ) : null
         }
         tabs={panel === 'chat' ? chatTabStrip : linkTabStrip}
+        tabsFill={panel === 'links'}
         trailing={null}
       />
       {panel === 'chat' ? (
@@ -1377,25 +1364,6 @@ function NoteLinksPanel({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="border-border border-b px-3 pb-3">
-        <div className="bg-muted/35 rounded-2xl border border-border/60 px-3 py-3">
-          <div className="flex items-center gap-2">
-            {mode === 'linked' ? (
-              <ArrowLeftIcon className="text-muted-foreground size-4" />
-            ) : (
-              <SparklesIcon className="text-muted-foreground size-4" />
-            )}
-            <p className="min-w-0 truncate text-sm font-medium">
-              {selectedNote.title.trim() || 'Untitled'}
-            </p>
-          </div>
-          <p className="text-muted-foreground mt-1 text-xs leading-relaxed">
-            {mode === 'linked'
-              ? 'Notes that reference the current note.'
-              : 'Notes referenced from the current note, with the exact linked section preview.'}
-          </p>
-        </div>
-      </div>
       <div className="flex-1 overflow-y-auto p-3">
         {(mode === 'linked' ? noteLinkData.backlinks.length : noteLinkData.outgoing.length) ===
         0 ? (

@@ -23,6 +23,7 @@ import { electronApp } from '@electron-toolkit/utils'
 import log from 'electron-log/main'
 
 import { createWindow } from './core/window'
+import { macTrafficLightPosition } from '../shared/mac-window-chrome'
 import { windowSessionData, type WindowSession } from './core/session'
 import { watchWindowShortcutsDetachedDevTools, zenShortcutBindings, type ZenShortcutBinding } from './core/shortcuts'
 
@@ -87,7 +88,7 @@ app.whenReady().then(() => {
       return { ok: false as const }
     }
     try {
-      const traffic: { x: number; y: number } = { x: 22, y: 18 }
+      const traffic = macTrafficLightPosition()
       if (enabled) {
         win.setFullScreen(true)
         if (process.platform === 'darwin') {

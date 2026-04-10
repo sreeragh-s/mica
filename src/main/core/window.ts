@@ -10,6 +10,7 @@ import { BrowserWindow, shell } from 'electron'
 import { join } from 'path'
 import { is } from '@electron-toolkit/utils'
 import icon from '../../../resources/icon.png?asset'
+import { macTrafficLightPosition } from '../../shared/mac-window-chrome'
 import {
   type WindowSession,
   windowSessionData,
@@ -39,7 +40,7 @@ export function createWindow(session?: WindowSession): BrowserWindow {
     ...(process.platform === 'darwin'
       ? {
           titleBarStyle: 'hidden' as const,
-          trafficLightPosition: { x: 22, y: 18 },
+          trafficLightPosition: macTrafficLightPosition(),
           transparent: true,
           backgroundColor: '#00000000'
         }
@@ -55,12 +56,11 @@ export function createWindow(session?: WindowSession): BrowserWindow {
     windowSessionData.set(win.webContents, { ...session })
   }
 
-  const trafficLightsMac = { x: 22, y: 18 }
   const syncMacTitleChrome = (): void => {
     if (win.isDestroyed()) return
     win.setTitle('')
     win.setWindowButtonVisibility(true)
-    win.setWindowButtonPosition(trafficLightsMac)
+    win.setWindowButtonPosition(macTrafficLightPosition())
   }
 
   win.on('ready-to-show', () => {

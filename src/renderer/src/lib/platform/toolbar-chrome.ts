@@ -17,3 +17,10 @@ export const toolbarSearchShellClass = cn(
   'relative flex w-full max-w-md items-center',
   shellFill
 )
+
+/** Full-width field in editor / chat chrome (workspace filter, history search). */
+export const toolbarChromeFieldClass = cn(
+  shellBase,
+  'relative flex h-8 w-full min-w-0 items-center',
+  shellFill
+)

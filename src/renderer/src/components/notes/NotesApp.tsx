@@ -2,7 +2,10 @@ import type { JSX } from 'react'
 
 import { cn } from '@/lib/utils'
 
-import { MAC_WINDOW_OUTER_CORNER_RADIUS_PX } from '../../../../shared/mac-window-chrome'
+import {
+  MAC_NOTELAB_TITLEBAR_ROW_PX,
+  MAC_WINDOW_OUTER_CORNER_RADIUS_PX
+} from '../../../../shared/mac-window-chrome'
 
 import type { NotesAppProps } from '@/components/notes/notes-app-types'
 import { macTitlebarStyles } from '@/components/notes/notes-app-utils'
@@ -37,8 +40,8 @@ export function NotesApp(props: NotesAppProps): JSX.Element {
       {isMacNotelab && (
         <div
           aria-hidden
-          className="fixed inset-x-0 top-0 z-[1] h-14"
-          style={macTitlebarStyles.drag}
+          className="fixed inset-x-0 top-0 z-[1]"
+          style={{ ...macTitlebarStyles.drag, height: MAC_NOTELAB_TITLEBAR_ROW_PX }}
         />
       )}
       {/*
