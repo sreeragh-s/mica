@@ -5,7 +5,7 @@ export const MAC_WINDOW_OUTER_CORNER_RADIUS_PX = 16
 
 /**
  * Height of the custom titlebar row in the renderer (Tailwind `h-12` / `min-h-12`).
- * Keep in sync with NotesMainTopBar, the sidebar header row, NotesChatSidebar top bar, and the
+ * Keep in sync with NotesMainTopBar, the sidebar header row, the chat AppSidebar top bar, and the
  * macOS drag band in NotesApp so native traffic lights line up with the painted chrome.
  */
 export const MAC_NOTELAB_TITLEBAR_ROW_PX = 48

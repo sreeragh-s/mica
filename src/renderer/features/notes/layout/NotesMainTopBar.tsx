@@ -13,7 +13,7 @@ import { TimelineRuler } from '@/components/ui/timeline-ruler'
 export type NotesMainTopBarProps = {
   isMacNotelab: boolean
   macTitlebarStyles: MacTitlebarStyles
-  /** When the file sidebar column is collapsed, show expand in the main top bar; when open, collapse lives in {@link NotesSidebar}. */
+  /** When the file sidebar column is collapsed, show expand in the main top bar; when open, collapse lives in {@link Sidebar}. */
   sidebarCollapsed: boolean
   onToggleSidebar: () => void
   showJournalTimeline: boolean

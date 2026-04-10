@@ -70,7 +70,7 @@ export function addChatReference(
   return [...refs, next]
 }
 
-/** Matches NotesSidebar / note-link-picker: empty title shows as "Untitled" in UI. */
+/** Matches Sidebar / note-link-picker: empty title shows as "Untitled" in UI. */
 function displayNoteTitle(title: string): string {
   return title.trim() || "Untitled"
 }

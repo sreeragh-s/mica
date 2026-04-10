@@ -24,7 +24,7 @@ import { NotesCanvasView } from '@/features/notes/views/NotesCanvasView'
 import { JournalView } from '@/features/notes/views/JournalView'
 import { NotesConflictView } from '@/features/notes/views/NotesConflictView'
 import { NotesGraphView } from '@/features/notes/views/NotesGraphView'
-import { NotesChatSidebar } from '@/features/notes/chat/NotesChatSidebar'
+import { AppSidebar } from '@/features/notes/chat/AppSidebar'
 import {
   NotesPrimaryPane,
   getNoteDragId,
@@ -530,7 +530,7 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
   const showNotes = appMode === 'notes'
   const showJournalTimeline = showNotes && journalViewOpen
   const showTabs = showNotes && openNoteTabPaths.length > 0 && !journalViewOpen
-  const showNotesChatChrome = showNotes && !zenMode
+  const showChatSidebarChrome = showNotes && !zenMode
 
   return (
     <div
@@ -713,8 +713,8 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
               </div>
                 </div>
               </div>
-            {showNotesChatChrome && (
-              <NotesChatSidebar
+            {showChatSidebarChrome && (
+              <AppSidebar
                 open={chatSidebarOpen}
                 notes={notes}
                 folders={folders}

@@ -12,7 +12,7 @@ import { macTitlebarStyles } from '@/features/notes/notes-app-utils'
 import { GitRemoteDialog } from '@/features/notes/git/GitRemoteDialog'
 import { GitUserConfigDialog } from '@/features/notes/git/GitUserConfigDialog'
 import { NotesMainArea } from '@/features/notes/editor-area/NotesMainArea'
-import { NotesSidebar } from '@/features/notes/sidebar/NotesSidebar'
+import { LeftSidebar } from '@/features/notes/sidebar/LeftSidebar'
 import { useNotesApp } from '@/features/notes/app-state/useNotesApp'
 
 export type { NotesAppProps } from '@/features/notes/notes-app-types'
@@ -71,7 +71,7 @@ export function NotesApp(props: NotesAppProps): JSX.Element {
                 isMacNotelab && !sidebarHidden && 'pointer-events-auto h-full'
               )}
             >
-              <NotesSidebar vm={vm} />
+              <LeftSidebar vm={vm} />
             </div>
           </div>
         </div>

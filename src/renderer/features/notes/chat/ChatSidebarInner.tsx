@@ -1,6 +1,5 @@
 import {
   AlertCircleIcon,
-  BookOpenIcon,
   BotIcon,
   CopyIcon,
   History,
@@ -9,15 +8,12 @@ import {
   ArrowUpIcon,
   PaperclipIcon,
   PlusIcon,
-  ScanTextIcon,
-  Search,
-  X
+  ScanTextIcon
 } from 'lucide-react'
 import {
   type JSX,
+  type KeyboardEvent,
   type MouseEvent,
-  type PointerEvent as ReactPointerEvent,
-  type ReactNode,
   useCallback,
   useEffect,
   useMemo,
@@ -52,401 +48,33 @@ import {
 import { Message, MessageActions, MessageContent, MessageResponse } from '@/features/ai/message'
 import { Source, Sources, SourcesContent, SourcesTrigger } from '@/features/ai/sources'
 import { Suggestion, Suggestions } from '@/features/ai/suggestion'
-import { Button } from '@/components/ui/button'
 import { InputGroup, InputGroupAddon, InputGroupButton } from '@/components/ui/input-group'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
-} from '@/components/ui/select'
-import { Input } from '@/components/ui/input'
 import { Separator } from '@/components/ui/separator'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { copyPlainTextToClipboard } from '@/lib/core/copy-to-clipboard'
-import { searchChatHistorySessions, type SearchMatchSegment } from '@/lib/notes/notes-search'
-import { cn } from '@/lib/utils'
-import {
-  DEFAULT_WORKSPACE_ID,
-  formatNoteTime,
-  type SavedNote,
-  type Folder
-} from '@/lib/notes/notes-storage'
+import { searchChatHistorySessions } from '@/lib/notes/notes-search'
+import { DEFAULT_WORKSPACE_ID, type SavedNote } from '@/lib/notes/notes-storage'
 import { ChatSidebarPanelTabs } from '@/features/notes/chat/ChatSidebarPanelTabs'
 import {
-  macTitlebarStyles,
-  NOTES_APP_PILL_ROUNDED,
-  NOTES_APP_PILL_SURFACE
-} from '@/features/notes/notes-app-utils'
-import { toolbarChromeFieldClass } from '@/lib/platform/toolbar-chrome'
+  ChatSidebarNewChatButton,
+  ChatSidebarToolbarLeading,
+  ChatSidebarTopBar
+} from '@/features/notes/chat/chat-sidebar-chrome'
+import { STARTER_SUGGESTIONS } from '@/features/notes/chat/chat-sidebar-constants'
+import { BidirectionalLinksPanel } from '@/features/notes/chat/BidirectionalLinksPanel'
+import { ChatSidebarOpenSessionTabs, HistoryItem } from '@/features/notes/chat/chat-sidebar-panels'
+import type {
+  ChatSidebarLinkMode,
+  ChatSidebarProps,
+  NoteLinksData
+} from '@/features/notes/chat/chat-sidebar-types'
 import type { ChatHistoryMeta } from '@/hooks/useNotesChat'
 import { useNotesChat } from '@/hooks/useNotesChat'
 import { useBillingStatus } from '@/hooks/useBillingStatus'
 import { useOllama } from '@/hooks/useOllama'
-import type { NotesAppViewModel } from '@/features/notes/app-state/useNotesApp'
-import type { WorkspaceLinkMentionIndex } from '@/lib/notes/cache/notes-cache-types'
-
-// ---------------------------------------------------------------------------
-// Props
-// ---------------------------------------------------------------------------
-
-export type NotesChatSidebarPanel = 'chat' | 'links'
-export type NotesChatSidebarLinkMode = 'linked' | 'linking'
-
-type NoteLinksData = {
-  backlinks: Array<{ note: SavedNote; contexts: string[] }>
-  outgoing: Array<{ note: SavedNote; contexts: string[]; linkText: string[] }>
-}
-
-export type NotesChatSidebarProps = {
-  open: boolean
-  notes: SavedNote[]
-  folders: Folder[]
-  workspacePath: string | null
-  canAutoIndex: boolean
-  indexingStatus: NotesAppViewModel['indexingStatus']
-  runIndexPending: NotesAppViewModel['runIndexPending']
-  selectedNote: SavedNote | null
-  selectNote: (notePath: string) => void
-  panel: NotesChatSidebarPanel
-  linkMode: NotesChatSidebarLinkMode
-  onLinkModeChange: (mode: NotesChatSidebarLinkMode) => void
-  /** macOS: pointer-events / no-drag on chat chrome controls. */
-  isMacNotelab?: boolean
-  /** Precomputed internal links (Dexie cache); omit to scan Lexical in-memory. */
-  linkMentionIndex?: WorkspaceLinkMentionIndex | null
-}
-
-function SearchHighlight({ segments }: { segments: SearchMatchSegment[] }): JSX.Element {
-  return (
-    <>
-      {segments.map((s, i) =>
-        s.highlight ? (
-          <mark
-            key={i}
-            className="bg-primary/35 text-foreground rounded-[3px] px-0.5 font-medium dark:bg-primary/25"
-          >
-            {s.text}
-          </mark>
-        ) : (
-          <span key={i}>{s.text}</span>
-        )
-      )}
-    </>
-  )
-}
-
-// ---------------------------------------------------------------------------
-// Starter suggestions shown in empty state
-// ---------------------------------------------------------------------------
-
-const STARTER_SUGGESTIONS = [
-  'Summarize my recent notes',
-  'What did I write about last week?',
-  'Find todos across my notes'
-]
-
-const CHAT_SIDEBAR_WIDTH_LS_KEY = 'notelab:chat-sidebar-width-px'
-const CHAT_SIDEBAR_DEFAULT_WIDTH_PX = 440
-const CHAT_SIDEBAR_MIN_WIDTH_PX = 300
-const CHAT_SIDEBAR_MAX_WIDTH_PX = 900
-
-function clampChatSidebarWidth(w: number): number {
-  return Math.round(Math.min(CHAT_SIDEBAR_MAX_WIDTH_PX, Math.max(CHAT_SIDEBAR_MIN_WIDTH_PX, w)))
-}
-
-/** macOS: row uses `pointer-events-none` so the window drag band receives hits; interactive chrome opts back in. */
-function ChatSidebarMacHitLayer({
-  isMacNotelab,
-  className,
-  children
-}: {
-  isMacNotelab?: boolean
-  className?: string
-  children: ReactNode
-}): JSX.Element {
-  return (
-    <div
-      className={cn(className, isMacNotelab && 'pointer-events-auto')}
-      style={isMacNotelab ? macTitlebarStyles.noDrag : undefined}
-    >
-      {children}
-    </div>
-  )
-}
-
-/** Full-height title strip (h-12): workspace / history search → icon tabs → actions. */
-function ChatSidebarTopBar({
-  isMacNotelab,
-  leading,
-  tabs,
-  trailing,
-  tabsFill
-}: {
-  isMacNotelab?: boolean
-  /** Workspace filter or history search; omit when empty (e.g. links panel). */
-  leading?: ReactNode
-  tabs: ReactNode
-  trailing?: ReactNode | null
-  /** When true, tab strip grows to full row width (links Linked / Linking). */
-  tabsFill?: boolean
-}): JSX.Element {
-  return (
-    <div
-      className={cn(
-        'border-border relative z-10 flex h-12 min-h-12 w-full shrink-0 items-center gap-2 border-b px-2',
-        isMacNotelab && 'pointer-events-none'
-      )}
-    >
-      {leading != null ? (
-        <div className="min-w-0 flex-1">
-          <ChatSidebarMacHitLayer isMacNotelab={isMacNotelab} className="min-w-0 w-full">
-            {leading}
-          </ChatSidebarMacHitLayer>
-        </div>
-      ) : null}
-      <ChatSidebarMacHitLayer
-        isMacNotelab={isMacNotelab}
-        className={tabsFill ? 'min-w-0 flex-1' : 'shrink-0'}
-      >
-        {tabs}
-      </ChatSidebarMacHitLayer>
-      {trailing != null ? (
-        <ChatSidebarMacHitLayer isMacNotelab={isMacNotelab} className="shrink-0">
-          {trailing}
-        </ChatSidebarMacHitLayer>
-      ) : null}
-    </div>
-  )
-}
-
-function ChatSidebarNewChatButton({ onClick }: { onClick: () => void }): JSX.Element {
-  return (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            className="text-muted-foreground size-7 shrink-0 rounded-md"
-            onClick={onClick}
-            size="icon"
-            type="button"
-            variant="ghost"
-          >
-            <PlusIcon className="size-3.5" aria-hidden />
-            <span className="sr-only">New chat</span>
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>New chat</TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
-  )
-}
-
-/** Workspace filter or history search only (no tab strip / new chat). */
-function ChatSidebarToolbarLeading({
-  folders,
-  filterWorkspaceId,
-  setFilterWorkspaceId,
-  showHistory,
-  historySearch,
-  setHistorySearch
-}: {
-  folders: Folder[]
-  filterWorkspaceId: string | null
-  setFilterWorkspaceId: (id: string | null) => void
-  showHistory: boolean
-  historySearch: string
-  setHistorySearch: (v: string) => void
-}): JSX.Element | null {
-  if (showHistory) {
-    return (
-      <div className={cn(toolbarChromeFieldClass, 'min-w-0 max-w-full')}>
-        <Search
-          aria-hidden
-          className="text-muted-foreground pointer-events-none absolute left-2 top-1/2 z-10 size-3.5 -translate-y-1/2 opacity-70"
-        />
-        <Input
-          aria-label="Search chat history"
-          className="h-7 w-full min-w-0 flex-1 border-0 bg-transparent pl-8 pr-2 text-xs shadow-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-0"
-          onChange={(e) => setHistorySearch(e.target.value)}
-          placeholder="Search history…"
-          type="search"
-          value={historySearch}
-        />
-      </div>
-    )
-  }
-  if (folders.length > 0) {
-    return (
-      <div className={cn(toolbarChromeFieldClass, 'min-w-0 max-w-full')}>
-        <Select
-          onValueChange={(v) => setFilterWorkspaceId(v === '__all__' ? null : v)}
-          value={filterWorkspaceId ?? '__all__'}
-        >
-          <SelectTrigger
-            className={cn(
-              'h-7 min-h-0 w-full min-w-0 flex-1 border-0 bg-transparent px-2 py-0 text-[11px] shadow-none',
-              'focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-0',
-              '[&_svg]:size-3 [&_svg]:opacity-70'
-            )}
-            size="sm"
-          >
-            <SelectValue placeholder="All workspaces" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem className="text-xs" value="__all__">
-              All workspaces
-            </SelectItem>
-            {folders.map((f) => (
-              <SelectItem className="text-xs" key={f.folder} value={f.folder}>
-                {f.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-    )
-  }
-  return null
-}
-
-// ---------------------------------------------------------------------------
-// Component
-// ---------------------------------------------------------------------------
-
-export function NotesChatSidebar({
-  open,
-  notes,
-  folders,
-  workspacePath,
-  canAutoIndex,
-  indexingStatus,
-  runIndexPending,
-  selectedNote,
-  selectNote,
-  panel,
-  linkMode,
-  onLinkModeChange,
-  isMacNotelab,
-  linkMentionIndex
-}: NotesChatSidebarProps): JSX.Element {
-  const [sidebarWidthPx, setSidebarWidthPx] = useState(() => {
-    try {
-      const raw = localStorage.getItem(CHAT_SIDEBAR_WIDTH_LS_KEY)
-      if (raw == null) return CHAT_SIDEBAR_DEFAULT_WIDTH_PX
-      const n = Number(raw)
-      if (Number.isFinite(n)) return clampChatSidebarWidth(n)
-    } catch {
-      /* ignore */
-    }
-    return CHAT_SIDEBAR_DEFAULT_WIDTH_PX
-  })
-  const [isResizing, setIsResizing] = useState(false)
-  const resizeDragRef = useRef<{ startX: number; startW: number } | null>(null)
-  const sidebarWidthRef = useRef(CHAT_SIDEBAR_DEFAULT_WIDTH_PX)
-
-  useEffect(() => {
-    sidebarWidthRef.current = sidebarWidthPx
-  }, [sidebarWidthPx])
-
-  const onResizePointerDown = useCallback(
-    (e: ReactPointerEvent<HTMLDivElement>) => {
-      if (e.button !== 0 || !open) return
-      e.preventDefault()
-      resizeDragRef.current = { startX: e.clientX, startW: sidebarWidthRef.current }
-      setIsResizing(true)
-      e.currentTarget.setPointerCapture(e.pointerId)
-    },
-    [open]
-  )
-
-  const onResizePointerMove = useCallback((e: ReactPointerEvent<HTMLDivElement>) => {
-    const d = resizeDragRef.current
-    if (!d) return
-    const dx = d.startX - e.clientX
-    setSidebarWidthPx(clampChatSidebarWidth(d.startW + dx))
-  }, [])
-
-  const onResizePointerUp = useCallback((e: ReactPointerEvent<HTMLDivElement>) => {
-    if (resizeDragRef.current == null) return
-    resizeDragRef.current = null
-    setIsResizing(false)
-    try {
-      e.currentTarget.releasePointerCapture(e.pointerId)
-    } catch {
-      /* ignore */
-    }
-    setSidebarWidthPx((w) => {
-      try {
-        localStorage.setItem(CHAT_SIDEBAR_WIDTH_LS_KEY, String(w))
-      } catch {
-        /* ignore */
-      }
-      return w
-    })
-  }, [])
-
-  return (
-    <div
-      aria-hidden={!open}
-      className={cn(
-        'flex min-h-0 shrink-0 self-stretch overflow-hidden',
-        !isResizing &&
-          'transition-[width] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] will-change-[width]',
-        open && 'pointer-events-auto',
-        open ? '' : 'w-0'
-      )}
-      style={open ? { width: `min(100%, ${sidebarWidthPx}px)` } : { width: 0 }}
-    >
-      <div
-        className={cn(
-          'relative flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden border-l transition-[opacity,transform] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] will-change-[opacity,transform]',
-          'border-border bg-background',
-          open ? 'translate-x-0 opacity-100' : 'pointer-events-none translate-x-2 opacity-0'
-        )}
-      >
-        {open ? (
-          <div
-            aria-label="Resize chat panel"
-            aria-orientation="vertical"
-            className={cn(
-              'absolute left-0 top-0 z-20 h-full w-2 shrink-0 cursor-col-resize touch-none',
-              'hover:bg-primary/10 active:bg-primary/15',
-              isMacNotelab && 'pointer-events-auto'
-            )}
-            data-sidebar-interactive=""
-            onPointerCancel={onResizePointerUp}
-            onPointerDown={onResizePointerDown}
-            onPointerMove={onResizePointerMove}
-            onPointerUp={onResizePointerUp}
-            role="separator"
-            style={isMacNotelab ? macTitlebarStyles.noDrag : undefined}
-          />
-        ) : null}
-        <NotesChatSidebarInner
-          open={open}
-          folders={folders}
-          canAutoIndex={canAutoIndex}
-          indexingStatus={indexingStatus}
-          isMacNotelab={isMacNotelab}
-          notes={notes}
-          runIndexPending={runIndexPending}
-          workspacePath={workspacePath}
-          selectNote={selectNote}
-          selectedNote={selectedNote}
-          panel={panel}
-          linkMode={linkMode}
-          onLinkModeChange={onLinkModeChange}
-          linkMentionIndex={linkMentionIndex}
-        />
-      </div>
-    </div>
-  )
-}
 
 /** Chat UI; parent animates width/opacity when `open` toggles. */
-function NotesChatSidebarInner({
+export function ChatSidebarInner({
   open,
   notes,
   folders,
@@ -461,14 +89,12 @@ function NotesChatSidebarInner({
   onLinkModeChange,
   isMacNotelab,
   linkMentionIndex
-}: NotesChatSidebarProps): JSX.Element {
-  // Selected model: a NoteLabModelId or "local:<ollamaModelName>"
+}: ChatSidebarProps): JSX.Element {
   const [selectedModelId, setSelectedModelId] = useState<string>(DEFAULT_NOTELAB_MODEL_ID)
   const [localSetupOpen, setLocalSetupOpen] = useState(false)
 
   const ollama = useOllama()
 
-  // Embedding-only tags (e.g. bge-m3) are not chat models — avoid stale selection
   /* eslint-disable react-hooks/set-state-in-effect -- correct invalid local model pick when Ollama model list updates */
   useEffect(() => {
     if (!selectedModelId.startsWith(LOCAL_MODEL_PREFIX)) return
@@ -496,15 +122,9 @@ function NotesChatSidebarInner({
 
   const { billing, canChat, creditsLow } = useBillingStatus()
 
-  // A user without an active paid plan can use local models
   const isUnpaidUser = !billing || billing.status !== 'active'
-  // For local model selection, we allow it regardless of billing
   const isLocalModelSelected = selectedModelId.startsWith(LOCAL_MODEL_PREFIX)
-  // Can actually chat: paid OR using a local model with Ollama running
   const canChatEffective = canChat || (isLocalModelSelected && (ollama.status?.running ?? false))
-
-  // When billing status becomes known and user isn't paid, auto-suggest local models
-  // (but don't force-switch — let them choose)
 
   const [input, setInput] = useState('')
   const [chatReferences, setChatReferences] = useState<PromptInputChatReference[]>([])
@@ -637,7 +257,6 @@ function NotesChatSidebarInner({
       }
     }
 
-    // linkMentionIndex not yet ready — return empty until cache builds
     return { backlinks: [], outgoing: [] }
   }, [notes, selectedNote, linkMentionIndex])
 
@@ -664,7 +283,7 @@ function NotesChatSidebarInner({
   )
 
   const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    (e: KeyboardEvent<HTMLTextAreaElement>) => {
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault()
         void handleSubmit()
@@ -680,7 +299,7 @@ function NotesChatSidebarInner({
 
   const handleCopy = useCallback((content: string) => {
     void copyPlainTextToClipboard(content).catch((err) => {
-      console.error('[NotesChat] copy failed', err)
+      console.error('[ChatSidebar] copy failed', err)
     })
   }, [])
 
@@ -762,12 +381,7 @@ function NotesChatSidebarInner({
     ]
   )
 
-  // ---------------------------------------------------------------------------
-  // Paywall banner
-  // ---------------------------------------------------------------------------
-
   const paywallBanner = (() => {
-    // If using a local model that's running — no paywall
     if (isLocalModelSelected && ollama.status?.running) return null
 
     if (!billing || billing.status === 'active') {
@@ -821,10 +435,6 @@ function NotesChatSidebarInner({
     )
   })()
 
-  // ---------------------------------------------------------------------------
-  // History view
-  // ---------------------------------------------------------------------------
-
   const chatTabStrip = (
     <ChatSidebarPanelTabs
       leading={
@@ -849,15 +459,11 @@ function NotesChatSidebarInner({
         { value: 'linked', label: 'Linked', icon: Link2Icon },
         { value: 'linking', label: 'Linking', icon: PlusIcon }
       ]}
-      onValueChange={(v) => onLinkModeChange(v as NotesChatSidebarLinkMode)}
+      onValueChange={(v) => onLinkModeChange(v as ChatSidebarLinkMode)}
       value={linkMode}
       variant="segmented"
     />
   )
-
-  // ---------------------------------------------------------------------------
-  // Local model setup view — replaces the entire sidebar content
-  // ---------------------------------------------------------------------------
 
   if (panel === 'chat' && localSetupOpen) {
     return (
@@ -878,10 +484,6 @@ function NotesChatSidebarInner({
       </aside>
     )
   }
-
-  // ---------------------------------------------------------------------------
-  // Chat view
-  // ---------------------------------------------------------------------------
 
   const inputPlaceholder = (() => {
     if (!canChatEffective) {
@@ -924,7 +526,7 @@ function NotesChatSidebarInner({
         />
       ) : null}
       {panel === 'links' ? (
-        <NoteLinksPanel
+        <BidirectionalLinksPanel
           foldersById={workspacesById}
           mode={linkMode}
           noteLinkData={noteLinkData}
@@ -981,7 +583,6 @@ function NotesChatSidebarInner({
               </div>
             )}
 
-          {/* Message list */}
           <Conversation className="flex-1">
             <ConversationContent>
               {session.messages.length === 0 ? (
@@ -1007,7 +608,6 @@ function NotesChatSidebarInner({
                           )}
                         </MessageContent>
 
-                        {/* Sources for assistant messages (hide entries for deleted notes) */}
                         {msg.role === 'assistant' && visibleSources.length > 0 && (
                           <Sources className="mt-1">
                             <SourcesTrigger count={visibleSources.length} />
@@ -1027,7 +627,6 @@ function NotesChatSidebarInner({
                           </Sources>
                         )}
 
-                        {/* Actions for assistant messages */}
                         {msg.role === 'assistant' && msg.content && (
                           <MessageActions>
                             <Actions>
@@ -1042,7 +641,6 @@ function NotesChatSidebarInner({
                         )}
                       </Message>
 
-                      {/* Loading indicator after the last user message */}
                       {isLoading &&
                         msg.role === 'user' &&
                         msg.id === session.messages.at(-2)?.id && (
@@ -1060,7 +658,6 @@ function NotesChatSidebarInner({
             <ConversationScrollButton />
           </Conversation>
 
-          {/* Starter suggestions when empty */}
           {session.messages.length === 0 && canChatEffective && (
             <div className="px-2 pb-1">
               <Suggestions>
@@ -1071,7 +668,6 @@ function NotesChatSidebarInner({
             </div>
           )}
 
-          {/* Paywall / low-credits banner */}
           {paywallBanner}
 
           <form className="border-border border-t p-2" onSubmit={(e) => void handleSubmit(e)}>
@@ -1161,257 +757,5 @@ function NotesChatSidebarInner({
         </>
       )}
     </aside>
-  )
-}
-
-// ---------------------------------------------------------------------------
-// Sub-components
-// ---------------------------------------------------------------------------
-
-function ChatSidebarOpenSessionTabs({
-  tabs,
-  activeSessionId,
-  onSelect,
-  onClose,
-  isMacNotelab
-}: {
-  tabs: Array<{ sessionId: string; title: string }>
-  activeSessionId: string
-  onSelect: (sessionId: string) => void
-  onClose: (e: MouseEvent, sessionId: string) => void
-  isMacNotelab?: boolean
-}): JSX.Element {
-  return (
-    <ChatSidebarMacHitLayer className="shrink-0 px-2 py-1.5" isMacNotelab={isMacNotelab}>
-      <div
-        className="flex items-center gap-2 overflow-x-auto px-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-        role="tablist"
-      >
-        {tabs.map((t) => {
-          const active = t.sessionId === activeSessionId
-          const label = (t.title || 'Chat').trim() || 'Chat'
-          return (
-            <div
-              key={t.sessionId}
-              className={cn(
-                'group flex max-w-[168px] shrink-0 items-center gap-0.5',
-                active &&
-                  cn(
-                    NOTES_APP_PILL_ROUNDED,
-                    NOTES_APP_PILL_SURFACE,
-                    'border-border/60 border px-1 py-0.5 shadow-sm'
-                  )
-              )}
-            >
-              <button
-                aria-selected={active}
-                className={cn(
-                  'min-w-0 flex-1 truncate text-left text-[11px] font-medium transition-colors',
-                  active
-                    ? 'text-foreground px-1.5 py-0.5'
-                    : 'text-muted-foreground hover:text-foreground/85 px-2 py-1'
-                )}
-                onClick={() => void onSelect(t.sessionId)}
-                role="tab"
-                type="button"
-              >
-                {label}
-              </button>
-              {tabs.length > 1 ? (
-                <Button
-                  aria-label={`Close ${label}`}
-                  className={cn(
-                    'text-muted-foreground hover:text-foreground size-6 min-h-0 shrink-0 rounded-md transition-opacity duration-150',
-                    'pointer-events-none opacity-0',
-                    'group-hover:pointer-events-auto group-hover:opacity-100',
-                    'focus-visible:pointer-events-auto focus-visible:opacity-100'
-                  )}
-                  onClick={(e) => void onClose(e, t.sessionId)}
-                  size="icon-sm"
-                  type="button"
-                  variant="ghost"
-                >
-                  <X className="size-3" />
-                </Button>
-              ) : null}
-            </div>
-          )
-        })}
-      </div>
-    </ChatSidebarMacHitLayer>
-  )
-}
-
-function HistoryItem({
-  meta,
-  onLoad,
-  titleSegments
-}: {
-  meta: ChatHistoryMeta
-  onLoad: (meta: ChatHistoryMeta) => Promise<void>
-  titleSegments?: SearchMatchSegment[]
-}): JSX.Element {
-  return (
-    <li>
-      <button
-        className="hover:bg-accent w-full rounded-md px-2 py-1.5 text-left transition-colors"
-        onClick={() => void onLoad(meta)}
-        type="button"
-      >
-        <div className="flex items-start gap-2">
-          <BookOpenIcon className="text-muted-foreground mt-0.5 size-3.5 shrink-0" />
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-xs font-medium">
-              {titleSegments ? <SearchHighlight segments={titleSegments} /> : meta.title}
-            </p>
-            <p className="text-muted-foreground text-xs">
-              {new Date(meta.createdAt).toLocaleDateString()} · {meta.messageCount} messages
-            </p>
-          </div>
-        </div>
-      </button>
-    </li>
-  )
-}
-
-function NoteLinksPanel({
-  selectedNote,
-  foldersById,
-  noteLinkData,
-  mode,
-  onOpenNote
-}: {
-  selectedNote: SavedNote | null
-  foldersById: Map<string, string>
-  noteLinkData: NoteLinksData
-  mode: NotesChatSidebarLinkMode
-  onOpenNote: (notePath: string) => void
-}): JSX.Element {
-  if (!selectedNote || selectedNote.kind !== 'note') {
-    return (
-      <div className="flex flex-1 items-center justify-center px-6 py-10 text-center">
-        <div className="max-w-xs space-y-2">
-          <div className="bg-muted mx-auto flex size-10 items-center justify-center rounded-2xl">
-            <Link2Icon className="text-muted-foreground size-5" />
-          </div>
-          <p className="text-sm font-medium">Select a note to browse links</p>
-          <p className="text-muted-foreground text-xs">
-            Link relationships are available for markdown notes.
-          </p>
-        </div>
-      </div>
-    )
-  }
-
-  const emptyLabel =
-    mode === 'linked'
-      ? 'No notes link back to this note yet.'
-      : 'This note is not linking to any other notes yet.'
-
-  return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <div className="flex-1 overflow-y-auto p-3">
-        {(mode === 'linked' ? noteLinkData.backlinks.length : noteLinkData.outgoing.length) ===
-        0 ? (
-          <div className="text-muted-foreground flex h-full items-center justify-center rounded-2xl border border-dashed px-6 text-center text-sm">
-            {emptyLabel}
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {mode === 'linked'
-              ? noteLinkData.backlinks.map((item) => (
-                  <button
-                    key={item.note.path}
-                    className="bg-card hover:bg-accent/35 border-border/70 w-full rounded-2xl border p-3 text-left transition-colors"
-                    onClick={() => onOpenNote(item.note.path)}
-                    type="button"
-                  >
-                    <div className="flex items-start gap-3">
-                      <div className="bg-muted flex size-9 shrink-0 items-center justify-center rounded-xl">
-                        <BookOpenIcon className="text-muted-foreground size-4" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center justify-between gap-3">
-                          <p className="truncate text-sm font-medium">
-                            {item.note.title.trim() || 'Untitled'}
-                          </p>
-                          <span className="text-muted-foreground shrink-0 text-[11px]">
-                            {formatNoteTime(item.note.updatedAt)}
-                          </span>
-                        </div>
-                        <p className="text-muted-foreground mt-0.5 text-xs">
-                          {foldersById.get(item.note.folder) ?? 'Workspace'}
-                        </p>
-                        <div className="mt-3 space-y-2">
-                          {item.contexts.slice(0, 3).map((context, index) => (
-                            <div
-                              key={`${item.note.path}-${index}`}
-                              className="bg-muted/45 rounded-xl border border-border/50 px-3 py-2"
-                            >
-                              <p className="text-foreground/90 text-xs leading-relaxed">
-                                {context}
-                              </p>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  </button>
-                ))
-              : noteLinkData.outgoing.map((item) => (
-                  <button
-                    key={item.note.path}
-                    className="bg-card hover:bg-accent/35 border-border/70 w-full rounded-2xl border p-3 text-left transition-colors"
-                    onClick={() => onOpenNote(item.note.path)}
-                    type="button"
-                  >
-                    <div className="flex items-start gap-3">
-                      <div className="bg-muted flex size-9 shrink-0 items-center justify-center rounded-xl">
-                        <BookOpenIcon className="text-muted-foreground size-4" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center justify-between gap-3">
-                          <p className="truncate text-sm font-medium">
-                            {item.note.title.trim() || 'Untitled'}
-                          </p>
-                          <span className="text-muted-foreground shrink-0 text-[11px]">
-                            {formatNoteTime(item.note.updatedAt)}
-                          </span>
-                        </div>
-                        <p className="text-muted-foreground mt-0.5 text-xs">
-                          {foldersById.get(item.note.folder) ?? 'Workspace'}
-                        </p>
-                        {item.linkText.length > 0 ? (
-                          <div className="mt-2 flex flex-wrap gap-1.5">
-                            {item.linkText.slice(0, 2).map((label) => (
-                              <span
-                                key={`${item.note.path}-${label}`}
-                                className="bg-primary/10 text-primary inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium"
-                              >
-                                {label}
-                              </span>
-                            ))}
-                          </div>
-                        ) : null}
-                        <div className="mt-3 space-y-2">
-                          {item.contexts.slice(0, 3).map((context, index) => (
-                            <div
-                              key={`${item.note.path}-${index}`}
-                              className="bg-muted/45 rounded-xl border border-border/50 px-3 py-2"
-                            >
-                              <p className="text-foreground/90 text-xs leading-relaxed">
-                                {context}
-                              </p>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  </button>
-                ))}
-          </div>
-        )}
-      </div>
-    </div>
   )
 }

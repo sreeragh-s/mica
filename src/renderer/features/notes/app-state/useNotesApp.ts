@@ -55,6 +55,7 @@ import { useNotesAppUi } from './use-notes-app/useNotesAppUi'
 import { useNotesGitSourceControl } from '@/features/notes/git/useNotesGitSourceControl'
 import { useNotesGitSync } from '@/features/notes/git/useNotesGitSync'
 import { useWorkspaceNotesCache } from '@/features/notes/hooks/useWorkspaceNotesCache'
+import type { ChatSidebarLinkMode, ChatSidebarPanel } from '@/features/notes/chat/chat-sidebar-panel-types'
 
 const LOG = '[useNotesApp]'
 const log = createElectronLogger(LOG)
@@ -125,8 +126,8 @@ export function useNotesApp({
   const shortcutsSuppressedRef = useRef(false)
 
   const [chatSidebarOpen, setChatSidebarOpen] = useState(false)
-  const [chatSidebarPanel, setChatSidebarPanel] = useState<'chat' | 'links'>('chat')
-  const [chatSidebarLinkMode, setChatSidebarLinkMode] = useState<'linked' | 'linking'>('linked')
+  const [chatSidebarPanel, setChatSidebarPanel] = useState<ChatSidebarPanel>('chat')
+  const [chatSidebarLinkMode, setChatSidebarLinkMode] = useState<ChatSidebarLinkMode>('linked')
   const [graphViewOpen, setGraphViewOpen] = useState(false)
   const [canvasViewOpen, setCanvasViewOpen] = useState(false)
   const [journalViewOpen, setJournalViewOpen] = useState(false)
