@@ -16,6 +16,7 @@ import { NotesCanvasView } from '@/components/notes/views/NotesCanvasView'
 import { JournalView } from '@/components/notes/views/JournalView'
 import { NotesConflictView } from '@/components/notes/views/NotesConflictView'
 import { NotesGraphView } from '@/components/notes/views/NotesGraphView'
+import { NotesBrowserPanel } from '@/components/notes/views/NotesBrowserPanel'
 import { NotesChatSidebar } from '@/components/notes/chat/NotesChatSidebar'
 import {
   NotesPrimaryPane,
@@ -197,7 +198,10 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
     notesLinkMentionIndex,
     rebuildNotesSearchCacheFromFilesystem,
     notesCacheIndexedAt,
-    clearWorkspaceCache
+    clearWorkspaceCache,
+    browserPanelUrl,
+    openBrowserPanel,
+    closeBrowserPanel
   } = vm
 
   const canAutoIndex = Boolean(user?.email || user?.name) && !guestMode
@@ -330,6 +334,8 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
   const showEditorBottomChrome =
     !zenMode && appMode === 'notes' && !conflictViewPath && activeEditorNote?.kind === 'note'
 
+  const onOpenExternalUrl = editorSettings.openLinksInInternalBrowser ? openBrowserPanel : undefined
+
   const primaryPaneProps = {
     selectedNote,
     focusedFolder,
@@ -349,7 +355,8 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
     onDragOver: onDragOverMain,
     onDrop: onDropPrimaryPane,
     bottomChromePortal: showEditorBottomChrome ? editorBottomBarEl : undefined,
-    propertyCatalog: notesPropertyCatalog
+    propertyCatalog: notesPropertyCatalog,
+    onOpenExternalUrl
   }
 
   // --- Notes area content ---
@@ -447,6 +454,25 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
             macTitlebarStyles={macTitlebarStyles}
             onSelectNote={selectNote}
           />
+        </div>
+      )
+    }
+
+    // Browser panel side-by-side with editor
+    if (browserPanelUrl) {
+      return (
+        <div className="flex min-h-0 flex-1 flex-row">
+          <div className="border-border flex min-h-0 min-w-0 flex-1 flex-col border-r">
+            <NotesPrimaryPane {...primaryPaneProps} />
+          </div>
+          <div className="border-border flex min-h-0 w-[min(100%,50%)] min-w-0 flex-1 flex-col border-l">
+            <NotesBrowserPanel
+              url={browserPanelUrl}
+              isMacNotelab={isMacNotelab}
+              macTitlebarStyles={macTitlebarStyles}
+              onClose={closeBrowserPanel}
+            />
+          </div>
         </div>
       )
     }

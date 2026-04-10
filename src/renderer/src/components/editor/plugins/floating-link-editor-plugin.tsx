@@ -452,6 +452,9 @@ function useFloatingLinkEditorToolbar(
   const [activeEditor, setActiveEditor] = useState(editor)
   const [isLink, setIsLink] = useState(false)
   const [internalNotePickerOpen, setInternalNotePickerOpen] = useState(false)
+  const notelabCtxInToolbar = useNotelabEditorContext()
+  const openExternalUrlRef = useRef(notelabCtxInToolbar?.onOpenExternalUrl)
+  openExternalUrlRef.current = notelabCtxInToolbar?.onOpenExternalUrl
 
   useEffect(() => {
     function $updateToolbar() {
@@ -528,9 +531,19 @@ function useFloatingLinkEditorToolbar(
           if ($isRangeSelection(selection)) {
             const node = getSelectedNode(selection)
             const linkNode = $findMatchingParent(node, $isLinkNode)
-            if ($isLinkNode(linkNode) && (payload.metaKey || payload.ctrlKey)) {
-              window.open(linkNode.getURL(), "_blank")
-              return true
+            if ($isLinkNode(linkNode)) {
+              const url = linkNode.getURL()
+              if (payload.metaKey || payload.ctrlKey) {
+                // Cmd/Ctrl+click always opens externally
+                window.open(url, "_blank")
+                return true
+              }
+              const openInternal = openExternalUrlRef.current
+              if (openInternal) {
+                // Plain click + setting on → open in internal browser panel
+                openInternal(url)
+                return true
+              }
             }
           }
           return false

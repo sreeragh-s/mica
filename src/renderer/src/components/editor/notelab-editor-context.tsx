@@ -9,6 +9,7 @@ export type NotelabEditorContextValue = {
   folders: Folder[]
   currentNoteId: string
   onOpenInternalNote: (notePath: string) => void
+  onOpenExternalUrl?: (url: string) => void
 }
 
 const NotelabEditorContext = createContext<NotelabEditorContextValue | null>(null)

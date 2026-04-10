@@ -126,6 +126,7 @@ export function useNotesApp({
   const [canvasViewOpen, setCanvasViewOpen] = useState(false)
   const [journalViewOpen, setJournalViewOpen] = useState(false)
   const [tabOverviewOpen, setTabOverviewOpen] = useState(false)
+  const [browserPanelUrl, setBrowserPanelUrl] = useState<string | null>(null)
 
   /** Sidebar registers its rename-trigger here so the keyboard shortcut can invoke it. */
   const triggerRenameSelectedRef = useRef<(() => void) | null>(null)
@@ -1240,6 +1241,14 @@ export function useNotesApp({
     setChatSidebarOpen(true)
   }, [chatSidebarOpen, chatSidebarPanel])
 
+  const openBrowserPanel = useCallback((url: string) => {
+    setBrowserPanelUrl(url)
+  }, [])
+
+  const closeBrowserPanel = useCallback(() => {
+    setBrowserPanelUrl(null)
+  }, [])
+
   const startFolderCreate = useCallback(() => {
     setFolderCreateOpen(true)
     setFolderDraft('')
@@ -1435,6 +1444,9 @@ export function useNotesApp({
     openConflictView,
     closeConflictView,
     notes,
+    browserPanelUrl,
+    openBrowserPanel,
+    closeBrowserPanel,
     graphViewOpen,
     openGraphView,
     closeGraphView,

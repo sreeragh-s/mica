@@ -37,6 +37,8 @@ export type NotesPrimaryPaneProps = {
   bottomChromePortal?: HTMLElement | null
   /** Property keys to hide from the properties panel UI (keys are kept on the note internally). */
   hiddenPropertyKeys?: Set<string>
+  /** When set, external link Cmd/Ctrl+clicks open in the internal browser panel instead of a new window. */
+  onOpenExternalUrl?: (url: string) => void
 }
 
 export function NotesPrimaryPane({
@@ -57,7 +59,8 @@ export function NotesPrimaryPane({
   onDragOver,
   onDrop,
   bottomChromePortal,
-  hiddenPropertyKeys
+  hiddenPropertyKeys,
+  onOpenExternalUrl
 }: NotesPrimaryPaneProps): JSX.Element {
   if (selectedNote) {
     const allowCoverProperty =
@@ -90,7 +93,7 @@ export function NotesPrimaryPane({
           editorSerializedState={selectedNote.content ?? undefined}
           onSerializedChange={(s) => onNoteSerializedChange(selectedNote.path, s)}
           className="min-h-0 flex-1"
-          notelabEditor={{ notes, folders, currentNoteId: selectedNote.path, onOpenInternalNote: onSelectNote }}
+          notelabEditor={{ notes, folders, currentNoteId: selectedNote.path, onOpenInternalNote: onSelectNote, ...(onOpenExternalUrl ? { onOpenExternalUrl } : {}) }}
           header={
             <>
               <NoteTitleInput

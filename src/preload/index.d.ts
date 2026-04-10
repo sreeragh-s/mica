@@ -54,6 +54,8 @@ type EmbeddingsSearchRow = {
 }
 
 type NotelabApi = {
+  /** Chrome-like UA for the notes <webview> panel (see preload implementation). */
+  embeddedBrowserUserAgent: string
   auth: {
     getSession: () => Promise<
       | { ok: true; data: { session: unknown; user: unknown } | null }

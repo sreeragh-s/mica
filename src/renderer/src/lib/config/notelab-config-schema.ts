@@ -27,6 +27,7 @@ export type NotelabEditorSettingsV1 = {
   enableEmojiProperty?: boolean
   enableCoverProperty?: boolean
   newNotesStartWithFrontmatter?: boolean
+  openLinksInInternalBrowser?: boolean
 }
 
 export type NotelabAppearanceSettingsV1 = {

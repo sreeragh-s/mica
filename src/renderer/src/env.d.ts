@@ -1,4 +1,21 @@
 /// <reference types="vite/client" />
+/// <reference types="react" />
+
+// Electron <webview> JSX element (merges with React.JSX from @types/react)
+declare namespace React {
+  namespace JSX {
+    interface IntrinsicElements {
+      webview: React.DetailedHTMLProps<React.HTMLAttributes<HTMLElement>, HTMLElement> & {
+        src?: string
+        ref?: React.Ref<Electron.WebviewTag & HTMLElement>
+        allowpopups?: string
+        partition?: string
+        useragent?: string
+        disablewebsecurity?: string
+      }
+    }
+  }
+}
 
 /** Web Speech API (Chromium / Electron) — not always in TS lib. */
 interface SpeechRecognition extends EventTarget {

@@ -15,7 +15,20 @@ type OllamaLocalModel = {
   }
 }
 
+/** Desktop Chrome UA matching bundled Chromium; many sites treat Electron’s default UA differently. */
+function buildEmbeddedBrowserUserAgent(): string {
+  const chrome = process.versions.chrome ?? '120.0.0.0'
+  if (process.platform === 'darwin') {
+    return `Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${chrome} Safari/537.36`
+  }
+  if (process.platform === 'win32') {
+    return `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${chrome} Safari/537.36`
+  }
+  return `Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${chrome} Safari/537.36`
+}
+
 const api = {
+  embeddedBrowserUserAgent: buildEmbeddedBrowserUserAgent(),
   clipboard: {
     writeText: (text: string): Promise<{ ok: true } | { ok: false; error: string }> =>
       ipcRenderer.invoke('clipboard:write-text', text),

@@ -60,6 +60,23 @@ app.whenReady().then(() => {
     watchWindowShortcutsDetachedDevTools(window)
   })
 
+  // <webview> guest pages that use target="_blank" / window.open() would otherwise spawn a
+  // full BrowserWindow. Keep navigation inside the same embedded webview (Notes browser panel).
+  app.on('web-contents-created', (_event, contents) => {
+    if (contents.getType() !== 'webview') return
+    contents.setWindowOpenHandler((details) => {
+      const { url } = details
+      if (url && url !== 'about:blank') {
+        // Defer so we are not inside navigation re-entrancy (reduces ERR_ABORTED / IPC noise).
+        setImmediate(() => {
+          if (contents.isDestroyed()) return
+          void contents.loadURL(url).catch(() => {})
+        })
+      }
+      return { action: 'deny' }
+    })
+  })
+
   // --- Simple IPC handlers ---
 
   ipcMain.on('ping', () => console.log('pong'))

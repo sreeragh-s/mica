@@ -326,6 +326,7 @@ function defaultEditorSettings(): Required<NotelabEditorSettingsV1> {
     enableEmojiProperty: true,
     enableCoverProperty: true,
     newNotesStartWithFrontmatter: true,
+    openLinksInInternalBrowser: false,
   }
 }
 
@@ -352,6 +353,10 @@ export function loadEditorSettings(): Required<NotelabEditorSettingsV1> {
       typeof raw.newNotesStartWithFrontmatter === "boolean"
         ? raw.newNotesStartWithFrontmatter
         : defaults.newNotesStartWithFrontmatter,
+    openLinksInInternalBrowser:
+      typeof raw.openLinksInInternalBrowser === "boolean"
+        ? raw.openLinksInInternalBrowser
+        : defaults.openLinksInInternalBrowser,
   }
 }
 
