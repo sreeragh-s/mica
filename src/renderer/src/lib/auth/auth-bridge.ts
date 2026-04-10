@@ -91,10 +91,6 @@ export type NotelabApi = {
       cwd: string
       folder: string
     }) => Promise<{ ok: true } | { ok: false; error: string }>
-    setSyncMode?: (payload: {
-      cwd: string
-      syncMode: "git" | "github_api" | "local"
-    }) => Promise<{ ok: true } | { ok: false; error: string }>
     openExternal: (url: string) => Promise<void>
     setGitRemote: (payload: {
       cwd: string

@@ -1,6 +1,6 @@
 import { ThemeStyleProps } from "@/components/appearance/theme-presets"
 
-export type NotelabSyncMode = "git" | "github_api" | "local"
+export type NotelabSyncMode = "git" | "local"
 
 export type NotelabSetupState = {
   /** User finished first-run setup (or chose skip). */
@@ -27,7 +27,6 @@ export type NotelabEditorSettingsV1 = {
   enableEmojiProperty?: boolean
   enableCoverProperty?: boolean
   newNotesStartWithFrontmatter?: boolean
-  openLinksInInternalBrowser?: boolean
 }
 
 export type NotelabAppearanceSettingsV1 = {

@@ -121,12 +121,38 @@ export function buildNoteLinkGraph(notes: SavedNote[]): {
     }
   }
 
-  const nodes: NoteGraphNode[] = notes.map((n) => ({
-    id: n.path,
-    title: (n.title?.trim() || 'Untitled').slice(0, 80),
-    kind: n.kind ?? 'note',
-    folder: n.folder
-  }))
+  // Count how many notes share the same normalised title so we can disambiguate labels.
+  const titleCount = new Map<string, number>()
+  for (const n of notes) {
+    const t = (n.title?.trim() || 'Untitled').toLowerCase()
+    titleCount.set(t, (titleCount.get(t) ?? 0) + 1)
+  }
+
+  const nodes: NoteGraphNode[] = notes.map((n) => {
+    const baseTitle = (n.title?.trim() || 'Untitled').slice(0, 80)
+    // When multiple notes share the same title, append the folder segment from the
+    // path so the user can tell them apart in the graph (e.g. "readme (docs)").
+    const isDuplicate = (titleCount.get(baseTitle.toLowerCase()) ?? 0) > 1
+    let displayTitle = baseTitle
+    if (isDuplicate) {
+      // Derive a human-readable qualifier: prefer the immediate parent directory
+      // of the file (from n.path), falling back to n.folder.
+      const pathParts = n.path.replace(/\\/g, '/').split('/')
+      // pathParts[-1] is the filename; pathParts[-2] is the parent dir (if any)
+      const parentDir =
+        pathParts.length >= 2 ? pathParts[pathParts.length - 2] : n.folder
+      const qualifier = parentDir && parentDir !== 'default' ? parentDir : n.folder
+      if (qualifier && qualifier !== 'default') {
+        displayTitle = `${baseTitle} (${qualifier})`
+      }
+    }
+    return {
+      id: n.path,
+      title: displayTitle.slice(0, 80),
+      kind: n.kind ?? 'note',
+      folder: n.folder
+    }
+  })
 
   return { nodes, links }
 }

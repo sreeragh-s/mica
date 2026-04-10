@@ -22,3 +22,13 @@ export function parseInternalNotePathFromHref(href: string): string | null {
   }
   return null
 }
+
+/** Returns the `#heading` subpath portion of an internal note link href, or empty string if none. */
+export function parseInternalNoteSubpathFromHref(href: string): string {
+  // href looks like: #notelab/note/path/to/note.md#heading-text
+  // The note path itself may not contain '#', so the second '#' is the subpath.
+  const prefixMatch = href.match(/#notelab\/note\/[^#?]+/)
+  if (!prefixMatch) return ''
+  const afterPrefix = href.slice(prefixMatch.index! + prefixMatch[0].length)
+  return afterPrefix.startsWith('#') ? afterPrefix : ''
+}

@@ -80,7 +80,6 @@ import {
   NOTES_APP_PILL_SURFACE
 } from '@/components/notes/notes-app-utils'
 import { toolbarChromeFieldClass } from '@/lib/platform/toolbar-chrome'
-import { collectInternalNoteLinkMentions } from '@/lib/notes/note-link-graph'
 import type { ChatHistoryMeta } from '@/hooks/useNotesChat'
 import { useNotesChat } from '@/hooks/useNotesChat'
 import { useBillingStatus } from '@/hooks/useBillingStatus'
@@ -638,61 +637,8 @@ function NotesChatSidebarInner({
       }
     }
 
-    const outgoingMentions = collectInternalNoteLinkMentions(selectedNote.content)
-      .filter((mention) => mention.target !== selectedNote.path)
-      .reduce<Map<string, { note: SavedNote; contexts: string[]; linkText: string[] }>>(
-        (acc, mention) => {
-          const targetNote = noteById.get(mention.target)
-          if (!targetNote) return acc
-          const existing = acc.get(targetNote.path)
-          if (existing) {
-            if (mention.contextText && !existing.contexts.includes(mention.contextText)) {
-              existing.contexts.push(mention.contextText)
-            }
-            if (mention.linkText && !existing.linkText.includes(mention.linkText)) {
-              existing.linkText.push(mention.linkText)
-            }
-            return acc
-          }
-          acc.set(targetNote.path, {
-            note: targetNote,
-            contexts: mention.contextText ? [mention.contextText] : [],
-            linkText: mention.linkText ? [mention.linkText] : []
-          })
-          return acc
-        },
-        new Map()
-      )
-
-    const backlinks = notes
-      .filter((note) => note.path !== selectedNote.path && note.kind === 'note')
-      .flatMap((note) =>
-        collectInternalNoteLinkMentions(note.content)
-          .filter((mention) => mention.target === selectedNote.path)
-          .slice(0, 6)
-          .map((mention) => ({ note, mention }))
-      )
-      .reduce<Map<string, { note: SavedNote; contexts: string[] }>>((acc, entry) => {
-        const existing = acc.get(entry.note.path)
-        if (existing) {
-          if (entry.mention.contextText && !existing.contexts.includes(entry.mention.contextText)) {
-            existing.contexts.push(entry.mention.contextText)
-          }
-          return acc
-        }
-        acc.set(entry.note.path, {
-          note: entry.note,
-          contexts: entry.mention.contextText ? [entry.mention.contextText] : []
-        })
-        return acc
-      }, new Map())
-
-    return {
-      backlinks: Array.from(backlinks.values()).sort((a, b) => b.note.updatedAt - a.note.updatedAt),
-      outgoing: Array.from(outgoingMentions.values()).sort(
-        (a, b) => b.note.updatedAt - a.note.updatedAt
-      )
-    }
+    // linkMentionIndex not yet ready — return empty until cache builds
+    return { backlinks: [], outgoing: [] }
   }, [notes, selectedNote, linkMentionIndex])
 
   const handleSubmit = useCallback(

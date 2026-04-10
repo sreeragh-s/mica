@@ -48,16 +48,21 @@ export function useWorkspaceNotesCache(
     }
   }, [])
 
+  const runIndexRef = useRef(runIndex)
+  runIndexRef.current = runIndex
+
   useEffect(() => {
     if (!workspaceKey) {
       genRef.current += 1
       return
     }
     const t = window.setTimeout(() => {
-      void runIndex(workspaceKey, notesRef.current)
+      void runIndexRef.current(workspaceKey, notesRef.current)
     }, DEBOUNCE_MS)
     return () => clearTimeout(t)
-  }, [workspaceKey, notes, runIndex])
+    // runIndexRef.current is stable via ref — intentionally excluded from deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [workspaceKey, notes])
 
   const reindexNotesWorkspaceCacheNow = useCallback(async () => {
     const key = resolveNotesWorkspaceCacheKey(dataRootPath)

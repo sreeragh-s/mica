@@ -126,7 +126,6 @@ export function useNotesApp({
   const [canvasViewOpen, setCanvasViewOpen] = useState(false)
   const [journalViewOpen, setJournalViewOpen] = useState(false)
   const [tabOverviewOpen, setTabOverviewOpen] = useState(false)
-  const [browserPanelUrl, setBrowserPanelUrl] = useState<string | null>(null)
 
   /** Sidebar registers its rename-trigger here so the keyboard shortcut can invoke it. */
   const triggerRenameSelectedRef = useRef<(() => void) | null>(null)
@@ -178,13 +177,9 @@ export function useNotesApp({
     setGitInitBusy,
     gitInitError,
     setGitInitError,
-    useGithubApiSync,
-    setGithubApiDirty,
     gitDirtyGlobal,
     refreshWorkspaceGitStatuses,
     reloadNotesFromDisk,
-    handleGithubApiPull,
-    handleGithubApiPush,
     scheduleNoteFlush,
     flushNoteMoveToDisk,
     handleWorkspaceRootChange
@@ -320,11 +315,9 @@ export function useNotesApp({
       }
       if (diskMode) {
         scheduleNoteFlush(notePath)
-      } else if (useGithubApiSync) {
-        setGithubApiDirty(true)
       }
     },
-    [diskMode, scheduleNoteFlush, useGithubApiSync]
+    [diskMode, scheduleNoteFlush]
   )
 
   const replaceTrackedNoteId = useCallback((from: string, to: string) => {
@@ -475,9 +468,6 @@ export function useNotesApp({
     gitInitError,
     setGitInitError,
     user,
-    useGithubApiSync,
-    handleGithubApiPull,
-    handleGithubApiPush,
     reloadNotesFromDisk,
     refreshWorkspaceGitStatuses,
     refreshGitSourceControl,
@@ -537,13 +527,17 @@ export function useNotesApp({
     setOpenNoteTabIds((prev) => (prev.includes(notePath) ? prev : [...prev, notePath]))
   }, [])
 
+  /** Stores a pending subpath (e.g. `#my-heading`) to scroll to after note navigation. */
+  const pendingSubpathRef = useRef<string | null>(null)
+
   const selectNote = useCallback(
-    (notePath: string) => {
+    (notePath: string, subpath?: string) => {
       if (selectedNotePath && selectedNotePath !== notePath) {
         commitPendingNoteToState(selectedNotePath)
       }
       const note = findLatestNote(notePath)
       if (!note) return
+      pendingSubpathRef.current = subpath ?? null
       setWorkspaceSettingsFolderId(null)
       setAppMode('notes')
       setAppSidebarView('explorer')
@@ -559,6 +553,16 @@ export function useNotesApp({
     },
     [commitPendingNoteToState, findLatestNote, pushOpenNoteTab, selectedNotePath]
   )
+
+  /**
+   * Consume the pending subpath set by the most recent `selectNote` call.
+   * Returns the subpath string (e.g. `#my-heading`) and clears it, or null if none.
+   */
+  const consumePendingSubpath = useCallback((): string | null => {
+    const v = pendingSubpathRef.current
+    pendingSubpathRef.current = null
+    return v
+  }, [])
 
   const reorderOpenNoteTabs = useCallback(
     (nextOrUpdater: string[] | ((prev: string[]) => string[])) => {
@@ -602,12 +606,11 @@ export function useNotesApp({
       if (diskMode && root) {
         const api = getApi()
         void api?.workspace?.createFolder?.({ cwd: root, folder })
-        if (useGithubApiSync) setGithubApiDirty(true)
         void refreshWorkspaceGitStatuses()
       }
       return folder
     },
-    [diskMode, refreshWorkspaceGitStatuses, useGithubApiSync]
+    [diskMode, refreshWorkspaceGitStatuses]
   )
 
   const handleTreeSelectionChange = useCallback(
@@ -764,8 +767,6 @@ export function useNotesApp({
       }
       if (diskMode) {
         void flushNoteMoveToDisk(notePath, nextNote)
-      } else if (useGithubApiSync) {
-        setGithubApiDirty(true)
       }
     },
     [
@@ -775,7 +776,6 @@ export function useNotesApp({
       flushNoteMoveToDisk,
       replaceTrackedNoteId,
       touchJournalProperties,
-      useGithubApiSync
     ]
   )
 
@@ -887,11 +887,9 @@ export function useNotesApp({
           folder: targetFolderId,
           updatedAt: Date.now()
         })
-      } else if (useGithubApiSync) {
-        setGithubApiDirty(true)
       }
     },
-    [buildNotePath, diskMode, findLatestNote, flushNoteMoveToDisk, useGithubApiSync]
+    [buildNotePath, diskMode, findLatestNote, flushNoteMoveToDisk]
   )
 
   const reorderFolders = useCallback((draggedFolderId: string, targetFolderId: string) => {
@@ -938,7 +936,6 @@ export function useNotesApp({
           if (!r.ok) {
             console.error('[notelab] delete note files failed', r.error)
           }
-          if (useGithubApiSync) setGithubApiDirty(true)
           await refreshWorkspaceGitStatuses()
         }
         if (deleted && cwd && api?.embeddings?.deleteNoteDocument) {
@@ -965,7 +962,7 @@ export function useNotesApp({
         }
       })()
     },
-    [diskMode, refreshWorkspaceGitStatuses, selectedNotePath, useGithubApiSync]
+    [diskMode, refreshWorkspaceGitStatuses, selectedNotePath]
   )
 
   const cancelFolderCreate = useCallback(() => {
@@ -1116,11 +1113,10 @@ export function useNotesApp({
         )
       )
       if (diskMode && root) {
-        if (useGithubApiSync) setGithubApiDirty(true)
         void refreshWorkspaceGitStatuses()
       }
     },
-    [diskMode, refreshWorkspaceGitStatuses, useGithubApiSync]
+    [diskMode, refreshWorkspaceGitStatuses]
   )
 
   const deleteFolder = useCallback(
@@ -1154,11 +1150,10 @@ export function useNotesApp({
         const idx = prevTabs.indexOf(current)
         return nextTabs[idx - 1] ?? nextTabs[idx] ?? nextTabs[0] ?? null
       })
-      if (useGithubApiSync) setGithubApiDirty(true)
       await reloadNotesFromDisk()
       await refreshWorkspaceGitStatuses()
     },
-    [diskMode, reloadNotesFromDisk, refreshWorkspaceGitStatuses, useGithubApiSync]
+    [diskMode, reloadNotesFromDisk, refreshWorkspaceGitStatuses]
   )
 
   const defaultExpandedFolderIds = useMemo(
@@ -1241,13 +1236,6 @@ export function useNotesApp({
     setChatSidebarOpen(true)
   }, [chatSidebarOpen, chatSidebarPanel])
 
-  const openBrowserPanel = useCallback((url: string) => {
-    setBrowserPanelUrl(url)
-  }, [])
-
-  const closeBrowserPanel = useCallback(() => {
-    setBrowserPanelUrl(null)
-  }, [])
 
   const startFolderCreate = useCallback(() => {
     setFolderCreateOpen(true)
@@ -1397,6 +1385,7 @@ export function useNotesApp({
     openFolderSettingsPanel,
     clearSidebarWorkspaceIntent,
     selectNote,
+    consumePendingSubpath,
     renameFolder,
     deleteFolder,
     backToNotes,
@@ -1444,9 +1433,6 @@ export function useNotesApp({
     openConflictView,
     closeConflictView,
     notes,
-    browserPanelUrl,
-    openBrowserPanel,
-    closeBrowserPanel,
     graphViewOpen,
     openGraphView,
     closeGraphView,
@@ -1461,7 +1447,6 @@ export function useNotesApp({
     openTabOverview,
     closeTabOverview,
     notesCount: notes.length,
-    syncTransport: useGithubApiSync ? ('github_api' as const) : ('git' as const),
     indexingStatus,
     refreshIndexingStatus,
     runIndexPending,

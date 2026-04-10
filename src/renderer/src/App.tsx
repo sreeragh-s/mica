@@ -104,7 +104,7 @@ export default function App(): JSX.Element {
         const r = await api.workspace.ensureDataRoot(savedRoot ? { path: savedRoot } : undefined)
         if (r.ok) {
           setInitialRoot(r)
-          await hydrateAppConfig(r.path)
+          await hydrateAppConfig(r.configRoot)
         }
       } else {
         await hydrateAppConfig(null)

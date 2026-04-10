@@ -75,12 +75,6 @@ export function EditorSettingsView({
           value={settings.enableCoverProperty}
           onChange={(next) => onChange({ enableCoverProperty: next })}
         />
-        <ToggleRow
-          label="Always open links in external browser"
-          description="When on, clicking a link always opens it in your default browser. When off, links open in a split browser panel inside the app."
-          value={!settings.openLinksInInternalBrowser}
-          onChange={(next) => onChange({ openLinksInInternalBrowser: !next })}
-        />
       </div>
     </div>
   )

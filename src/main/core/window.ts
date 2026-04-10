@@ -49,7 +49,6 @@ export function createWindow(session?: WindowSession): BrowserWindow {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false,
       spellcheck: false,
-      webviewTag: true
     }
   })
 

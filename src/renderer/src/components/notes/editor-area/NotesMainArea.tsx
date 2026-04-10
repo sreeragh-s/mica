@@ -16,7 +16,6 @@ import { NotesCanvasView } from '@/components/notes/views/NotesCanvasView'
 import { JournalView } from '@/components/notes/views/JournalView'
 import { NotesConflictView } from '@/components/notes/views/NotesConflictView'
 import { NotesGraphView } from '@/components/notes/views/NotesGraphView'
-import { NotesBrowserPanel } from '@/components/notes/views/NotesBrowserPanel'
 import { NotesChatSidebar } from '@/components/notes/chat/NotesChatSidebar'
 import {
   NotesPrimaryPane,
@@ -42,6 +41,23 @@ function getJournalNoteDate(note: NotesAppViewModel['notes'][number]): string | 
   return null
 }
 
+function countIndexingStates(notes: NotesAppViewModel['indexingStatus']['notes']): {
+  totalCount: number
+  pendingCount: number
+  indexingCount: number
+  indexedCount: number
+  errorCount: number
+} {
+  let pendingCount = 0, indexingCount = 0, indexedCount = 0, errorCount = 0
+  for (const note of notes) {
+    if (note.state === 'pending') pendingCount++
+    else if (note.state === 'indexing') indexingCount++
+    else if (note.state === 'indexed') indexedCount++
+    else if (note.state === 'error') errorCount++
+  }
+  return { totalCount: notes.length, pendingCount, indexingCount, indexedCount, errorCount }
+}
+
 function MainAreaIndexingOverlay({
   indexingStatus,
   onDismiss
@@ -50,11 +66,8 @@ function MainAreaIndexingOverlay({
   onDismiss: () => void
 }): JSX.Element | null {
   const { notes, running } = indexingStatus
-  const totalCount = notes.length
-  const pendingCount = notes.filter((note) => note.state === 'pending').length
-  const indexingCount = notes.filter((note) => note.state === 'indexing').length
-  const indexedCount = notes.filter((note) => note.state === 'indexed').length
-  const errorCount = notes.filter((note) => note.state === 'error').length
+  const { totalCount, pendingCount, indexingCount, indexedCount, errorCount } =
+    countIndexingStates(notes)
 
   if (totalCount === 0 || (!running && pendingCount === 0 && errorCount === 0)) {
     return null
@@ -151,6 +164,7 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
     focusedFolder,
     notesByFolder,
     selectNote,
+    consumePendingSubpath,
     openNoteTabPaths,
     reorderOpenNoteTabs,
     closeNoteTab,
@@ -199,9 +213,6 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
     rebuildNotesSearchCacheFromFilesystem,
     notesCacheIndexedAt,
     clearWorkspaceCache,
-    browserPanelUrl,
-    openBrowserPanel,
-    closeBrowserPanel
   } = vm
 
   const canAutoIndex = Boolean(user?.email || user?.name) && !guestMode
@@ -276,10 +287,8 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
 
   const indexingOverlayPhase = (() => {
     const { notes, running } = indexingStatus
-    const pendingCount = notes.filter((note) => note.state === 'pending').length
-    const errorCount = notes.filter((note) => note.state === 'error').length
-
-    if (notes.length === 0 || (!running && pendingCount === 0 && errorCount === 0)) return 'idle'
+    const { totalCount, pendingCount, errorCount } = countIndexingStates(notes)
+    if (totalCount === 0 || (!running && pendingCount === 0 && errorCount === 0)) return 'idle'
     if (running) return 'running'
     if (errorCount > 0 && pendingCount === 0) return 'error'
     return 'pending'
@@ -334,8 +343,6 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
   const showEditorBottomChrome =
     !zenMode && appMode === 'notes' && !conflictViewPath && activeEditorNote?.kind === 'note'
 
-  const onOpenExternalUrl = editorSettings.openLinksInInternalBrowser ? openBrowserPanel : undefined
-
   const primaryPaneProps = {
     selectedNote,
     focusedFolder,
@@ -356,7 +363,7 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
     onDrop: onDropPrimaryPane,
     bottomChromePortal: showEditorBottomChrome ? editorBottomBarEl : undefined,
     propertyCatalog: notesPropertyCatalog,
-    onOpenExternalUrl
+    consumePendingSubpath
   }
 
   // --- Notes area content ---
@@ -454,25 +461,6 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
             macTitlebarStyles={macTitlebarStyles}
             onSelectNote={selectNote}
           />
-        </div>
-      )
-    }
-
-    // Browser panel side-by-side with editor
-    if (browserPanelUrl) {
-      return (
-        <div className="flex min-h-0 flex-1 flex-row">
-          <div className="border-border flex min-h-0 min-w-0 flex-1 flex-col border-r">
-            <NotesPrimaryPane {...primaryPaneProps} />
-          </div>
-          <div className="border-border flex min-h-0 w-[min(100%,50%)] min-w-0 flex-1 flex-col border-l">
-            <NotesBrowserPanel
-              url={browserPanelUrl}
-              isMacNotelab={isMacNotelab}
-              macTitlebarStyles={macTitlebarStyles}
-              onClose={closeBrowserPanel}
-            />
-          </div>
         </div>
       )
     }

@@ -9,10 +9,8 @@ import {
   type SetStateAction
 } from 'react'
 
-import { serverFetchJson } from '@/lib/core/server-api'
 import { getApi } from '@/lib/auth/auth-bridge'
 import { createElectronLogger } from '@/lib/core/electron-log'
-import { mergeGithubContentShas, loadGithubContentShas } from '@/lib/workspace/github-shas-storage'
 import { loadSetupState } from '@/lib/workspace/setup-storage'
 import { switchDataRoot } from '@/lib/config/notelab-app-config'
 import { diskBodyToContent, extractDiskTitleHeading } from '@/lib/editor/markdown-to-serialized'
@@ -97,11 +95,6 @@ export function useNotesAppDisk({
   const [workspaceRoot, setWorkspaceRoot] = useState<string | null>(
     () => loadSetupState().workspaceRoot ?? null
   )
-  const [setupSyncMode] = useState<'git' | 'github_api' | 'local' | undefined>(
-    () => loadSetupState().syncMode
-  )
-  const useGithubApiSync = setupSyncMode === 'github_api'
-  const [githubApiDirty, setGithubApiDirty] = useState(false)
   const markdownSyncGen = useRef(0)
   const gitStatusRefreshTimerRef = useRef<number | null>(null)
 
@@ -113,18 +106,6 @@ export function useNotesAppDisk({
 
   const refreshWorkspaceGitStatuses = useCallback(async () => {
     const api = getApi()
-    if (useGithubApiSync) {
-      const next: Record<string, boolean> = {}
-      for (const f of foldersRef.current) {
-        if (!f.localGitPath) continue
-        next[f.folder] = githubApiDirty
-      }
-      if (foldersRef.current.length === 0 && dataRootRef.current) {
-        next[DEFAULT_WORKSPACE_ID] = githubApiDirty
-      }
-      setDirtyByWorkspaceId(next)
-      return
-    }
     if (!api?.workspace?.gitStatus) return
     const gitStatus = api.workspace.gitStatus
     const foldersWithGit = foldersRef.current.filter((f) => f.localGitPath)
@@ -146,7 +127,7 @@ export function useNotesAppDisk({
       if (r) next[r[0]] = r[1]
     }
     setDirtyByWorkspaceId(next)
-  }, [dataRootRef, foldersRef, githubApiDirty, useGithubApiSync])
+  }, [dataRootRef, foldersRef])
 
   const scheduleWorkspaceGitStatusRefresh = useCallback(
     (delayMs = 2500): void => {
@@ -260,102 +241,6 @@ export function useNotesAppDisk({
     applyNotelabIndex(r, cwd)
   }, [applyNotelabIndex, dataRootRef])
 
-  const handleGithubApiPull = useCallback(async () => {
-    setGitSyncBusy(true)
-    setGitSyncError(null)
-    try {
-      const r = await serverFetchJson<{
-        files: { path: string; content: string; sha?: string }[]
-        commitSha?: string | null
-      }>('/api/github/sync/pull', { method: 'POST' })
-      if (!r.ok) {
-        setGitSyncError(r.message)
-        return
-      }
-      const cwd = dataRootRef.current
-      const api = getApi()
-      if (!cwd || !api?.workspace?.writeNoteFile) {
-        setGitSyncError('No data root')
-        return
-      }
-      const shaPatch: Record<string, string> = {}
-      for (const f of r.data.files) {
-        const rel = f.path.replace(/\\/g, '/')
-        const wr = await api.workspace.writeNoteFile({
-          cwd,
-          relativePath: rel,
-          content: f.content
-        })
-        if (!wr.ok) {
-          setGitSyncError(wr.error)
-          return
-        }
-        if (f.sha) shaPatch[rel] = f.sha
-      }
-      mergeGithubContentShas(shaPatch)
-      await reloadNotesFromDisk()
-      setGithubApiDirty(false)
-    } finally {
-      setGitSyncBusy(false)
-    }
-  }, [dataRootRef, reloadNotesFromDisk])
-
-  const handleGithubApiPush = useCallback(async () => {
-    setGitSyncBusy(true)
-    setGitSyncError(null)
-    try {
-      const cwd = dataRootRef.current
-      if (!cwd) {
-        setGitSyncError('No data root')
-        return
-      }
-      const shas = loadGithubContentShas()
-      const files: { path: string; content: string; sha?: string | null }[] = []
-      // Pre-bucket notes by folder once — avoids O(n×m) filter-in-loop
-      const notesByFolder = new Map<string, typeof notesRef.current>()
-      for (const n of notesRef.current) {
-        let bucket = notesByFolder.get(n.folder)
-        if (!bucket) { bucket = []; notesByFolder.set(n.folder, bucket) }
-        bucket.push(n)
-      }
-      const rootNotes = notesByFolder.get(DEFAULT_WORKSPACE_ID) ?? []
-      if (rootNotes.length > 0) {
-        const inbox: Folder = { folder: DEFAULT_WORKSPACE_ID, name: 'Root' }
-        const payload = buildMarkdownSyncPayload(inbox, rootNotes)
-        for (const p of payload) {
-          const rel = p.relativePath.replace(/\\/g, '/')
-          files.push({ path: rel, content: p.content, sha: shas[rel] ?? null })
-        }
-      }
-      for (const f of foldersRef.current) {
-        const wsNotes = notesByFolder.get(f.folder) ?? []
-        const payload = buildMarkdownSyncPayload(f, wsNotes)
-        for (const p of payload) {
-          const rel = p.relativePath.replace(/\\/g, '/')
-          files.push({ path: rel, content: p.content, sha: shas[rel] ?? null })
-        }
-      }
-      const r = await serverFetchJson<{ ok?: boolean; commitSha?: string | null }>(
-        '/api/github/sync/push',
-        {
-          method: 'POST',
-          body: {
-            message: gitCommitMessage.trim() || 'Update notes',
-            files
-          }
-        }
-      )
-      if (!r.ok || !(r.data as { ok?: boolean })?.ok) {
-        setGitSyncError(!r.ok ? r.message : 'Push failed')
-        return
-      }
-      setGithubApiDirty(false)
-      await refreshWorkspaceGitStatuses()
-    } finally {
-      setGitSyncBusy(false)
-    }
-  }, [dataRootRef, foldersRef, gitCommitMessage, notesRef, refreshWorkspaceGitStatuses])
-
   const flushNoteToDisk = useCallback(
     async (notePath: string) => {
       const api = getApi()
@@ -428,9 +313,6 @@ export function useNotesAppDisk({
             prev.map((n) => (n.path === notePath ? { ...note, updatedAt: persistedAt } : n))
           )
         }
-        if (useGithubApiSync) {
-          setGithubApiDirty(true)
-        }
         scheduleWorkspaceGitStatusRefresh()
       } finally {
         pendingDiskWrites.current.delete(notePath)
@@ -444,7 +326,6 @@ export function useNotesAppDisk({
       pendingSavedNotesRef,
       scheduleWorkspaceGitStatusRefresh,
       setNotes,
-      useGithubApiSync
     ]
   )
 
@@ -520,9 +401,6 @@ export function useNotesAppDisk({
             prev.map((n) => (n.path === note.path ? { ...note, updatedAt: persistedAt } : n))
           )
         }
-        if (useGithubApiSync) {
-          setGithubApiDirty(true)
-        }
         scheduleWorkspaceGitStatusRefresh()
       } finally {
         pendingDiskWrites.current.delete(previousPath)
@@ -535,7 +413,6 @@ export function useNotesAppDisk({
       pendingSavedNotesRef,
       scheduleWorkspaceGitStatusRefresh,
       setNotes,
-      useGithubApiSync
     ]
   )
 
@@ -705,10 +582,10 @@ export function useNotesAppDisk({
     return () => window.clearTimeout(t)
   }, [diskMode, folders, githubRemoteUrl, notes])
 
-  const gitDirtyGlobal = useMemo(() => {
-    if (useGithubApiSync) return githubApiDirty
-    return Object.values(dirtyByWorkspaceId).some(Boolean)
-  }, [dirtyByWorkspaceId, githubApiDirty, useGithubApiSync])
+  const gitDirtyGlobal = useMemo(
+    () => Object.values(dirtyByWorkspaceId).some(Boolean),
+    [dirtyByWorkspaceId]
+  )
 
   useEffect(() => {
     if (diskMode) return
@@ -833,13 +710,9 @@ export function useNotesAppDisk({
     setGitInitBusy,
     gitInitError,
     setGitInitError,
-    useGithubApiSync,
-    setGithubApiDirty,
     gitDirtyGlobal,
     refreshWorkspaceGitStatuses,
     reloadNotesFromDisk,
-    handleGithubApiPull,
-    handleGithubApiPush,
     scheduleNoteFlush,
     flushNoteMoveToDisk,
     handleWorkspaceRootChange

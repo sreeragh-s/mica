@@ -14,6 +14,9 @@ import {
   ExternalUrlPreviewBody,
 } from "@/components/editor/link-preview-card"
 import { parseInternalNotePathFromHref } from "@/lib/notes/internal-note-link"
+import { createElectronLogger } from "@/lib/core/electron-log"
+
+const log = createElectronLogger("[LinkHoverPreview]")
 
 type HoverPayload =
   | {
@@ -109,10 +112,14 @@ export function LinkHoverPreviewPlugin(): JSX.Element | null {
         const rect = anchor.getBoundingClientRect()
         const notePath = parseInternalNotePathFromHref(resolvedHref) ?? parseInternalNotePathFromHref(raw)
 
+        log.info("hover anchor:", { raw, resolvedHref, notePath })
+
         showTimerRef.current = setTimeout(() => {
           if (notePath) {
+            log.info("showing internal preview for:", notePath)
             setHover({ kind: "internal", notePath, rect })
           } else {
+            log.info("showing external preview for:", resolvedHref)
             setHover({
               kind: "external",
               href: resolvedHref,

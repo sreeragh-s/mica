@@ -9,8 +9,6 @@ import { isPushRejectedFetchFirst } from '@/components/notes/git/git-sync-errors
 
 export type GitSyncToolbarProps = {
   folder: Folder
-  /** When set to `github_api`, sync uses the Worker + GitHub REST API instead of local `git`. */
-  syncTransport?: 'git' | 'github_api'
   /** True when there are uncommitted changes in the working tree. */
   dirty: boolean
   /** When true, show the toolbar even if the tree is clean (e.g. after a failed push). */
@@ -32,7 +30,6 @@ const textareaClassName =
 
 export function GitSyncToolbar({
   folder,
-  syncTransport = 'git',
   dirty,
   hasSyncError,
   commitMessage,
@@ -46,23 +43,15 @@ export function GitSyncToolbar({
   onCommitAndPush,
 }: GitSyncToolbarProps): JSX.Element | null {
   const api = getApi()
-  const useApi = syncTransport === 'github_api'
-  const canPull =
-    typeof onPull === 'function' &&
-    (useApi ? Boolean(api?.auth?.fetch) : Boolean(api?.workspace?.gitPull))
+  const canPull = typeof onPull === 'function' && Boolean(api?.workspace?.gitPull)
   const canPullThenPush =
     typeof onPullThenPush === 'function' &&
-    (useApi
-      ? Boolean(api?.auth?.fetch)
-      : Boolean(api?.workspace?.gitPull && api.workspace.gitPush))
+    Boolean(api?.workspace?.gitPull && api.workspace.gitPush)
   const fetchFirstRejection = actionError ? isPushRejectedFetchFirst(actionError) : false
   if (!folder.localGitPath || (!dirty && !hasSyncError)) {
     return null
   }
-  if (!useApi && (!api?.workspace?.gitCommit || !api.workspace.gitPush)) {
-    return null
-  }
-  if (useApi && !api?.auth?.fetch) {
+  if (!api?.workspace?.gitCommit || !api.workspace.gitPush) {
     return null
   }
 

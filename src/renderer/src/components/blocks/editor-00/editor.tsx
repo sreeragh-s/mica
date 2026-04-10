@@ -52,7 +52,7 @@ export function Editor({
     notes: SavedNote[]
     folders: Folder[]
     currentNoteId: string
-    onOpenInternalNote: (notePath: string) => void
+    onOpenInternalNote: (notePath: string, subpath?: string) => void
   } | null
   header?: ReactNode
   coverImageSrc?: string | null

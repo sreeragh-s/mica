@@ -1,4 +1,9 @@
 import type { JSX, DragEvent } from 'react'
+import { useEffect, useRef } from 'react'
+
+import { createElectronLogger } from '@/lib/core/electron-log'
+
+const log = createElectronLogger('[SubpathScroll]')
 
 import { FileText, Plus } from 'lucide-react'
 import type { SerializedEditorState } from 'lexical'
@@ -20,7 +25,7 @@ export type NotesPrimaryPaneProps = {
   folders: Folder[]
   notesByFolder: Map<string, SavedNote[]>
   canCreateNote: boolean
-  onSelectNote: (id: string) => void
+  onSelectNote: (id: string, subpath?: string) => void
   onNewNote: () => void
   onNoteSerializedChange: (id: string, serialized: SerializedEditorState) => void
   onExcalidrawSceneChange: (id: string, json: string) => void
@@ -37,8 +42,144 @@ export type NotesPrimaryPaneProps = {
   bottomChromePortal?: HTMLElement | null
   /** Property keys to hide from the properties panel UI (keys are kept on the note internally). */
   hiddenPropertyKeys?: Set<string>
-  /** When set, external link Cmd/Ctrl+clicks open in the internal browser panel instead of a new window. */
-  onOpenExternalUrl?: (url: string) => void
+  /**
+   * Called once after note navigation to retrieve any pending subpath (e.g. `#my-heading`)
+   * that should be scrolled to. Clears the pending value on first call.
+   */
+  consumePendingSubpath?: () => string | null
+}
+
+/**
+ * Slugifies a heading the same way Obsidian does:
+ * lowercase, collapse runs of non-alphanumeric characters to a single hyphen, trim hyphens.
+ */
+function slugifyHeading(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+}
+
+/**
+ * After a note's editor mounts, scroll to the heading matching `subpath`.
+ * Matches by slugifying both the subpath and the heading text content (Obsidian-style).
+ */
+export function scrollToHeading(editorRootEl: HTMLElement, subpath: string): void {
+  const target = slugifyHeading(subpath.replace(/^#+/, '').trim())
+  if (!target) return
+  const headings = editorRootEl.querySelectorAll<HTMLElement>('h1, h2, h3, h4, h5, h6')
+  const candidates = Array.from(headings).map((h) => slugifyHeading(h.textContent?.trim() ?? ''))
+  log.info('scroll to heading:', target, '| candidates:', candidates)
+  for (const heading of headings) {
+    const text = heading.textContent?.trim() ?? ''
+    if (slugifyHeading(text) === target) {
+      log.info('matched heading:', text)
+      heading.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      return
+    }
+  }
+  log.warn('no heading matched for subpath:', subpath)
+}
+
+function NoteEditorView({
+  selectedNote,
+  notes,
+  folders,
+  onSelectNote,
+  onNoteSerializedChange,
+  onRenameNote,
+  onSetNoteCover,
+  onSetNoteTitleEmoji,
+  onSetNoteProperty,
+  editorSettings,
+  propertyCatalog,
+  onDragOver,
+  onDrop,
+  bottomChromePortal,
+  hiddenPropertyKeys,
+  consumePendingSubpath,
+}: Omit<NotesPrimaryPaneProps, 'focusedFolder' | 'notesByFolder' | 'canCreateNote' | 'onNewNote' | 'onExcalidrawSceneChange'> & { selectedNote: SavedNote }): JSX.Element {
+  const editorWrapperRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!consumePendingSubpath) return
+    const subpath = consumePendingSubpath()
+    if (!subpath) return
+    // The editor DOM may not be painted yet — use a short rAF loop to wait.
+    let attempts = 0
+    const MAX_ATTEMPTS = 10
+    const tryScroll = (): void => {
+      const el = editorWrapperRef.current
+      if (el) {
+        scrollToHeading(el, subpath)
+        return
+      }
+      if (++attempts < MAX_ATTEMPTS) requestAnimationFrame(tryScroll)
+    }
+    requestAnimationFrame(tryScroll)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedNote.path])
+
+  const allowCoverProperty =
+    Boolean(selectedNote.coverImageSrc) ||
+    editorSettings.enableCoverProperty ||
+    editorSettings.newNotesStartWithFrontmatter ||
+    selectedNote.hasFrontmatterBlock
+  const allowEmojiProperty =
+    Boolean(selectedNote.titleEmoji) ||
+    editorSettings.enableEmojiProperty ||
+    editorSettings.newNotesStartWithFrontmatter ||
+    selectedNote.hasFrontmatterBlock
+
+  return (
+    <div
+      ref={editorWrapperRef}
+      className="flex min-h-0 flex-1 flex-col"
+      onDragOver={onDragOver}
+      onDrop={onDrop}
+    >
+      <Editor
+        key={selectedNote.path}
+        editorSerializedState={selectedNote.content ?? undefined}
+        onSerializedChange={(s) => onNoteSerializedChange(selectedNote.path, s)}
+        className="min-h-0 flex-1"
+        notelabEditor={{
+          notes,
+          folders,
+          currentNoteId: selectedNote.path,
+          onOpenInternalNote: (notePath, subpath) => {
+            if (notePath === selectedNote.path && subpath && editorWrapperRef.current) {
+              // Same-note subpath link — scroll immediately without re-navigating.
+              scrollToHeading(editorWrapperRef.current, subpath)
+            } else {
+              onSelectNote(notePath, subpath)
+            }
+          },
+        }}
+        header={
+          <>
+            <NoteTitleInput
+              value={selectedNote.title}
+              onChange={(title) => onRenameNote(selectedNote.path, title)}
+            />
+            <NotePropertiesPanel
+              note={selectedNote}
+              notes={notes}
+              editorSettings={editorSettings}
+              propertyCatalog={propertyCatalog}
+              onSetProperty={(key, value) => onSetNoteProperty(selectedNote.path, key, value)}
+              hiddenPropertyKeys={hiddenPropertyKeys}
+            />
+          </>
+        }
+        coverImageSrc={selectedNote.kind === 'note' ? selectedNote.coverImageSrc : undefined}
+        onCoverChange={allowCoverProperty ? (src) => onSetNoteCover(selectedNote.path, src) : undefined}
+        titleEmoji={selectedNote.kind === 'note' ? selectedNote.titleEmoji : undefined}
+        onTitleEmojiChange={allowEmojiProperty ? (emoji) => onSetNoteTitleEmoji(selectedNote.path, emoji) : undefined}
+        bottomChromePortal={bottomChromePortal}
+      />
+    </div>
+  )
 }
 
 export function NotesPrimaryPane({
@@ -60,19 +201,9 @@ export function NotesPrimaryPane({
   onDrop,
   bottomChromePortal,
   hiddenPropertyKeys,
-  onOpenExternalUrl
+  consumePendingSubpath,
 }: NotesPrimaryPaneProps): JSX.Element {
   if (selectedNote) {
-    const allowCoverProperty =
-      Boolean(selectedNote.coverImageSrc) ||
-      editorSettings.enableCoverProperty ||
-      editorSettings.newNotesStartWithFrontmatter ||
-      selectedNote.hasFrontmatterBlock
-    const allowEmojiProperty =
-      Boolean(selectedNote.titleEmoji) ||
-      editorSettings.enableEmojiProperty ||
-      editorSettings.newNotesStartWithFrontmatter ||
-      selectedNote.hasFrontmatterBlock
     if (selectedNote.kind === 'drawing') {
       return (
         <ExcalidrawView
@@ -83,40 +214,24 @@ export function NotesPrimaryPane({
       )
     }
     return (
-      <div
-        className="flex min-h-0 flex-1 flex-col"
+      <NoteEditorView
+        selectedNote={selectedNote}
+        notes={notes}
+        folders={folders}
+        onSelectNote={onSelectNote}
+        onNoteSerializedChange={onNoteSerializedChange}
+        onRenameNote={onRenameNote}
+        onSetNoteCover={onSetNoteCover}
+        onSetNoteTitleEmoji={onSetNoteTitleEmoji}
+        onSetNoteProperty={onSetNoteProperty}
+        editorSettings={editorSettings}
+        propertyCatalog={propertyCatalog}
         onDragOver={onDragOver}
         onDrop={onDrop}
-      >
-        <Editor
-          key={selectedNote.path}
-          editorSerializedState={selectedNote.content ?? undefined}
-          onSerializedChange={(s) => onNoteSerializedChange(selectedNote.path, s)}
-          className="min-h-0 flex-1"
-          notelabEditor={{ notes, folders, currentNoteId: selectedNote.path, onOpenInternalNote: onSelectNote, ...(onOpenExternalUrl ? { onOpenExternalUrl } : {}) }}
-          header={
-            <>
-              <NoteTitleInput
-                value={selectedNote.title}
-                onChange={(title) => onRenameNote(selectedNote.path, title)}
-              />
-              <NotePropertiesPanel
-                note={selectedNote}
-                notes={notes}
-                editorSettings={editorSettings}
-                propertyCatalog={propertyCatalog}
-                onSetProperty={(key, value) => onSetNoteProperty(selectedNote.path, key, value)}
-                hiddenPropertyKeys={hiddenPropertyKeys}
-              />
-            </>
-          }
-          coverImageSrc={selectedNote.kind === 'note' ? selectedNote.coverImageSrc : undefined}
-          onCoverChange={allowCoverProperty ? (src) => onSetNoteCover(selectedNote.path, src) : undefined}
-          titleEmoji={selectedNote.kind === 'note' ? selectedNote.titleEmoji : undefined}
-          onTitleEmojiChange={allowEmojiProperty ? (emoji) => onSetNoteTitleEmoji(selectedNote.path, emoji) : undefined}
-          bottomChromePortal={bottomChromePortal}
-        />
-      </div>
+        bottomChromePortal={bottomChromePortal}
+        hiddenPropertyKeys={hiddenPropertyKeys}
+        consumePendingSubpath={consumePendingSubpath}
+      />
     )
   }
 

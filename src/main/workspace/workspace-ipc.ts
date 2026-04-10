@@ -13,12 +13,12 @@ import {
   readFileSync,
   readdirSync,
   rmSync,
-  unlinkSync,
   writeFileSync,
 } from 'node:fs'
 import { homedir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import {
+  DEFAULT_WORKSPACE_ID,
   deleteNoteFile,
   readNotelabIndexImpl,
   renameWorkspacePath,
@@ -29,11 +29,10 @@ import { checkGitBinary, runGit } from '../git/git-runner'
 
 const LOG = '[notelab-workspace]'
 
-/** Virtual inbox id; root notes live directly in the workspace root. */
-const DEFAULT_WORKSPACE_ID = 'default'
-const MODE_FILE = '.notelab-mode'
-/** Unified app config + session stored at the workspace root. */
+/** Unified app config stored in the system config directory. */
 const APP_CONFIG_FILENAME = 'notelab.json'
+/** System-level config directory, independent of the user's notes workspace. */
+const SYSTEM_CONFIG_DIR = join(homedir(), '.notelab')
 
 // ---------------------------------------------------------------------------
 // Internal helpers
@@ -54,10 +53,7 @@ function appConfigFilePath(cwd: string): string {
 function allowWorkspaceFs(cwd: string): boolean {
   const root = cwd?.trim() ?? ''
   if (!root) return false
-  if (!existsSync(root)) return false
-  if (existsSync(join(root, '.git'))) return true
-  if (existsSync(join(root, MODE_FILE))) return true
-  return false
+  return existsSync(root)
 }
 
 // ---------------------------------------------------------------------------
@@ -96,36 +92,17 @@ export function registerWorkspaceIpc(): void {
         const documentsDir = join(homedir(), 'Documents')
         const defaultRoot = join(documentsDir, 'notelab')
 
-        let notesRoot: string
-        if (requestedPath && requestedPath.length > 0) {
-          notesRoot = resolve(requestedPath)
-        } else {
-          notesRoot = resolve(defaultRoot)
-        }
+        const notesRoot = resolve(requestedPath && requestedPath.length > 0 ? requestedPath : defaultRoot)
         mkdirSync(notesRoot, { recursive: true })
+        mkdirSync(SYSTEM_CONFIG_DIR, { recursive: true })
 
-        const gitDir = join(notesRoot, '.git')
         const gitCheck = checkGitBinary()
         const gitAvailable = gitCheck.ok
-        const gitInitialized = existsSync(gitDir)
+        const gitInitialized = existsSync(join(notesRoot, '.git'))
         const filesystemOnly = !gitInitialized
 
-        if (!gitInitialized) {
-          const modePath = join(notesRoot, MODE_FILE)
-          if (!existsSync(modePath)) {
-            writeFileSync(
-              modePath,
-              JSON.stringify({ allowFilesystemWithoutGit: true, syncMode: 'local' }),
-              'utf8'
-            )
-          }
-        } else {
-          const modePath = join(notesRoot, MODE_FILE)
-          if (existsSync(modePath)) unlinkSync(modePath)
-        }
-
-        console.info(LOG, 'workspace root', notesRoot, { gitAvailable, gitInitialized, filesystemOnly })
-        return { ok: true, path: notesRoot, configRoot: notesRoot, gitAvailable, filesystemOnly, gitInitialized }
+        console.info(LOG, 'workspace root', notesRoot, 'config root', SYSTEM_CONFIG_DIR, { gitAvailable, gitInitialized, filesystemOnly })
+        return { ok: true, path: notesRoot, configRoot: SYSTEM_CONFIG_DIR, gitAvailable, filesystemOnly, gitInitialized }
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e)
         console.error(LOG, 'ensure-data-root failed', msg)
@@ -183,8 +160,6 @@ export function registerWorkspaceIpc(): void {
             normalizedGitignore.length === 0 || normalizedGitignore.endsWith('\n') ? normalizedGitignore : `${normalizedGitignore}\n`
           writeFileSync(gitignorePath, `${prefix}${missingGitignoreEntries.join('\n')}\n`, 'utf8')
         }
-        const modePath = join(cwd, MODE_FILE)
-        if (existsSync(modePath)) unlinkSync(modePath)
         console.info(LOG, 'git init', cwd)
         return { ok: true }
       } catch (e) {
@@ -209,12 +184,6 @@ export function registerWorkspaceIpc(): void {
         mkdirSync(to, { recursive: true })
         let copiedFiles = 0
 
-        const configSrc = join(from, APP_CONFIG_FILENAME)
-        if (existsSync(configSrc)) {
-          copyFileSync(configSrc, join(to, APP_CONFIG_FILENAME))
-          copiedFiles++
-        }
-
         const copyDir = (src: string, dst: string): void => {
           mkdirSync(dst, { recursive: true })
           for (const ent of readdirSync(src, { withFileTypes: true })) {
@@ -230,19 +199,10 @@ export function registerWorkspaceIpc(): void {
         }
 
         for (const entry of readdirSync(from, { withFileTypes: true })) {
-          if (entry.name === APP_CONFIG_FILENAME || entry.name === MODE_FILE || entry.name.startsWith('.')) continue
+          if (entry.name === APP_CONFIG_FILENAME || entry.name.startsWith('.')) continue
           if (entry.isDirectory() || entry.isFile()) {
             copyDir(join(from, entry.name), join(to, entry.name))
           }
-        }
-
-        const modePath = join(to, MODE_FILE)
-        if (!existsSync(join(to, '.git')) && !existsSync(modePath)) {
-          writeFileSync(
-            modePath,
-            JSON.stringify({ allowFilesystemWithoutGit: true, syncMode: 'local' }),
-            'utf8'
-          )
         }
 
         console.info(LOG, 'migrated workspace', from, '→', to, `(${copiedFiles} files)`)
@@ -301,33 +261,6 @@ export function registerWorkspaceIpc(): void {
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e)
         console.error(LOG, 'write-app-config', msg)
-        return { ok: false, error: msg }
-      }
-    }
-  )
-
-  ipcMain.handle(
-    'workspace:set-sync-mode',
-    async (
-      _evt,
-      payload: { cwd: string; syncMode: 'git' | 'github_api' | 'local' }
-    ): Promise<{ ok: true } | { ok: false; error: string }> => {
-      const cwd = typeof payload.cwd === 'string' ? payload.cwd.trim() : ''
-      const syncMode = payload.syncMode
-      if (!cwd || !syncMode) return { ok: false, error: 'missing_args' }
-      try {
-        const modePath = join(cwd, MODE_FILE)
-        writeFileSync(
-          modePath,
-          JSON.stringify({
-            allowFilesystemWithoutGit: true,
-            syncMode,
-          }),
-          'utf8'
-        )
-        return { ok: true }
-      } catch (e) {
-        const msg = e instanceof Error ? e.message : String(e)
         return { ok: false, error: msg }
       }
     }

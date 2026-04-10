@@ -56,9 +56,6 @@ type UseNotesGitSyncArgs = {
   setGitUserConfigDialogOpen: Dispatch<SetStateAction<boolean>>
   setGitPendingRetry: Dispatch<SetStateAction<(() => Promise<void>) | null>>
   user?: NotesUser | null
-  useGithubApiSync: boolean
-  handleGithubApiPull: () => Promise<void>
-  handleGithubApiPush: () => Promise<void>
   reloadNotesFromDisk: () => Promise<void>
   refreshWorkspaceGitStatuses: () => Promise<void>
   refreshGitSourceControl: () => Promise<GitSourceControlSnapshot | null>
@@ -99,9 +96,6 @@ export function useNotesGitSync({
   setGitUserConfigDialogOpen,
   setGitPendingRetry,
   user,
-  useGithubApiSync,
-  handleGithubApiPull,
-  handleGithubApiPush,
   reloadNotesFromDisk,
   refreshWorkspaceGitStatuses,
   refreshGitSourceControl,
@@ -194,10 +188,6 @@ export function useNotesGitSync({
   }, [primaryGitFolder?.localGitPath, refreshGitRepositoryStatus, refreshGitSourceControl, refreshWorkspaceGitStatuses, setGitUserConfigDialogOpen, setGitPendingRetry])
 
   const handleGitCommit = useCallback(async (workspaceId?: string) => {
-    if (useGithubApiSync) {
-      await handleGithubApiPush()
-      return
-    }
     const api = getApi()
     const folder = resolveActiveGitFolder(workspaceId)
     if (!folder?.localGitPath || !api?.workspace?.gitCommit) return
@@ -219,13 +209,9 @@ export function useNotesGitSync({
     } finally {
       setGitSyncBusy(false)
     }
-  }, [gitCommitMessage, handleGitOperationError, handleGithubApiPush, refreshGitSourceControl, refreshWorkspaceGitStatuses, resolveActiveGitFolder, useGithubApiSync, user])
+  }, [gitCommitMessage, handleGitOperationError, refreshGitSourceControl, refreshWorkspaceGitStatuses, resolveActiveGitFolder, user])
 
   const handleGitPush = useCallback(async (workspaceId?: string) => {
-    if (useGithubApiSync) {
-      await handleGithubApiPush()
-      return
-    }
     const api = getApi()
     const folder = resolveActiveGitFolder(workspaceId)
     if (!folder?.localGitPath || !api?.workspace?.gitPush) return
@@ -246,13 +232,9 @@ export function useNotesGitSync({
     } finally {
       setGitSyncBusy(false)
     }
-  }, [handleGitOperationError, handleGithubApiPush, refreshGitRepositoryStatus, refreshGitSourceControl, refreshWorkspaceGitStatuses, resolveActiveGitFolder, useGithubApiSync])
+  }, [handleGitOperationError, refreshGitRepositoryStatus, refreshGitSourceControl, refreshWorkspaceGitStatuses, resolveActiveGitFolder])
 
   const handleGitPull = useCallback(async (workspaceId?: string) => {
-    if (useGithubApiSync) {
-      await handleGithubApiPull()
-      return
-    }
     const api = getApi()
     const folder = resolveActiveGitFolder(workspaceId)
     if (!folder?.localGitPath || !api?.workspace?.gitPull) return
@@ -303,14 +285,9 @@ export function useNotesGitSync({
       })
       setGitSyncBusy(false)
     }
-  }, [handleGitOperationError, handleGithubApiPull, refreshGitRepositoryStatus, refreshGitSourceControl, refreshWorkspaceGitStatuses, reloadNotesFromDisk, resolveActiveGitFolder, useGithubApiSync])
+  }, [handleGitOperationError, refreshGitRepositoryStatus, refreshGitSourceControl, refreshWorkspaceGitStatuses, reloadNotesFromDisk, resolveActiveGitFolder])
 
   const handleGitPullThenPush = useCallback(async (workspaceId?: string) => {
-    if (useGithubApiSync) {
-      await handleGithubApiPull()
-      await handleGithubApiPush()
-      return
-    }
     const api = getApi()
     const folder = resolveActiveGitFolder(workspaceId)
     if (!folder?.localGitPath || !api?.workspace?.gitPull || !api.workspace.gitPush) return
@@ -382,13 +359,9 @@ export function useNotesGitSync({
       })
       setGitSyncBusy(false)
     }
-  }, [handleGitOperationError, handleGithubApiPull, handleGithubApiPush, refreshGitRepositoryStatus, refreshGitSourceControl, refreshWorkspaceGitStatuses, reloadNotesFromDisk, resolveActiveGitFolder, useGithubApiSync])
+  }, [handleGitOperationError, refreshGitRepositoryStatus, refreshGitSourceControl, refreshWorkspaceGitStatuses, reloadNotesFromDisk, resolveActiveGitFolder])
 
   const handleGitCommitAndPush = useCallback(async (workspaceId?: string) => {
-    if (useGithubApiSync) {
-      await handleGithubApiPush()
-      return
-    }
     const api = getApi()
     const folder = resolveActiveGitFolder(workspaceId)
     if (!folder?.localGitPath || !api?.workspace?.gitCommit) return
@@ -423,7 +396,7 @@ export function useNotesGitSync({
     } finally {
       setGitSyncBusy(false)
     }
-  }, [gitCommitMessage, handleGitOperationError, handleGithubApiPush, refreshGitRepositoryStatus, refreshGitSourceControl, refreshWorkspaceGitStatuses, resolveActiveGitFolder, useGithubApiSync, user])
+  }, [gitCommitMessage, handleGitOperationError, refreshGitRepositoryStatus, refreshGitSourceControl, refreshWorkspaceGitStatuses, resolveActiveGitFolder, user])
 
   const handleSaveGithubRemote = useCallback((overrideUrl?: string) => {
     const url = overrideUrl !== undefined ? overrideUrl.trim() : githubRemoteUrl.trim()
