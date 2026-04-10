@@ -5,6 +5,9 @@ import type { NotePropertyMap, NotePropertyValue } from "../../../../shared/note
 /** Stable folder name for migrated notes without a workspace. */
 export const DEFAULT_WORKSPACE_ID = "default"
 
+/** Dedicated folder name for journal notes. */
+export const JOURNAL_FOLDER_ID = ".journal"
+
 export type { NotePropertyMap, NotePropertyValue }
 
 export type Folder = {

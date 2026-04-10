@@ -169,7 +169,7 @@ export const TimelineRuler = memo(function TimelineRuler({
             role="listbox"
             aria-label="Journal dates"
             onScroll={onScroll}
-            className="flex min-h-0 min-w-0 flex-1 overflow-x-auto overflow-y-hidden overscroll-x-contain [scrollbar-width:thin]"
+            className="flex min-h-0 min-w-0 flex-1 overflow-x-auto overflow-y-hidden overscroll-x-contain [scrollbar-width:none]"
           >
             {dates.map((date) => {
               const dateStr = format(date, "yyyy-MM-dd");
