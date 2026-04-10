@@ -3,7 +3,10 @@ import { Trash2 } from 'lucide-react'
 
 import { KeySuggestDropdown, ValueSuggestDropdown } from './PropertySuggestDropdowns'
 import { buildPropertyKeySuggestions, PropertyIcon } from './PropertyIcon'
-import { buildPropertyValueSuggestions } from './property-value-suggestions'
+import {
+  buildPropertyValueSuggestions,
+  resolvePickedValueSuggestion
+} from './property-value-suggestions'
 
 export function PropertyRow({
   propKey,
@@ -90,8 +93,9 @@ export function PropertyRow({
       e.preventDefault()
       if (valueSuggestions.length > 0 && valueSuggestions[valueHighlightedIndex]) {
         const picked = valueSuggestions[valueHighlightedIndex]
-        valueDraftRef.current = picked
-        setValueDraft(picked)
+        const next = resolvePickedValueSuggestion(picked)
+        valueDraftRef.current = next
+        setValueDraft(next)
       }
       e.currentTarget.blur()
     } else if (e.key === 'Escape') {
@@ -192,8 +196,9 @@ export function PropertyRow({
             suggestions={valueSuggestions}
             highlightedIndex={valueHighlightedIndex}
             onSelect={(v) => {
-              valueDraftRef.current = v
-              setValueDraft(v)
+              const next = resolvePickedValueSuggestion(v)
+              valueDraftRef.current = next
+              setValueDraft(next)
               setShowValueSuggestions(false)
               valueRef.current?.blur()
             }}

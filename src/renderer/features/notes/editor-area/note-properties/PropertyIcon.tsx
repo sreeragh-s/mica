@@ -4,6 +4,7 @@ import {
   Calendar,
   Clock,
   CornerDownRight,
+  Fingerprint,
   Hash,
   Link,
   MapPin,
@@ -44,6 +45,8 @@ export const SUGGESTED_PROPERTY_KEYS: readonly string[] = [
   'duration',
   'deadline',
   'due',
+  'guid',
+  'uuid',
   'location',
   'place',
   'city',
@@ -87,6 +90,9 @@ export function PropertyIcon({ propKey }: { propKey: string }): JSX.Element {
   const cls = 'size-4 shrink-0 text-muted-foreground'
   if (k === 'aliases') return <CornerDownRight className={cls} />
   if (k === 'tags' || k === 'category' || k === 'categories') return <Tag className={cls} />
+  if (k === 'uuid' || k === 'guid' || k.includes('uuid')) {
+    return <Fingerprint className={cls} />
+  }
   if (k.includes('url') || k.includes('link') || k.includes('href') || k === 'source') {
     return <Link className={cls} />
   }
