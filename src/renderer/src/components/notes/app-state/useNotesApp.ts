@@ -465,7 +465,6 @@ export function useNotesApp({
   }, [])
 
   const pushOpenNoteTab = useCallback((notePath: string) => {
-    if (!notesRef.current.some((n) => n.path === notePath)) return
     setOpenNoteTabIds((prev) => (prev.includes(notePath) ? prev : [...prev, notePath]))
   }, [])
 

@@ -1,4 +1,4 @@
-import type { JSX } from 'react'
+import type { JSX, ReactNode } from 'react'
 
 import type { LucideIcon } from 'lucide-react'
 
@@ -15,6 +15,8 @@ export type ChatSidebarPanelTabItem = {
 }
 
 export type ChatSidebarPanelTabsProps = {
+  /** Rendered before the tab icons (e.g. new chat). */
+  leading?: ReactNode
   value: string
   onValueChange: (next: string) => void
   items: ChatSidebarPanelTabItem[]
@@ -25,6 +27,7 @@ export type ChatSidebarPanelTabsProps = {
  * Parent should wrap in macOS `no-drag` + `pointer-events-auto` when inside a titlebar row.
  */
 export function ChatSidebarPanelTabs({
+  leading,
   value,
   onValueChange,
   items
@@ -39,6 +42,7 @@ export function ChatSidebarPanelTabs({
         )}
         role="tablist"
       >
+        {leading != null ? <span className="flex shrink-0 items-center">{leading}</span> : null}
         {items.map((t) => {
           const active = t.value === value
           const Icon = t.icon

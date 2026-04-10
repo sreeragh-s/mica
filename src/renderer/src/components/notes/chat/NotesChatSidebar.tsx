@@ -12,9 +12,20 @@ import {
   PlusIcon,
   ScanTextIcon,
   Search,
-  SparklesIcon
+  SparklesIcon,
+  X
 } from 'lucide-react'
-import { type JSX, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import {
+  type JSX,
+  type MouseEvent,
+  type PointerEvent as ReactPointerEvent,
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState
+} from 'react'
 
 import {
   PromptInputChatMentionTextarea,
@@ -137,6 +148,15 @@ const STARTER_SUGGESTIONS = [
   'What did I write about last week?',
   'Find todos across my notes'
 ]
+
+const CHAT_SIDEBAR_WIDTH_LS_KEY = 'notelab:chat-sidebar-width-px'
+const CHAT_SIDEBAR_DEFAULT_WIDTH_PX = 440
+const CHAT_SIDEBAR_MIN_WIDTH_PX = 300
+const CHAT_SIDEBAR_MAX_WIDTH_PX = 900
+
+function clampChatSidebarWidth(w: number): number {
+  return Math.round(Math.min(CHAT_SIDEBAR_MAX_WIDTH_PX, Math.max(CHAT_SIDEBAR_MIN_WIDTH_PX, w)))
+}
 
 /** macOS: row uses `pointer-events-none` so the window drag band receives hits; interactive chrome opts back in. */
 function ChatSidebarMacHitLayer({
@@ -309,22 +329,99 @@ export function NotesChatSidebar({
   isMacNotelab,
   linkMentionIndex
 }: NotesChatSidebarProps): JSX.Element {
+  const [sidebarWidthPx, setSidebarWidthPx] = useState(() => {
+    try {
+      const raw = localStorage.getItem(CHAT_SIDEBAR_WIDTH_LS_KEY)
+      if (raw == null) return CHAT_SIDEBAR_DEFAULT_WIDTH_PX
+      const n = Number(raw)
+      if (Number.isFinite(n)) return clampChatSidebarWidth(n)
+    } catch {
+      /* ignore */
+    }
+    return CHAT_SIDEBAR_DEFAULT_WIDTH_PX
+  })
+  const [isResizing, setIsResizing] = useState(false)
+  const resizeDragRef = useRef<{ startX: number; startW: number } | null>(null)
+  const sidebarWidthRef = useRef(CHAT_SIDEBAR_DEFAULT_WIDTH_PX)
+
+  useEffect(() => {
+    sidebarWidthRef.current = sidebarWidthPx
+  }, [sidebarWidthPx])
+
+  const onResizePointerDown = useCallback(
+    (e: ReactPointerEvent<HTMLDivElement>) => {
+      if (e.button !== 0 || !open) return
+      e.preventDefault()
+      resizeDragRef.current = { startX: e.clientX, startW: sidebarWidthRef.current }
+      setIsResizing(true)
+      e.currentTarget.setPointerCapture(e.pointerId)
+    },
+    [open]
+  )
+
+  const onResizePointerMove = useCallback((e: ReactPointerEvent<HTMLDivElement>) => {
+    const d = resizeDragRef.current
+    if (!d) return
+    const dx = d.startX - e.clientX
+    setSidebarWidthPx(clampChatSidebarWidth(d.startW + dx))
+  }, [])
+
+  const onResizePointerUp = useCallback((e: ReactPointerEvent<HTMLDivElement>) => {
+    if (resizeDragRef.current == null) return
+    resizeDragRef.current = null
+    setIsResizing(false)
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId)
+    } catch {
+      /* ignore */
+    }
+    setSidebarWidthPx((w) => {
+      try {
+        localStorage.setItem(CHAT_SIDEBAR_WIDTH_LS_KEY, String(w))
+      } catch {
+        /* ignore */
+      }
+      return w
+    })
+  }, [])
+
   return (
     <div
       aria-hidden={!open}
       className={cn(
-        'flex min-h-0 shrink-0 self-stretch overflow-hidden transition-[width] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] will-change-[width]',
+        'flex min-h-0 shrink-0 self-stretch overflow-hidden',
+        !isResizing &&
+          'transition-[width] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] will-change-[width]',
         open && 'pointer-events-auto',
-        open ? 'w-[min(100%,440px)]' : 'w-0'
+        open ? '' : 'w-0'
       )}
+      style={open ? { width: `min(100%, ${sidebarWidthPx}px)` } : { width: 0 }}
     >
       <div
         className={cn(
-          'flex h-full min-h-0 w-[min(100%,440px)] flex-col border-l transition-[opacity,transform] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] will-change-[opacity,transform]',
+          'relative flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden border-l transition-[opacity,transform] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] will-change-[opacity,transform]',
           'border-border bg-background',
           open ? 'translate-x-0 opacity-100' : 'pointer-events-none translate-x-2 opacity-0'
         )}
       >
+        {open ? (
+          <div
+            aria-label="Resize chat panel"
+            aria-orientation="vertical"
+            className={cn(
+              'absolute left-0 top-0 z-20 h-full w-2 shrink-0 cursor-col-resize touch-none',
+              'hover:bg-primary/10 active:bg-primary/15',
+              isMacNotelab && 'pointer-events-auto'
+            )}
+            data-sidebar-interactive=""
+            onPointerCancel={onResizePointerUp}
+            onPointerDown={onResizePointerDown}
+            onPointerMove={onResizePointerMove}
+            onPointerUp={onResizePointerUp}
+            role="separator"
+            style={isMacNotelab ? macTitlebarStyles.noDrag : undefined}
+          />
+        ) : null}
         <NotesChatSidebarInner
           open={open}
           folders={folders}
@@ -370,6 +467,7 @@ function NotesChatSidebarInner({
   const ollama = useOllama()
 
   // Embedding-only tags (e.g. bge-m3) are not chat models — avoid stale selection
+  /* eslint-disable react-hooks/set-state-in-effect -- correct invalid local model pick when Ollama model list updates */
   useEffect(() => {
     if (!selectedModelId.startsWith(LOCAL_MODEL_PREFIX)) return
     const name = selectedModelId.slice(LOCAL_MODEL_PREFIX.length)
@@ -379,6 +477,7 @@ function NotesChatSidebarInner({
       firstChat ? `${LOCAL_MODEL_PREFIX}${firstChat.name}` : DEFAULT_NOTELAB_MODEL_ID
     )
   }, [selectedModelId, ollama.localModels])
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const {
     session,
@@ -386,9 +485,9 @@ function NotesChatSidebarInner({
     isLoading,
     filterWorkspaceId,
     setFilterWorkspaceId,
-    showHistory,
     setShowHistory,
     sendMessage,
+    persistCurrentSessionIfNeeded,
     newChat,
     loadHistorySession
   } = useNotesChat({ notes, folders, workspacePath, selectedNote, modelId: selectedModelId })
@@ -409,6 +508,9 @@ function NotesChatSidebarInner({
   const [chatReferences, setChatReferences] = useState<PromptInputChatReference[]>([])
   const [historySearch, setHistorySearch] = useState('')
   const [chatTab, setChatTab] = useState<'chat' | 'history'>('chat')
+  const [openSessionTabs, setOpenSessionTabs] = useState<
+    Array<{ sessionId: string; title: string }>
+  >([])
   const textareaRef = useRef<PromptInputChatMentionTextareaHandle>(null)
   const hasTriggeredAutoIndexRef = useRef(false)
 
@@ -420,16 +522,23 @@ function NotesChatSidebarInner({
     return Array.from(map.values())
   }, [folders])
 
-  useEffect(() => {
-    if (chatTab !== 'history') setHistorySearch('')
-  }, [chatTab])
+  const visibleSessionTabs = useMemo(() => {
+    if (openSessionTabs.length === 0) {
+      return [{ sessionId: session.id, title: session.title }]
+    }
+    return openSessionTabs.map((t) =>
+      t.sessionId === session.id ? { ...t, title: session.title } : t
+    )
+  }, [openSessionTabs, session.id, session.title])
 
+  /* eslint-disable react-hooks/set-state-in-effect -- reset chat chrome when parent switches to links panel */
   useEffect(() => {
     if (panel !== 'links') return
     setChatTab('chat')
     setShowHistory(false)
     setLocalSetupOpen(false)
   }, [panel, setShowHistory])
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   useEffect(() => {
     setShowHistory(chatTab === 'history')
@@ -626,6 +735,83 @@ function NotesChatSidebarInner({
     })
   }, [])
 
+  const onNewChat = useCallback(async () => {
+    const priorId = session.id
+    const priorTitle = session.title
+    const fresh = await newChat()
+    setOpenSessionTabs((prev) => {
+      const base = prev.length > 0 ? prev : [{ sessionId: priorId, title: priorTitle }]
+      if (base.some((t) => t.sessionId === fresh.id)) return base
+      return [...base, { sessionId: fresh.id, title: fresh.title }]
+    })
+  }, [session.id, session.title, newChat])
+
+  const handleOpenHistoryItem = useCallback(
+    async (meta: ChatHistoryMeta) => {
+      const priorId = session.id
+      const priorTitle = session.title
+      await persistCurrentSessionIfNeeded()
+      await loadHistorySession(meta)
+      setChatTab('chat')
+      setOpenSessionTabs((prev) => {
+        const base = prev.length > 0 ? prev : [{ sessionId: priorId, title: priorTitle }]
+        if (base.some((t) => t.sessionId === meta.sessionId)) {
+          return base.map((t) => (t.sessionId === meta.sessionId ? { ...t, title: meta.title } : t))
+        }
+        return [...base, { sessionId: meta.sessionId, title: meta.title }]
+      })
+    },
+    [session.id, session.title, persistCurrentSessionIfNeeded, loadHistorySession]
+  )
+
+  const selectOpenSessionTab = useCallback(
+    async (sessionId: string) => {
+      if (sessionId === session.id) return
+      await persistCurrentSessionIfNeeded()
+      const fromTabs = visibleSessionTabs.find((t) => t.sessionId === sessionId)
+      const meta: ChatHistoryMeta = historyMeta.find((m) => m.sessionId === sessionId) ?? {
+        sessionId,
+        title: fromTabs?.title ?? 'Chat',
+        createdAt: Date.now(),
+        messageCount: 0
+      }
+      await loadHistorySession(meta)
+    },
+    [session.id, persistCurrentSessionIfNeeded, visibleSessionTabs, historyMeta, loadHistorySession]
+  )
+
+  const closeOpenSessionTab = useCallback(
+    async (e: MouseEvent, sessionId: string) => {
+      e.stopPropagation()
+      const sourceTabs = openSessionTabs.length > 0 ? openSessionTabs : visibleSessionTabs
+      if (sourceTabs.length <= 1) return
+      if (sessionId === session.id && session.messages.length > 0) {
+        await persistCurrentSessionIfNeeded()
+      }
+      const idx = sourceTabs.findIndex((t) => t.sessionId === sessionId)
+      const nextTabs = sourceTabs.filter((t) => t.sessionId !== sessionId)
+      setOpenSessionTabs(nextTabs)
+      if (sessionId !== session.id) return
+      const pick = nextTabs[Math.max(0, idx - 1)] ?? nextTabs[0]
+      const meta: ChatHistoryMeta = historyMeta.find((m) => m.sessionId === pick.sessionId) ?? {
+        sessionId: pick.sessionId,
+        title: pick.title,
+        createdAt: Date.now(),
+        messageCount: 0
+      }
+      await loadHistorySession(meta)
+    },
+    [
+      openSessionTabs,
+      visibleSessionTabs,
+      session.id,
+      session.messages.length,
+      persistCurrentSessionIfNeeded,
+      historyMeta,
+      loadHistorySession
+    ]
+  )
+
   // ---------------------------------------------------------------------------
   // Paywall banner
   // ---------------------------------------------------------------------------
@@ -691,11 +877,18 @@ function NotesChatSidebarInner({
 
   const chatTabStrip = (
     <ChatSidebarPanelTabs
+      leading={
+        panel === 'chat' ? <ChatSidebarNewChatButton onClick={() => void onNewChat()} /> : undefined
+      }
       items={[
         { value: 'chat', label: 'Chat', icon: BotIcon },
         { value: 'history', label: 'History', icon: History }
       ]}
-      onValueChange={(v) => setChatTab(v as 'chat' | 'history')}
+      onValueChange={(v) => {
+        const next = v as 'chat' | 'history'
+        setChatTab(next)
+        if (next !== 'history') setHistorySearch('')
+      }}
       value={chatTab}
     />
   )
@@ -710,49 +903,6 @@ function NotesChatSidebarInner({
       value={linkMode}
     />
   )
-
-  if (panel === 'chat' && showHistory) {
-    return (
-      <aside
-        aria-label="Chat history"
-        className="border-border bg-background flex min-h-0 min-w-0 flex-1 flex-col"
-      >
-        <ChatSidebarTopBar
-          isMacNotelab={isMacNotelab}
-          leading={
-            <ChatSidebarToolbarLeading
-              filterWorkspaceId={filterWorkspaceId}
-              folders={folders}
-              historySearch={historySearch}
-              setFilterWorkspaceId={setFilterWorkspaceId}
-              setHistorySearch={setHistorySearch}
-              showHistory
-            />
-          }
-          tabs={chatTabStrip}
-          trailing={<ChatSidebarNewChatButton onClick={() => void newChat()} />}
-        />
-        <div className="flex-1 overflow-y-auto p-2">
-          {historyMeta.length === 0 ? (
-            <p className="text-muted-foreground py-8 text-center text-xs">No saved sessions yet.</p>
-          ) : historySearchResults.length === 0 ? (
-            <p className="text-muted-foreground py-8 text-center text-xs">No matching sessions.</p>
-          ) : (
-            <ul className="space-y-1">
-              {historySearchResults.map(({ meta, titleSegments }) => (
-                <HistoryItem
-                  key={meta.sessionId}
-                  meta={meta}
-                  onLoad={loadHistorySession}
-                  titleSegments={titleSegments}
-                />
-              ))}
-            </ul>
-          )}
-        </div>
-      </aside>
-    )
-  }
 
   // ---------------------------------------------------------------------------
   // Local model setup view — replaces the entire sidebar content
@@ -798,22 +948,29 @@ function NotesChatSidebarInner({
       <ChatSidebarTopBar
         isMacNotelab={isMacNotelab}
         leading={
-          panel === 'chat' && folders.length > 0 ? (
+          panel === 'chat' && (folders.length > 0 || chatTab === 'history') ? (
             <ChatSidebarToolbarLeading
               filterWorkspaceId={filterWorkspaceId}
               folders={folders}
               historySearch={historySearch}
               setFilterWorkspaceId={setFilterWorkspaceId}
               setHistorySearch={setHistorySearch}
-              showHistory={false}
+              showHistory={chatTab === 'history'}
             />
           ) : null
         }
         tabs={panel === 'chat' ? chatTabStrip : linkTabStrip}
-        trailing={
-          panel === 'chat' ? <ChatSidebarNewChatButton onClick={() => void newChat()} /> : null
-        }
+        trailing={null}
       />
+      {panel === 'chat' ? (
+        <ChatSidebarOpenSessionTabs
+          activeSessionId={session.id}
+          isMacNotelab={isMacNotelab}
+          onClose={closeOpenSessionTab}
+          onSelect={selectOpenSessionTab}
+          tabs={visibleSessionTabs}
+        />
+      ) : null}
       {panel === 'links' ? (
         <NoteLinksPanel
           foldersById={workspacesById}
@@ -822,6 +979,31 @@ function NotesChatSidebarInner({
           onOpenNote={selectNote}
           selectedNote={selectedNote}
         />
+      ) : chatTab === 'history' ? (
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+          <div className="flex-1 overflow-y-auto p-2">
+            {historyMeta.length === 0 ? (
+              <p className="text-muted-foreground py-8 text-center text-xs">
+                No saved sessions yet.
+              </p>
+            ) : historySearchResults.length === 0 ? (
+              <p className="text-muted-foreground py-8 text-center text-xs">
+                No matching sessions.
+              </p>
+            ) : (
+              <ul className="space-y-1">
+                {historySearchResults.map(({ meta, titleSegments }) => (
+                  <HistoryItem
+                    key={meta.sessionId}
+                    meta={meta}
+                    onLoad={handleOpenHistoryItem}
+                    titleSegments={titleSegments}
+                  />
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
       ) : (
         <>
           {isLocalModelSelected &&
@@ -1033,6 +1215,67 @@ function NotesChatSidebarInner({
 // ---------------------------------------------------------------------------
 // Sub-components
 // ---------------------------------------------------------------------------
+
+function ChatSidebarOpenSessionTabs({
+  tabs,
+  activeSessionId,
+  onSelect,
+  onClose,
+  isMacNotelab
+}: {
+  tabs: Array<{ sessionId: string; title: string }>
+  activeSessionId: string
+  onSelect: (sessionId: string) => void
+  onClose: (e: MouseEvent, sessionId: string) => void
+  isMacNotelab?: boolean
+}): JSX.Element {
+  return (
+    <ChatSidebarMacHitLayer
+      className="border-border shrink-0 border-b px-2 py-1.5"
+      isMacNotelab={isMacNotelab}
+    >
+      <div className="flex gap-1 overflow-x-auto [scrollbar-width:thin]" role="tablist">
+        {tabs.map((t) => {
+          const active = t.sessionId === activeSessionId
+          const label = (t.title || 'Chat').trim() || 'Chat'
+          return (
+            <div
+              key={t.sessionId}
+              className={cn(
+                'flex min-w-0 max-w-[168px] shrink-0 items-stretch rounded-md border text-[11px] font-medium',
+                active
+                  ? 'border-border bg-background text-foreground shadow-sm'
+                  : 'border-border/50 bg-muted/40 text-muted-foreground hover:bg-muted/55'
+              )}
+            >
+              <button
+                aria-selected={active}
+                className="min-w-0 flex-1 truncate px-2 py-1.5 text-left"
+                onClick={() => void onSelect(t.sessionId)}
+                role="tab"
+                type="button"
+              >
+                {label}
+              </button>
+              {tabs.length > 1 ? (
+                <Button
+                  aria-label={`Close ${label}`}
+                  className="text-muted-foreground hover:text-foreground size-7 min-h-0 shrink-0 rounded-none rounded-r-md"
+                  onClick={(e) => void onClose(e, t.sessionId)}
+                  size="icon-sm"
+                  type="button"
+                  variant="ghost"
+                >
+                  <X className="size-3" />
+                </Button>
+              ) : null}
+            </div>
+          )
+        })}
+      </div>
+    </ChatSidebarMacHitLayer>
+  )
+}
 
 function HistoryItem({
   meta,

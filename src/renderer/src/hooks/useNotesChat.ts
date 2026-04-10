@@ -127,7 +127,7 @@ function searchRowsToSources(
         note: row.note,
         title: note?.title || row.title || 'Untitled',
         folder: row.folder,
-        chunkText: row.text,
+        chunkText: row.text
       }
     })
     .filter((source) => existingNoteIds.has(source.note))
@@ -180,7 +180,9 @@ export type UseNotesChatResult = {
   showHistory: boolean
   setShowHistory: (v: boolean) => void
   sendMessage: (query: string, context?: SendMessageContextOptions) => Promise<void>
-  newChat: () => Promise<void>
+  /** Writes the current session to disk and history meta when it has messages (e.g. before switching tabs). */
+  persistCurrentSessionIfNeeded: () => Promise<void>
+  newChat: () => Promise<ChatSession>
   loadHistorySession: (meta: ChatHistoryMeta) => Promise<void>
 }
 
@@ -188,7 +190,7 @@ export function useNotesChat({
   notes,
   selectedNote,
   workspacePath,
-  modelId = 'llama-4-scout-17b',
+  modelId = 'llama-4-scout-17b'
 }: UseNotesChatOptions): UseNotesChatResult {
   const [session, setSession] = useState<ChatSession>(loadCurrentSession)
   const [historyMeta, setHistoryMeta] = useState<ChatHistoryMeta[]>(loadHistoryMeta)
@@ -243,7 +245,7 @@ export function useNotesChat({
         id: newSessionId(),
         role: 'user',
         content: userMessageForUi,
-        timestamp: Date.now(),
+        timestamp: Date.now()
       }
 
       setIsLoading(true)
@@ -257,8 +259,8 @@ export function useNotesChat({
           messages: [
             ...prev.messages,
             userMsg,
-            { id: assistantId, role: 'assistant', content: '', timestamp: Date.now(), sources: [] },
-          ],
+            { id: assistantId, role: 'assistant', content: '', timestamp: Date.now(), sources: [] }
+          ]
         }
         return updated
       })
@@ -269,8 +271,12 @@ export function useNotesChat({
       // -----------------------------------------------------------------------
       // 1. Retrieve document sections from the workspace-local Vectra index
       // -----------------------------------------------------------------------
-      let mentionSources: ChatSource[] = []
-      if (workspacePath && searchApi && (explicitNoteIds.length > 0 || explicitWorkspaceIds.length > 0)) {
+      const mentionSources: ChatSource[] = []
+      if (
+        workspacePath &&
+        searchApi &&
+        (explicitNoteIds.length > 0 || explicitWorkspaceIds.length > 0)
+      ) {
         const seenMention = new Set<string>()
         if (explicitNoteIds.length > 0) {
           const res = await searchApi({
@@ -281,7 +287,7 @@ export function useNotesChat({
             maxSections: 1,
             maxTokens: 320,
             filter: { note: { $in: explicitNoteIds } },
-            isBm25: true,
+            isBm25: true
           })
           if (res.ok) {
             for (const source of searchRowsToSources(res.rows, notes, existingNoteIds)) {
@@ -301,7 +307,7 @@ export function useNotesChat({
             maxSections: 1,
             maxTokens: 320,
             filter: { folder: { $in: explicitWorkspaceIds } },
-            isBm25: true,
+            isBm25: true
           })
           if (res.ok) {
             for (const source of searchRowsToSources(res.rows, notes, existingNoteIds)) {
@@ -317,9 +323,7 @@ export function useNotesChat({
         )
       }
 
-      const workspaceFilter = filterWorkspaceId
-        ? { folder: { $eq: filterWorkspaceId } }
-        : undefined
+      const workspaceFilter = filterWorkspaceId ? { folder: { $eq: filterWorkspaceId } } : undefined
 
       log.info(`[1/3] notes in memory: ${notes.length}`)
       notes.slice(0, 15).forEach((n, i) => {
@@ -340,7 +344,7 @@ export function useNotesChat({
               maxSections: 1,
               maxTokens: 320,
               filter: workspaceFilter,
-              isBm25: true,
+              isBm25: true
             })
           : null
       log.info('[1/3] raw Vectra rows', searchRes)
@@ -378,9 +382,7 @@ export function useNotesChat({
       // -----------------------------------------------------------------------
       // 2. Build context for the AI (all sections, not deduplicated)
       // -----------------------------------------------------------------------
-      const contextChunks = allSources.map(
-        (s) => `[Source: "${s.title}"]\n${s.chunkText}`
-      )
+      const contextChunks = allSources.map((s) => `[Source: "${s.title}"]\n${s.chunkText}`)
 
       log.info(`[2/3] context — ${contextChunks.length} section(s)`)
       contextChunks.forEach((c, i) => {
@@ -392,11 +394,13 @@ export function useNotesChat({
       // -----------------------------------------------------------------------
       const historyForApi = session.messages.slice(-10).map((m) => ({
         role: m.role,
-        content: m.content,
+        content: m.content
       }))
       historyForApi.push({ role: 'user' as const, content: trimmedQuery })
 
-      log.info(`[3/3] POST /api/chat — messages=${historyForApi.length} contextSections=${contextChunks.length}`)
+      log.info(
+        `[3/3] POST /api/chat — messages=${historyForApi.length} contextSections=${contextChunks.length}`
+      )
       historyForApi.forEach((m, i) => {
         log.info(`msg[${i}] [${m.role}]: "${m.content.slice(0, 80)}"`)
       })
@@ -413,7 +417,7 @@ export function useNotesChat({
           ...prev,
           messages: prev.messages.map((m) =>
             m.id === assistantId ? { ...m, sources: uniqueSources, content: accumulatedContent } : m
-          ),
+          )
         }))
         setIsLoading(false)
         streamCleanupRef.current = null
@@ -427,7 +431,7 @@ export function useNotesChat({
             m.id === assistantId
               ? { ...m, content: accumulatedContent || `⚠️ Stream error: ${msg}` }
               : m
-          ),
+          )
         }))
         setIsLoading(false)
         streamCleanupRef.current = null
@@ -438,13 +442,14 @@ export function useNotesChat({
         log.info(`[3/3] streaming from local Ollama — model="${ollamaModelName}"`)
 
         // Build Ollama chat messages format (with system prompt containing context)
-        const systemPrompt = contextChunks.length > 0
-          ? `You are a helpful notes assistant. Use the following excerpts from the user's notes to answer questions:\n\n${contextChunks.join('\n\n---\n\n')}`
-          : 'You are a helpful notes assistant.'
+        const systemPrompt =
+          contextChunks.length > 0
+            ? `You are a helpful notes assistant. Use the following excerpts from the user's notes to answer questions:\n\n${contextChunks.join('\n\n---\n\n')}`
+            : 'You are a helpful notes assistant.'
 
         const ollamaMessages = [
           { role: 'system', content: systemPrompt },
-          ...historyForApi.map((m) => ({ role: m.role, content: m.content })),
+          ...historyForApi.map((m) => ({ role: m.role, content: m.content }))
         ]
 
         // Stream via main process — renderer fetch() to localhost hits CORS from the Vite dev origin.
@@ -457,7 +462,7 @@ export function useNotesChat({
         const bodyJson = JSON.stringify({
           model: ollamaModelName,
           messages: ollamaMessages,
-          stream: true,
+          stream: true
         })
 
         /** Ollama may send an error JSON line; main still ends the stream afterward. */
@@ -489,11 +494,13 @@ export function useNotesChat({
                 ...prev,
                 messages: prev.messages.map((m) =>
                   m.id === assistantId ? { ...m, content: accumulatedContent } : m
-                ),
+                )
               }))
             }
             if (obj.done) {
-              log.info(`[3/3] Ollama stream done — tokens=${chunkCount} chars=${accumulatedContent.length}`)
+              log.info(
+                `[3/3] Ollama stream done — tokens=${chunkCount} chars=${accumulatedContent.length}`
+              )
             }
           } catch {
             /* skip malformed */
@@ -517,7 +524,7 @@ export function useNotesChat({
             }
             if (!ollamaStreamFailed) finalizeMessage()
           },
-          onError: ollamaStreamError,
+          onError: ollamaStreamError
         })
         streamCleanupRef.current = cleanupStream
       } else {
@@ -543,13 +550,15 @@ export function useNotesChat({
           `${baseUrl}/api/chat`,
           {
             method: 'POST',
-            body: JSON.stringify({ messages: historyForApi, contextChunks, modelId }),
+            body: JSON.stringify({ messages: historyForApi, contextChunks, modelId })
           },
           {
             onChunk: (chunk: string) => {
               if (abortRef.current) return
               chunkCount++
-              log.info(`SSE raw chunk[${chunkCount}] bytes=${chunk.length} preview=${JSON.stringify(chunk.slice(0, 120))}`)
+              log.info(
+                `SSE raw chunk[${chunkCount}] bytes=${chunk.length} preview=${JSON.stringify(chunk.slice(0, 120))}`
+              )
               rawBuffer += chunk
               const { tokens } = parseSSEChunks(rawBuffer)
               const lastNewline = rawBuffer.lastIndexOf('\n')
@@ -563,16 +572,18 @@ export function useNotesChat({
                   ...prev,
                   messages: prev.messages.map((m) =>
                     m.id === assistantId ? { ...m, content: accumulatedContent } : m
-                  ),
+                  )
                 }))
               }
             },
             onEnd: () => {
-              log.info(`[3/3] stream ended — chunks=${chunkCount} chars=${accumulatedContent.length}`)
+              log.info(
+                `[3/3] stream ended — chunks=${chunkCount} chars=${accumulatedContent.length}`
+              )
               log.info(`[3/3] final response preview: "${accumulatedContent.slice(0, 200)}"`)
               finalizeMessage()
             },
-            onError: handleStreamError,
+            onError: handleStreamError
           }
         )
 
@@ -584,45 +595,50 @@ export function useNotesChat({
   )
 
   // ---------------------------------------------------------------------------
+  // persist — save current session when it has messages
+  // ---------------------------------------------------------------------------
+
+  const persistCurrentSessionIfNeeded = useCallback(async () => {
+    if (session.messages.length === 0) return
+    log.info(`persisting session to disk: ${session.id}`)
+    const chatHistoryApi = window.api.chatHistory
+    if (chatHistoryApi) {
+      const res = await chatHistoryApi.write({
+        sessionId: session.id,
+        title: session.title,
+        createdAt: session.createdAt,
+        messages: session.messages.map((m) => ({
+          role: m.role,
+          content: m.content,
+          timestamp: m.timestamp
+        }))
+      })
+      if (res.ok) {
+        log.info('session written to disk OK')
+      } else {
+        log.warn('failed to write session', res.error)
+      }
+    }
+
+    const meta: ChatHistoryMeta = {
+      sessionId: session.id,
+      title: session.title,
+      createdAt: session.createdAt,
+      messageCount: session.messages.length
+    }
+    setHistoryMeta((prev) => {
+      const deduped = [meta, ...prev.filter((m) => m.sessionId !== session.id)]
+      saveHistoryMeta(deduped)
+      return deduped
+    })
+  }, [session])
+
+  // ---------------------------------------------------------------------------
   // newChat — save current session to disk, then reset
   // ---------------------------------------------------------------------------
 
   const newChat = useCallback(async () => {
-    // Only persist if there are actual messages
-    if (session.messages.length > 0) {
-      log.info(`persisting session to disk before new chat: ${session.id}`)
-      const chatHistoryApi = window.api.chatHistory
-      if (chatHistoryApi) {
-        const res = await chatHistoryApi.write({
-          sessionId: session.id,
-          title: session.title,
-          createdAt: session.createdAt,
-          messages: session.messages.map((m) => ({
-            role: m.role,
-            content: m.content,
-            timestamp: m.timestamp,
-          })),
-        })
-        if (res.ok) {
-          log.info('session written to disk OK')
-        } else {
-          log.warn('failed to write session', res.error)
-        }
-      }
-
-      // Update in-memory history meta
-      const meta: ChatHistoryMeta = {
-        sessionId: session.id,
-        title: session.title,
-        createdAt: session.createdAt,
-        messageCount: session.messages.length,
-      }
-      setHistoryMeta((prev) => {
-        const deduped = [meta, ...prev.filter((m) => m.sessionId !== session.id)]
-        saveHistoryMeta(deduped)
-        return deduped
-      })
-    }
+    await persistCurrentSessionIfNeeded()
 
     // Reset current session
     const fresh = emptySession()
@@ -630,7 +646,8 @@ export function useNotesChat({
     saveCurrentSession(fresh)
     setShowHistory(false) // stay in chat view to start the new conversation
     log.info(`started new chat session: ${fresh.id}`)
-  }, [session])
+    return fresh
+  }, [persistCurrentSessionIfNeeded])
 
   // ---------------------------------------------------------------------------
   // loadHistorySession — load a past session back into the view (read-only)
@@ -657,8 +674,8 @@ export function useNotesChat({
         id: `${sid}-hist-${i}-${m.timestamp}`,
         role: m.role,
         content: m.content,
-        timestamp: m.timestamp,
-      })),
+        timestamp: m.timestamp
+      }))
     }
     setSession(reconstructed)
     setShowHistory(false)
@@ -689,7 +706,8 @@ export function useNotesChat({
     showHistory,
     setShowHistory,
     sendMessage,
+    persistCurrentSessionIfNeeded,
     newChat,
-    loadHistorySession,
+    loadHistorySession
   }
 }
