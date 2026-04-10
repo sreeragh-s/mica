@@ -12,7 +12,7 @@ import type { NotesPropertyCatalog } from '@/lib/notes/cache/notes-cache-types'
 
 import { useWorkspacePropertyCatalog } from '@/features/notes/hooks/useWorkspacePropertyCatalog'
 import { KeySuggestDropdown } from './PropertySuggestDropdowns'
-import { PropertyIcon } from './PropertyIcon'
+import { buildPropertyKeySuggestions, PropertyIcon } from './PropertyIcon'
 import { PropertyRow } from './PropertyRow'
 
 export type NotePropertiesPanelProps = {
@@ -45,6 +45,8 @@ export function NotePropertiesPanel({
   const [focusKey, setFocusKey] = useState<string | null>(null)
   const [highlightedIndex, setHighlightedIndex] = useState(0)
   const newKeyRef = useRef<HTMLInputElement>(null)
+  const newKeyDraftRef = useRef(newKey)
+  newKeyDraftRef.current = newKey
 
   const specialKeys = new Set(['cover_image', 'title_emoji'])
   const currentKeys = new Set(Object.keys(note.properties ?? {}))
@@ -72,9 +74,7 @@ export function NotePropertiesPanel({
 
   if (!showPanel) return null
 
-  const suggestions = allWorkspaceKeys.filter(
-    (k) => !currentKeys.has(k) && k.toLowerCase().includes(newKey.toLowerCase())
-  )
+  const suggestions = buildPropertyKeySuggestions(newKey, allWorkspaceKeys, currentKeys)
 
   function startAdding(): void {
     setAddingNew(true)
@@ -82,8 +82,8 @@ export function NotePropertiesPanel({
     requestAnimationFrame(() => newKeyRef.current?.focus())
   }
 
-  function commitNewKey(key = newKey): void {
-    const trimmed = key.trim()
+  function commitNewKey(key?: string): void {
+    const trimmed = (key ?? newKeyDraftRef.current).trim()
     setNewKey('')
     setAddingNew(false)
     setHighlightedIndex(0)
@@ -159,11 +159,13 @@ export function NotePropertiesPanel({
                 placeholder="property_name"
                 value={newKey}
                 onChange={(e) => {
-                  setNewKey(e.target.value)
+                  const v = e.target.value
+                  newKeyDraftRef.current = v
+                  setNewKey(v)
                   setHighlightedIndex(0)
                 }}
                 onBlur={() => {
-                  setTimeout(commitNewKey, 100)
+                  setTimeout(() => commitNewKey(), 100)
                 }}
                 onKeyDown={handleNewKeyDown}
               />
@@ -172,7 +174,10 @@ export function NotePropertiesPanel({
             <KeySuggestDropdown
               suggestions={suggestions}
               highlightedIndex={highlightedIndex}
-              onSelect={(k) => commitNewKey(k)}
+              onSelect={(k) => {
+                newKeyDraftRef.current = k
+                commitNewKey(k)
+              }}
             />
           </div>
         )}

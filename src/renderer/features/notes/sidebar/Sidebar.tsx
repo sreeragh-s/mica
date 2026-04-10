@@ -61,7 +61,6 @@ export function Sidebar({ vm }: SidebarProps): JSX.Element {
     closeCanvasView,
     journalViewOpen,
     openJournalView,
-    closeJournalView,
     toggleSidebar,
     appSidebarView,
     triggerRenameSelectedRef,
@@ -307,7 +306,7 @@ export function Sidebar({ vm }: SidebarProps): JSX.Element {
                 <button
                   type="button"
                   data-sidebar-interactive=""
-                  onClick={() => (journalViewOpen ? closeJournalView() : openJournalView())}
+                  onClick={() => openJournalView()}
                   className={cn(
                     'hover:bg-sidebar-accent hover:text-sidebar-accent-foreground flex h-8 w-full items-center gap-2 rounded-md px-2 text-left text-[13px] leading-tight transition-colors',
                     journalViewOpen && 'bg-sidebar-accent text-sidebar-accent-foreground'

@@ -12,6 +12,76 @@ import {
   User
 } from 'lucide-react'
 
+/**
+ * Canonical keys surfaced in property key pickers (after workspace matches). Each entry is chosen
+ * so `PropertyIcon` resolves to the same icon category as common real-world frontmatter names.
+ */
+export const SUGGESTED_PROPERTY_KEYS: readonly string[] = [
+  'aliases',
+  'alias',
+  'tags',
+  'category',
+  'categories',
+  'title',
+  'status',
+  'type',
+  'description',
+  'summary',
+  'excerpt',
+  'abstract',
+  'author',
+  'creator',
+  'owner',
+  'url',
+  'link',
+  'source',
+  'date',
+  'created',
+  'published',
+  'modified',
+  'updated',
+  'time',
+  'duration',
+  'deadline',
+  'due',
+  'location',
+  'place',
+  'city',
+  'country',
+  'region',
+  'rating',
+  'order',
+  'count',
+  'weight'
+]
+
+/**
+ * Workspace keys first (catalog order), then {@link SUGGESTED_PROPERTY_KEYS} not already present.
+ * Matching is case-insensitive; `exclude` holds keys (e.g. already on the note) omitted from results.
+ */
+export function buildPropertyKeySuggestions(
+  query: string,
+  workspaceKeys: readonly string[],
+  exclude: ReadonlySet<string>
+): string[] {
+  const q = query.trim().toLowerCase()
+  const excluded = new Set([...exclude].map((k) => k.toLowerCase()))
+  const seenLower = new Set<string>()
+  const out: string[] = []
+
+  const push = (key: string): void => {
+    const kl = key.toLowerCase()
+    if (excluded.has(kl) || seenLower.has(kl)) return
+    if (!kl.includes(q)) return
+    seenLower.add(kl)
+    out.push(key)
+  }
+
+  for (const k of workspaceKeys) push(k)
+  for (const k of SUGGESTED_PROPERTY_KEYS) push(k)
+  return out
+}
+
 export function PropertyIcon({ propKey }: { propKey: string }): JSX.Element {
   const k = propKey.toLowerCase()
   const cls = 'size-4 shrink-0 text-muted-foreground'

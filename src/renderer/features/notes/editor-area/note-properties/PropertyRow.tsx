@@ -2,7 +2,8 @@ import { useEffect, useRef, useState, type JSX, type KeyboardEvent } from 'react
 import { Trash2 } from 'lucide-react'
 
 import { KeySuggestDropdown, ValueSuggestDropdown } from './PropertySuggestDropdowns'
-import { PropertyIcon } from './PropertyIcon'
+import { buildPropertyKeySuggestions, PropertyIcon } from './PropertyIcon'
+import { buildPropertyValueSuggestions } from './property-value-suggestions'
 
 export function PropertyRow({
   propKey,
@@ -33,12 +34,18 @@ export function PropertyRow({
   const [showValueSuggestions, setShowValueSuggestions] = useState(false)
   const valueRef = useRef<HTMLInputElement>(null)
   const keyRef = useRef<HTMLInputElement>(null)
+  /** Blur uses a delayed commit; keep latest drafts in refs so we never commit stale closed-over state. */
+  const valueDraftRef = useRef(valueDraft)
+  const keyDraftRef = useRef(keyDraft)
+  valueDraftRef.current = valueDraft
+  keyDraftRef.current = keyDraft
 
-  const keySuggestions = allWorkspaceKeys.filter(
-    (k) => k !== propKey && k.toLowerCase().includes(keyDraft.toLowerCase())
-  )
-  const valueSuggestions = allValuesForKey.filter(
-    (v) => v !== savedValue && v.toLowerCase().includes(valueDraft.toLowerCase())
+  const keySuggestions = buildPropertyKeySuggestions(keyDraft, allWorkspaceKeys, new Set([propKey]))
+  const valueSuggestions = buildPropertyValueSuggestions(
+    allValuesForKey,
+    propKey,
+    valueDraft,
+    savedValue
   )
 
   useEffect(() => {
@@ -53,7 +60,7 @@ export function PropertyRow({
 
   function commitValue(): void {
     setShowValueSuggestions(false)
-    onCommitValue(valueDraft)
+    onCommitValue(valueDraftRef.current)
   }
 
   function startEditingKey(): void {
@@ -64,7 +71,7 @@ export function PropertyRow({
 
   function commitKey(): void {
     setEditingKey(false)
-    const next = keyDraft.trim()
+    const next = keyDraftRef.current.trim()
     if (!next || next === propKey) {
       setKeyDraft(propKey)
       return
@@ -82,7 +89,9 @@ export function PropertyRow({
     } else if (e.key === 'Enter') {
       e.preventDefault()
       if (valueSuggestions.length > 0 && valueSuggestions[valueHighlightedIndex]) {
-        setValueDraft(valueSuggestions[valueHighlightedIndex])
+        const picked = valueSuggestions[valueHighlightedIndex]
+        valueDraftRef.current = picked
+        setValueDraft(picked)
       }
       e.currentTarget.blur()
     } else if (e.key === 'Escape') {
@@ -108,7 +117,9 @@ export function PropertyRow({
               className="min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none"
               value={keyDraft}
               onChange={(e) => {
-                setKeyDraft(e.target.value)
+                const v = e.target.value
+                keyDraftRef.current = v
+                setKeyDraft(v)
                 setKeyHighlightedIndex(0)
               }}
               onBlur={() => {
@@ -124,7 +135,9 @@ export function PropertyRow({
                 } else if (e.key === 'Enter') {
                   e.preventDefault()
                   if (keySuggestions.length > 0 && keySuggestions[keyHighlightedIndex]) {
-                    setKeyDraft(keySuggestions[keyHighlightedIndex])
+                    const picked = keySuggestions[keyHighlightedIndex]
+                    keyDraftRef.current = picked
+                    setKeyDraft(picked)
                   }
                   e.currentTarget.blur()
                 } else if (e.key === 'Escape') {
@@ -142,6 +155,7 @@ export function PropertyRow({
             suggestions={keySuggestions}
             highlightedIndex={keyHighlightedIndex}
             onSelect={(k) => {
+              keyDraftRef.current = k
               setKeyDraft(k)
               keyRef.current?.blur()
             }}
@@ -155,7 +169,9 @@ export function PropertyRow({
             ref={valueRef}
             value={valueDraft}
             onChange={(e) => {
-              setValueDraft(e.target.value)
+              const v = e.target.value
+              valueDraftRef.current = v
+              setValueDraft(v)
               setShowValueSuggestions(true)
               setValueHighlightedIndex(0)
             }}
@@ -176,6 +192,7 @@ export function PropertyRow({
             suggestions={valueSuggestions}
             highlightedIndex={valueHighlightedIndex}
             onSelect={(v) => {
+              valueDraftRef.current = v
               setValueDraft(v)
               setShowValueSuggestions(false)
               valueRef.current?.blur()

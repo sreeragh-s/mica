@@ -1,6 +1,25 @@
-import type { JSX } from 'react'
+import { useLayoutEffect, useRef, type JSX, type RefObject } from 'react'
 
 import { PropertyIcon } from './PropertyIcon'
+
+function useScrollActiveSuggestion(
+  listRef: RefObject<HTMLDivElement | null>,
+  highlightedIndex: number,
+  suggestions: readonly string[]
+): void {
+  useLayoutEffect(() => {
+    const root = listRef.current
+    if (!root || suggestions.length === 0) return
+    const safeIndex = Math.max(0, Math.min(highlightedIndex, suggestions.length - 1))
+    const target = root.querySelector<HTMLElement>(
+      `[data-suggestion-index="${safeIndex}"]`
+    )
+    target?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
+  }, [highlightedIndex, suggestions])
+}
+
+const listClassName =
+  'absolute left-0 top-full z-50 mt-0.5 w-64 max-h-64 overflow-y-auto rounded-md border bg-popover shadow-md'
 
 export function ValueSuggestDropdown({
   suggestions,
@@ -11,13 +30,17 @@ export function ValueSuggestDropdown({
   highlightedIndex: number
   onSelect: (value: string) => void
 }): JSX.Element | null {
+  const listRef = useRef<HTMLDivElement>(null)
+  useScrollActiveSuggestion(listRef, highlightedIndex, suggestions)
+
   if (suggestions.length === 0) return null
   return (
-    <div className="absolute left-0 top-full z-50 mt-0.5 w-64 max-h-64 overflow-y-auto rounded-md border bg-popover shadow-md">
+    <div ref={listRef} className={listClassName}>
       {suggestions.map((s, i) => (
         <button
-          key={s}
+          key={`${s}-${i}`}
           type="button"
+          data-suggestion-index={i}
           onMouseDown={(e) => {
             e.preventDefault()
             onSelect(s)
@@ -40,13 +63,17 @@ export function KeySuggestDropdown({
   highlightedIndex: number
   onSelect: (key: string) => void
 }): JSX.Element | null {
+  const listRef = useRef<HTMLDivElement>(null)
+  useScrollActiveSuggestion(listRef, highlightedIndex, suggestions)
+
   if (suggestions.length === 0) return null
   return (
-    <div className="absolute left-0 top-full z-50 mt-0.5 w-64 max-h-64 overflow-y-auto rounded-md border bg-popover shadow-md">
+    <div ref={listRef} className={listClassName}>
       {suggestions.map((s, i) => (
         <button
-          key={s}
+          key={`${s}-${i}`}
           type="button"
+          data-suggestion-index={i}
           onMouseDown={(e) => {
             e.preventDefault()
             onSelect(s)
