@@ -5,7 +5,7 @@ import type { SerializedEditorState } from 'lexical'
 
 import { Editor } from '@/components/blocks/editor-00/editor'
 import { Button } from '@/components/ui/button'
-import type { SavedNote, Folder } from '@/lib/notes/notes-storage'
+import type { NotePropertyValue, SavedNote, Folder } from '@/lib/notes/notes-storage'
 import { ExcalidrawView } from '@/components/notes/views/ExcalidrawView'
 import { NoteTitleInput } from '@/components/notes/editor-area/NoteTitleInput'
 import { NotePropertiesPanel } from '@/components/notes/editor-area/NotePropertiesPanel'
@@ -27,7 +27,7 @@ export type NotesPrimaryPaneProps = {
   onRenameNote: (id: string, title: string) => void
   onSetNoteCover: (id: string, src: string | null) => void
   onSetNoteTitleEmoji: (id: string, emoji: string | null) => void
-  onSetNoteProperty: (id: string, key: string, value: string | null) => void
+  onSetNoteProperty: (id: string, key: string, value: NotePropertyValue | null) => void
   editorSettings: Required<NotelabEditorSettingsV1>
   /** Dexie-backed property catalog when the workspace notes cache has indexed. */
   propertyCatalog?: NotesPropertyCatalog | null

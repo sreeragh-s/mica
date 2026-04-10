@@ -217,23 +217,34 @@ function ChatSidebarTopBar({
   )
 }
 
-function ChatSidebarNewChatButton({ onClick }: { onClick: () => void }): JSX.Element {
+function ChatSidebarNewChatButton({
+  disabled,
+  onClick
+}: {
+  disabled?: boolean
+  onClick: () => void
+}): JSX.Element {
   return (
     <TooltipProvider>
       <Tooltip>
         <TooltipTrigger asChild>
-          <Button
-            className="size-7 min-h-0"
-            onClick={onClick}
-            size="icon-sm"
-            type="button"
-            variant="ghost"
-          >
-            <PlusIcon className="size-3" />
-            <span className="sr-only">New chat</span>
-          </Button>
+          <span className={cn('inline-flex', disabled && 'cursor-not-allowed')}>
+            <Button
+              className="size-7 min-h-0"
+              disabled={disabled}
+              onClick={onClick}
+              size="icon-sm"
+              type="button"
+              variant="ghost"
+            >
+              <PlusIcon className="size-3" />
+              <span className="sr-only">New chat</span>
+            </Button>
+          </span>
         </TooltipTrigger>
-        <TooltipContent>New chat</TooltipContent>
+        <TooltipContent>
+          {disabled ? 'Send a message in this chat to start another tab' : 'New chat'}
+        </TooltipContent>
       </Tooltip>
     </TooltipProvider>
   )
@@ -735,7 +746,10 @@ function NotesChatSidebarInner({
     })
   }, [])
 
+  const canStartNewChatTab = session.messages.length > 0
+
   const onNewChat = useCallback(async () => {
+    if (session.messages.length === 0) return
     const priorId = session.id
     const priorTitle = session.title
     const fresh = await newChat()
@@ -744,7 +758,7 @@ function NotesChatSidebarInner({
       if (base.some((t) => t.sessionId === fresh.id)) return base
       return [...base, { sessionId: fresh.id, title: fresh.title }]
     })
-  }, [session.id, session.title, newChat])
+  }, [session.id, session.title, session.messages.length, newChat])
 
   const handleOpenHistoryItem = useCallback(
     async (meta: ChatHistoryMeta) => {
@@ -878,7 +892,12 @@ function NotesChatSidebarInner({
   const chatTabStrip = (
     <ChatSidebarPanelTabs
       leading={
-        panel === 'chat' ? <ChatSidebarNewChatButton onClick={() => void onNewChat()} /> : undefined
+        panel === 'chat' ? (
+          <ChatSidebarNewChatButton
+            disabled={!canStartNewChatTab}
+            onClick={() => void onNewChat()}
+          />
+        ) : undefined
       }
       items={[
         { value: 'chat', label: 'Chat', icon: BotIcon },

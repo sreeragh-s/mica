@@ -4,6 +4,7 @@ import { Plus } from 'lucide-react'
 import type { NotePropertyValue, SavedNote } from '@/lib/notes/notes-storage'
 import {
   displayPropertyValue,
+  isMultiValuePropertyKey,
   parsePropertyInput
 } from '@/lib/notes/note-properties/property-values'
 import type { NotelabEditorSettingsV1 } from '@/lib/config/notelab-config-schema'
@@ -117,6 +118,9 @@ export function NotePropertiesPanel({
             autoFocusValue={focusKey === key}
             allWorkspaceKeys={allWorkspaceKeys}
             allValuesForKey={allValuesForKey[key] ?? []}
+            valuePlaceholder={
+              isMultiValuePropertyKey(key) ? 'Comma-separated values' : 'Empty'
+            }
             onCommitValue={(val: string) => {
               if (focusKey === key) setFocusKey(null)
               onSetProperty(key, parsePropertyInput(key, val))

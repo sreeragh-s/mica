@@ -12,13 +12,15 @@ export function PropertyRow({
   allValuesForKey,
   onCommitValue,
   onRename,
-  onDelete
+  onDelete,
+  valuePlaceholder = 'Empty'
 }: {
   propKey: string
   savedValue: string
   autoFocusValue?: boolean
   allWorkspaceKeys: string[]
   allValuesForKey: string[]
+  valuePlaceholder?: string
   onCommitValue: (value: string) => void
   onRename: (newKey: string) => void
   onDelete: () => void
@@ -165,7 +167,7 @@ export function PropertyRow({
               }, 100)
             }}
             onKeyDown={handleValueKeyDown}
-            placeholder="Empty"
+            placeholder={valuePlaceholder}
             className="min-w-0 flex-1 bg-transparent text-sm text-muted-foreground outline-none placeholder:text-muted-foreground/40"
           />
         </div>

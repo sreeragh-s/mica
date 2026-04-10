@@ -140,7 +140,7 @@ export function parseOptionalFrontmatter(markdown: string): ParsedFrontmatter {
   return {
     hasFrontmatterBlock: true,
     properties,
-    body,
+    body
   }
 }
 
@@ -187,14 +187,12 @@ export function stripLeadingTitleHeading(markdown: string): {
   }
   return {
     heading: match[1]!.trim(),
-    body: normalized.slice(match[0].length),
+    body: normalized.slice(match[0].length)
   }
 }
 
 export function buildMarkdownNoteBody(title: string, bodyMarkdown: string): string {
   const trimmedTitle = title.trim() || 'Untitled'
   const normalizedBody = bodyMarkdown.replace(/^\n+/, '').trim()
-  return normalizedBody
-    ? `# ${trimmedTitle}\n\n${normalizedBody}\n`
-    : `# ${trimmedTitle}\n`
+  return normalizedBody ? `# ${trimmedTitle}\n\n${normalizedBody}\n` : `# ${trimmedTitle}\n`
 }

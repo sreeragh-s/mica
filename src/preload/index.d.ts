@@ -170,7 +170,7 @@ type NotelabApi = {
             kind: 'note' | 'drawing'
             coverImageSrc?: string
             titleEmoji?: string
-            properties?: Record<string, string>
+            properties?: Record<string, string | string[]>
             hasFrontmatterBlock?: boolean
           }[]
         }
