@@ -11,6 +11,7 @@ import { NoteTitleInput } from '@/components/notes/editor-area/NoteTitleInput'
 import { NotePropertiesPanel } from '@/components/notes/editor-area/NotePropertiesPanel'
 import { NOTE_DRAG_MIME } from '@/components/notes/notes-app-utils'
 import type { NotelabEditorSettingsV1 } from '@/lib/config/notelab-config-schema'
+import type { NotesPropertyCatalog } from '@/lib/notes/cache/notes-cache-types'
 
 export type NotesPrimaryPaneProps = {
   selectedNote: SavedNote | null
@@ -28,6 +29,8 @@ export type NotesPrimaryPaneProps = {
   onSetNoteTitleEmoji: (id: string, emoji: string | null) => void
   onSetNoteProperty: (id: string, key: string, value: string | null) => void
   editorSettings: Required<NotelabEditorSettingsV1>
+  /** Dexie-backed property catalog when the workspace notes cache has indexed. */
+  propertyCatalog?: NotesPropertyCatalog | null
   onDragOver?: (e: DragEvent) => void
   onDrop?: (e: DragEvent) => void
   /** When set, editor bottom bar (stats + tools) is portaled into this element (e.g. below terminal). */
@@ -48,6 +51,7 @@ export function NotesPrimaryPane({
   onSetNoteTitleEmoji,
   onSetNoteProperty,
   editorSettings,
+  propertyCatalog,
   onDragOver,
   onDrop,
   bottomChromePortal
@@ -94,6 +98,7 @@ export function NotesPrimaryPane({
                 note={selectedNote}
                 notes={notes}
                 editorSettings={editorSettings}
+                propertyCatalog={propertyCatalog}
                 onSetProperty={(key, value) => onSetNoteProperty(selectedNote.path, key, value)}
               />
             </>

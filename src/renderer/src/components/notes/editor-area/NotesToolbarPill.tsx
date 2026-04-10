@@ -3,7 +3,6 @@ import type { JSX } from 'react'
 import { LayoutGrid, Link2, MessageCircle, PanelLeft, PanelLeftClose, Plus } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
-import { cn } from '@/lib/utils'
 import { toolbarShellClass } from '@/lib/platform/toolbar-chrome'
 
 import type { MacTitlebarStyles } from '@/components/notes/notes-app-types'

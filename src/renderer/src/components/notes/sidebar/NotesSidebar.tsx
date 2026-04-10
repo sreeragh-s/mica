@@ -102,6 +102,7 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
     openFolderSettingsPanel,
     workspaceRoot,
     handleWorkspaceRootChange,
+    notesSearchPlainTextByPath,
   } = vm
 
   const [renamingNodeId, setRenamingNodeId] = useState<string | null>(null)
@@ -131,8 +132,12 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
   }, [notesByFolder])
 
   const searchResults = useMemo(
-    () => searchNotes(allNotes, folders, searchQuery, { limit: 20 }),
-    [allNotes, folders, searchQuery]
+    () =>
+      searchNotes(allNotes, folders, searchQuery, {
+        limit: 20,
+        plainTextByPath: notesSearchPlainTextByPath
+      }),
+    [allNotes, folders, searchQuery, notesSearchPlainTextByPath]
   )
 
   const folderSearchResults = useMemo(

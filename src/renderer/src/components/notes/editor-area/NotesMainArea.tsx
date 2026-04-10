@@ -183,7 +183,12 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
     toggleChatSidebar,
     chatSidebarPanel,
     chatSidebarLinkMode,
-    openLinkedNotesSidebar
+    openLinkedNotesSidebar,
+    notesPropertyCatalog,
+    notesLinkMentionIndex,
+    rebuildNotesSearchCacheFromFilesystem,
+    notesCacheIndexedAt,
+    clearWorkspaceCache
   } = vm
 
   const canAutoIndex = Boolean(user?.email || user?.name) && !guestMode
@@ -272,7 +277,8 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
     editorSettings,
     onDragOver: onDragOverMain,
     onDrop: onDropPrimaryPane,
-    bottomChromePortal: showEditorBottomChrome ? editorBottomBarEl : undefined
+    bottomChromePortal: showEditorBottomChrome ? editorBottomBarEl : undefined,
+    propertyCatalog: notesPropertyCatalog
   }
 
   // --- Notes area content ---
@@ -536,6 +542,9 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
                       notesCount={notesCount}
                       dirtyByWorkspaceId={dirtyByWorkspaceId}
                       onRefreshGitStatus={() => void refreshWorkspaceGitStatuses()}
+                      notesCacheIndexedAt={notesCacheIndexedAt}
+                      onRebuildNotesSearchCacheFromFilesystem={rebuildNotesSearchCacheFromFilesystem}
+                      onClearNotesSearchCache={clearWorkspaceCache}
                     />
                   ) : appMode === 'settings' && settingsSection === 'indexing' ? (
                     <EmbeddingsSettingsView
@@ -571,6 +580,7 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
                 linkMode={chatSidebarLinkMode}
                 onLinkModeChange={vm.setChatSidebarLinkMode}
                 isMacNotelab={isMacNotelab}
+                linkMentionIndex={notesLinkMentionIndex}
               />
             )}
             </div>

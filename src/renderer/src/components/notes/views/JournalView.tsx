@@ -32,7 +32,8 @@ export function JournalView({
     setNoteCover,
     setNoteTitleEmoji,
     setNoteProperty,
-    editorSettings
+    editorSettings,
+    notesPropertyCatalog
   } = vm
 
   return (
@@ -53,6 +54,7 @@ export function JournalView({
         onSetNoteTitleEmoji={setNoteTitleEmoji}
         onSetNoteProperty={setNoteProperty}
         editorSettings={editorSettings}
+        propertyCatalog={notesPropertyCatalog}
         bottomChromePortal={bottomChromePortal}
       />
     </div>

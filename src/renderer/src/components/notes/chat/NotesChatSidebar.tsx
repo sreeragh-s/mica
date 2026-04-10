@@ -12,17 +12,9 @@ import {
   PlusIcon,
   ScanTextIcon,
   Search,
-  SparklesIcon,
+  SparklesIcon
 } from 'lucide-react'
-import {
-  type JSX,
-  type ReactNode,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState
-} from 'react'
+import { type JSX, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import {
   PromptInputChatMentionTextarea,
@@ -73,13 +65,18 @@ import {
   type Folder
 } from '@/lib/notes/notes-storage'
 import { ChatSidebarPanelTabs } from '@/components/notes/chat/ChatSidebarPanelTabs'
-import { macTitlebarStyles, NOTES_APP_PILL_ROUNDED, NOTES_APP_PILL_SURFACE } from '@/components/notes/notes-app-utils'
+import {
+  macTitlebarStyles,
+  NOTES_APP_PILL_ROUNDED,
+  NOTES_APP_PILL_SURFACE
+} from '@/components/notes/notes-app-utils'
 import { collectInternalNoteLinkMentions } from '@/lib/notes/note-link-graph'
 import type { ChatHistoryMeta } from '@/hooks/useNotesChat'
 import { useNotesChat } from '@/hooks/useNotesChat'
 import { useBillingStatus } from '@/hooks/useBillingStatus'
 import { useOllama } from '@/hooks/useOllama'
 import type { NotesAppViewModel } from '@/components/notes/app-state/useNotesApp'
+import type { WorkspaceLinkMentionIndex } from '@/lib/notes/cache/notes-cache-types'
 
 // ---------------------------------------------------------------------------
 // Props
@@ -108,6 +105,8 @@ export type NotesChatSidebarProps = {
   onLinkModeChange: (mode: NotesChatSidebarLinkMode) => void
   /** macOS: pointer-events / no-drag on chat chrome controls. */
   isMacNotelab?: boolean
+  /** Precomputed internal links (Dexie cache); omit to scan Lexical in-memory. */
+  linkMentionIndex?: WorkspaceLinkMentionIndex | null
 }
 
 function SearchHighlight({ segments }: { segments: SearchMatchSegment[] }): JSX.Element {
@@ -181,10 +180,7 @@ function ChatSidebarTopBar({
     >
       {leading != null ? (
         <div className="min-w-0 flex-1">
-          <ChatSidebarMacHitLayer
-            isMacNotelab={isMacNotelab}
-            className="min-w-0 w-full"
-          >
+          <ChatSidebarMacHitLayer isMacNotelab={isMacNotelab} className="min-w-0 w-full">
             {leading}
           </ChatSidebarMacHitLayer>
         </div>
@@ -310,7 +306,8 @@ export function NotesChatSidebar({
   panel,
   linkMode,
   onLinkModeChange,
-  isMacNotelab
+  isMacNotelab,
+  linkMentionIndex
 }: NotesChatSidebarProps): JSX.Element {
   return (
     <div
@@ -342,6 +339,7 @@ export function NotesChatSidebar({
           panel={panel}
           linkMode={linkMode}
           onLinkModeChange={onLinkModeChange}
+          linkMentionIndex={linkMentionIndex}
         />
       </div>
     </div>
@@ -362,7 +360,8 @@ function NotesChatSidebarInner({
   panel,
   linkMode,
   onLinkModeChange,
-  isMacNotelab
+  isMacNotelab,
+  linkMentionIndex
 }: NotesChatSidebarProps): JSX.Element {
   // Selected model: a NoteLabModelId or "local:<ollamaModelName>"
   const [selectedModelId, setSelectedModelId] = useState<string>(DEFAULT_NOTELAB_MODEL_ID)
@@ -470,6 +469,63 @@ function NotesChatSidebarInner({
     }
 
     const noteById = new Map(notes.map((note) => [note.path, note]))
+
+    if (linkMentionIndex) {
+      const valid = linkMentionIndex.validPaths
+      const outgoingMap = new Map<
+        string,
+        { note: SavedNote; contexts: string[]; linkText: string[] }
+      >()
+      for (const m of linkMentionIndex.outgoingBySource.get(selectedNote.path) ?? []) {
+        if (!valid.has(m.target) || m.target === selectedNote.path) continue
+        const targetNote = noteById.get(m.target)
+        if (!targetNote) continue
+        const existing = outgoingMap.get(targetNote.path)
+        if (existing) {
+          if (m.contextText && !existing.contexts.includes(m.contextText)) {
+            existing.contexts.push(m.contextText)
+          }
+          if (m.linkText && !existing.linkText.includes(m.linkText)) {
+            existing.linkText.push(m.linkText)
+          }
+          continue
+        }
+        outgoingMap.set(targetNote.path, {
+          note: targetNote,
+          contexts: m.contextText ? [m.contextText] : [],
+          linkText: m.linkText ? [m.linkText] : []
+        })
+      }
+
+      const rawBack = linkMentionIndex.backlinksByTarget.get(selectedNote.path) ?? []
+      const limitedBySource = new Map<string, typeof rawBack>()
+      for (const m of rawBack) {
+        if (m.source === selectedNote.path) continue
+        const arr = limitedBySource.get(m.source) ?? []
+        if (arr.length < 6) arr.push(m)
+        limitedBySource.set(m.source, arr)
+      }
+      const backlinks = new Map<string, { note: SavedNote; contexts: string[] }>()
+      for (const [sourcePath, mentions] of limitedBySource) {
+        const srcNote = noteById.get(sourcePath)
+        if (!srcNote || srcNote.kind !== 'note') continue
+        const contexts: string[] = []
+        for (const m of mentions) {
+          if (m.contextText && !contexts.includes(m.contextText)) contexts.push(m.contextText)
+        }
+        backlinks.set(srcNote.path, { note: srcNote, contexts })
+      }
+
+      return {
+        backlinks: Array.from(backlinks.values()).sort(
+          (a, b) => b.note.updatedAt - a.note.updatedAt
+        ),
+        outgoing: Array.from(outgoingMap.values()).sort(
+          (a, b) => b.note.updatedAt - a.note.updatedAt
+        )
+      }
+    }
+
     const outgoingMentions = collectInternalNoteLinkMentions(selectedNote.content)
       .filter((mention) => mention.target !== selectedNote.path)
       .reduce<Map<string, { note: SavedNote; contexts: string[]; linkText: string[] }>>(
@@ -525,7 +581,7 @@ function NotesChatSidebarInner({
         (a, b) => b.note.updatedAt - a.note.updatedAt
       )
     }
-  }, [notes, selectedNote])
+  }, [notes, selectedNote, linkMentionIndex])
 
   const handleSubmit = useCallback(
     async (e?: { preventDefault(): void }) => {
@@ -755,9 +811,7 @@ function NotesChatSidebarInner({
         }
         tabs={panel === 'chat' ? chatTabStrip : linkTabStrip}
         trailing={
-          panel === 'chat' ? (
-            <ChatSidebarNewChatButton onClick={() => void newChat()} />
-          ) : null
+          panel === 'chat' ? <ChatSidebarNewChatButton onClick={() => void newChat()} /> : null
         }
       />
       {panel === 'links' ? (

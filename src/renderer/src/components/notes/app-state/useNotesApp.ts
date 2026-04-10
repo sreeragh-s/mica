@@ -48,6 +48,7 @@ import { useNotesAppIndexing } from './use-notes-app/useNotesAppIndexing'
 import { useNotesAppUi } from './use-notes-app/useNotesAppUi'
 import { useNotesGitSourceControl } from '@/components/notes/git/useNotesGitSourceControl'
 import { useNotesGitSync } from '@/components/notes/git/useNotesGitSync'
+import { useWorkspaceNotesCache } from '@/components/notes/hooks/useWorkspaceNotesCache'
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type -- view-model shape is NotesAppViewModel below
 export function useNotesApp({
@@ -200,6 +201,21 @@ export function useNotesApp({
     useNotesAppIndexing({
       dataRootRef
     })
+
+  const {
+    notesSearchPlainTextByPath,
+    notesPropertyCatalog,
+    notesLinkMentionIndex,
+    notesCacheIndexedAt,
+    reindexNotesWorkspaceCacheNow,
+    clearWorkspaceCache
+  } = useWorkspaceNotesCache(dataRootPath, notes)
+
+  const rebuildNotesSearchCacheFromFilesystem = useCallback(async () => {
+    await reloadNotesFromDisk()
+    await new Promise((r) => setTimeout(r, 150))
+    await reindexNotesWorkspaceCacheNow()
+  }, [reloadNotesFromDisk, reindexNotesWorkspaceCacheNow])
 
   const selectedNote = useMemo(
     () => notes.find((n) => n.path === selectedNotePath) ?? null,
@@ -1312,7 +1328,14 @@ export function useNotesApp({
     setChatSidebarLinkMode,
     openLinkedNotesSidebar,
     triggerRenameSelectedRef,
-    openShortcuts
+    openShortcuts,
+    notesSearchPlainTextByPath,
+    notesPropertyCatalog,
+    notesLinkMentionIndex,
+    notesCacheIndexedAt,
+    reindexNotesWorkspaceCacheNow,
+    clearWorkspaceCache,
+    rebuildNotesSearchCacheFromFilesystem
   }
 }
 
