@@ -13,10 +13,16 @@ import {
   ScanTextIcon,
   Search,
   SparklesIcon,
-  X,
-  type LucideIcon
 } from 'lucide-react'
-import { type JSX, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import {
+  type JSX,
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState
+} from 'react'
 
 import {
   PromptInputChatMentionTextarea,
@@ -66,6 +72,7 @@ import {
   type SavedNote,
   type Folder
 } from '@/lib/notes/notes-storage'
+import { ChatSidebarPanelTabs } from '@/components/notes/chat/ChatSidebarPanelTabs'
 import { macTitlebarStyles, NOTES_APP_PILL_ROUNDED, NOTES_APP_PILL_SURFACE } from '@/components/notes/notes-app-utils'
 import { collectInternalNoteLinkMentions } from '@/lib/notes/note-link-graph'
 import type { ChatHistoryMeta } from '@/hooks/useNotesChat'
@@ -132,88 +139,158 @@ const STARTER_SUGGESTIONS = [
   'Find todos across my notes'
 ]
 
-/** Same structure and classes as `NoteTabStrip` (no drag / reorder). */
-type ChatSidebarPillTabItem = { value: string; label: string; icon: LucideIcon }
-
-function ChatSidebarPillTabStrip({
-  value,
-  onValueChange,
-  tabs
+/** macOS: row uses `pointer-events-none` so the window drag band receives hits; interactive chrome opts back in. */
+function ChatSidebarMacHitLayer({
+  isMacNotelab,
+  className,
+  children
 }: {
-  value: string
-  onValueChange: (next: string) => void
-  tabs: ChatSidebarPillTabItem[]
+  isMacNotelab?: boolean
+  className?: string
+  children: ReactNode
 }): JSX.Element {
   return (
-    <div className="relative z-10 flex min-h-0 w-full min-w-0 flex-1 items-center">
-      <div
-        className={cn(
-          'isolate flex h-8 w-full min-w-0 flex-1 items-stretch overflow-hidden',
-          NOTES_APP_PILL_ROUNDED,
-          NOTES_APP_PILL_SURFACE
-        )}
-        role="tablist"
-      >
-        <div className="flex min-h-0 min-w-0 flex-1 overflow-x-auto [scrollbar-width:thin]">
-          {tabs.map((t) => {
-            const active = t.value === value
-            const Icon = t.icon
-            return (
-              <div
-                key={t.value}
-                className="group flex min-h-0 min-w-[5rem] flex-1 basis-0 items-center justify-center p-0.5"
-                role="tab"
-                aria-selected={active}
-                tabIndex={active ? 0 : -1}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault()
-                    onValueChange(t.value)
-                  }
-                }}
-              >
-                <div
-                  role="presentation"
-                  className={cn(
-                    'grid h-full w-full min-w-0 max-w-full cursor-pointer grid-cols-[1.5rem_minmax(0,1fr)_1.5rem] items-center px-1 duration-150',
-                    active
-                      ? 'rounded-md bg-background/92 text-foreground shadow-sm transition-colors dark:bg-white/[0.14]'
-                      : 'rounded-none text-muted-foreground transition-[background-color,color,border-radius] hover:rounded-md hover:bg-black/[0.04] hover:text-foreground dark:hover:bg-white/[0.06]'
-                  )}
-                  onClick={() => onValueChange(t.value)}
-                >
-                  <div className="flex h-full items-center justify-start">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon-xs"
-                      aria-hidden
-                      tabIndex={-1}
-                      className="pointer-events-none size-6 shrink-0 opacity-0"
-                    >
-                      <X className="size-3" aria-hidden />
-                    </Button>
-                  </div>
-
-                  <div className="flex min-h-0 min-w-0 items-center justify-center gap-1.5 px-0.5">
-                    <Icon className="text-muted-foreground size-3.5 shrink-0 opacity-80" aria-hidden />
-                    <span
-                      className="min-h-0 min-w-0 max-w-[min(11rem,100%)] truncate py-1 text-center text-[13px] font-medium leading-tight tracking-tight"
-                      title={t.label}
-                    >
-                      {t.label}
-                    </span>
-                  </div>
-
-                  <span className="block w-full shrink-0" aria-hidden />
-                </div>
-              </div>
-            )
-          })}
-        </div>
-      </div>
+    <div
+      className={cn(className, isMacNotelab && 'pointer-events-auto')}
+      style={isMacNotelab ? macTitlebarStyles.noDrag : undefined}
+    >
+      {children}
     </div>
   )
+}
+
+/** Full-height title strip (h-12): workspace / history search → icon tabs → actions. */
+function ChatSidebarTopBar({
+  isMacNotelab,
+  leading,
+  tabs,
+  trailing
+}: {
+  isMacNotelab?: boolean
+  /** Workspace filter or history search; omit when empty (e.g. links panel). */
+  leading?: ReactNode
+  tabs: ReactNode
+  trailing?: ReactNode | null
+}): JSX.Element {
+  return (
+    <div
+      className={cn(
+        'border-border relative z-10 flex h-12 min-h-12 w-full shrink-0 items-center gap-2 border-b px-2',
+        isMacNotelab && 'pointer-events-none'
+      )}
+    >
+      {leading != null ? (
+        <div className="min-w-0 flex-1">
+          <ChatSidebarMacHitLayer
+            isMacNotelab={isMacNotelab}
+            className="min-w-0 w-full"
+          >
+            {leading}
+          </ChatSidebarMacHitLayer>
+        </div>
+      ) : null}
+      <ChatSidebarMacHitLayer isMacNotelab={isMacNotelab} className="shrink-0">
+        {tabs}
+      </ChatSidebarMacHitLayer>
+      {trailing != null ? (
+        <ChatSidebarMacHitLayer isMacNotelab={isMacNotelab} className="shrink-0">
+          {trailing}
+        </ChatSidebarMacHitLayer>
+      ) : null}
+    </div>
+  )
+}
+
+function ChatSidebarNewChatButton({ onClick }: { onClick: () => void }): JSX.Element {
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            className="size-7 min-h-0"
+            onClick={onClick}
+            size="icon-sm"
+            type="button"
+            variant="ghost"
+          >
+            <PlusIcon className="size-3" />
+            <span className="sr-only">New chat</span>
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>New chat</TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  )
+}
+
+/** Workspace filter or history search only (no tab strip / new chat). */
+function ChatSidebarToolbarLeading({
+  folders,
+  filterWorkspaceId,
+  setFilterWorkspaceId,
+  showHistory,
+  historySearch,
+  setHistorySearch
+}: {
+  folders: Folder[]
+  filterWorkspaceId: string | null
+  setFilterWorkspaceId: (id: string | null) => void
+  showHistory: boolean
+  historySearch: string
+  setHistorySearch: (v: string) => void
+}): JSX.Element | null {
+  if (showHistory) {
+    return (
+      <div className="relative min-w-0 w-full max-w-full">
+        <Search
+          aria-hidden
+          className="text-muted-foreground pointer-events-none absolute left-2 top-1/2 z-10 size-3 -translate-y-1/2 opacity-70"
+        />
+        <Input
+          aria-label="Search chat history"
+          className="border-border bg-background h-7 w-full pl-7 text-xs"
+          onChange={(e) => setHistorySearch(e.target.value)}
+          placeholder="Search history…"
+          type="search"
+          value={historySearch}
+        />
+      </div>
+    )
+  }
+  if (folders.length > 0) {
+    return (
+      <div className="min-w-0 w-full max-w-full">
+        <Select
+          onValueChange={(v) => setFilterWorkspaceId(v === '__all__' ? null : v)}
+          value={filterWorkspaceId ?? '__all__'}
+        >
+          <SelectTrigger
+            size="sm"
+            className={cn(
+              NOTES_APP_PILL_SURFACE,
+              NOTES_APP_PILL_ROUNDED,
+              'h-7 w-full min-w-0 border px-2 py-0 text-[11px] shadow-none',
+              'focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-0',
+              '[&_svg]:size-3 [&_svg]:opacity-70'
+            )}
+          >
+            <SelectValue placeholder="All workspaces" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem className="text-xs" value="__all__">
+              All workspaces
+            </SelectItem>
+            {folders.map((f) => (
+              <SelectItem className="text-xs" key={f.folder} value={f.folder}>
+                {f.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+    )
+  }
+  return null
 }
 
 // ---------------------------------------------------------------------------
@@ -556,30 +633,26 @@ function NotesChatSidebarInner({
   // History view
   // ---------------------------------------------------------------------------
 
-  const chatTabs = (
-    <div className="px-2 pb-1">
-      <ChatSidebarPillTabStrip
-        onValueChange={(v) => setChatTab(v as 'chat' | 'history')}
-        tabs={[
-          { value: 'chat', label: 'Chat', icon: BotIcon },
-          { value: 'history', label: 'History', icon: History }
-        ]}
-        value={chatTab}
-      />
-    </div>
+  const chatTabStrip = (
+    <ChatSidebarPanelTabs
+      items={[
+        { value: 'chat', label: 'Chat', icon: BotIcon },
+        { value: 'history', label: 'History', icon: History }
+      ]}
+      onValueChange={(v) => setChatTab(v as 'chat' | 'history')}
+      value={chatTab}
+    />
   )
 
-  const linkTabs = (
-    <div className="px-2 pb-1">
-      <ChatSidebarPillTabStrip
-        onValueChange={(v) => onLinkModeChange(v as NotesChatSidebarLinkMode)}
-        tabs={[
-          { value: 'linked', label: 'Linked', icon: Link2Icon },
-          { value: 'linking', label: 'Linking', icon: PlusIcon }
-        ]}
-        value={linkMode}
-      />
-    </div>
+  const linkTabStrip = (
+    <ChatSidebarPanelTabs
+      items={[
+        { value: 'linked', label: 'Linked', icon: Link2Icon },
+        { value: 'linking', label: 'Linking', icon: PlusIcon }
+      ]}
+      onValueChange={(v) => onLinkModeChange(v as NotesChatSidebarLinkMode)}
+      value={linkMode}
+    />
   )
 
   if (panel === 'chat' && showHistory) {
@@ -588,16 +661,20 @@ function NotesChatSidebarInner({
         aria-label="Chat history"
         className="border-border bg-background flex min-h-0 min-w-0 flex-1 flex-col"
       >
-        {chatTabs}
-        <ChatToolbarRow
-          folders={folders}
-          filterWorkspaceId={filterWorkspaceId}
-          historySearch={historySearch}
+        <ChatSidebarTopBar
           isMacNotelab={isMacNotelab}
-          newChat={() => void newChat()}
-          setFilterWorkspaceId={setFilterWorkspaceId}
-          setHistorySearch={setHistorySearch}
-          showHistory={chatTab === 'history'}
+          leading={
+            <ChatSidebarToolbarLeading
+              filterWorkspaceId={filterWorkspaceId}
+              folders={folders}
+              historySearch={historySearch}
+              setFilterWorkspaceId={setFilterWorkspaceId}
+              setHistorySearch={setHistorySearch}
+              showHistory
+            />
+          }
+          tabs={chatTabStrip}
+          trailing={<ChatSidebarNewChatButton onClick={() => void newChat()} />}
         />
         <div className="flex-1 overflow-y-auto p-2">
           {historyMeta.length === 0 ? (
@@ -631,7 +708,7 @@ function NotesChatSidebarInner({
         aria-label="Local model setup"
         className="border-border bg-background flex min-h-0 min-w-0 flex-1 flex-col"
       >
-        {chatTabs}
+        <ChatSidebarTopBar isMacNotelab={isMacNotelab} tabs={chatTabStrip} />
         <LocalModelSetupPanel
           onClose={() => setLocalSetupOpen(false)}
           ollama={ollama}
@@ -662,7 +739,27 @@ function NotesChatSidebarInner({
       aria-label="Chat"
       className="border-border bg-background relative flex min-h-0 min-w-0 flex-1 flex-col"
     >
-      {panel === 'chat' ? chatTabs : linkTabs}
+      <ChatSidebarTopBar
+        isMacNotelab={isMacNotelab}
+        leading={
+          panel === 'chat' && folders.length > 0 ? (
+            <ChatSidebarToolbarLeading
+              filterWorkspaceId={filterWorkspaceId}
+              folders={folders}
+              historySearch={historySearch}
+              setFilterWorkspaceId={setFilterWorkspaceId}
+              setHistorySearch={setHistorySearch}
+              showHistory={false}
+            />
+          ) : null
+        }
+        tabs={panel === 'chat' ? chatTabStrip : linkTabStrip}
+        trailing={
+          panel === 'chat' ? (
+            <ChatSidebarNewChatButton onClick={() => void newChat()} />
+          ) : null
+        }
+      />
       {panel === 'links' ? (
         <NoteLinksPanel
           foldersById={workspacesById}
@@ -673,17 +770,6 @@ function NotesChatSidebarInner({
         />
       ) : (
         <>
-          <ChatToolbarRow
-            folders={folders}
-            filterWorkspaceId={filterWorkspaceId}
-            historySearch={historySearch}
-            isMacNotelab={isMacNotelab}
-            newChat={() => void newChat()}
-            setFilterWorkspaceId={setFilterWorkspaceId}
-            setHistorySearch={setHistorySearch}
-            showHistory={false}
-          />
-
           {isLocalModelSelected &&
             ollama.status?.running &&
             !ollama.modelsLoading &&
@@ -893,112 +979,6 @@ function NotesChatSidebarInner({
 // ---------------------------------------------------------------------------
 // Sub-components
 // ---------------------------------------------------------------------------
-
-function ChatToolbarRow({
-  folders,
-  filterWorkspaceId,
-  setFilterWorkspaceId,
-  showHistory,
-  historySearch,
-  setHistorySearch,
-  newChat,
-  isMacNotelab
-}: {
-  folders: Folder[]
-  filterWorkspaceId: string | null
-  setFilterWorkspaceId: (id: string | null) => void
-  showHistory: boolean
-  historySearch: string
-  setHistorySearch: (v: string) => void
-  newChat: () => void
-  isMacNotelab?: boolean
-}): JSX.Element {
-  return (
-    <div
-      className={cn(
-        'relative z-10 border-border flex min-h-7 shrink-0 items-center gap-1.5 px-2',
-        isMacNotelab && 'pointer-events-none'
-      )}
-    >
-      {showHistory ? (
-        <div
-          className="pointer-events-auto relative min-w-0 flex-1"
-          style={isMacNotelab ? macTitlebarStyles.noDrag : undefined}
-        >
-          <Search
-            aria-hidden
-            className="text-muted-foreground pointer-events-none absolute left-2 top-1/2 z-10 size-3 -translate-y-1/2 opacity-70"
-          />
-          <Input
-            aria-label="Search chat history"
-            className="border-border bg-background h-7 pl-7 text-xs"
-            onChange={(e) => setHistorySearch(e.target.value)}
-            placeholder="Search history…"
-            type="search"
-            value={historySearch}
-          />
-        </div>
-      ) : folders.length > 0 ? (
-        <div
-          className="pointer-events-auto min-w-0 flex-1"
-          style={isMacNotelab ? macTitlebarStyles.noDrag : undefined}
-        >
-          <Select
-            onValueChange={(v) => setFilterWorkspaceId(v === '__all__' ? null : v)}
-            value={filterWorkspaceId ?? '__all__'}
-          >
-            <SelectTrigger
-              size="sm"
-              className={cn(
-                NOTES_APP_PILL_SURFACE,
-                NOTES_APP_PILL_ROUNDED,
-                'h-7 w-full min-w-0 border px-2 py-0 text-[11px] shadow-none',
-                'focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-0',
-                '[&_svg]:size-3 [&_svg]:opacity-70'
-              )}
-            >
-              <SelectValue placeholder="All workspaces" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem className="text-xs" value="__all__">
-                All workspaces
-              </SelectItem>
-              {folders.map((f) => (
-                <SelectItem className="text-xs" key={f.folder} value={f.folder}>
-                  {f.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      ) : (
-        <div className="min-w-0 flex-1" />
-      )}
-      <div
-        className="pointer-events-auto flex shrink-0 items-center gap-0.5"
-        style={isMacNotelab ? macTitlebarStyles.noDrag : undefined}
-      >
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                className="size-7 min-h-0"
-                onClick={newChat}
-                size="icon-sm"
-                type="button"
-                variant="ghost"
-              >
-                <PlusIcon className="size-3" />
-                <span className="sr-only">New chat</span>
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>New chat</TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-      </div>
-    </div>
-  )
-}
 
 function HistoryItem({
   meta,
