@@ -724,22 +724,26 @@ export function useNotesApp({
   )
 
   const setNoteProperty = useCallback(
-    (notePath: string, key: string, value: string | null) => {
+    (notePath: string, key: string, value: NotePropertyValue | null) => {
       const trimmedKey = key.trim()
       if (!trimmedKey) return
       if (trimmedKey === 'cover_image') {
-        setNoteCover(notePath, value)
+        setNoteCover(notePath, typeof value === 'string' ? value : null)
         return
       }
       if (trimmedKey === 'title_emoji') {
-        setNoteTitleEmoji(notePath, value)
+        setNoteTitleEmoji(notePath, typeof value === 'string' ? value : null)
         return
       }
       setNotes((prev) =>
         prev.map((n) => {
           if (n.path !== notePath) return n
           const nextProperties = { ...(n.properties ?? {}) }
-          if (value == null || value.trim() === '') {
+          const empty =
+            value == null ||
+            (typeof value === 'string' && value.trim() === '') ||
+            (Array.isArray(value) && value.length === 0)
+          if (empty) {
             delete nextProperties[trimmedKey]
           } else {
             nextProperties[trimmedKey] = value
