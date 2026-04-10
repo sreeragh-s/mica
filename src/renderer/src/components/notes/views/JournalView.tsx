@@ -1,0 +1,60 @@
+import type { DragEvent, JSX } from 'react'
+
+import { NotesPrimaryPane } from '@/components/notes/editor-area/NotesPrimaryPane'
+import type { NotesAppViewModel } from '@/components/notes/app-state/useNotesApp'
+
+export type JournalViewProps = {
+  vm: NotesAppViewModel
+  bottomChromePortal?: HTMLElement | null
+  onDragOver: (e: DragEvent) => void
+  onDrop: (e: DragEvent) => void
+}
+
+/** Daily journal layout: calendar lives in the main chrome; this pane is the note editor. */
+export function JournalView({
+  vm,
+  bottomChromePortal,
+  onDragOver,
+  onDrop
+}: JournalViewProps): JSX.Element {
+  const {
+    selectedNote,
+    focusedFolder,
+    notes,
+    folders,
+    notesByFolder,
+    canCreateNote,
+    selectNote,
+    handleNewNote,
+    handleNoteSerializedChange,
+    handleExcalidrawSceneChange,
+    renameNote,
+    setNoteCover,
+    setNoteTitleEmoji,
+    setNoteProperty,
+    editorSettings
+  } = vm
+
+  return (
+    <div className="flex min-h-0 flex-1 flex-col" onDragOver={onDragOver} onDrop={onDrop}>
+      <NotesPrimaryPane
+        selectedNote={selectedNote}
+        focusedFolder={focusedFolder}
+        notes={notes}
+        folders={folders}
+        notesByFolder={notesByFolder}
+        canCreateNote={canCreateNote}
+        onSelectNote={selectNote}
+        onNewNote={handleNewNote}
+        onNoteSerializedChange={handleNoteSerializedChange}
+        onExcalidrawSceneChange={handleExcalidrawSceneChange}
+        onRenameNote={renameNote}
+        onSetNoteCover={setNoteCover}
+        onSetNoteTitleEmoji={setNoteTitleEmoji}
+        onSetNoteProperty={setNoteProperty}
+        editorSettings={editorSettings}
+        bottomChromePortal={bottomChromePortal}
+      />
+    </div>
+  )
+}

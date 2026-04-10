@@ -18,9 +18,12 @@ export const macTitlebarStyles: MacTitlebarStyles = {
   noDrag: { WebkitAppRegion: 'no-drag' } as CSSProperties
 }
 
-/** Inset pill surface shared by the note tab strip and matching chat controls (height h-8). */
+/** Inset pill surface shared by the note tab strip and matching chat controls (compact h-7 row). */
 export const NOTES_APP_PILL_SURFACE =
   'bg-muted/35 text-foreground shadow-[inset_0_1px_0_0_oklch(1_0_0/0.06)] backdrop-blur-xl dark:bg-white/[0.07] dark:shadow-[inset_0_1px_0_0_oklch(1_0_0/0.08)]'
+
+/** Theme `rounded-lg` → `--radius-lg` / `var(--radius)` in globals.css; keeps pill shells aligned with app radius. */
+export const NOTES_APP_PILL_ROUNDED = 'rounded-lg'
 
 /** Main window drag uses a single full-width band in `NotesApp` (macOS Notelab); avoid extra `drag` rows. */
 

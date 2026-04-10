@@ -22,7 +22,7 @@ import {
 import { electronApp } from '@electron-toolkit/utils'
 import log from 'electron-log/main'
 
-import { createWindow, macLiquidGlassStateByWebContents } from './core/window'
+import { createWindow } from './core/window'
 import { windowSessionData, type WindowSession } from './core/session'
 import { watchWindowShortcutsDetachedDevTools, zenShortcutBindings, type ZenShortcutBinding } from './core/shortcuts'
 
@@ -79,13 +79,6 @@ app.whenReady().then(() => {
   ipcMain.handle('window:set-zen-shortcut-binding', (event, binding: ZenShortcutBinding | null) => {
     zenShortcutBindings.set(event.sender, binding)
     return { ok: true as const }
-  })
-
-  ipcMain.handle('window:get-liquid-glass-state', (event) => {
-    return macLiquidGlassStateByWebContents.get(event.sender) ?? {
-      attached: false,
-      glassSupported: false
-    }
   })
 
   ipcMain.handle('window:set-zen-presentation', (event, enabled: boolean) => {

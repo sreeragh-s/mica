@@ -7,10 +7,10 @@ import {
   Keyboard,
   Palette,
   Network,
+  NotebookPen,
   Folder,
   FolderOpen,
   FolderPlus,
-  PanelLeftClose,
   Pencil,
   Settings2,
   Sparkles,
@@ -37,11 +37,7 @@ import {
 } from '@/components/ui/tree'
 import { cn } from '@/lib/utils'
 import { enableInfinityCanvas } from '@/lib/core/vite-flags'
-import {
-  liquidGlassControlPillClass,
-  macSidebarLiquidGlassPanelClass
-} from '@/lib/platform/liquid-glass-toolbar'
-import { MAC_SIDEBAR_INSET_PANEL_RADIUS_PX } from '../../../../../shared/mac-window-chrome'
+import { SidebarEdgeToolbarPill } from '@/components/notes/editor-area/NotesToolbarPill'
 import { DEFAULT_WORKSPACE_ID, formatNoteTime, type SavedNote } from '@/lib/notes/notes-storage'
 import { searchNotes, searchFolders } from '@/lib/notes/notes-search'
 import { AppSidebarRail } from '@/components/notes/sidebar/AppSidebar'
@@ -49,7 +45,6 @@ import { WorkspaceSwitcher } from '@/components/notes/sidebar/WorkspaceSwitcher'
 import { GitSourceControlPanel } from '@/components/notes/git/GitSourceControlPanel'
 import { NoteLeadingIcon } from '@/components/notes/sidebar/NoteLeadingIcon'
 import { FOLDER_DRAG_MIME, NOTE_DRAG_MIME, treeFolderPath, treeNotePath } from '@/components/notes/notes-app-utils'
-import { MacSidebarLeadingToolbarIcon } from '@/components/notes/sidebar/MacSidebarToolbarIcon'
 import type { NotesAppViewModel } from '@/components/notes/app-state/useNotesApp'
 
 export type NotesSidebarProps = {
@@ -59,7 +54,6 @@ export type NotesSidebarProps = {
 export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
   const {
     isMacNotelab,
-    nativeLiquidGlassAttached,
     appearanceSettings,
     macTitlebarStyles,
     appMode,
@@ -99,6 +93,9 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
     canvasViewOpen,
     openCanvasView,
     closeCanvasView,
+    journalViewOpen,
+    openJournalView,
+    closeJournalView,
     toggleSidebar,
     appSidebarView,
     triggerRenameSelectedRef,
@@ -271,24 +268,15 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
     onCancelRename: cancelRename
   }
 
-  const macInsetSidebar = isMacNotelab
-    && appearanceSettings.sidebarInsetView
-  const nativeGlassUi = isMacNotelab && nativeLiquidGlassAttached
   const animationsEnabled = appearanceSettings.animationsEnabled
   const inboxNotes = notesByFolder.get(DEFAULT_WORKSPACE_ID) ?? []
 
   return (
     <aside
-      data-native-liquid-glass={macInsetSidebar && nativeLiquidGlassAttached ? true : undefined}
-      style={
-        macInsetSidebar ? { borderRadius: `${MAC_SIDEBAR_INSET_PANEL_RADIUS_PX}px` } : undefined
-      }
       className={cn(
         'text-sidebar-foreground flex h-full min-h-0 w-full min-w-0 shrink-0 flex-col',
         isMacNotelab && 'pointer-events-none',
-        macInsetSidebar
-          ? macSidebarLiquidGlassPanelClass()
-          : 'bg-sidebar border-sidebar-border border-r'
+        'bg-sidebar border-sidebar-border border-r'
       )}
       onPointerDownCapture={(e) => {
         const t = e.target as HTMLElement
@@ -297,11 +285,11 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
       }}
     >
       {/*
-        Top bar spans rail + main column so border-b is continuous; rail border-r starts below this row.
+        Top bar spans rail + main column so border-b is continuous with NotesMainArea; rail border-r starts below this row.
       */}
       <div
         className={cn(
-          'border-sidebar-border relative z-10 flex h-12 w-full shrink-0 flex-row items-stretch border-b',
+          'border-border relative z-10 flex h-12 w-full shrink-0 flex-row items-stretch border-b',
           isMacNotelab && 'pointer-events-none'
         )}
       >
@@ -324,30 +312,13 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
             isMacNotelab ? 'pointer-events-none pr-2' : 'px-2'
           )}
         >
-          <div
-            className={cn('pointer-events-auto', liquidGlassControlPillClass(nativeGlassUi))}
-            style={isMacNotelab ? macTitlebarStyles.noDrag : undefined}
-            data-sidebar-interactive=""
-          >
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="text-muted-foreground size-8 shrink-0 rounded-full"
-              aria-label="Collapse sidebar"
-              aria-expanded={true}
+          <div className="pointer-events-auto">
+            <SidebarEdgeToolbarPill
+              macTitlebarStyles={macTitlebarStyles}
+              expanded
               onClick={toggleSidebar}
-              style={isMacNotelab ? macTitlebarStyles.noDrag : undefined}
-            >
-              {macInsetSidebar ? (
-                <MacSidebarLeadingToolbarIcon
-                  className="size-[15px]"
-                  nativeLiquidGlassActive={nativeGlassUi}
-                />
-              ) : (
-                <PanelLeftClose className="size-4" aria-hidden />
-              )}
-            </Button>
+              markSidebarInteractive
+            />
           </div>
         </div>
       </div>
@@ -683,6 +654,22 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
                 : 'overflow-y-auto p-2'
             )}
           >
+            {appMode === 'notes' && appSidebarView === 'explorer' ? (
+              <div className="mb-1.5 shrink-0">
+                <button
+                  type="button"
+                  data-sidebar-interactive=""
+                  onClick={() => (journalViewOpen ? closeJournalView() : openJournalView())}
+                  className={cn(
+                    'hover:bg-sidebar-accent hover:text-sidebar-accent-foreground flex h-8 w-full items-center gap-2 rounded-md px-2 text-left text-[13px] leading-tight transition-colors',
+                    journalViewOpen && 'bg-sidebar-accent text-sidebar-accent-foreground'
+                  )}
+                >
+                  <NotebookPen className="text-muted-foreground size-3.5 shrink-0" aria-hidden />
+                  Journal
+                </button>
+              </div>
+            ) : null}
             {appMode === 'settings' ? (
               <ul className="flex flex-col gap-0">
                 <li>
@@ -1138,9 +1125,7 @@ export function NotesSidebar({ vm }: NotesSidebarProps): JSX.Element {
                     <div
                       className={cn(
                         'mx-1 mt-1 flex items-center gap-2 rounded-md border border-dashed px-3 py-2',
-                        macInsetSidebar
-                          ? 'border-sidebar-border/45 dark:border-white/15'
-                          : 'border-sidebar-border'
+                        'border-sidebar-border'
                       )}
                       style={isMacNotelab ? macTitlebarStyles.noDrag : undefined}
                       data-sidebar-interactive=""

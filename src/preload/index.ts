@@ -324,23 +324,6 @@ const api = {
         ipcRenderer.removeListener(channel, handler)
       }
     },
-    getLiquidGlassState: (): Promise<{ attached: boolean; glassSupported: boolean }> =>
-      ipcRenderer.invoke('window:get-liquid-glass-state'),
-    onLiquidGlassState: (
-      callback: (state: { attached: boolean; glassSupported: boolean }) => void
-    ): (() => void) => {
-      const channel = 'notelab:liquid-glass-state'
-      const handler = (
-        _event: unknown,
-        state: { attached: boolean; glassSupported: boolean }
-      ): void => {
-        callback(state)
-      }
-      ipcRenderer.on(channel, handler)
-      return () => {
-        ipcRenderer.removeListener(channel, handler)
-      }
-    },
   },
   /**
    * Ollama — bundled local model server via electron-ollama.

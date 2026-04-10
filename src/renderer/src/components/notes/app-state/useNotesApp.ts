@@ -116,6 +116,7 @@ export function useNotesApp({
   const [chatSidebarLinkMode, setChatSidebarLinkMode] = useState<'linked' | 'linking'>('linked')
   const [graphViewOpen, setGraphViewOpen] = useState(false)
   const [canvasViewOpen, setCanvasViewOpen] = useState(false)
+  const [journalViewOpen, setJournalViewOpen] = useState(false)
   const [tabOverviewOpen, setTabOverviewOpen] = useState(false)
 
   /** Sidebar registers its rename-trigger here so the keyboard shortcut can invoke it. */
@@ -887,6 +888,7 @@ export function useNotesApp({
   const openSettings = useCallback(() => {
     setWorkspaceSettingsFolderId(null)
     setGraphViewOpen(false)
+    setJournalViewOpen(false)
     setTabOverviewOpen(false)
     setAppMode('settings')
     setAppSidebarView('settings')
@@ -904,6 +906,7 @@ export function useNotesApp({
       if (view === 'source-control') {
         setWorkspaceSettingsFolderId(null)
         setGraphViewOpen(false)
+        setJournalViewOpen(false)
         setTabOverviewOpen(false)
       }
     },
@@ -1054,7 +1057,6 @@ export function useNotesApp({
   const canCreateNote = true
 
   const {
-    nativeLiquidGlassAttached,
     backToNotes,
     toggleSidebar,
     toggleChatSidebar: toggleChatSidebarBase,
@@ -1063,14 +1065,14 @@ export function useNotesApp({
     openTabOverview,
     openCanvasView,
     closeCanvasView,
+    openJournalView,
+    closeJournalView,
     closeTabOverview,
     setShortcutsCaptureActive,
     updateShortcutBinding,
     resetShortcutsToDefaults,
-    sidebarOverlayActive,
     openShortcuts
   } = useNotesAppUi({
-    isMacNotelab,
     appMode,
     setAppMode,
     workspaceSettingsFolderId,
@@ -1082,6 +1084,8 @@ export function useNotesApp({
     setGraphViewOpen,
     canvasViewOpen,
     setCanvasViewOpen,
+    journalViewOpen,
+    setJournalViewOpen,
     setTabOverviewOpen,
     zenMode,
     setZenMode,
@@ -1152,7 +1156,6 @@ export function useNotesApp({
     onSignOut,
     onConnectGitHub,
     isMacNotelab,
-    nativeLiquidGlassAttached,
     macTitlebarStyles,
     appMode,
     settingsSection,
@@ -1192,7 +1195,6 @@ export function useNotesApp({
     selectedNote,
     focusedFolder,
     sidebarCollapsed,
-    sidebarOverlayActive,
     zenMode,
     toggleSidebar,
     dirtyByWorkspaceId,
@@ -1281,6 +1283,9 @@ export function useNotesApp({
     canvasViewOpen,
     openCanvasView,
     closeCanvasView,
+    journalViewOpen,
+    openJournalView,
+    closeJournalView,
     tabOverviewOpen,
     openTabOverview,
     closeTabOverview,

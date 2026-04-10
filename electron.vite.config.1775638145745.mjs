@@ -18,7 +18,7 @@ var electron_vite_config_default = defineConfig(({ mode }) => {
       build: {
         rollupOptions: {
           /** Native addons and runtime-loaded modules — must load from node_modules at runtime */
-          external: ["electron-liquid-glass", "electron-ollama"]
+          external: ["electron-ollama"]
         }
       }
     },

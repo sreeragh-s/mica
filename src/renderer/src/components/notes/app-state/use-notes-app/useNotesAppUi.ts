@@ -1,8 +1,6 @@
 import {
   useCallback,
   useEffect,
-  useMemo,
-  useState,
   type Dispatch,
   type MutableRefObject,
   type SetStateAction
@@ -26,7 +24,6 @@ import type { AppMode, SettingsSection } from '@/components/notes/notes-app-type
 type Setter<T> = Dispatch<SetStateAction<T>>
 
 type UseNotesAppUiArgs = {
-  isMacNotelab: boolean
   appMode: AppMode
   setAppMode: Setter<AppMode>
   workspaceSettingsFolderId: string | null
@@ -38,6 +35,8 @@ type UseNotesAppUiArgs = {
   setGraphViewOpen: Setter<boolean>
   canvasViewOpen: boolean
   setCanvasViewOpen: Setter<boolean>
+  journalViewOpen: boolean
+  setJournalViewOpen: Setter<boolean>
   setTabOverviewOpen: Setter<boolean>
   zenMode: boolean
   setZenMode: Setter<boolean>
@@ -64,7 +63,6 @@ type UseNotesAppUiArgs = {
 }
 
 export function useNotesAppUi({
-  isMacNotelab,
   appMode,
   setAppMode,
   workspaceSettingsFolderId,
@@ -76,6 +74,8 @@ export function useNotesAppUi({
   setGraphViewOpen,
   canvasViewOpen,
   setCanvasViewOpen,
+  journalViewOpen,
+  setJournalViewOpen,
   setTabOverviewOpen,
   zenMode,
   setZenMode,
@@ -100,8 +100,6 @@ export function useNotesAppUi({
   sidebarCollapsedBeforeZenRef,
   lastZenEscPressRef
 }: UseNotesAppUiArgs) {
-  const [nativeLiquidGlassAttached, setNativeLiquidGlassAttached] = useState(false)
-
   const backToNotes = useCallback(() => {
     setAppMode('notes')
     setAppSidebarView('explorer')
@@ -138,15 +136,20 @@ export function useNotesAppUi({
     if (canvasViewOpen) {
       setCanvasViewOpen(false)
     }
+    if (journalViewOpen) {
+      setJournalViewOpen(false)
+    }
     setZenMode(true)
   }, [
     appMode,
     canvasViewOpen,
     graphViewOpen,
+    journalViewOpen,
     lastZenEscPressRef,
     selectedNote,
     setCanvasViewOpen,
     setGraphViewOpen,
+    setJournalViewOpen,
     setSidebarCollapsed,
     setZenMode,
     sidebarCollapsed,
@@ -173,12 +176,14 @@ export function useNotesAppUi({
     setAppSidebarView('explorer')
     setTabOverviewOpen(false)
     setCanvasViewOpen(false)
+    setJournalViewOpen(false)
     setGraphViewOpen(true)
   }, [
     setAppMode,
     setAppSidebarView,
     setCanvasViewOpen,
     setGraphViewOpen,
+    setJournalViewOpen,
     setTabOverviewOpen,
     setWorkspaceSettingsFolderId
   ])
@@ -186,8 +191,9 @@ export function useNotesAppUi({
   const openTabOverview = useCallback(() => {
     setGraphViewOpen(false)
     setCanvasViewOpen(false)
+    setJournalViewOpen(false)
     setTabOverviewOpen(true)
-  }, [setCanvasViewOpen, setGraphViewOpen, setTabOverviewOpen])
+  }, [setCanvasViewOpen, setGraphViewOpen, setJournalViewOpen, setTabOverviewOpen])
 
   useEffect(() => {
     if (!enableInfinityCanvas && canvasViewOpen) {
@@ -202,12 +208,14 @@ export function useNotesAppUi({
     setAppSidebarView('explorer')
     setTabOverviewOpen(false)
     setGraphViewOpen(false)
+    setJournalViewOpen(false)
     setCanvasViewOpen(true)
   }, [
     setAppMode,
     setAppSidebarView,
     setCanvasViewOpen,
     setGraphViewOpen,
+    setJournalViewOpen,
     setTabOverviewOpen,
     setWorkspaceSettingsFolderId
   ])
@@ -215,6 +223,28 @@ export function useNotesAppUi({
   const closeCanvasView = useCallback(() => {
     setCanvasViewOpen(false)
   }, [setCanvasViewOpen])
+
+  const closeJournalView = useCallback(() => {
+    setJournalViewOpen(false)
+  }, [setJournalViewOpen])
+
+  const openJournalView = useCallback(() => {
+    setWorkspaceSettingsFolderId(null)
+    setAppMode('notes')
+    setAppSidebarView('explorer')
+    setTabOverviewOpen(false)
+    setGraphViewOpen(false)
+    setCanvasViewOpen(false)
+    setJournalViewOpen(true)
+  }, [
+    setAppMode,
+    setAppSidebarView,
+    setCanvasViewOpen,
+    setGraphViewOpen,
+    setJournalViewOpen,
+    setTabOverviewOpen,
+    setWorkspaceSettingsFolderId
+  ])
 
   const closeTabOverview = useCallback(() => {
     setTabOverviewOpen(false)
@@ -243,12 +273,6 @@ export function useNotesAppUi({
     setShortcutBindings(next)
   }, [setShortcutBindings])
 
-  /** macOS: liquid sidebar overlays full-bleed main so glass blurs --background from the editor column. */
-  const sidebarOverlayActive = useMemo(
-    () => isMacNotelab && !sidebarCollapsed && !zenMode,
-    [isMacNotelab, sidebarCollapsed, zenMode]
-  )
-
   useEffect(() => {
     if (!zenMode) return
     if (
@@ -266,13 +290,6 @@ export function useNotesAppUi({
     if (!win) return
     void win.setZenPresentation(zenMode)
   }, [zenMode])
-
-  useEffect(() => {
-    const win = getWindowApi()
-    if (!win?.getLiquidGlassState || !win.onLiquidGlassState) return
-    void win.getLiquidGlassState().then((s) => setNativeLiquidGlassAttached(s.attached))
-    return win.onLiquidGlassState((s) => setNativeLiquidGlassAttached(s.attached))
-  }, [])
 
   useEffect(() => {
     const win = getWindowApi()
@@ -302,6 +319,8 @@ export function useNotesAppUi({
   const openShortcuts = useCallback(() => {
     setWorkspaceSettingsFolderId(null)
     setGraphViewOpen(false)
+    setCanvasViewOpen(false)
+    setJournalViewOpen(false)
     setTabOverviewOpen(false)
     setAppMode('settings')
     setAppSidebarView('settings')
@@ -309,7 +328,9 @@ export function useNotesAppUi({
   }, [
     setAppMode,
     setAppSidebarView,
+    setCanvasViewOpen,
     setGraphViewOpen,
+    setJournalViewOpen,
     setSettingsSection,
     setTabOverviewOpen,
     setWorkspaceSettingsFolderId
@@ -470,7 +491,6 @@ export function useNotesAppUi({
   }, [chatSidebarOpen, openNoteTabPaths, selectedNotePath, workspaceRoot])
 
   return {
-    nativeLiquidGlassAttached,
     backToNotes,
     toggleSidebar,
     toggleChatSidebar,
@@ -481,11 +501,12 @@ export function useNotesAppUi({
     openTabOverview,
     openCanvasView,
     closeCanvasView,
+    openJournalView,
+    closeJournalView,
     closeTabOverview,
     setShortcutsCaptureActive,
     updateShortcutBinding,
     resetShortcutsToDefaults,
-    sidebarOverlayActive,
     openShortcuts
   }
 }

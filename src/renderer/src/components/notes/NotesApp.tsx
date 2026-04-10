@@ -16,7 +16,7 @@ export type { NotesAppProps } from '@/components/notes/notes-app-types'
 
 export function NotesApp(props: NotesAppProps): JSX.Element {
   const vm = useNotesApp(props)
-  const { sidebarCollapsed, zenMode, isMacNotelab, sidebarOverlayActive } = vm
+  const { sidebarCollapsed, zenMode, isMacNotelab } = vm
   const sidebarHidden = sidebarCollapsed || zenMode
   const cwd = vm.gitToolbarFolder?.localGitPath ?? ''
   const dirName = cwd.split('/').pop() ?? 'notes'
@@ -27,8 +27,7 @@ export function NotesApp(props: NotesAppProps): JSX.Element {
         isMacNotelab ? { borderRadius: `${MAC_WINDOW_OUTER_CORNER_RADIUS_PX}px` } : undefined
       }
       className={cn(
-        'bg-background text-foreground relative overflow-hidden',
-        sidebarOverlayActive ? 'h-screen w-full' : 'flex h-screen w-full flex-row'
+        'bg-background text-foreground relative flex h-screen w-full flex-row overflow-hidden'
       )}
     >
       {/*
@@ -44,20 +43,13 @@ export function NotesApp(props: NotesAppProps): JSX.Element {
       )}
       {/*
         Single sidebar column (always mounted) so width/opacity transitions run on every platform.
-        macOS expanded: overlay slot (absolute). Otherwise: flex sibling. min-w-0 avoids flex
-        min-content blocking the width animation.
+        min-w-0 avoids flex min-content blocking the width animation.
       */}
       <div
         className={cn(
           'relative z-[2] flex min-h-0 min-w-0 shrink-0 overflow-hidden transition-[width] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] will-change-[width]',
-          sidebarOverlayActive
-            ? 'pointer-events-none absolute inset-y-0 left-0 z-30'
-            : '',
           sidebarHidden ? 'w-0 border-r-0' : 'w-[min(100%,360px)]',
-          !sidebarHidden &&
-            isMacNotelab &&
-            !sidebarOverlayActive &&
-            'pointer-events-none box-border bg-background p-2 pr-1.5'
+          !sidebarHidden && isMacNotelab && 'pointer-events-none'
         )}
         aria-hidden={sidebarHidden}
       >
@@ -69,17 +61,11 @@ export function NotesApp(props: NotesAppProps): JSX.Element {
               : 'translate-x-0 opacity-100'
           )}
         >
-          <div
-            className={cn(
-              'flex h-full min-h-0 min-w-0 flex-col',
-              isMacNotelab && !sidebarHidden && sidebarOverlayActive && 'box-border p-2 pr-1.5'
-            )}
-          >
+          <div className="flex h-full min-h-0 min-w-0 flex-col">
             <div
               className={cn(
                 'flex min-h-0 min-w-0 flex-1 flex-col',
-                (sidebarOverlayActive || (isMacNotelab && !sidebarHidden)) &&
-                  'pointer-events-auto h-full'
+                isMacNotelab && !sidebarHidden && 'pointer-events-auto h-full'
               )}
             >
               <NotesSidebar vm={vm} />
@@ -88,12 +74,7 @@ export function NotesApp(props: NotesAppProps): JSX.Element {
         </div>
       </div>
 
-      <div
-        className={cn(
-          'relative z-[2] min-h-0 min-w-0',
-          sidebarOverlayActive ? 'absolute inset-0' : 'flex min-h-0 flex-1 flex-col'
-        )}
-      >
+      <div className="relative z-[2] flex min-h-0 min-w-0 flex-1 flex-col">
         <NotesMainArea vm={vm} />
       </div>
 

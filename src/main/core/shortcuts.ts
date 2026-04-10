@@ -2,7 +2,7 @@
  * Keyboard shortcut helpers for the main process.
  *
  * - Zen mode shortcut binding (forwarded from renderer)
- * - DevTools shortcut watcher (detached mode to avoid liquid-glass hit-testing issues)
+ * - DevTools shortcut watcher (detached mode for reliable hit-testing)
  */
 
 import { BrowserWindow, type WebContents, type Input } from 'electron'
@@ -41,8 +41,8 @@ export function bindingMatchesBeforeInput(b: ZenShortcutBinding, input: Input): 
 
 /**
  * Mirrors `@electron-toolkit/utils` `optimizer.watchWindowShortcuts`, but opens DevTools with
- * `mode: 'detach'` (separate OS window). Undocked tools inside a transparent / liquid-glass
- * window often break click hit-testing; detached mode avoids that.
+ * `mode: 'detach'` (separate OS window). Undocked tools inside a transparent window often break
+ * click hit-testing; detached mode avoids that.
  */
 export function watchWindowShortcutsDetachedDevTools(window: BrowserWindow): void {
   const { webContents } = window

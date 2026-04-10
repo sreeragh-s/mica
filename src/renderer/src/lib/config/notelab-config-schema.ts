@@ -30,7 +30,6 @@ export type NotelabEditorSettingsV1 = {
 }
 
 export type NotelabAppearanceSettingsV1 = {
-  sidebarInsetView?: boolean
   animationsEnabled?: boolean
 }
 

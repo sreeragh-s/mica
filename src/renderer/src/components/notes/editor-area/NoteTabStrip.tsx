@@ -11,7 +11,10 @@ import { motion } from 'motion/react'
 
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import { NOTES_APP_PILL_SURFACE } from '@/components/notes/notes-app-utils'
+import {
+  NOTES_APP_PILL_ROUNDED,
+  NOTES_APP_PILL_SURFACE
+} from '@/components/notes/notes-app-utils'
 import type { SavedNote } from '@/lib/notes/notes-storage'
 import type { MacTitlebarStyles } from '@/components/notes/notes-app-types'
 
@@ -199,7 +202,8 @@ export function NoteTabStrip({
     >
       <div
         className={cn(
-          'isolate flex h-8 w-full min-w-0 flex-1 items-stretch overflow-hidden rounded-full',
+          'isolate flex h-8 w-full min-w-0 flex-1 items-stretch overflow-hidden',
+          NOTES_APP_PILL_ROUNDED,
           NOTES_APP_PILL_SURFACE
         )}
         role="tablist"
@@ -269,8 +273,8 @@ export function NoteTabStrip({
                   className={cn(
                     'grid h-full w-full min-w-0 max-w-full cursor-pointer grid-cols-[1.5rem_minmax(0,1fr)_1.5rem] items-center px-1 duration-150',
                     active
-                      ? 'rounded-full bg-background/92 text-foreground shadow-sm transition-colors dark:bg-white/[0.14]'
-                      : 'rounded-none text-muted-foreground transition-[background-color,color,border-radius] hover:rounded-full hover:bg-black/[0.04] hover:text-foreground dark:hover:bg-white/[0.06]'
+                      ? 'rounded-md bg-background/92 text-foreground shadow-sm transition-colors dark:bg-white/[0.14]'
+                      : 'rounded-none text-muted-foreground transition-[background-color,color,border-radius] hover:rounded-md hover:bg-black/[0.04] hover:text-foreground dark:hover:bg-white/[0.06]'
                   )}
                   onClick={(ev) => {
                     if ((ev.target as HTMLElement).closest('[data-tab-handle]')) return
@@ -286,7 +290,7 @@ export function NoteTabStrip({
                       className={cn(
                         'size-6 shrink-0',
                         active
-                          ? 'rounded-full text-muted-foreground hover:bg-transparent'
+                          ? 'rounded-md text-muted-foreground hover:bg-transparent'
                           : 'rounded-md text-muted-foreground opacity-0 hover:opacity-100 group-hover:opacity-100'
                       )}
                       aria-label={`Close tab ${title}`}

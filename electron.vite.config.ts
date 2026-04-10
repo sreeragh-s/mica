@@ -17,7 +17,7 @@ export default defineConfig(({ mode }) => {
       },
       build: {
         rollupOptions: {
-          external: ['electron-liquid-glass', 'electron-ollama'],
+          external: ['electron-ollama'],
         },
       },
     },

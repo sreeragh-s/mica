@@ -2,15 +2,14 @@
  * BrowserWindow creation and native chrome helpers.
  *
  * - Creates windows with optional restored session data
- * - Attaches macOS liquid glass + traffic lights
+ * - macOS hidden titlebar + traffic lights
  * - Loads the correct renderer URL (dev vs production)
  */
 
-import { BrowserWindow, shell, type WebContents } from 'electron'
+import { BrowserWindow, shell } from 'electron'
 import { join } from 'path'
 import { is } from '@electron-toolkit/utils'
 import icon from '../../../resources/icon.png?asset'
-import { MAC_WINDOW_OUTER_CORNER_RADIUS_PX } from '../../shared/mac-window-chrome'
 import {
   type WindowSession,
   windowSessionData,
@@ -19,39 +18,6 @@ import {
   zenShortcutBindings,
   bindingMatchesBeforeInput,
 } from './shortcuts'
-
-// ---------------------------------------------------------------------------
-// Liquid glass (macOS)
-// ---------------------------------------------------------------------------
-
-type MacLiquidGlassState = { attached: boolean; glassSupported: boolean }
-
-export const macLiquidGlassStateByWebContents = new WeakMap<WebContents, MacLiquidGlassState>()
-
-/** Native liquid glass behind the web view (electron-liquid-glass, macOS). */
-async function attachMacNativeLiquidGlass(win: BrowserWindow): Promise<void> {
-  if (process.platform !== 'darwin') return
-  const state: MacLiquidGlassState = { attached: false, glassSupported: false }
-  try {
-    const { default: liquidGlass } = await import('electron-liquid-glass')
-    if (win.isDestroyed()) return
-    state.glassSupported = liquidGlass.isGlassSupported()
-    const glassId = liquidGlass.addView(win.getNativeWindowHandle(), {
-      cornerRadius: MAC_WINDOW_OUTER_CORNER_RADIUS_PX,
-      opaque: false
-    })
-    state.attached = glassId >= 0
-    if (glassId >= 0) {
-      liquidGlass.unstable_setVariant(glassId, liquidGlass.GlassMaterialVariant.sidebar)
-    }
-  } catch (e) {
-    console.warn('[notelab] electron-liquid-glass failed to attach:', e)
-  }
-  if (!win.isDestroyed()) {
-    macLiquidGlassStateByWebContents.set(win.webContents, state)
-    win.webContents.send('notelab:liquid-glass-state', state)
-  }
-}
 
 // ---------------------------------------------------------------------------
 // Window creation
@@ -127,10 +93,6 @@ export function createWindow(session?: WindowSession): BrowserWindow {
   win.webContents.setWindowOpenHandler((details) => {
     shell.openExternal(details.url)
     return { action: 'deny' }
-  })
-
-  win.webContents.once('did-finish-load', () => {
-    void attachMacNativeLiquidGlass(win)
   })
 
   const workspaceParam = session?.workspacePath

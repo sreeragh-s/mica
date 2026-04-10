@@ -36,11 +36,6 @@ export type NotelabWindowApi = {
   onZenShortcutFromMain: (callback: () => void) => () => void
   setZenPresentation: (enabled: boolean) => Promise<{ ok: boolean }>
   onNativeFullScreenExit: (callback: () => void) => () => void
-  /** Main-process `electron-liquid-glass` attach state (macOS Notelab). */
-  getLiquidGlassState?: () => Promise<{ attached: boolean; glassSupported: boolean }>
-  onLiquidGlassState?: (
-    callback: (state: { attached: boolean; glassSupported: boolean }) => void
-  ) => () => void
 }
 
 export function getWindowApi(): NotelabWindowApi | null {
@@ -104,6 +99,15 @@ export type NotelabApi = {
     setGitRemote: (payload: {
       cwd: string
       url: string
+    }) => Promise<{ ok: true } | { ok: false; error: string }>
+    gitCheckConfig?: (payload: { cwd: string }) => Promise<
+      | { ok: true; hasName: boolean; hasEmail: boolean; name: string | null; email: string | null }
+      | { ok: false; error: string }
+    >
+    gitSetConfig?: (payload: {
+      cwd: string
+      name: string
+      email: string
     }) => Promise<{ ok: true } | { ok: false; error: string }>
     syncMarkdown: (payload: {
       cwd: string

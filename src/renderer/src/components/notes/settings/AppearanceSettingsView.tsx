@@ -392,14 +392,8 @@ export function AppearanceSettingsView({
       </section>
 
       <section className="flex flex-col gap-3">
-        <Label className="text-foreground text-sm font-medium">Motion and layout</Label>
+        <Label className="text-foreground text-sm font-medium">Motion</Label>
         <div className="flex flex-col gap-3">
-          <ToggleRow
-            label="Sidebar inset view"
-            description="Use the inset-style sidebar surface. Turn this off for a standard flat sidebar."
-            value={settings.sidebarInsetView}
-            onChange={(next) => onChange({ sidebarInsetView: next })}
-          />
           <ToggleRow
             label="Animations"
             description="Enable interface animations and transitions in the notes sidebar."

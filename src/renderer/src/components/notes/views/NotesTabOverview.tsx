@@ -11,6 +11,7 @@ import type { SavedNote, Folder } from '@/lib/notes/notes-storage'
 
 import { isDrawingNote } from '@/components/notes/notes-app-utils'
 import type { MacTitlebarStyles } from '@/components/notes/notes-app-types'
+import { SidebarEdgeToolbarPill } from '@/components/notes/editor-area/NotesToolbarPill'
 
 const OVERVIEW_PREVIEW_CHARS = 260
 
@@ -43,8 +44,8 @@ export type NotesTabOverviewProps = {
   selectedNotePath: string | null
   macTitlebarStyles: MacTitlebarStyles
   isMacNotelab: boolean
-  /** When true (macOS + expanded sidebar), align with the main column beside the overlay sidebar. */
-  sidebarOverlayActive: boolean
+  sidebarCollapsed: boolean
+  onToggleSidebar: () => void
   onClose: () => void
   onSelectNote: (notePath: string) => void
   onNewNote: () => void
@@ -58,7 +59,8 @@ export function NotesTabOverview({
   selectedNotePath,
   macTitlebarStyles,
   isMacNotelab,
-  sidebarOverlayActive,
+  sidebarCollapsed,
+  onToggleSidebar,
   onClose,
   onSelectNote,
   onNewNote,
@@ -110,8 +112,7 @@ export function NotesTabOverview({
     <motion.div
       className={cn(
         // NotesMainArea uses pointer-events-none on macOS so titlebar dragging works; overlays must opt back in.
-        'pointer-events-auto bg-background/75 fixed inset-0 z-[200] flex min-h-0 w-full flex-col backdrop-blur-2xl backdrop-saturate-150',
-        sidebarOverlayActive && 'pl-[min(100%,360px)]'
+        'pointer-events-auto bg-background/75 fixed inset-0 z-[200] flex min-h-0 w-full flex-col backdrop-blur-2xl backdrop-saturate-150'
       )}
       role="dialog"
       aria-modal="true"
@@ -122,7 +123,8 @@ export function NotesTabOverview({
     >
       <motion.div
         className={cn(
-          'flex shrink-0 items-center gap-2 px-4 pb-2 pt-3',
+          'flex shrink-0 items-center gap-2 pb-2 pt-3',
+          isMacNotelab && sidebarCollapsed ? 'pl-[92px] pr-4' : 'px-4',
           isMacNotelab && 'pt-10'
         )}
         style={macTitlebarStyles.noDrag}
@@ -130,6 +132,13 @@ export function NotesTabOverview({
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3, delay: 0.04, ease: [0.22, 1, 0.36, 1] }}
       >
+        {sidebarCollapsed ? (
+          <SidebarEdgeToolbarPill
+            macTitlebarStyles={macTitlebarStyles}
+            expanded={false}
+            onClick={onToggleSidebar}
+          />
+        ) : null}
         <div className="relative min-w-0 flex-1 max-w-md">
           <Search
             className="text-muted-foreground pointer-events-none absolute left-3 top-1/2 z-10 size-4 -translate-y-1/2 opacity-70"

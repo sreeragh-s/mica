@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type DragEvent, type JSX } from 'react'
 
+import { format, startOfDay } from 'date-fns'
 import {
   AlertCircleIcon,
   Loader2Icon,
@@ -16,7 +17,9 @@ import { DebugSettingsView } from '@/components/notes/settings/DebugSettingsView
 import { EditorSettingsView } from '@/components/notes/settings/EditorSettingsView'
 import { EmbeddingsSettingsView } from '@/components/notes/settings/EmbeddingsSettingsView'
 import { GitHubSettingsView } from '@/components/notes/settings/GitHubSettingsView'
+import { TimelineRuler } from '@/components/ui/timeline-ruler'
 import { NotesCanvasView } from '@/components/notes/views/NotesCanvasView'
+import { JournalView } from '@/components/notes/views/JournalView'
 import { NotesConflictView } from '@/components/notes/views/NotesConflictView'
 import { NotesGraphView } from '@/components/notes/views/NotesGraphView'
 import { NotesChatSidebar } from '@/components/notes/chat/NotesChatSidebar'
@@ -26,9 +29,11 @@ import {
   getNoteDragId,
   isNoteDragEvent
 } from '@/components/notes/editor-area/NotesPrimaryPane'
-import { NotesSearchBar } from '@/components/notes/editor-area/NotesSearchBar'
 import { NotesTabOverview } from '@/components/notes/views/NotesTabOverview'
-import { NotesToolbarPill } from '@/components/notes/editor-area/NotesToolbarPill'
+import {
+  NotesToolbarPill,
+  SidebarEdgeToolbarPill
+} from '@/components/notes/editor-area/NotesToolbarPill'
 import { ShortcutsSettingsView } from '@/components/notes/settings/ShortcutsSettingsView'
 import type { NotesAppViewModel } from '@/components/notes/app-state/useNotesApp'
 
@@ -163,7 +168,6 @@ function MainAreaIndexingOverlay({
 export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
   const {
     isMacNotelab,
-    nativeLiquidGlassAttached,
     macTitlebarStyles,
     appMode,
     settingsSection,
@@ -208,8 +212,8 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
     closeGraphView,
     canvasViewOpen,
     closeCanvasView,
+    journalViewOpen,
     zenMode,
-    sidebarOverlayActive,
     tabOverviewOpen,
     openTabOverview,
     closeTabOverview,
@@ -233,6 +237,9 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
   const [zenHintVisible, setZenHintVisible] = useState(false)
   const [editorBottomBarEl, setEditorBottomBarEl] = useState<HTMLDivElement | null>(null)
   const [indexingOverlayDismissed, setIndexingOverlayDismissed] = useState(false)
+  const [journalTimelineDate, setJournalTimelineDate] = useState(() =>
+    format(startOfDay(new Date()), 'yyyy-MM-dd')
+  )
 
   const indexingOverlayPhase = (() => {
     const { notes, running } = indexingStatus
@@ -266,12 +273,12 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
     previousIndexingOverlayPhaseRef.current = indexingOverlayPhase
   }, [indexingOverlayPhase])
 
-  // Close chat sidebar when graph view opens
+  // Close chat sidebar when graph or journal view opens
   useEffect(() => {
-    if (graphViewOpen && chatSidebarOpen) {
+    if ((graphViewOpen || journalViewOpen) && chatSidebarOpen) {
       toggleChatSidebar()
     }
-  }, [graphViewOpen, chatSidebarOpen, toggleChatSidebar])
+  }, [graphViewOpen, journalViewOpen, chatSidebarOpen, toggleChatSidebar])
 
   const onDragOverMain = useCallback((e: DragEvent) => {
     if (isNoteDragEvent(e)) {
@@ -361,6 +368,17 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
       )
     }
 
+    if (journalViewOpen) {
+      return (
+        <JournalView
+          vm={vm}
+          bottomChromePortal={showEditorBottomChrome ? editorBottomBarEl : undefined}
+          onDragOver={onDragOverMain}
+          onDrop={onDropPrimaryPane}
+        />
+      )
+    }
+
     // Canvas view (full-screen infinite canvas with live editor/excalidraw nodes)
     if (enableInfinityCanvas && canvasViewOpen) {
       return (
@@ -446,14 +464,14 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
   })()
 
   const showNotes = appMode === 'notes'
-  const showTabs = showNotes && openNoteTabPaths.length > 0
+  const showJournalTimeline = showNotes && journalViewOpen
+  const showTabs = showNotes && openNoteTabPaths.length > 0 && !journalViewOpen
   const showNotesChatChrome = showNotes && !zenMode
 
   return (
     <div
       className={cn(
-        'bg-background flex min-h-0 min-w-0 flex-col',
-        sidebarOverlayActive ? 'absolute inset-0 z-0' : 'flex-1',
+        'bg-background flex min-h-0 min-w-0 flex-1 flex-col',
         isMacNotelab && 'pointer-events-none'
       )}
     >
@@ -464,71 +482,79 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
       */}
       <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-transparent">
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-          <div
-            className={cn(
-              'relative flex min-h-0 min-w-0 flex-1 flex-row bg-background',
-              sidebarOverlayActive && 'pl-[min(100%,360px)]'
-            )}
-          >
-            <div className="relative z-0 flex min-h-0 min-w-0 flex-1 flex-col">
+          <div className="relative flex min-h-0 min-w-0 flex-1 flex-col bg-background">
               {!zenMode && (
                 <div
                   className={cn(
-                    'bg-background relative z-10 flex shrink-0 flex-col',
+                    'border-border bg-background relative z-10 flex h-12 min-h-12 w-full shrink-0 items-center gap-2 border-b pr-2',
                     isMacNotelab && 'pointer-events-none'
                   )}
                 >
-                  {/* Search bar row */}
-                  {showNotes ? (
-                    <NotesSearchBar
-                      notes={notes}
-                      folders={folders}
-                      onSelectNote={selectNote}
-                      macTitlebarStyles={macTitlebarStyles}
-                      sidebarOverlayActive={sidebarOverlayActive}
-                      isMacNotelab={isMacNotelab}
-                      nativeLiquidGlassAttached={nativeLiquidGlassAttached}
-                      sidebarCollapsed={sidebarCollapsed}
-                      toggleSidebar={toggleSidebar}
-                    />
-                  ) : (
-                    <div
-                      className={cn(
-                        'h-12 shrink-0',
-                        sidebarOverlayActive && 'pr-1.5',
-                        isMacNotelab && 'pointer-events-none'
-                      )}
-                      aria-hidden
-                    />
-                  )}
-
-                  {/* Tab strip row */}
+                  {/* Tabs / timeline — h-12 matches NotesSidebar top bar */}
                   <div
                     className={cn(
-                      'flex min-h-0 w-full min-w-0 shrink-0 items-center pb-1.5',
-                      !sidebarOverlayActive && isMacNotelab && sidebarCollapsed && 'pl-[92px]',
+                      'flex min-h-0 min-w-0 flex-1 items-center gap-2',
+                      isMacNotelab && sidebarCollapsed && 'pl-[92px]',
                       isMacNotelab && 'pointer-events-none'
                     )}
                   >
-                    {showTabs ? (
-                      <NoteTabStrip
-                        openNoteTabPaths={openNoteTabPaths}
-                        notes={notes}
-                        selectedNotePath={selectedNotePath}
-                        reorderOpenNoteTabs={reorderOpenNoteTabs}
-                        closeNoteTab={closeNoteTab}
-                        selectNote={selectNote}
-                        isMacNotelab={isMacNotelab}
-                        macTitlebarStyles={macTitlebarStyles}
-                      />
+                    {sidebarCollapsed ? (
+                      <div className="pointer-events-auto shrink-0">
+                        <SidebarEdgeToolbarPill
+                          macTitlebarStyles={macTitlebarStyles}
+                          expanded={false}
+                          onClick={toggleSidebar}
+                        />
+                      </div>
+                    ) : null}
+                    {showJournalTimeline ? (
+                      <div className="pointer-events-auto min-w-0 w-full flex-1">
+                        <TimelineRuler
+                          selectedDate={journalTimelineDate}
+                          availableDates={[]}
+                          onDateSelect={setJournalTimelineDate}
+                          className="mt-0 mb-0"
+                        />
+                      </div>
+                    ) : showTabs ? (
+                      <div className="pointer-events-auto min-w-0 flex-1">
+                        <NoteTabStrip
+                          openNoteTabPaths={openNoteTabPaths}
+                          notes={notes}
+                          selectedNotePath={selectedNotePath}
+                          reorderOpenNoteTabs={reorderOpenNoteTabs}
+                          closeNoteTab={closeNoteTab}
+                          selectNote={selectNote}
+                          isMacNotelab={isMacNotelab}
+                          macTitlebarStyles={macTitlebarStyles}
+                        />
+                      </div>
                     ) : (
-                      <div className="min-h-8 min-w-0 flex-1" aria-hidden />
+                      <div className="min-h-0 min-w-0 flex-1" aria-hidden />
                     )}
                   </div>
+                  {showNotes ? (
+                    <div
+                      className="pointer-events-auto flex shrink-0 items-center"
+                      style={isMacNotelab ? macTitlebarStyles.noDrag : undefined}
+                    >
+                      <NotesToolbarPill
+                        macTitlebarStyles={macTitlebarStyles}
+                        onOpenTabOverview={openTabOverview}
+                        onNewNote={handleNewNote}
+                        chatSidebarOpen={chatSidebarOpen}
+                        onToggleChatSidebar={toggleChatSidebar}
+                        linkSidebarActive={chatSidebarOpen && chatSidebarPanel === 'links'}
+                        onOpenLinkedSidebar={openLinkedNotesSidebar}
+                      />
+                    </div>
+                  ) : null}
                 </div>
               )}
 
-              {/* Main content — re-enable hits below the titlebar chrome (search/tabs are pointer-events-none). */}
+            <div className="flex min-h-0 min-w-0 flex-1 flex-row">
+              <div className="relative z-0 flex min-h-0 min-w-0 flex-1 flex-col">
+              {/* Main content — re-enable hits below the titlebar chrome (tabs are pointer-events-none). */}
               <div className="pointer-events-auto flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-background">
                 {/*
               Mounts first in DOM so the editor can portal the bottom bar (stats + tools) here.
@@ -632,32 +658,9 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
                 linkMode={chatSidebarLinkMode}
                 onLinkModeChange={vm.setChatSidebarLinkMode}
                 isMacNotelab={isMacNotelab}
-                sidebarOverlayActive={sidebarOverlayActive}
               />
             )}
-            {/* After chat in DOM + z-index above chat: open chat uses transform layers that stack above earlier siblings. */}
-            {showNotes && !zenMode && (
-              <div
-                className={cn(
-                  'pointer-events-auto absolute z-[100] flex h-12 items-center',
-                  sidebarOverlayActive ? 'right-1.5' : 'right-2',
-                  'top-0'
-                )}
-                style={isMacNotelab ? macTitlebarStyles.noDrag : undefined}
-              >
-                <NotesToolbarPill
-                  isMacNotelab={isMacNotelab}
-                  macTitlebarStyles={macTitlebarStyles}
-                  nativeLiquidGlassAttached={nativeLiquidGlassAttached}
-                  onOpenTabOverview={openTabOverview}
-                  onNewNote={handleNewNote}
-                  chatSidebarOpen={chatSidebarOpen}
-                  onToggleChatSidebar={toggleChatSidebar}
-                  linkSidebarActive={chatSidebarOpen && chatSidebarPanel === 'links'}
-                  onOpenLinkedSidebar={openLinkedNotesSidebar}
-                />
-              </div>
-            )}
+            </div>
           </div>
         </div>
       </main>
@@ -670,7 +673,8 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
           selectedNotePath={selectedNotePath}
           macTitlebarStyles={macTitlebarStyles}
           isMacNotelab={isMacNotelab}
-          sidebarOverlayActive={sidebarOverlayActive}
+          sidebarCollapsed={sidebarCollapsed}
+          onToggleSidebar={toggleSidebar}
           onClose={closeTabOverview}
           onSelectNote={(id) => {
             selectNote(id)

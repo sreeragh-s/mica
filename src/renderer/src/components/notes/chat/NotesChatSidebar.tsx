@@ -4,6 +4,7 @@ import {
   BookOpenIcon,
   BotIcon,
   CopyIcon,
+  History,
   Link2Icon,
   Loader2Icon,
   ArrowUpIcon,
@@ -11,7 +12,9 @@ import {
   PlusIcon,
   ScanTextIcon,
   Search,
-  SparklesIcon
+  SparklesIcon,
+  X,
+  type LucideIcon
 } from 'lucide-react'
 import { type JSX, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
@@ -53,7 +56,6 @@ import {
 } from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
 import { Separator } from '@/components/ui/separator'
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { copyPlainTextToClipboard } from '@/lib/core/copy-to-clipboard'
 import { searchChatHistorySessions, type SearchMatchSegment } from '@/lib/notes/notes-search'
@@ -64,7 +66,7 @@ import {
   type SavedNote,
   type Folder
 } from '@/lib/notes/notes-storage'
-import { macTitlebarStyles, NOTES_APP_PILL_SURFACE } from '@/components/notes/notes-app-utils'
+import { macTitlebarStyles, NOTES_APP_PILL_ROUNDED, NOTES_APP_PILL_SURFACE } from '@/components/notes/notes-app-utils'
 import { collectInternalNoteLinkMentions } from '@/lib/notes/note-link-graph'
 import type { ChatHistoryMeta } from '@/hooks/useNotesChat'
 import { useNotesChat } from '@/hooks/useNotesChat'
@@ -97,9 +99,8 @@ export type NotesChatSidebarProps = {
   panel: NotesChatSidebarPanel
   linkMode: NotesChatSidebarLinkMode
   onLinkModeChange: (mode: NotesChatSidebarLinkMode) => void
-  /** Adds extra top offset to clear the macOS titlebar + pill area. */
+  /** macOS: pointer-events / no-drag on chat chrome controls. */
   isMacNotelab?: boolean
-  sidebarOverlayActive?: boolean
 }
 
 function SearchHighlight({ segments }: { segments: SearchMatchSegment[] }): JSX.Element {
@@ -131,6 +132,90 @@ const STARTER_SUGGESTIONS = [
   'Find todos across my notes'
 ]
 
+/** Same structure and classes as `NoteTabStrip` (no drag / reorder). */
+type ChatSidebarPillTabItem = { value: string; label: string; icon: LucideIcon }
+
+function ChatSidebarPillTabStrip({
+  value,
+  onValueChange,
+  tabs
+}: {
+  value: string
+  onValueChange: (next: string) => void
+  tabs: ChatSidebarPillTabItem[]
+}): JSX.Element {
+  return (
+    <div className="relative z-10 flex min-h-0 w-full min-w-0 flex-1 items-center">
+      <div
+        className={cn(
+          'isolate flex h-8 w-full min-w-0 flex-1 items-stretch overflow-hidden',
+          NOTES_APP_PILL_ROUNDED,
+          NOTES_APP_PILL_SURFACE
+        )}
+        role="tablist"
+      >
+        <div className="flex min-h-0 min-w-0 flex-1 overflow-x-auto [scrollbar-width:thin]">
+          {tabs.map((t) => {
+            const active = t.value === value
+            const Icon = t.icon
+            return (
+              <div
+                key={t.value}
+                className="group flex min-h-0 min-w-[5rem] flex-1 basis-0 items-center justify-center p-0.5"
+                role="tab"
+                aria-selected={active}
+                tabIndex={active ? 0 : -1}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
+                    onValueChange(t.value)
+                  }
+                }}
+              >
+                <div
+                  role="presentation"
+                  className={cn(
+                    'grid h-full w-full min-w-0 max-w-full cursor-pointer grid-cols-[1.5rem_minmax(0,1fr)_1.5rem] items-center px-1 duration-150',
+                    active
+                      ? 'rounded-md bg-background/92 text-foreground shadow-sm transition-colors dark:bg-white/[0.14]'
+                      : 'rounded-none text-muted-foreground transition-[background-color,color,border-radius] hover:rounded-md hover:bg-black/[0.04] hover:text-foreground dark:hover:bg-white/[0.06]'
+                  )}
+                  onClick={() => onValueChange(t.value)}
+                >
+                  <div className="flex h-full items-center justify-start">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-xs"
+                      aria-hidden
+                      tabIndex={-1}
+                      className="pointer-events-none size-6 shrink-0 opacity-0"
+                    >
+                      <X className="size-3" aria-hidden />
+                    </Button>
+                  </div>
+
+                  <div className="flex min-h-0 min-w-0 items-center justify-center gap-1.5 px-0.5">
+                    <Icon className="text-muted-foreground size-3.5 shrink-0 opacity-80" aria-hidden />
+                    <span
+                      className="min-h-0 min-w-0 max-w-[min(11rem,100%)] truncate py-1 text-center text-[13px] font-medium leading-tight tracking-tight"
+                      title={t.label}
+                    >
+                      {t.label}
+                    </span>
+                  </div>
+
+                  <span className="block w-full shrink-0" aria-hidden />
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
@@ -148,8 +233,7 @@ export function NotesChatSidebar({
   panel,
   linkMode,
   onLinkModeChange,
-  isMacNotelab,
-  sidebarOverlayActive
+  isMacNotelab
 }: NotesChatSidebarProps): JSX.Element {
   return (
     <div
@@ -181,7 +265,6 @@ export function NotesChatSidebar({
           panel={panel}
           linkMode={linkMode}
           onLinkModeChange={onLinkModeChange}
-          sidebarOverlayActive={sidebarOverlayActive}
         />
       </div>
     </div>
@@ -202,8 +285,7 @@ function NotesChatSidebarInner({
   panel,
   linkMode,
   onLinkModeChange,
-  isMacNotelab,
-  sidebarOverlayActive
+  isMacNotelab
 }: NotesChatSidebarProps): JSX.Element {
   // Selected model: a NoteLabModelId or "local:<ollamaModelName>"
   const [selectedModelId, setSelectedModelId] = useState<string>(DEFAULT_NOTELAB_MODEL_ID)
@@ -474,47 +556,29 @@ function NotesChatSidebarInner({
   // History view
   // ---------------------------------------------------------------------------
 
-  // Spacer that clears the floating toolbar pill
-  const pillSpacer = (
-    <div
-      aria-hidden
-      className={cn(
-        'pointer-events-none shrink-0',
-        isMacNotelab || sidebarOverlayActive ? 'h-14' : 'h-14'
-      )}
-    />
-  )
-
   const chatTabs = (
-    <div className="px-3 pb-2">
-      <Tabs onValueChange={(value) => setChatTab(value as 'chat' | 'history')} value={chatTab}>
-        <TabsList className="grid w-full grid-cols-2 rounded-xl bg-muted/60 p-1">
-          <TabsTrigger className="text-xs" value="chat">
-            Chat
-          </TabsTrigger>
-          <TabsTrigger className="text-xs" value="history">
-            History
-          </TabsTrigger>
-        </TabsList>
-      </Tabs>
+    <div className="px-2 pb-1">
+      <ChatSidebarPillTabStrip
+        onValueChange={(v) => setChatTab(v as 'chat' | 'history')}
+        tabs={[
+          { value: 'chat', label: 'Chat', icon: BotIcon },
+          { value: 'history', label: 'History', icon: History }
+        ]}
+        value={chatTab}
+      />
     </div>
   )
 
   const linkTabs = (
-    <div className="px-3 pb-2">
-      <Tabs
-        onValueChange={(value) => onLinkModeChange(value as NotesChatSidebarLinkMode)}
+    <div className="px-2 pb-1">
+      <ChatSidebarPillTabStrip
+        onValueChange={(v) => onLinkModeChange(v as NotesChatSidebarLinkMode)}
+        tabs={[
+          { value: 'linked', label: 'Linked', icon: Link2Icon },
+          { value: 'linking', label: 'Linking', icon: PlusIcon }
+        ]}
         value={linkMode}
-      >
-        <TabsList className="grid w-full grid-cols-2 rounded-xl bg-muted/60 p-1">
-          <TabsTrigger className="text-xs" value="linked">
-            Linked
-          </TabsTrigger>
-          <TabsTrigger className="text-xs" value="linking">
-            Linking
-          </TabsTrigger>
-        </TabsList>
-      </Tabs>
+      />
     </div>
   )
 
@@ -524,7 +588,6 @@ function NotesChatSidebarInner({
         aria-label="Chat history"
         className="border-border bg-background flex min-h-0 min-w-0 flex-1 flex-col"
       >
-        {pillSpacer}
         {chatTabs}
         <ChatToolbarRow
           folders={folders}
@@ -536,7 +599,7 @@ function NotesChatSidebarInner({
           setHistorySearch={setHistorySearch}
           showHistory={chatTab === 'history'}
         />
-        <div className="flex-1 overflow-y-auto p-3">
+        <div className="flex-1 overflow-y-auto p-2">
           {historyMeta.length === 0 ? (
             <p className="text-muted-foreground py-8 text-center text-xs">No saved sessions yet.</p>
           ) : historySearchResults.length === 0 ? (
@@ -568,7 +631,6 @@ function NotesChatSidebarInner({
         aria-label="Local model setup"
         className="border-border bg-background flex min-h-0 min-w-0 flex-1 flex-col"
       >
-        {pillSpacer}
         {chatTabs}
         <LocalModelSetupPanel
           onClose={() => setLocalSetupOpen(false)}
@@ -600,7 +662,6 @@ function NotesChatSidebarInner({
       aria-label="Chat"
       className="border-border bg-background relative flex min-h-0 min-w-0 flex-1 flex-col"
     >
-      {pillSpacer}
       {panel === 'chat' ? chatTabs : linkTabs}
       {panel === 'links' ? (
         <NoteLinksPanel
@@ -627,7 +688,7 @@ function NotesChatSidebarInner({
             ollama.status?.running &&
             !ollama.modelsLoading &&
             !hasLocalEmbeddingModel(ollama.localModels) && (
-              <div className="border-border shrink-0 border-b bg-muted/30 px-3 py-2">
+              <div className="border-border shrink-0 border-b bg-muted/30 px-2 py-1.5">
                 <p className="text-muted-foreground flex items-start gap-2 text-xs leading-snug">
                   <ScanTextIcon className="size-3.5 shrink-0 mt-0.5" aria-hidden />
                   <span>
@@ -727,7 +788,7 @@ function NotesChatSidebarInner({
 
           {/* Starter suggestions when empty */}
           {session.messages.length === 0 && canChatEffective && (
-            <div className="px-3 pb-2">
+            <div className="px-2 pb-1">
               <Suggestions>
                 {STARTER_SUGGESTIONS.map((s) => (
                   <Suggestion key={s} onClick={handleSuggestion} suggestion={s} />
@@ -739,9 +800,9 @@ function NotesChatSidebarInner({
           {/* Paywall / low-credits banner */}
           {paywallBanner}
 
-          <form className="border-border border-t p-3" onSubmit={(e) => void handleSubmit(e)}>
+          <form className="border-border border-t p-2" onSubmit={(e) => void handleSubmit(e)}>
             <PromptInputChatReferenceChips
-              className="mb-2"
+              className="mb-1.5"
               editorNote={
                 selectedNote && canChatEffective
                   ? {
@@ -762,7 +823,7 @@ function NotesChatSidebarInner({
             <InputGroup className="bg-background overflow-hidden">
               <PromptInputChatMentionTextarea
                 ref={textareaRef}
-                className="max-h-48 min-h-20 resize-none text-sm"
+                className="max-h-40 min-h-14 resize-none text-sm"
                 disabled={isLoading || !canChatEffective}
                 notes={notes}
                 onChange={setInput}
@@ -773,7 +834,7 @@ function NotesChatSidebarInner({
                 value={input}
                 workspaces={workspacesForMentions}
               />
-              <InputGroupAddon align="block-end" className="flex flex-wrap items-center gap-2">
+              <InputGroupAddon align="block-end" className="flex flex-wrap items-center gap-1.5">
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -791,7 +852,7 @@ function NotesChatSidebarInner({
                     <TooltipContent side="top">Add references (same as typing @)</TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
-                <div className="ml-auto flex min-w-0 items-center gap-2">
+                <div className="ml-auto flex min-w-0 items-center gap-1.5">
                   <NoteLabModelPicker
                     selectedModelId={selectedModelId}
                     onModelChange={setSelectedModelId}
@@ -802,7 +863,7 @@ function NotesChatSidebarInner({
                   />
                   <Separator className="!h-4" orientation="vertical" />
                   <InputGroupButton
-                    className="rounded-full"
+                    className="rounded-md"
                     disabled={
                       (!input.trim() && chatReferences.length === 0) ||
                       isLoading ||
@@ -855,7 +916,7 @@ function ChatToolbarRow({
   return (
     <div
       className={cn(
-        'relative z-10 border-border flex min-h-9 shrink-0 items-center gap-2 px-3 ',
+        'relative z-10 border-border flex min-h-7 shrink-0 items-center gap-1.5 px-2',
         isMacNotelab && 'pointer-events-none'
       )}
     >
@@ -866,11 +927,11 @@ function ChatToolbarRow({
         >
           <Search
             aria-hidden
-            className="text-muted-foreground pointer-events-none absolute left-2.5 top-1/2 z-10 size-3.5 -translate-y-1/2 opacity-70"
+            className="text-muted-foreground pointer-events-none absolute left-2 top-1/2 z-10 size-3 -translate-y-1/2 opacity-70"
           />
           <Input
             aria-label="Search chat history"
-            className="border-border bg-background h-8 pl-8 text-xs"
+            className="border-border bg-background h-7 pl-7 text-xs"
             onChange={(e) => setHistorySearch(e.target.value)}
             placeholder="Search history…"
             type="search"
@@ -890,7 +951,8 @@ function ChatToolbarRow({
               size="sm"
               className={cn(
                 NOTES_APP_PILL_SURFACE,
-                'h-8 w-full min-w-0 rounded-full border px-3 py-0 text-xs shadow-none',
+                NOTES_APP_PILL_ROUNDED,
+                'h-7 w-full min-w-0 border px-2 py-0 text-[11px] shadow-none',
                 'focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-0',
                 '[&_svg]:size-3 [&_svg]:opacity-70'
               )}
@@ -919,8 +981,14 @@ function ChatToolbarRow({
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button onClick={newChat} size="icon-sm" type="button" variant="ghost">
-                <PlusIcon className="size-3.5" />
+              <Button
+                className="size-7 min-h-0"
+                onClick={newChat}
+                size="icon-sm"
+                type="button"
+                variant="ghost"
+              >
+                <PlusIcon className="size-3" />
                 <span className="sr-only">New chat</span>
               </Button>
             </TooltipTrigger>
@@ -944,7 +1012,7 @@ function HistoryItem({
   return (
     <li>
       <button
-        className="hover:bg-accent w-full rounded-md px-3 py-2 text-left transition-colors"
+        className="hover:bg-accent w-full rounded-md px-2 py-1.5 text-left transition-colors"
         onClick={() => void onLoad(meta)}
         type="button"
       >

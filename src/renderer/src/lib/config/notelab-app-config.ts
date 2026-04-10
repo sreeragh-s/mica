@@ -331,7 +331,6 @@ function defaultEditorSettings(): Required<NotelabEditorSettingsV1> {
 
 function defaultAppearanceSettings(): Required<NotelabAppearanceSettingsV1> {
   return {
-    sidebarInsetView: true,
     animationsEnabled: true,
   }
 }
@@ -372,10 +371,6 @@ export function loadAppearanceSettings(): Required<NotelabAppearanceSettingsV1> 
   const raw = cache.appearanceSettings
   if (!raw || typeof raw !== "object") return defaults
   return {
-    sidebarInsetView:
-      typeof raw.sidebarInsetView === "boolean"
-        ? raw.sidebarInsetView
-        : defaults.sidebarInsetView,
     animationsEnabled:
       typeof raw.animationsEnabled === "boolean"
         ? raw.animationsEnabled
