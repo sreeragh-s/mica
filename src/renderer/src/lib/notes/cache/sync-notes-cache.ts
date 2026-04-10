@@ -4,6 +4,7 @@ import { buildPropertyCatalogFromNotes } from '@/lib/notes/note-properties/prope
 
 import {
   collectNoteLinkMentions,
+  extractAliasStrings,
   extractTagStrings,
   notePlainTextForSearch,
   serializePropertiesForCache
@@ -68,6 +69,7 @@ export async function reindexNotesWorkspaceCache(
     const plain = notePlainTextForSearch(note)
     plainTextByPath.set(note.path, plain)
     const tags = extractTagStrings(note.properties)
+    const aliases = extractAliasStrings(note.properties)
     noteRows.push({
       id: noteCacheRowId(workspaceKey, note.path),
       workspaceKey,
@@ -78,6 +80,7 @@ export async function reindexNotesWorkspaceCache(
       plainText: plain,
       updatedAt: note.updatedAt,
       tagsJson: JSON.stringify(tags),
+      aliasesJson: JSON.stringify(aliases),
       propertiesJson: serializePropertiesForCache(note)
     })
 

@@ -10,6 +10,8 @@ import type { NotesState, SavedNote } from "./notes-types"
 export {
   DEFAULT_WORKSPACE_ID,
   type NoteKind,
+  type NotePropertyMap,
+  type NotePropertyValue,
   type NotesState,
   type NotesStateV2,
   type NotesStateV3,

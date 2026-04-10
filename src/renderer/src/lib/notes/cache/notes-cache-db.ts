@@ -15,6 +15,7 @@ export type NoteSearchCacheRow = {
   plainText: string
   updatedAt: number
   tagsJson: string
+  aliasesJson: string
   propertiesJson: string
 }
 

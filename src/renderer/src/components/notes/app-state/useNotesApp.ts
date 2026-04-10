@@ -16,6 +16,7 @@ import type { AppSidebarView } from '@/lib/notes/notes-types'
 import {
   DEFAULT_WORKSPACE_ID,
   loadNotesState,
+  type NotePropertyValue,
   type SavedNote,
   type Folder
 } from '@/lib/notes/notes-storage'

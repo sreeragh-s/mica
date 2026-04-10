@@ -1,7 +1,11 @@
 import { useRef, useState, type JSX, type KeyboardEvent } from 'react'
 import { Plus } from 'lucide-react'
 
-import type { SavedNote } from '@/lib/notes/notes-storage'
+import type { NotePropertyValue, SavedNote } from '@/lib/notes/notes-storage'
+import {
+  displayPropertyValue,
+  parsePropertyInput
+} from '@/lib/notes/note-properties/property-values'
 import type { NotelabEditorSettingsV1 } from '@/lib/config/notelab-config-schema'
 import type { NotesPropertyCatalog } from '@/lib/notes/cache/notes-cache-types'
 
@@ -14,7 +18,7 @@ export type NotePropertiesPanelProps = {
   note: SavedNote
   notes: SavedNote[]
   editorSettings: Required<NotelabEditorSettingsV1>
-  onSetProperty: (key: string, value: string | null) => void
+  onSetProperty: (key: string, value: NotePropertyValue | null) => void
   /**
    * After the first Dexie reindex, pass the cached catalog so suggestions skip scanning every note.
    * Omit or leave undefined while the cache has not run yet.
@@ -95,10 +99,10 @@ export function NotePropertiesPanel({
     }
   }
 
-  const pendingEntry: Array<[string, string]> =
+  const pendingEntry: Array<[string, NotePropertyValue]> =
     focusKey && !(focusKey in (note.properties ?? {})) ? [[focusKey, '']] : []
 
-  const rows = [...genericProperties, ...pendingEntry]
+  const rows: Array<[string, NotePropertyValue]> = [...genericProperties, ...pendingEntry]
 
   return (
     <div className="px-8 pb-4" onMouseDown={(e) => e.stopPropagation()}>
@@ -109,17 +113,18 @@ export function NotePropertiesPanel({
           <PropertyRow
             key={key}
             propKey={key}
-            savedValue={value}
+            savedValue={displayPropertyValue(value)}
             autoFocusValue={focusKey === key}
             allWorkspaceKeys={allWorkspaceKeys}
             allValuesForKey={allValuesForKey[key] ?? []}
             onCommitValue={(val: string) => {
               if (focusKey === key) setFocusKey(null)
-              onSetProperty(key, val || null)
+              onSetProperty(key, parsePropertyInput(key, val))
             }}
             onRename={(newKeyName: string) => {
+              const prev = note.properties?.[key]
               onSetProperty(key, null)
-              onSetProperty(newKeyName, value)
+              if (prev != null) onSetProperty(newKeyName, prev)
             }}
             onDelete={() => {
               if (focusKey === key) setFocusKey(null)

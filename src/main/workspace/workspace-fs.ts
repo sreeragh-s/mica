@@ -9,7 +9,20 @@ import {
   writeFileSync,
 } from 'node:fs'
 import { basename, dirname, extname, join, relative, resolve, sep } from 'node:path'
-import { parseOptionalFrontmatter } from '../../shared/note-markdown'
+import {
+  parseOptionalFrontmatter,
+  type NotePropertyMap,
+  type NotePropertyValue,
+} from '../../shared/note-markdown'
+
+function firstScalarPropertyValue(v: NotePropertyValue | undefined): string | undefined {
+  if (v === undefined) return undefined
+  if (Array.isArray(v)) {
+    const s = v.find((x) => typeof x === 'string' && x.trim().length > 0)
+    return typeof s === 'string' ? s : undefined
+  }
+  return v.trim() === '' ? undefined : v
+}
 
 export const DEFAULT_WORKSPACE_ID = 'default'
 
@@ -38,15 +51,15 @@ function parseNotelabNoteFile(content: string, filePath: string, updatedAtMs: nu
   kind: 'note' | 'drawing'
   coverImageSrc?: string
   titleEmoji?: string
-  properties: Record<string, string>
+  properties: NotePropertyMap
   hasFrontmatterBlock: boolean
 } | null {
   const parsed = parseOptionalFrontmatter(content)
   const title = basename(filePath, extname(filePath))
   const kind: 'note' | 'drawing' = extname(filePath).toLowerCase() === '.excalidraw' ? 'drawing' : 'note'
   const normalizedPath = filePath.replace(/\\/g, '/')
-  const coverImageSrc = parsed.properties.cover_image
-  const titleEmoji = parsed.properties.title_emoji
+  const coverImageSrc = firstScalarPropertyValue(parsed.properties.cover_image)
+  const titleEmoji = firstScalarPropertyValue(parsed.properties.title_emoji)
   return {
     note: normalizedPath,
     title,
@@ -129,7 +142,7 @@ export function readNotelabIndexImpl(cwd: string): {
     kind: 'note' | 'drawing'
     coverImageSrc?: string
     titleEmoji?: string
-    properties?: Record<string, string>
+    properties?: NotePropertyMap
     hasFrontmatterBlock?: boolean
   }[]
 } {
@@ -143,7 +156,7 @@ export function readNotelabIndexImpl(cwd: string): {
     kind: 'note' | 'drawing'
     coverImageSrc?: string
     titleEmoji?: string
-    properties?: Record<string, string>
+    properties?: NotePropertyMap
     hasFrontmatterBlock?: boolean
   }[] = []
   if (!existsSync(cwd)) return { folders, notes }

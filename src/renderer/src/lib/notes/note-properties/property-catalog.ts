@@ -2,6 +2,8 @@ import type { SavedNote } from '@/lib/notes/notes-storage'
 
 import type { NotesPropertyCatalog } from '@/lib/notes/cache/notes-cache-types'
 
+import { addPropertyValueTokens } from '@/lib/notes/note-properties/property-values'
+
 export const NOTE_PROPERTY_UI_KEYS = new Set(['cover_image', 'title_emoji'])
 
 /** Build property key/value suggestions from in-memory notes (fallback when cache is empty). */
@@ -12,9 +14,11 @@ export function buildPropertyCatalogFromNotes(notes: SavedNote[]): NotesProperty
     for (const [k, v] of Object.entries(n.properties ?? {})) {
       if (NOTE_PROPERTY_UI_KEYS.has(k)) continue
       keys.add(k)
-      if (!v) continue
+      if (v === undefined || v === null) continue
+      if (typeof v === 'string' && v.trim() === '') continue
+      if (Array.isArray(v) && v.length === 0) continue
       if (!valueMap.has(k)) valueMap.set(k, new Set())
-      valueMap.get(k)!.add(v)
+      addPropertyValueTokens(k, v, valueMap.get(k)!)
     }
   }
   const allValuesForKey: Record<string, string[]> = {}

@@ -1,7 +1,11 @@
 import type { SerializedEditorState } from "lexical"
 
+import type { NotePropertyMap, NotePropertyValue } from "../../../../shared/note-markdown"
+
 /** Stable folder name for migrated notes without a workspace. */
 export const DEFAULT_WORKSPACE_ID = "default"
+
+export type { NotePropertyMap, NotePropertyValue }
 
 export type Folder = {
   folder: string
@@ -13,8 +17,6 @@ export type Folder = {
 }
 
 export type NoteKind = "note" | "drawing"
-
-export type NotePropertyMap = Record<string, string>
 
 export type SavedNote = {
   path: string

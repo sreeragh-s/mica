@@ -1,5 +1,5 @@
 import type { IndexingNoteStatus, IndexingStatus } from '@/lib/ai/embedding-pipeline'
-import { DEFAULT_WORKSPACE_ID } from '@/lib/notes/notes-storage'
+import { DEFAULT_WORKSPACE_ID, type NotePropertyMap } from '@/lib/notes/notes-storage'
 
 /** Root notes have no folder node in the tree; only user workspaces expand. */
 export function treeExpandIdsForFolderId(folder: string): string[] {
@@ -27,7 +27,7 @@ export type NotelabIndexOk = {
     kind?: 'note' | 'drawing'
     coverImageSrc?: string
     titleEmoji?: string
-    properties?: Record<string, string>
+    properties?: NotePropertyMap
     hasFrontmatterBlock?: boolean
   }[]
 }

@@ -1230,11 +1230,11 @@ function ChatSidebarOpenSessionTabs({
   isMacNotelab?: boolean
 }): JSX.Element {
   return (
-    <ChatSidebarMacHitLayer
-      className="border-border shrink-0 border-b px-2 py-1.5"
-      isMacNotelab={isMacNotelab}
-    >
-      <div className="flex gap-1 overflow-x-auto [scrollbar-width:thin]" role="tablist">
+    <ChatSidebarMacHitLayer className="shrink-0 px-2 py-1.5" isMacNotelab={isMacNotelab}>
+      <div
+        className="flex items-center gap-2 overflow-x-auto px-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        role="tablist"
+      >
         {tabs.map((t) => {
           const active = t.sessionId === activeSessionId
           const label = (t.title || 'Chat').trim() || 'Chat'
@@ -1242,15 +1242,23 @@ function ChatSidebarOpenSessionTabs({
             <div
               key={t.sessionId}
               className={cn(
-                'flex min-w-0 max-w-[168px] shrink-0 items-stretch rounded-md border text-[11px] font-medium',
-                active
-                  ? 'border-border bg-background text-foreground shadow-sm'
-                  : 'border-border/50 bg-muted/40 text-muted-foreground hover:bg-muted/55'
+                'group flex max-w-[168px] shrink-0 items-center gap-0.5',
+                active &&
+                  cn(
+                    NOTES_APP_PILL_ROUNDED,
+                    NOTES_APP_PILL_SURFACE,
+                    'border-border/60 border px-1 py-0.5 shadow-sm'
+                  )
               )}
             >
               <button
                 aria-selected={active}
-                className="min-w-0 flex-1 truncate px-2 py-1.5 text-left"
+                className={cn(
+                  'min-w-0 flex-1 truncate text-left text-[11px] font-medium transition-colors',
+                  active
+                    ? 'text-foreground px-1.5 py-0.5'
+                    : 'text-muted-foreground hover:text-foreground/85 px-2 py-1'
+                )}
                 onClick={() => void onSelect(t.sessionId)}
                 role="tab"
                 type="button"
@@ -1260,7 +1268,12 @@ function ChatSidebarOpenSessionTabs({
               {tabs.length > 1 ? (
                 <Button
                   aria-label={`Close ${label}`}
-                  className="text-muted-foreground hover:text-foreground size-7 min-h-0 shrink-0 rounded-none rounded-r-md"
+                  className={cn(
+                    'text-muted-foreground hover:text-foreground size-6 min-h-0 shrink-0 rounded-md transition-opacity duration-150',
+                    'pointer-events-none opacity-0',
+                    'group-hover:pointer-events-auto group-hover:opacity-100',
+                    'focus-visible:pointer-events-auto focus-visible:opacity-100'
+                  )}
                   onClick={(e) => void onClose(e, t.sessionId)}
                   size="icon-sm"
                   type="button"

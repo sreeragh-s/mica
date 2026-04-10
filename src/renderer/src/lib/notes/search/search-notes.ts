@@ -6,6 +6,7 @@ import {
 } from '@/lib/notes/notes-storage'
 
 import { isDrawingNote } from '@/components/notes/notes-app-utils'
+import { extractAliasStrings, extractTagStrings } from '@/lib/notes/cache/extract-note-cache-fields'
 
 import { buildHighlightSegments, scoreMatch } from './query-match'
 import { highlightInBodySlice, snippetSlice } from './snippet'
@@ -37,11 +38,15 @@ export function searchNotes(
 
   for (const note of notes) {
     const title = note.title?.trim() || 'Untitled'
+    const titleExtras = [...extractAliasStrings(note.properties), ...extractTagStrings(note.properties)]
+      .join(' ')
+      .trim()
+    const titleHaystack = titleExtras ? `${title} ${titleExtras}` : title
     const cachedBody = cache?.get(note.path)
     const body = isDrawingNote(note)
       ? ''
       : (cachedBody ?? extractPlainTextFromSerialized(note.content))
-    const st = scoreMatch(q, title)
+    const st = scoreMatch(q, titleHaystack)
     const sb = body ? scoreMatch(q, body) : null
     if (st === null && sb === null) continue
     const best = Math.max(st ?? 0, sb ?? 0)
