@@ -6,6 +6,8 @@ import {
 import { extractPlainTextFromSerialized } from '@/lib/notes/notes-storage'
 import type { SavedNote } from '@/lib/notes/notes-storage'
 
+import { stripDataUrlBase64Payloads } from '@/lib/notes/notes-state-normalize'
+
 import { NOTE_PROPERTY_UI_KEYS } from '@/lib/notes/note-properties/property-catalog'
 
 export function extractTagStrings(properties: SavedNote['properties']): string[] {
@@ -29,7 +31,7 @@ export function serializePropertiesForCache(note: SavedNote): string {
   const filtered: Record<string, string> = {}
   for (const [k, v] of Object.entries(props)) {
     if (NOTE_PROPERTY_UI_KEYS.has(k)) continue
-    if (v) filtered[k] = v
+    if (v) filtered[k] = stripDataUrlBase64Payloads(v)
   }
   return JSON.stringify(filtered)
 }
