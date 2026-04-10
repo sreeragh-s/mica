@@ -403,7 +403,7 @@ export function registerWorkspaceIpc(): void {
         return { ok: false, error: 'not_a_workspace' }
       }
       try {
-        const { folders, notes } = readNotelabIndexImpl(cwd)
+        const { folders, notes } = await readNotelabIndexImpl(cwd)
         return { ok: true, folders, notes }
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e)

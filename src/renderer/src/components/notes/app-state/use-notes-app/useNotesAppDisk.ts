@@ -126,16 +126,24 @@ export function useNotesAppDisk({
       return
     }
     if (!api?.workspace?.gitStatus) return
-    const next: Record<string, boolean> = {}
-    for (const f of foldersRef.current) {
-      if (!f.localGitPath) continue
-      const s = await api.workspace.gitStatus({ cwd: f.localGitPath })
-      if (s.ok) next[f.folder] = s.dirty
-    }
+    const gitStatus = api.workspace.gitStatus
+    const foldersWithGit = foldersRef.current.filter((f) => f.localGitPath)
     const rootCwd = dataRootRef.current
+    const tasks: Promise<[string, boolean] | null>[] = foldersWithGit.map(async (f) => {
+      const s = await gitStatus({ cwd: f.localGitPath! })
+      return s.ok ? ([f.folder, s.dirty] as [string, boolean]) : null
+    })
     if (foldersRef.current.length === 0 && rootCwd) {
-      const s = await api.workspace.gitStatus({ cwd: rootCwd })
-      if (s.ok) next[DEFAULT_WORKSPACE_ID] = s.dirty
+      tasks.push(
+        gitStatus({ cwd: rootCwd }).then((s) =>
+          s.ok ? ([DEFAULT_WORKSPACE_ID, s.dirty] as [string, boolean]) : null
+        )
+      )
+    }
+    const results = await Promise.all(tasks)
+    const next: Record<string, boolean> = {}
+    for (const r of results) {
+      if (r) next[r[0]] = r[1]
     }
     setDirtyByWorkspaceId(next)
   }, [dataRootRef, foldersRef, githubApiDirty, useGithubApiSync])
@@ -211,20 +219,23 @@ export function useNotesAppDisk({
       )
       const mergedNotes = [...localPending, ...mappedNotes]
 
+      // Sort once — reused by both setSelectedId and setOpenNoteTabIds
+      const mergedNotesSorted = mergedNotes.length > 0
+        ? [...mergedNotes].sort((a, b) => b.updatedAt - a.updatedAt)
+        : mergedNotes
+      const defaultPath = mergedNotesSorted[0]?.path ?? null
+      const mergedPathSet = new Set(mergedNotes.map((n) => n.path))
+
       setFolders(mappedFolders)
       setNotes(mergedNotes)
       setSelectedId((sel) => {
-        if (sel && mergedNotes.some((x) => x.path === sel)) return sel
-        return mergedNotes.length > 0
-          ? [...mergedNotes].sort((a, b) => b.updatedAt - a.updatedAt)[0]!.path
-          : null
+        if (sel && mergedPathSet.has(sel)) return sel
+        return defaultPath
       })
       setOpenNoteTabIds((prev) => {
-        const validPrev = prev.filter((path) => mergedNotes.some((n) => n.path === path))
+        const validPrev = prev.filter((path) => mergedPathSet.has(path))
         if (validPrev.length > 0) return validPrev
-        if (mergedNotes.length === 0) return []
-        const defaultPath = [...mergedNotes].sort((a, b) => b.updatedAt - a.updatedAt)[0]!.path
-        return [defaultPath]
+        return defaultPath ? [defaultPath] : []
       })
       setFocusedFolderId(null)
       setNewNoteDestinationFolderId(DEFAULT_WORKSPACE_ID)
@@ -300,29 +311,28 @@ export function useNotesAppDisk({
       }
       const shas = loadGithubContentShas()
       const files: { path: string; content: string; sha?: string | null }[] = []
-      const rootNotes = notesRef.current.filter((n) => n.folder === DEFAULT_WORKSPACE_ID)
+      // Pre-bucket notes by folder once — avoids O(n×m) filter-in-loop
+      const notesByFolder = new Map<string, typeof notesRef.current>()
+      for (const n of notesRef.current) {
+        let bucket = notesByFolder.get(n.folder)
+        if (!bucket) { bucket = []; notesByFolder.set(n.folder, bucket) }
+        bucket.push(n)
+      }
+      const rootNotes = notesByFolder.get(DEFAULT_WORKSPACE_ID) ?? []
       if (rootNotes.length > 0) {
         const inbox: Folder = { folder: DEFAULT_WORKSPACE_ID, name: 'Root' }
         const payload = buildMarkdownSyncPayload(inbox, rootNotes)
         for (const p of payload) {
           const rel = p.relativePath.replace(/\\/g, '/')
-          files.push({
-            path: rel,
-            content: p.content,
-            sha: shas[rel] ?? null
-          })
+          files.push({ path: rel, content: p.content, sha: shas[rel] ?? null })
         }
       }
       for (const f of foldersRef.current) {
-        const wsNotes = notesRef.current.filter((n) => n.folder === f.folder)
+        const wsNotes = notesByFolder.get(f.folder) ?? []
         const payload = buildMarkdownSyncPayload(f, wsNotes)
         for (const p of payload) {
           const rel = p.relativePath.replace(/\\/g, '/')
-          files.push({
-            path: rel,
-            content: p.content,
-            sha: shas[rel] ?? null
-          })
+          files.push({ path: rel, content: p.content, sha: shas[rel] ?? null })
         }
       }
       const r = await serverFetchJson<{ ok?: boolean; commitSha?: string | null }>(
@@ -577,19 +587,22 @@ export function useNotesAppDisk({
         persisted.version === 2 && (persisted.notes.length > 0 || persisted.folders.length > 0)
 
       if (persisted.version === 2 && hasLocal && diskEmpty && ws.syncMarkdown) {
-        for (const f of persisted.folders) {
-          const wsNotes = persisted.notes.filter((n) => n.folder === f.folder)
-          const files = buildMarkdownSyncPayload(f, wsNotes)
-          const sync = await ws.syncMarkdown({
-            cwd,
-            folder: f.folder,
-            files,
-            pruneOrphanNoteFiles: true
-          })
-          if (!sync.ok) {
-            console.error('[notelab] migration sync failed', sync.error)
-          }
+        // Pre-bucket persisted notes by folder once
+        const persistedNotesByFolder = new Map<string, typeof persisted.notes>()
+        for (const n of persisted.notes) {
+          let bucket = persistedNotesByFolder.get(n.folder)
+          if (!bucket) { bucket = []; persistedNotesByFolder.set(n.folder, bucket) }
+          bucket.push(n)
         }
+        const syncMarkdown = ws.syncMarkdown
+        await Promise.all(
+          persisted.folders.map(async (f) => {
+            const wsNotes = persistedNotesByFolder.get(f.folder) ?? []
+            const files = buildMarkdownSyncPayload(f, wsNotes)
+            const sync = await syncMarkdown({ cwd, folder: f.folder, files, pruneOrphanNoteFiles: true })
+            if (!sync.ok) console.error('[notelab] migration sync failed', sync.error)
+          })
+        )
         saveNotesState({
           version: 3,
           ...(persisted.githubRemoteUrl ? { githubRemoteUrl: persisted.githubRemoteUrl } : {})

@@ -1,13 +1,11 @@
 import {
   existsSync,
   mkdirSync,
-  readdirSync,
-  readFileSync,
   renameSync,
-  statSync,
   unlinkSync,
   writeFileSync,
 } from 'node:fs'
+import { readdir, readFile, stat } from 'node:fs/promises'
 import { basename, dirname, extname, join, relative, resolve, sep } from 'node:path'
 import {
   parseOptionalFrontmatter,
@@ -132,7 +130,7 @@ export function renameWorkspacePath(cwd: string, fromRelativePath: string, toRel
   renameSync(fromAbs, toAbs)
 }
 
-export function readNotelabIndexImpl(cwd: string): {
+export async function readNotelabIndexImpl(cwd: string): Promise<{
   folders: { folder: string; name: string }[]
   notes: {
     folder: string
@@ -146,59 +144,59 @@ export function readNotelabIndexImpl(cwd: string): {
     properties?: NotePropertyMap
     hasFrontmatterBlock?: boolean
   }[]
-} {
+}> {
   const folders: { folder: string; name: string }[] = []
-  const notes: {
-    folder: string
-    note: string
-    title: string
-    updatedAtMs: number
-    markdownBody: string
-    kind: 'note' | 'drawing'
-    coverImageSrc?: string
-    titleEmoji?: string
-    properties?: NotePropertyMap
-    hasFrontmatterBlock?: boolean
-  }[] = []
-  if (!existsSync(cwd)) return { folders, notes }
+  if (!existsSync(cwd)) return { folders, notes: [] }
 
-  function pushNote(folder: string, relativeFilePath: string): void {
-    const filePath = join(cwd, relativeFilePath)
-    const content = readFileSync(filePath, 'utf8')
-    const parsed = parseNotelabNoteFile(content, relativeFilePath, statSync(filePath).mtimeMs)
-    if (!parsed) return
-    notes.push({
-      folder,
-      note: parsed.note,
-      title: parsed.title,
-      updatedAtMs: parsed.updatedAtMs,
-      markdownBody: parsed.body,
-      kind: parsed.kind,
-      ...(parsed.coverImageSrc !== undefined ? { coverImageSrc: parsed.coverImageSrc } : {}),
-      ...(parsed.titleEmoji !== undefined && parsed.titleEmoji !== ''
-        ? { titleEmoji: parsed.titleEmoji }
-        : {}),
-      ...(Object.keys(parsed.properties).length > 0 ? { properties: parsed.properties } : {}),
-      ...(parsed.hasFrontmatterBlock ? { hasFrontmatterBlock: true } : {}),
-    })
-  }
+  const topEnts = await readdir(cwd, { withFileTypes: true })
 
-  for (const ent of readdirSync(cwd, { withFileTypes: true })) {
+  // Collect note file tasks: [folder, relativeFilePath]
+  const noteTasks: [string, string][] = []
+  for (const ent of topEnts) {
     if (ent.isFile() && (ent.name.endsWith('.md') || ent.name.endsWith('.excalidraw'))) {
-      pushNote(DEFAULT_WORKSPACE_ID, ent.name)
+      noteTasks.push([DEFAULT_WORKSPACE_ID, ent.name])
     } else if (ent.isDirectory()) {
       const folder = ent.name
       if (folder.startsWith('.') && folder !== JOURNAL_FOLDER_ID) continue
-      const wsPath = join(cwd, folder)
       if (folder !== JOURNAL_FOLDER_ID) {
         folders.push({ folder, name: folder })
       }
-      for (const file of readdirSync(wsPath, { withFileTypes: true })) {
+      const subEnts = await readdir(join(cwd, folder), { withFileTypes: true })
+      for (const file of subEnts) {
         if (!file.isFile() || (!file.name.endsWith('.md') && !file.name.endsWith('.excalidraw'))) continue
-        pushNote(folder, `${folder}/${file.name}`)
+        noteTasks.push([folder, `${folder}/${file.name}`])
       }
     }
   }
+
+  // Read all note files in parallel
+  const notes = (
+    await Promise.all(
+      noteTasks.map(async ([folder, relativeFilePath]) => {
+        const filePath = join(cwd, relativeFilePath)
+        const [content, fileStat] = await Promise.all([
+          readFile(filePath, 'utf8'),
+          stat(filePath),
+        ])
+        const parsed = parseNotelabNoteFile(content, relativeFilePath, fileStat.mtimeMs)
+        if (!parsed) return null
+        return {
+          folder,
+          note: parsed.note,
+          title: parsed.title,
+          updatedAtMs: parsed.updatedAtMs,
+          markdownBody: parsed.body,
+          kind: parsed.kind,
+          ...(parsed.coverImageSrc !== undefined ? { coverImageSrc: parsed.coverImageSrc } : {}),
+          ...(parsed.titleEmoji !== undefined && parsed.titleEmoji !== ''
+            ? { titleEmoji: parsed.titleEmoji }
+            : {}),
+          ...(Object.keys(parsed.properties).length > 0 ? { properties: parsed.properties } : {}),
+          ...(parsed.hasFrontmatterBlock ? { hasFrontmatterBlock: true } : {}),
+        }
+      })
+    )
+  ).filter((n) => n !== null)
 
   return { folders, notes }
 }

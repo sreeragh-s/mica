@@ -79,17 +79,16 @@ export function useNotesApp({
   const [folders, setFolders] = useState<Folder[]>(initialFolders)
   const [notes, setNotes] = useState<SavedNote[]>(initialNotes)
 
-  const [selectedNotePath, setSelectedId] = useState<string | null>(() => {
-    const n = initialNotes
-    return n.length > 0 ? ([...n].sort((a, b) => b.updatedAt - a.updatedAt)[0]?.path ?? null) : null
-  })
+  const initialMostRecentPath = useMemo(() => {
+    if (initialNotes.length === 0) return null
+    return [...initialNotes].sort((a, b) => b.updatedAt - a.updatedAt)[0]?.path ?? null
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps -- intentionally run once at mount
 
-  const [openNoteTabPaths, setOpenNoteTabIds] = useState<string[]>(() => {
-    const n = initialNotes
-    if (n.length === 0) return []
-    const path = [...n].sort((a, b) => b.updatedAt - a.updatedAt)[0]?.path
-    return path ? [path] : []
-  })
+  const [selectedNotePath, setSelectedId] = useState<string | null>(initialMostRecentPath)
+
+  const [openNoteTabPaths, setOpenNoteTabIds] = useState<string[]>(() =>
+    initialMostRecentPath ? [initialMostRecentPath] : []
+  )
 
   const [focusedFolderId, setFocusedFolderId] = useState<string | null>(null)
 
@@ -517,8 +516,9 @@ export function useNotesApp({
   }, [folders, workspaceSettingsFolderId])
 
   useEffect(() => {
+    const notePathSet = new Set(notes.map((n) => n.path))
     setOpenNoteTabIds((prev) => {
-      const next = prev.filter((path) => notes.some((n) => n.path === path))
+      const next = prev.filter((path) => notePathSet.has(path))
       return next.length === prev.length ? prev : next
     })
   }, [notes])
