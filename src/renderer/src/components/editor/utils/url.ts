@@ -10,6 +10,7 @@ const SUPPORTED_URL_PROTOCOLS = new Set([
   "http:",
   "https:",
   "mailto:",
+  "obsidian:",
   "sms:",
   "tel:",
 ])
@@ -36,5 +37,11 @@ export function validateUrl(url: string): boolean {
   // Maybe show a dialog where they user can type the URL before inserting it.
   if (url === "https://") return true
   if (/^#notelab\/note\/.+/.test(url)) return true
+  if (/^obsidian:\/\/\S+/i.test(url)) return true
+  if (/^#.+/.test(url)) return true
+  if (/^<[^<>]+>$/.test(url)) return validateUrl(url.slice(1, -1))
+  if (/^(?:\.{0,2}\/)?[^()[\]\s]+(?:%20|[^()[\]])*(?:\.md)?(?:#[^()[\]]+)?$/i.test(url)) {
+    return true
+  }
   return urlRegExp.test(url)
 }

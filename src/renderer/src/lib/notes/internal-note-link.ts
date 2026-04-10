@@ -1,8 +1,11 @@
 /** Hash fragment used in editor links to open another note or drawing in-app. */
 const HASH_PREFIX = '#notelab/note/'
 
-export function buildInternalNoteLinkHref(notePath: string): string {
-  return `${HASH_PREFIX}${notePath}`
+export function buildInternalNoteLinkHref(
+  notePath: string,
+  subpath = ''
+): string {
+  return `${HASH_PREFIX}${notePath}${subpath}`
 }
 
 export function parseInternalNotePathFromHref(href: string): string | null {

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type DragEvent, type JSX } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent, type JSX } from 'react'
 
 import { format, startOfDay } from 'date-fns'
 import { AlertCircleIcon, Loader2Icon, ScanTextIcon, X } from 'lucide-react'
@@ -27,9 +27,18 @@ import { GraphPaneTopBar } from '@/components/notes/layout/GraphPaneTopBar'
 import { NotesMainTopBar } from '@/components/notes/layout/NotesMainTopBar'
 import { ShortcutsSettingsView } from '@/components/notes/settings/ShortcutsSettingsView'
 import type { NotesAppViewModel } from '@/components/notes/app-state/useNotesApp'
+import { JOURNAL_FOLDER_ID } from '@/lib/notes/notes-types'
 
 export type NotesMainAreaProps = {
   vm: NotesAppViewModel
+}
+
+function getJournalNoteDate(note: NotesAppViewModel['notes'][number]): string | null {
+  const propertyDate = note.properties?.date
+  if (typeof propertyDate === 'string' && propertyDate.trim()) {
+    return propertyDate.trim()
+  }
+  return null
 }
 
 function MainAreaIndexingOverlay({
@@ -196,9 +205,70 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
   const [zenHintVisible, setZenHintVisible] = useState(false)
   const [editorBottomBarEl, setEditorBottomBarEl] = useState<HTMLDivElement | null>(null)
   const [indexingOverlayDismissed, setIndexingOverlayDismissed] = useState(false)
+  const pendingJournalDateRef = useRef<string | null>(null)
   const [journalTimelineDate, setJournalTimelineDate] = useState(() =>
     format(startOfDay(new Date()), 'yyyy-MM-dd')
   )
+  const selectedJournalNote = useMemo(
+    () =>
+      notes.find(
+        (note) => note.folder === JOURNAL_FOLDER_ID && getJournalNoteDate(note) === journalTimelineDate
+      ) ?? null,
+    [notes, journalTimelineDate]
+  )
+  const selectedJournalNotePath = selectedJournalNote?.path ?? null
+
+  // Compute available journal dates for the timeline ruler
+  const journalNoteDates = useMemo(() => {
+    if (!journalViewOpen) return []
+    return notes
+      .filter((n) => n.folder === JOURNAL_FOLDER_ID && !n.isTransient)
+      .map(getJournalNoteDate)
+      .filter(Boolean) as string[]
+  }, [notes, journalViewOpen])
+
+  const handleJournalDateSelectWrapper = useCallback(
+    (dateStr: string) => {
+      pendingJournalDateRef.current = dateStr
+      setJournalTimelineDate(dateStr)
+      vm.handleJournalDateSelect(dateStr)
+    },
+    [vm]
+  )
+
+  useEffect(() => {
+    if (!journalViewOpen) {
+      pendingJournalDateRef.current = null
+      return
+    }
+    const pendingJournalDate = pendingJournalDateRef.current
+    if (pendingJournalDate) {
+      const selectedNoteDate =
+        selectedNote?.folder === JOURNAL_FOLDER_ID ? getJournalNoteDate(selectedNote) : null
+      if (selectedNoteDate === pendingJournalDate) {
+        pendingJournalDateRef.current = null
+        return
+      }
+      vm.handleJournalDateSelect(pendingJournalDate)
+      return
+    }
+    if (!selectedJournalNotePath || selectedNotePath === selectedJournalNotePath) return
+    vm.handleJournalDateSelect(journalTimelineDate)
+  }, [
+    journalTimelineDate,
+    journalViewOpen,
+    selectedJournalNotePath,
+    selectedNotePath,
+    vm
+  ])
+
+  useEffect(() => {
+    if (!journalViewOpen || pendingJournalDateRef.current) return
+    if (selectedNote?.folder !== JOURNAL_FOLDER_ID) return
+    const selectedNoteDate = getJournalNoteDate(selectedNote)
+    if (!selectedNoteDate || selectedNoteDate === journalTimelineDate) return
+    setJournalTimelineDate(selectedNoteDate)
+  }, [journalTimelineDate, journalViewOpen, selectedNote])
 
   const indexingOverlayPhase = (() => {
     const { notes, running } = indexingStatus
@@ -256,8 +326,9 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
     [selectNote]
   )
 
+  const activeEditorNote = journalViewOpen ? selectedJournalNote : selectedNote
   const showEditorBottomChrome =
-    !zenMode && appMode === 'notes' && !conflictViewPath && selectedNote?.kind === 'note'
+    !zenMode && appMode === 'notes' && !conflictViewPath && activeEditorNote?.kind === 'note'
 
   const primaryPaneProps = {
     selectedNote,
@@ -332,6 +403,7 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
       return (
         <JournalView
           vm={vm}
+          selectedJournalNotePath={selectedJournalNotePath}
           bottomChromePortal={showEditorBottomChrome ? editorBottomBarEl : undefined}
           onDragOver={onDragOverMain}
           onDrop={onDropPrimaryPane}
@@ -453,7 +525,8 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
                     onToggleSidebar={toggleSidebar}
                     showJournalTimeline={showJournalTimeline}
                     journalTimelineDate={journalTimelineDate}
-                    onJournalTimelineDateChange={setJournalTimelineDate}
+                    onJournalTimelineDateChange={handleJournalDateSelectWrapper}
+                    availableDates={journalNoteDates}
                     showTabs={showTabs}
                     openNoteTabPaths={openNoteTabPaths}
                     notes={notes}

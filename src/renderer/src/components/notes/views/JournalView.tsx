@@ -5,6 +5,7 @@ import type { NotesAppViewModel } from '@/components/notes/app-state/useNotesApp
 
 export type JournalViewProps = {
   vm: NotesAppViewModel
+  selectedJournalNotePath: string | null
   bottomChromePortal?: HTMLElement | null
   onDragOver: (e: DragEvent) => void
   onDrop: (e: DragEvent) => void
@@ -13,12 +14,12 @@ export type JournalViewProps = {
 /** Daily journal layout: calendar lives in the main chrome; this pane is the note editor. */
 export function JournalView({
   vm,
+  selectedJournalNotePath,
   bottomChromePortal,
   onDragOver,
   onDrop
 }: JournalViewProps): JSX.Element {
   const {
-    selectedNote,
     focusedFolder,
     notes,
     folders,
@@ -36,10 +37,15 @@ export function JournalView({
     notesPropertyCatalog
   } = vm
 
+  const selectedJournalNote =
+    (selectedJournalNotePath
+      ? notes.find((note) => note.path === selectedJournalNotePath) ?? null
+      : null)
+
   return (
     <div className="flex min-h-0 flex-1 flex-col" onDragOver={onDragOver} onDrop={onDrop}>
       <NotesPrimaryPane
-        selectedNote={selectedNote}
+        selectedNote={selectedJournalNote}
         focusedFolder={focusedFolder}
         notes={notes}
         folders={folders}

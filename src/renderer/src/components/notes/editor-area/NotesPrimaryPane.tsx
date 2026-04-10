@@ -35,6 +35,8 @@ export type NotesPrimaryPaneProps = {
   onDrop?: (e: DragEvent) => void
   /** When set, editor bottom bar (stats + tools) is portaled into this element (e.g. below terminal). */
   bottomChromePortal?: HTMLElement | null
+  /** Property keys to hide from the properties panel UI (keys are kept on the note internally). */
+  hiddenPropertyKeys?: Set<string>
 }
 
 export function NotesPrimaryPane({
@@ -54,7 +56,8 @@ export function NotesPrimaryPane({
   propertyCatalog,
   onDragOver,
   onDrop,
-  bottomChromePortal
+  bottomChromePortal,
+  hiddenPropertyKeys
 }: NotesPrimaryPaneProps): JSX.Element {
   if (selectedNote) {
     const allowCoverProperty =
@@ -100,6 +103,7 @@ export function NotesPrimaryPane({
                 editorSettings={editorSettings}
                 propertyCatalog={propertyCatalog}
                 onSetProperty={(key, value) => onSetNoteProperty(selectedNote.path, key, value)}
+                hiddenPropertyKeys={hiddenPropertyKeys}
               />
             </>
           }

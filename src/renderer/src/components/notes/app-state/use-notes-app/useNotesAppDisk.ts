@@ -11,10 +11,12 @@ import {
 
 import { serverFetchJson } from '@/lib/core/server-api'
 import { getApi } from '@/lib/auth/auth-bridge'
+import { createElectronLogger } from '@/lib/core/electron-log'
 import { mergeGithubContentShas, loadGithubContentShas } from '@/lib/workspace/github-shas-storage'
 import { loadSetupState } from '@/lib/workspace/setup-storage'
 import { switchDataRoot } from '@/lib/config/notelab-app-config'
 import { diskBodyToContent, extractDiskTitleHeading } from '@/lib/editor/markdown-to-serialized'
+import { JOURNAL_FOLDER_ID } from '@/lib/notes/notes-types'
 import {
   DEFAULT_WORKSPACE_ID,
   type SavedNote,
@@ -29,6 +31,9 @@ import {
 } from '@/lib/workspace/workspace-markdown-sync'
 
 import type { NotelabIndexOk } from './shared'
+
+const LOG = '[useNotesAppDisk]'
+const log = createElectronLogger(LOG)
 
 type Setter<T> = Dispatch<SetStateAction<T>>
 
@@ -46,6 +51,7 @@ type UseNotesAppDiskArgs = {
   dataRootRef: MutableRefObject<string | null>
   foldersRef: MutableRefObject<Folder[]>
   notesRef: MutableRefObject<SavedNote[]>
+  pendingSavedNotesRef: MutableRefObject<Map<string, SavedNote>>
   noteFlushTimers: MutableRefObject<Map<string, number>>
   pendingDiskWrites: MutableRefObject<Set<string>>
 }
@@ -64,6 +70,7 @@ export function useNotesAppDisk({
   dataRootRef,
   foldersRef,
   notesRef,
+  pendingSavedNotesRef,
   noteFlushTimers,
   pendingDiskWrites
 }: UseNotesAppDiskArgs) {
@@ -96,6 +103,13 @@ export function useNotesAppDisk({
   const useGithubApiSync = setupSyncMode === 'github_api'
   const [githubApiDirty, setGithubApiDirty] = useState(false)
   const markdownSyncGen = useRef(0)
+  const gitStatusRefreshTimerRef = useRef<number | null>(null)
+
+  const getLatestNoteSnapshot = useCallback(
+    (notePath: string): SavedNote | undefined =>
+      pendingSavedNotesRef.current.get(notePath) ?? notesRef.current.find((n) => n.path === notePath),
+    [notesRef, pendingSavedNotesRef]
+  )
 
   const refreshWorkspaceGitStatuses = useCallback(async () => {
     const api = getApi()
@@ -125,6 +139,19 @@ export function useNotesAppDisk({
     }
     setDirtyByWorkspaceId(next)
   }, [dataRootRef, foldersRef, githubApiDirty, useGithubApiSync])
+
+  const scheduleWorkspaceGitStatusRefresh = useCallback(
+    (delayMs = 2500): void => {
+      if (gitStatusRefreshTimerRef.current !== null) {
+        window.clearTimeout(gitStatusRefreshTimerRef.current)
+      }
+      gitStatusRefreshTimerRef.current = window.setTimeout(() => {
+        gitStatusRefreshTimerRef.current = null
+        void refreshWorkspaceGitStatuses()
+      }, delayMs)
+    },
+    [refreshWorkspaceGitStatuses]
+  )
 
   const applyNotelabIndex = useCallback(
     (idx: NotelabIndexOk, cwd: string) => {
@@ -323,16 +350,39 @@ export function useNotesAppDisk({
     async (notePath: string) => {
       const api = getApi()
       const cwd = dataRootRef.current
-      if (!cwd || !api?.workspace?.writeNoteFile || !api.workspace.deleteNoteFile) return
-      const note = notesRef.current.find((n) => n.path === notePath)
-      if (!note) return
-      const isRoot = note.folder === DEFAULT_WORKSPACE_ID
+      if (!cwd || !api?.workspace?.writeNoteFile || !api.workspace.deleteNoteFile) {
+        log.warn('flushNoteToDisk skipped: missing workspace API', { notePath, cwd })
+        return
+      }
+      const note = getLatestNoteSnapshot(notePath)
+      if (!note) {
+        log.warn('flushNoteToDisk skipped: note missing', { notePath })
+        return
+      }
+      if (note.isTransient) {
+        log.info('flushNoteToDisk skipped: transient note', { notePath, title: note.title })
+        return
+      }
+      const isRoot = note.folder === DEFAULT_WORKSPACE_ID || note.folder === JOURNAL_FOLDER_ID
       const folder = foldersRef.current.find((f) => f.folder === note.folder)
       const effectiveCwd = isRoot ? cwd : folder?.localGitPath
-      if (!effectiveCwd) return
+      if (!effectiveCwd) {
+        log.warn('flushNoteToDisk skipped: no effective cwd', {
+          notePath,
+          folder: note.folder
+        })
+        return
+      }
       pendingDiskWrites.current.add(notePath)
       try {
         const rel = noteMarkdownRelativePath(note.folder, note)
+        log.info('flushNoteToDisk begin', {
+          notePath,
+          rel,
+          folder: note.folder,
+          effectiveCwd,
+          title: note.title
+        })
         if (rel !== notePath && api.workspace.renamePath) {
           const rename = await api.workspace.renamePath({
             cwd: effectiveCwd,
@@ -340,6 +390,11 @@ export function useNotesAppDisk({
             to: rel
           })
           if (!rename.ok) {
+            log.error('flushNoteToDisk rename before write failed', {
+              notePath,
+              rel,
+              error: rename.error
+            })
             console.error('[notelab] rename before write failed', rename.error)
           }
         }
@@ -349,12 +404,24 @@ export function useNotesAppDisk({
           content: buildNoteMarkdownDocument(note)
         })
         if (!wr.ok) {
+          log.error('flushNoteToDisk write failed', {
+            notePath,
+            rel,
+            error: wr.error
+          })
           console.error('[notelab] write note failed', wr.error)
+        } else {
+          log.info('flushNoteToDisk write succeeded', { notePath, rel })
+          pendingSavedNotesRef.current.delete(notePath)
+          const persistedAt = Date.now()
+          setNotes((prev) =>
+            prev.map((n) => (n.path === notePath ? { ...note, updatedAt: persistedAt } : n))
+          )
         }
         if (useGithubApiSync) {
           setGithubApiDirty(true)
         }
-        await refreshWorkspaceGitStatuses()
+        scheduleWorkspaceGitStatusRefresh()
       } finally {
         pendingDiskWrites.current.delete(notePath)
       }
@@ -362,9 +429,11 @@ export function useNotesAppDisk({
     [
       dataRootRef,
       foldersRef,
-      notesRef,
+      getLatestNoteSnapshot,
       pendingDiskWrites,
-      refreshWorkspaceGitStatuses,
+      pendingSavedNotesRef,
+      scheduleWorkspaceGitStatusRefresh,
+      setNotes,
       useGithubApiSync
     ]
   )
@@ -373,14 +442,35 @@ export function useNotesAppDisk({
     async (previousPath: string, note: SavedNote) => {
       const api = getApi()
       const cwd = dataRootRef.current
-      if (!cwd || !api?.workspace?.writeNoteFile || !api.workspace.renamePath) return
-      const targetRoot = note.folder === DEFAULT_WORKSPACE_ID
+      if (!cwd || !api?.workspace?.writeNoteFile || !api.workspace.renamePath) {
+        log.warn('flushNoteMoveToDisk skipped: missing workspace API', {
+          previousPath,
+          nextPath: note.path
+        })
+        return
+      }
+      const targetRoot = note.folder === DEFAULT_WORKSPACE_ID || note.folder === JOURNAL_FOLDER_ID
       const targetFolder = foldersRef.current.find((f) => f.folder === note.folder)
       const writeCwd = targetRoot ? cwd : targetFolder?.localGitPath
-      if (!writeCwd) return
+      if (!writeCwd) {
+        log.warn('flushNoteMoveToDisk skipped: no write cwd', {
+          previousPath,
+          nextPath: note.path,
+          folder: note.folder
+        })
+        return
+      }
       pendingDiskWrites.current.add(previousPath)
       try {
         const rel = noteMarkdownRelativePath(note.folder, note)
+        log.info('flushNoteMoveToDisk begin', {
+          previousPath,
+          rel,
+          folder: note.folder,
+          writeCwd,
+          title: note.title,
+          isTransient: Boolean(note.isTransient)
+        })
         if (previousPath !== rel) {
           const move = await api.workspace.renamePath({
             cwd,
@@ -388,6 +478,11 @@ export function useNotesAppDisk({
             to: rel
           })
           if (!move.ok && move.error !== 'missing_source') {
+            log.error('flushNoteMoveToDisk move failed', {
+              previousPath,
+              rel,
+              error: move.error
+            })
             console.error('[notelab] move note file failed', move.error)
           }
         }
@@ -397,12 +492,28 @@ export function useNotesAppDisk({
           content: buildNoteMarkdownDocument(note)
         })
         if (!wr.ok) {
+          log.error('flushNoteMoveToDisk write failed', {
+            previousPath,
+            rel,
+            error: wr.error
+          })
           console.error('[notelab] write note after move failed', wr.error)
+        } else {
+          log.info('flushNoteMoveToDisk write succeeded', {
+            previousPath,
+            rel
+          })
+          pendingSavedNotesRef.current.delete(previousPath)
+          pendingSavedNotesRef.current.delete(note.path)
+          const persistedAt = Date.now()
+          setNotes((prev) =>
+            prev.map((n) => (n.path === note.path ? { ...note, updatedAt: persistedAt } : n))
+          )
         }
         if (useGithubApiSync) {
           setGithubApiDirty(true)
         }
-        await refreshWorkspaceGitStatuses()
+        scheduleWorkspaceGitStatusRefresh()
       } finally {
         pendingDiskWrites.current.delete(previousPath)
       }
@@ -411,7 +522,9 @@ export function useNotesAppDisk({
       dataRootRef,
       foldersRef,
       pendingDiskWrites,
-      refreshWorkspaceGitStatuses,
+      pendingSavedNotesRef,
+      scheduleWorkspaceGitStatusRefresh,
+      setNotes,
       useGithubApiSync
     ]
   )
@@ -424,7 +537,7 @@ export function useNotesAppDisk({
       const tid = window.setTimeout(() => {
         noteFlushTimers.current.delete(notePath)
         void flushNoteToDisk(notePath)
-      }, 480)
+      }, 650)
       noteFlushTimers.current.set(notePath, tid)
     },
     [diskMode, flushNoteToDisk, noteFlushTimers]
@@ -641,6 +754,10 @@ export function useNotesAppDisk({
 
   useEffect(() => {
     return () => {
+      if (gitStatusRefreshTimerRef.current !== null) {
+        window.clearTimeout(gitStatusRefreshTimerRef.current)
+        gitStatusRefreshTimerRef.current = null
+      }
       for (const tid of noteFlushTimers.current.values()) {
         window.clearTimeout(tid)
       }

@@ -45,10 +45,8 @@ import {
 import { createPortal } from "react-dom"
 
 import { useNotelabEditorContext } from "@/components/editor/notelab-editor-context"
-import {
-  filterLinkableNotes,
-  NoteLinkPickerList,
-} from "@/components/editor/note-link-picker"
+import { NoteLinkPickerList } from "@/components/editor/note-link-picker"
+import { filterLinkableNotes } from "@/components/editor/obsidian-link-utils"
 import { getDOMRangeRect } from "@/components/editor/utils/get-dom-range-rect"
 import { getSelectedNode } from "@/components/editor/utils/get-selected-node"
 import { setFloatingElemPosition } from "@/components/editor/utils/set-floating-elem-position"

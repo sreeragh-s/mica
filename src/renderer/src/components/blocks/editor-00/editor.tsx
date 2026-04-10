@@ -6,7 +6,7 @@ import {
 } from "@lexical/react/LexicalComposer"
 import { OnChangePlugin } from "@lexical/react/LexicalOnChangePlugin"
 import { EditorState, SerializedEditorState } from "lexical"
-import type { ReactNode } from "react"
+import { useCallback, useEffect, useRef, type ReactNode } from "react"
 
 import { editorTheme } from "@/components/editor/themes/editor-theme"
 import { TooltipProvider } from "@/components/ui/tooltip"
@@ -25,6 +25,8 @@ const editorConfig: InitialConfigType = {
     console.error(error)
   },
 }
+
+const SERIALIZE_IDLE_MS = 450
 
 export function Editor({
   editorState,
@@ -59,6 +61,24 @@ export function Editor({
   onTitleEmojiChange?: (emoji: string | null) => void
   bottomChromePortal?: HTMLElement | null
 }) {
+  const latestEditorStateRef = useRef<EditorState | null>(null)
+  const serializeTimerRef = useRef<number | null>(null)
+
+  const flushSerializedChange = useCallback(() => {
+    if (serializeTimerRef.current !== null) {
+      window.clearTimeout(serializeTimerRef.current)
+      serializeTimerRef.current = null
+    }
+    if (!onSerializedChange || !latestEditorStateRef.current) return
+    onSerializedChange(latestEditorStateRef.current.toJSON())
+  }, [onSerializedChange])
+
+  useEffect(() => {
+    return () => {
+      flushSerializedChange()
+    }
+  }, [flushSerializedChange])
+
   return (
     <div
       className={cn(
@@ -90,8 +110,16 @@ export function Editor({
               <OnChangePlugin
                 ignoreSelectionChange={true}
                 onChange={(editorState) => {
+                  latestEditorStateRef.current = editorState
                   onChange?.(editorState)
-                  onSerializedChange?.(editorState.toJSON())
+                  if (!onSerializedChange) return
+                  if (serializeTimerRef.current !== null) {
+                    window.clearTimeout(serializeTimerRef.current)
+                  }
+                  serializeTimerRef.current = window.setTimeout(() => {
+                    serializeTimerRef.current = null
+                    flushSerializedChange()
+                  }, SERIALIZE_IDLE_MS)
                 }}
               />
             </div>

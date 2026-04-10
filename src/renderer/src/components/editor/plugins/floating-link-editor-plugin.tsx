@@ -45,10 +45,8 @@ import { Check, Pencil, Trash, X } from "lucide-react"
 import { createPortal } from "react-dom"
 
 import { useNotelabEditorContext } from "@/components/editor/notelab-editor-context"
-import {
-  filterLinkableNotes,
-  NoteLinkPickerList,
-} from "@/components/editor/note-link-picker"
+import { NoteLinkPickerList } from "@/components/editor/note-link-picker"
+import { filterLinkableNotes } from "@/components/editor/obsidian-link-utils"
 import { getSelectedNode } from "@/components/editor/utils/get-selected-node"
 import { setFloatingElemPositionForLinkEditor } from "@/components/editor/utils/set-floating-elem-position-for-link-editor"
 import { sanitizeUrl } from "@/components/editor/utils/url"

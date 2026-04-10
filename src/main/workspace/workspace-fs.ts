@@ -25,6 +25,7 @@ function firstScalarPropertyValue(v: NotePropertyValue | undefined): string | un
 }
 
 export const DEFAULT_WORKSPACE_ID = 'default'
+export const JOURNAL_FOLDER_ID = '.journal'
 
 function isInsideRepoRoot(repoRoot: string, absolutePath: string): boolean {
   const rel = relative(repoRoot, absolutePath)
@@ -187,9 +188,11 @@ export function readNotelabIndexImpl(cwd: string): {
       pushNote(DEFAULT_WORKSPACE_ID, ent.name)
     } else if (ent.isDirectory()) {
       const folder = ent.name
-      if (folder.startsWith('.')) continue
+      if (folder.startsWith('.') && folder !== JOURNAL_FOLDER_ID) continue
       const wsPath = join(cwd, folder)
-      folders.push({ folder, name: folder })
+      if (folder !== JOURNAL_FOLDER_ID) {
+        folders.push({ folder, name: folder })
+      }
       for (const file of readdirSync(wsPath, { withFileTypes: true })) {
         if (!file.isFile() || (!file.name.endsWith('.md') && !file.name.endsWith('.excalidraw'))) continue
         pushNote(folder, `${folder}/${file.name}`)

@@ -8,8 +8,10 @@ import {
   useRef,
   memo,
   useLayoutEffect,
+  type WheelEvent,
 } from "react";
 import { addDays, format, startOfDay } from "date-fns";
+import type { MacTitlebarStyles } from "@/components/notes/notes-app-types";
 import {
   NOTES_APP_PILL_ROUNDED,
   NOTES_APP_PILL_SURFACE,
@@ -46,6 +48,8 @@ interface TimelineRulerProps {
   selectedDate?: string;
   availableDates: string[];
   onDateSelect: (dateStr: string) => void;
+  isMacNotelab?: boolean;
+  macTitlebarStyles?: MacTitlebarStyles;
   /** Merges onto the outer wrapper (default spacing is for standalone panels). */
   className?: string;
 }
@@ -54,6 +58,8 @@ export const TimelineRuler = memo(function TimelineRuler({
   selectedDate,
   availableDates,
   onDateSelect,
+  isMacNotelab = false,
+  macTitlebarStyles,
   className,
 }: TimelineRulerProps) {
   const selectedRef = useRef<HTMLButtonElement>(null);
@@ -136,6 +142,16 @@ export const TimelineRuler = memo(function TimelineRuler({
     }
   }, [prependChunk, appendChunk]);
 
+  const onWheel = useCallback((event: WheelEvent<HTMLDivElement>) => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const horizontalDelta =
+      Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
+    if (horizontalDelta === 0) return;
+    el.scrollLeft += horizontalDelta;
+    event.preventDefault();
+  }, []);
+
   const goToday = useCallback(() => {
     onDateSelect(todayStr);
     setBuffer(initialBuffer(todayStr));
@@ -154,8 +170,10 @@ export const TimelineRuler = memo(function TimelineRuler({
       <div
         className={cn(
           "relative z-10 flex min-h-0 w-full min-w-0 flex-1 items-center gap-2 px-2 text-foreground",
+          isMacNotelab && "pointer-events-auto",
           className
         )}
+        style={isMacNotelab ? macTitlebarStyles?.noDrag : undefined}
       >
         <div
           className={cn(
@@ -169,6 +187,7 @@ export const TimelineRuler = memo(function TimelineRuler({
             role="listbox"
             aria-label="Journal dates"
             onScroll={onScroll}
+            onWheel={onWheel}
             className="flex min-h-0 min-w-0 flex-1 overflow-x-auto overflow-y-hidden overscroll-x-contain [scrollbar-width:none]"
           >
             {dates.map((date) => {

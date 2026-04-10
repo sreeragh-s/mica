@@ -13,22 +13,6 @@ import { isDrawingNote } from "@/components/notes/notes-app-utils"
 import type { NotelabEditorContextValue } from "@/components/editor/notelab-editor-context"
 import type { SavedNote } from "@/lib/notes/notes-storage"
 
-export function filterLinkableNotes(
-  ctx: NotelabEditorContextValue,
-  query: string,
-  excludeNoteId?: string
-): SavedNote[] {
-  const q = query.trim().toLowerCase()
-  return ctx.notes
-    .filter((n) => n.path !== excludeNoteId)
-    .filter((n) => {
-      if (!q) return true
-      const title = (n.title?.trim() || "Untitled").toLowerCase()
-      return title.includes(q)
-    })
-    .sort((a, b) => b.updatedAt - a.updatedAt)
-}
-
 export type NoteLinkPickerListProps = {
   noteSearch: string
   onNoteSearchChange: (value: string) => void

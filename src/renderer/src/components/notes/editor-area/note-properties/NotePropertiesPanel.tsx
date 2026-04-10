@@ -25,6 +25,11 @@ export type NotePropertiesPanelProps = {
    * Omit or leave undefined while the cache has not run yet.
    */
   propertyCatalog?: NotesPropertyCatalog | null
+  /**
+   * Property keys to hide from the UI (but kept internally on the note).
+   * Used by JournalView to hide internal properties like `date` and `last_updated_at`.
+   */
+  hiddenPropertyKeys?: Set<string>
 }
 
 export function NotePropertiesPanel({
@@ -32,7 +37,8 @@ export function NotePropertiesPanel({
   notes,
   editorSettings,
   onSetProperty,
-  propertyCatalog: propertyCatalogProp
+  propertyCatalog: propertyCatalogProp,
+  hiddenPropertyKeys
 }: NotePropertiesPanelProps): JSX.Element | null {
   const [newKey, setNewKey] = useState('')
   const [addingNew, setAddingNew] = useState(false)
@@ -49,7 +55,11 @@ export function NotePropertiesPanel({
   )
 
   const genericProperties = Object.entries(note.properties ?? {}).filter(
-    ([k]) => !specialKeys.has(k)
+    ([k]) => !specialKeys.has(k) && !(hiddenPropertyKeys?.has(k) ?? false)
+  )
+
+  const hiddenPropertiesExist = Object.keys(note.properties ?? {}).some(
+    (k) => hiddenPropertyKeys?.has(k) ?? false
   )
 
   const showPanel =
@@ -57,7 +67,8 @@ export function NotePropertiesPanel({
     note.hasFrontmatterBlock ||
     genericProperties.length > 0 ||
     Boolean(note.coverImageSrc) ||
-    Boolean(note.titleEmoji)
+    Boolean(note.titleEmoji) ||
+    hiddenPropertiesExist
 
   if (!showPanel) return null
 

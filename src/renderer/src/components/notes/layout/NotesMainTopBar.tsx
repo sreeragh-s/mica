@@ -19,6 +19,7 @@ export type NotesMainTopBarProps = {
   showJournalTimeline: boolean
   journalTimelineDate: string
   onJournalTimelineDateChange: (isoDate: string) => void
+  availableDates?: string[]
   showTabs: boolean
   openNoteTabPaths: string[]
   notes: SavedNote[]
@@ -43,6 +44,7 @@ function NotesMainTopBarInner({
   showJournalTimeline,
   journalTimelineDate,
   onJournalTimelineDateChange,
+  availableDates,
   showTabs,
   openNoteTabPaths,
   notes,
@@ -85,8 +87,10 @@ function NotesMainTopBarInner({
           <div className="pointer-events-auto min-w-0 w-full flex-1">
             <TimelineRuler
               selectedDate={journalTimelineDate}
-              availableDates={[]}
+              availableDates={availableDates ?? []}
               onDateSelect={onJournalTimelineDateChange}
+              isMacNotelab={isMacNotelab}
+              macTitlebarStyles={macTitlebarStyles}
               className="mt-0 mb-0"
             />
           </div>

@@ -42,6 +42,8 @@ export type SavedNote = {
   kind?: NoteKind
   /** Serialized Excalidraw document (serializeAsJSON) when kind is drawing. */
   excalidrawScene?: string | null
+  /** Local-only draft note not yet persisted to disk. */
+  isTransient?: boolean
 }
 
 export type NotesStateV2 = {

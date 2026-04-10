@@ -11,10 +11,14 @@ import type { SerializedEditorState } from 'lexical'
 
 import { getApi } from '@/lib/auth/auth-bridge'
 import { isMacNotelab as checkIsMac } from '@/lib/core/electron-env'
+import { createElectronLogger } from '@/lib/core/electron-log'
 import { stripSerializedLeadingTitleHeading } from '@/lib/editor/markdown-to-serialized'
-import type { AppSidebarView } from '@/lib/notes/notes-types'
+import { format } from 'date-fns'
+import { type AppSidebarView, JOURNAL_FOLDER_ID } from '@/lib/notes/notes-types'
 import {
   DEFAULT_WORKSPACE_ID,
+  extractPlainTextFromSerialized,
+  type NotePropertyMap,
   loadNotesState,
   type NotePropertyValue,
   type SavedNote,
@@ -50,6 +54,9 @@ import { useNotesAppUi } from './use-notes-app/useNotesAppUi'
 import { useNotesGitSourceControl } from '@/components/notes/git/useNotesGitSourceControl'
 import { useNotesGitSync } from '@/components/notes/git/useNotesGitSync'
 import { useWorkspaceNotesCache } from '@/components/notes/hooks/useWorkspaceNotesCache'
+
+const LOG = '[useNotesApp]'
+const log = createElectronLogger(LOG)
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type -- view-model shape is NotesAppViewModel below
 export function useNotesApp({
@@ -133,6 +140,7 @@ export function useNotesApp({
   openNoteTabIdsRef.current = openNoteTabPaths
   const noteFlushTimers = useRef<Map<string, number>>(new Map())
   const pendingDiskWrites = useRef<Set<string>>(new Set())
+  const pendingSavedNotesRef = useRef<Map<string, SavedNote>>(new Map())
 
   // App sidebar: explorer (notes tree), source control, or settings nav
   const [appSidebarView, setAppSidebarView] = useState<AppSidebarView>('explorer')
@@ -194,6 +202,7 @@ export function useNotesApp({
     dataRootRef,
     foldersRef,
     notesRef,
+    pendingSavedNotesRef,
     noteFlushTimers,
     pendingDiskWrites
   })
@@ -239,7 +248,13 @@ export function useNotesApp({
     if (!map.has(DEFAULT_WORKSPACE_ID)) {
       map.set(DEFAULT_WORKSPACE_ID, [])
     }
+    // Journal notes are stored separately and not shown in sidebar
+    const journalNotes: SavedNote[] = []
     for (const n of notes) {
+      if (n.folder === JOURNAL_FOLDER_ID) {
+        journalNotes.push(n)
+        continue
+      }
       let fid = n.folder
       if (!map.has(fid)) {
         fid = folders.some((f) => f.folder === n.folder) ? n.folder : DEFAULT_WORKSPACE_ID
@@ -252,12 +267,64 @@ export function useNotesApp({
     return map
   }, [folders, notes])
 
+  const touchJournalProperties = useCallback(
+    (note: SavedNote, properties?: NotePropertyMap): NotePropertyMap | undefined => {
+      if (note.folder !== JOURNAL_FOLDER_ID) return properties
+      const nextProperties: NotePropertyMap = { ...(properties ?? {}) }
+      const existingDate = note.properties?.date
+      if (typeof existingDate === 'string' && existingDate.trim() && typeof nextProperties.date !== 'string') {
+        nextProperties.date = existingDate
+      }
+      nextProperties.last_updated_at = format(new Date(), "MMMM d, yyyy 'at' h:mm a")
+      return nextProperties
+    },
+    []
+  )
+
   const takenNotePaths = useCallback(() => notesRef.current.map((note) => note.path), [])
 
   const buildNotePath = useCallback(
     (folder: string, title: string, kind: SavedNote['kind'], currentPath?: string) =>
       buildUniqueNoteRelativePath(folder, title, kind, takenNotePaths(), currentPath),
     [takenNotePaths]
+  )
+
+  const findLatestNote = useCallback(
+    (notePath: string): SavedNote | undefined =>
+      pendingSavedNotesRef.current.get(notePath) ?? notesRef.current.find((note) => note.path === notePath),
+    []
+  )
+
+  const commitPendingNoteToState = useCallback((notePath: string): void => {
+    const pending = pendingSavedNotesRef.current.get(notePath)
+    if (!pending) return
+    setNotes((prev) => prev.map((note) => (note.path === notePath ? pending : note)))
+  }, [])
+
+  const queueNoteSave = useCallback(
+    (
+      notePath: string,
+      nextNote: SavedNote,
+      options: {
+        commitToState?: boolean
+      } = {}
+    ): void => {
+      const commitToState = options.commitToState ?? true
+      if (diskMode) {
+        pendingSavedNotesRef.current.set(notePath, nextNote)
+      } else {
+        pendingSavedNotesRef.current.delete(notePath)
+      }
+      if (commitToState) {
+        setNotes((prev) => prev.map((note) => (note.path === notePath ? nextNote : note)))
+      }
+      if (diskMode) {
+        scheduleNoteFlush(notePath)
+      } else if (useGithubApiSync) {
+        setGithubApiDirty(true)
+      }
+    },
+    [diskMode, scheduleNoteFlush, useGithubApiSync]
   )
 
   const replaceTrackedNoteId = useCallback((from: string, to: string) => {
@@ -471,19 +538,25 @@ export function useNotesApp({
 
   const selectNote = useCallback(
     (notePath: string) => {
-      const note = notesRef.current.find((n) => n.path === notePath)
+      if (selectedNotePath && selectedNotePath !== notePath) {
+        commitPendingNoteToState(selectedNotePath)
+      }
+      const note = findLatestNote(notePath)
       if (!note) return
       setWorkspaceSettingsFolderId(null)
       setAppMode('notes')
       setAppSidebarView('explorer')
+      setJournalViewOpen(note.folder === JOURNAL_FOLDER_ID)
       setSelectedId(notePath)
       setFocusedFolderId(null)
       setNewNoteDestinationFolderId(DEFAULT_WORKSPACE_ID)
       setTreeExpandIds(treeExpandIdsForFolderId(note.folder))
       setTreeExpandNonce((n) => n + 1)
-      pushOpenNoteTab(notePath)
+      if (note.folder !== JOURNAL_FOLDER_ID) {
+        pushOpenNoteTab(notePath)
+      }
     },
-    [pushOpenNoteTab]
+    [commitPendingNoteToState, findLatestNote, pushOpenNoteTab, selectedNotePath]
   )
 
   const reorderOpenNoteTabs = useCallback(
@@ -504,10 +577,11 @@ export function useNotesApp({
 
       if (selectedNotePath !== notePath) return
 
+      commitPendingNoteToState(notePath)
       const fallback = next[idx - 1] ?? next[idx] ?? next[0] ?? null
       setSelectedId(fallback)
       if (fallback) {
-        const n = notesRef.current.find((x) => x.path === fallback)
+        const n = findLatestNote(fallback)
         if (n) {
           setFocusedFolderId(null)
           setNewNoteDestinationFolderId(DEFAULT_WORKSPACE_ID)
@@ -516,7 +590,7 @@ export function useNotesApp({
         }
       }
     },
-    [selectedNotePath]
+    [commitPendingNoteToState, findLatestNote, selectedNotePath]
   )
 
   const appendFolder = useCallback(
@@ -541,6 +615,7 @@ export function useNotesApp({
       setWorkspaceSettingsFolderId(null)
       const id = ids[0]
       if (!id) {
+        if (selectedNotePath) commitPendingNoteToState(selectedNotePath)
         setSelectedId(null)
         setNewNoteDestinationFolderId(DEFAULT_WORKSPACE_ID)
         return
@@ -550,15 +625,17 @@ export function useNotesApp({
         return
       }
       if (id.startsWith('folder:')) {
+        if (selectedNotePath) commitPendingNoteToState(selectedNotePath)
         const fid = id.slice('folder:'.length)
         setFocusedFolderId(fid)
         setNewNoteDestinationFolderId(fid)
       }
     },
-    [selectNote]
+    [commitPendingNoteToState, selectNote, selectedNotePath]
   )
 
   const handleNewNote = useCallback(() => {
+    if (selectedNotePath) commitPendingNoteToState(selectedNotePath)
     let fid = newNoteDestinationFolderId
     const valid = fid === DEFAULT_WORKSPACE_ID || foldersRef.current.some((f) => f.folder === fid)
     if (!valid) {
@@ -587,30 +664,35 @@ export function useNotesApp({
     diskMode,
     scheduleNoteFlush,
     pushOpenNoteTab,
-    editorSettings
+    editorSettings,
+    commitPendingNoteToState,
+    selectedNotePath
   ])
 
   const handleNoteSerializedChange = useCallback(
     (notePath: string, serialized: SerializedEditorState) => {
-      const current = notesRef.current.find((n) => n.path === notePath)
-      const normalized =
-        current?.kind === 'note'
-          ? stripSerializedLeadingTitleHeading(serialized, current.title)
-          : serialized
-      if (current && serializedEditorStatesEqual(current.content, normalized)) {
-        return
-      }
-      setNotes((prev) =>
-        prev.map((n) =>
-          n.path === notePath ? { ...n, content: normalized, updatedAt: Date.now() } : n
-        )
+      const current = findLatestNote(notePath)
+      if (!current || current.kind !== 'note') return
+      const normalized = stripSerializedLeadingTitleHeading(serialized, current.title)
+      const nextPlainText = extractPlainTextFromSerialized(normalized)
+      if (current.isTransient && nextPlainText.trim() === '') return
+      if (serializedEditorStatesEqual(current.content, normalized)) return
+      queueNoteSave(
+        notePath,
+        {
+          ...current,
+          content: normalized,
+          properties: touchJournalProperties(current, current.properties),
+          ...(current.isTransient ? { isTransient: undefined } : {})
+        },
+        { commitToState: !diskMode }
       )
-      scheduleNoteFlush(notePath)
     },
-    [scheduleNoteFlush]
+    [diskMode, findLatestNote, queueNoteSave, touchJournalProperties]
   )
 
   const handleNewDrawing = useCallback(() => {
+    if (selectedNotePath) commitPendingNoteToState(selectedNotePath)
     let fid = newNoteDestinationFolderId
     const valid = fid === DEFAULT_WORKSPACE_ID || foldersRef.current.some((f) => f.folder === fid)
     if (!valid) {
@@ -632,26 +714,29 @@ export function useNotesApp({
     if (diskMode) {
       window.setTimeout(() => scheduleNoteFlush(note.path), 0)
     }
-  }, [buildNotePath, newNoteDestinationFolderId, diskMode, scheduleNoteFlush, pushOpenNoteTab])
+  }, [
+    buildNotePath,
+    newNoteDestinationFolderId,
+    diskMode,
+    scheduleNoteFlush,
+    pushOpenNoteTab,
+    commitPendingNoteToState,
+    selectedNotePath
+  ])
 
   const handleExcalidrawSceneChange = useCallback(
     (notePath: string, json: string) => {
-      setNotes((prev) =>
-        prev.map((n) =>
-          n.path === notePath && n.kind === 'drawing'
-            ? { ...n, excalidrawScene: json, updatedAt: Date.now() }
-            : n
-        )
-      )
-      scheduleNoteFlush(notePath)
+      const current = findLatestNote(notePath)
+      if (!current || current.kind !== 'drawing') return
+      queueNoteSave(notePath, { ...current, excalidrawScene: json, updatedAt: Date.now() })
     },
-    [scheduleNoteFlush]
+    [findLatestNote, queueNoteSave]
   )
 
   const renameNote = useCallback(
     (notePath: string, title: string) => {
       const trimmed = title.trim()
-      const current = notesRef.current.find((n) => n.path === notePath)
+      const current = findLatestNote(notePath)
       if (!current) return
       const nextPath = buildNotePath(current.folder, trimmed, current.kind, current.path)
       const nextNote = {
@@ -664,8 +749,11 @@ export function useNotesApp({
             .pop()
             ?.replace(/\.[^.]+$/g, '') ||
           'Untitled',
+        properties: touchJournalProperties(current, current.properties),
+        ...(current.isTransient ? { isTransient: undefined } : {}),
         updatedAt: Date.now()
       }
+      pendingSavedNotesRef.current.delete(notePath)
       setNotes((prev) => prev.map((n) => (n.path === notePath ? nextNote : n)))
       replaceTrackedNoteId(notePath, nextPath)
       const flushTid = noteFlushTimers.current.get(notePath)
@@ -679,48 +767,50 @@ export function useNotesApp({
         setGithubApiDirty(true)
       }
     },
-    [buildNotePath, diskMode, flushNoteMoveToDisk, replaceTrackedNoteId, useGithubApiSync]
+    [
+      buildNotePath,
+      diskMode,
+      findLatestNote,
+      flushNoteMoveToDisk,
+      replaceTrackedNoteId,
+      touchJournalProperties,
+      useGithubApiSync
+    ]
   )
 
   const setNoteCover = useCallback(
     (notePath: string, coverImageSrc: string | null) => {
-      setNotes((prev) =>
-        prev.map((n) =>
-          n.path === notePath
-            ? {
-                ...n,
-                ...(coverImageSrc === null || coverImageSrc === ''
-                  ? { coverImageSrc: undefined }
-                  : { coverImageSrc }),
-                ...(coverImageSrc ? { hasFrontmatterBlock: true } : {}),
-                updatedAt: Date.now()
-              }
-            : n
-        )
-      )
-      scheduleNoteFlush(notePath)
+      const current = findLatestNote(notePath)
+      if (!current) return
+      queueNoteSave(notePath, {
+        ...current,
+        ...(coverImageSrc === null || coverImageSrc === ''
+          ? { coverImageSrc: undefined }
+          : { coverImageSrc }),
+        ...(coverImageSrc ? { hasFrontmatterBlock: true } : {}),
+        properties: touchJournalProperties(current, current.properties),
+        ...(current.isTransient ? { isTransient: undefined } : {}),
+        updatedAt: Date.now()
+      })
     },
-    [scheduleNoteFlush]
+    [findLatestNote, queueNoteSave, touchJournalProperties]
   )
 
   const setNoteTitleEmoji = useCallback(
     (notePath: string, titleEmoji: string | null) => {
       const trimmed = titleEmoji?.trim() ?? ''
-      setNotes((prev) =>
-        prev.map((n) =>
-          n.path === notePath
-            ? {
-                ...n,
-                ...(trimmed === '' ? { titleEmoji: undefined } : { titleEmoji: trimmed }),
-                ...(trimmed !== '' ? { hasFrontmatterBlock: true } : {}),
-                updatedAt: Date.now()
-              }
-            : n
-        )
-      )
-      scheduleNoteFlush(notePath)
+      const current = findLatestNote(notePath)
+      if (!current) return
+      queueNoteSave(notePath, {
+        ...current,
+        ...(trimmed === '' ? { titleEmoji: undefined } : { titleEmoji: trimmed }),
+        ...(trimmed !== '' ? { hasFrontmatterBlock: true } : {}),
+        properties: touchJournalProperties(current, current.properties),
+        ...(current.isTransient ? { isTransient: undefined } : {}),
+        updatedAt: Date.now()
+      })
     },
-    [scheduleNoteFlush]
+    [findLatestNote, queueNoteSave, touchJournalProperties]
   )
 
   const setNoteProperty = useCallback(
@@ -735,35 +825,34 @@ export function useNotesApp({
         setNoteTitleEmoji(notePath, typeof value === 'string' ? value : null)
         return
       }
-      setNotes((prev) =>
-        prev.map((n) => {
-          if (n.path !== notePath) return n
-          const nextProperties = { ...(n.properties ?? {}) }
-          const empty =
-            value == null ||
-            (typeof value === 'string' && value.trim() === '') ||
-            (Array.isArray(value) && value.length === 0)
-          if (empty) {
-            delete nextProperties[trimmedKey]
-          } else {
-            nextProperties[trimmedKey] = value
-          }
-          return {
-            ...n,
-            properties: nextProperties,
-            hasFrontmatterBlock: n.hasFrontmatterBlock || Object.keys(nextProperties).length > 0,
-            updatedAt: Date.now()
-          }
-        })
-      )
-      scheduleNoteFlush(notePath)
+      const current = findLatestNote(notePath)
+      if (!current) return
+      const nextProperties = { ...(current.properties ?? {}) }
+      const empty =
+        value == null ||
+        (typeof value === 'string' && value.trim() === '') ||
+        (Array.isArray(value) && value.length === 0)
+      if (empty) {
+        delete nextProperties[trimmedKey]
+      } else {
+        nextProperties[trimmedKey] = value
+      }
+      const stampedProperties = touchJournalProperties(current, nextProperties)
+      queueNoteSave(notePath, {
+        ...current,
+        properties: stampedProperties,
+        hasFrontmatterBlock:
+          current.hasFrontmatterBlock || Object.keys(stampedProperties ?? {}).length > 0,
+        ...(current.isTransient ? { isTransient: undefined } : {}),
+        updatedAt: Date.now()
+      })
     },
-    [scheduleNoteFlush, setNoteCover, setNoteTitleEmoji]
+    [findLatestNote, queueNoteSave, setNoteCover, setNoteTitleEmoji, touchJournalProperties]
   )
 
   const moveNoteToFolder = useCallback(
     (notePath: string, targetFolderId: string) => {
-      const note = notesRef.current.find((n) => n.path === notePath)
+      const note = findLatestNote(notePath)
       if (!note || note.folder === targetFolderId) return
       const targetOk =
         targetFolderId === DEFAULT_WORKSPACE_ID ||
@@ -786,6 +875,7 @@ export function useNotesApp({
       setTreeExpandIds(treeExpandIdsForFolderId(targetFolderId))
       setTreeExpandNonce((n) => n + 1)
 
+      pendingSavedNotesRef.current.delete(notePath)
       const tid = noteFlushTimers.current.get(notePath)
       if (tid !== undefined) window.clearTimeout(tid)
       noteFlushTimers.current.delete(notePath)
@@ -800,7 +890,7 @@ export function useNotesApp({
         setGithubApiDirty(true)
       }
     },
-    [buildNotePath, diskMode, flushNoteMoveToDisk, useGithubApiSync]
+    [buildNotePath, diskMode, findLatestNote, flushNoteMoveToDisk, useGithubApiSync]
   )
 
   const reorderFolders = useCallback((draggedFolderId: string, targetFolderId: string) => {
@@ -829,6 +919,7 @@ export function useNotesApp({
   const handleDeleteNote = useCallback(
     (notePath: string, e: MouseEvent) => {
       e.stopPropagation()
+      pendingSavedNotesRef.current.delete(notePath)
       const tid = noteFlushTimers.current.get(notePath)
       if (tid !== undefined) window.clearTimeout(tid)
       noteFlushTimers.current.delete(notePath)
@@ -1170,6 +1261,53 @@ export function useNotesApp({
     }
   }, [cancelFolderCreate, commitFolderCreate])
 
+  const handleJournalDateSelect = useCallback(
+    (dateStr: string) => {
+      const existingNote = notesRef.current.find((n) => {
+        if (n.folder !== JOURNAL_FOLDER_ID) return false
+        const propertyDate = n.properties?.date
+        return typeof propertyDate === 'string' && propertyDate.trim() === dateStr
+      })
+      if (existingNote) {
+        log.info('handleJournalDateSelect existing note', {
+          dateStr,
+          notePath: existingNote.path,
+          title: existingNote.title,
+          isTransient: Boolean(existingNote.isTransient)
+        })
+        selectNote(existingNote.path)
+        return
+      }
+
+      const notePath = buildNotePath(JOURNAL_FOLDER_ID, dateStr, 'note')
+      const note = createEmptyNote(JOURNAL_FOLDER_ID, notePath)
+      note.title = dateStr
+      note.hasFrontmatterBlock = true
+      note.isTransient = true
+      note.properties = {
+        date: dateStr,
+        last_updated_at: format(new Date(), "MMMM d, yyyy 'at' h:mm a")
+      }
+
+      log.info('handleJournalDateSelect created transient journal note', {
+        dateStr,
+        notePath,
+        title: note.title
+      })
+      setNotes((prev) => [note, ...prev])
+      setWorkspaceSettingsFolderId(null)
+      setAppMode('notes')
+      setAppSidebarView('explorer')
+      setJournalViewOpen(true)
+      setSelectedId(note.path)
+      setFocusedFolderId(null)
+      setNewNoteDestinationFolderId(DEFAULT_WORKSPACE_ID)
+      setTreeExpandIds(treeExpandIdsForFolderId(note.folder))
+      setTreeExpandNonce((n) => n + 1)
+    },
+    [buildNotePath, selectNote]
+  )
+
   return {
     user,
     guestMode,
@@ -1306,6 +1444,7 @@ export function useNotesApp({
     journalViewOpen,
     openJournalView,
     closeJournalView,
+    handleJournalDateSelect,
     tabOverviewOpen,
     openTabOverview,
     closeTabOverview,

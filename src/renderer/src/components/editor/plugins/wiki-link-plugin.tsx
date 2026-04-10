@@ -12,7 +12,11 @@ import { $createLinkNode } from "@lexical/link"
 import { $createTextNode, TextNode } from "lexical"
 
 import { useNotelabEditorContext } from "@/components/editor/notelab-editor-context"
-import { filterLinkableNotes } from "@/components/editor/note-link-picker"
+import {
+  filterLinkableNotes,
+  getObsidianLinkDisplayText,
+  parseObsidianLinkText,
+} from "@/components/editor/obsidian-link-utils"
 import { buildInternalNoteLinkHref } from "@/lib/notes/internal-note-link"
 import {
   Command,
@@ -24,16 +28,17 @@ import {
 } from "@/components/ui/command"
 import { isDrawingNote } from "@/components/notes/notes-app-utils"
 
-// Matches [[ followed by 0–75 non-] chars at end of the text before cursor
-const WIKI_LINK_REGEX = /\[\[([^\]]{0,75})$/
+// Matches Obsidian-style [[...]] and ![[...]] link starts before the cursor.
+const WIKI_LINK_REGEX = /!?\[\[([^\]\n]{0,150})$/
 
 function checkForWikiLinkTrigger(text: string): MenuTextMatch | null {
   const match = WIKI_LINK_REGEX.exec(text)
   if (!match) return null
+  if (match.index > 0 && text[match.index - 1] === "\\") return null
   return {
     leadOffset: match.index,
-    matchingString: match[1] ?? "",     // the query text after [[
-    replaceableString: match[0],        // the full [[ ... that should be replaced
+    matchingString: match[1] ?? "",
+    replaceableString: match[0],
   }
 }
 
@@ -77,11 +82,16 @@ export function WikiLinkPlugin(): JSX.Element | null {
       closeMenu: () => void
     ) => {
       editor.update(() => {
+        const linkParts = parseObsidianLinkText(queryString)
+        const displayText = getObsidianLinkDisplayText(
+          selectedOption.noteTitle,
+          linkParts
+        )
         const linkNode = $createLinkNode(
-          buildInternalNoteLinkHref(selectedOption.notePath),
+          buildInternalNoteLinkHref(selectedOption.notePath, linkParts.subpath),
           { rel: "noopener", target: null }
         )
-        const textNode = $createTextNode(selectedOption.noteTitle)
+        const textNode = $createTextNode(displayText)
         linkNode.append(textNode)
 
         if (nodeToReplace) {
@@ -93,7 +103,7 @@ export function WikiLinkPlugin(): JSX.Element | null {
         closeMenu()
       })
     },
-    [editor]
+    [editor, queryString]
   )
 
   const triggerFn = useCallback((text: string): MenuTextMatch | null => {
