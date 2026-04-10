@@ -357,7 +357,9 @@ export function NotesGraphView({
       .attr("dy", (d) => nodeRadius(d) + 13)
       .attr("font-size", 10)
       .attr("class", "fill-foreground pointer-events-none select-none")
-      .style("display", displayRef.current.showLabels ? null : "none")
+      .style("display", () =>
+        displayRef.current.showLabels ? null : "none"
+      )
     labelSelRef.current = labelSel
 
     // ── drag ──
@@ -485,9 +487,17 @@ export function NotesGraphView({
       .attr("fill", (d) => d.kind === "drawing" ? "none" : folderColorFn(d.folder))
       .attr("stroke", (d) => folderColorFn(d.folder))
 
-    labelSel.style("display", display.showLabels ? null : "none")
+    if (display.showLabels) {
+      labelSel.style("display", null)
+    } else {
+      labelSel.style("display", "none")
+    }
 
-    linkSel.attr("marker-end", display.showArrows ? "url(#arrow)" : null)
+    if (display.showArrows) {
+      linkSel.attr("marker-end", "url(#arrow)")
+    } else {
+      linkSel.attr("marker-end", null)
+    }
   }, [display, folderColorFn])
 
   // ── Highlight logic ──
