@@ -10,7 +10,7 @@ import { BrowserWindow, shell } from 'electron'
 import { join } from 'path'
 import { is } from '@electron-toolkit/utils'
 import icon from '../../../resources/icon.png?asset'
-import { macTrafficLightPosition } from '../../shared/mac-window-chrome'
+import { macTrafficLightPosition } from '@shared/windowing/mac-window-chrome'
 import {
   type WindowSession,
   windowSessionData,

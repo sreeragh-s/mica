@@ -11,6 +11,11 @@ export default defineConfig(({ mode }) => {
 
   return {
     main: {
+      resolve: {
+        alias: {
+          '@shared': resolve('src/shared'),
+        },
+      },
       define: {
         __APP_AUTH_URL__: JSON.stringify(authUrl),
         __APP_SERVER_URL__: JSON.stringify(serverUrl),
@@ -21,7 +26,13 @@ export default defineConfig(({ mode }) => {
         },
       },
     },
-    preload: {},
+    preload: {
+      resolve: {
+        alias: {
+          '@shared': resolve('src/shared'),
+        },
+      },
+    },
     renderer: {
       build: {
         rollupOptions: {
@@ -32,8 +43,9 @@ export default defineConfig(({ mode }) => {
       },
       resolve: {
         alias: {
-          '@': resolve('src/renderer/src'),
-          '@renderer': resolve('src/renderer/src'),
+          '@': resolve('src/renderer'),
+          '@renderer': resolve('src/renderer'),
+          '@shared': resolve('src/shared'),
         },
       },
       plugins: [react(), tailwindcss()],

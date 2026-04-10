@@ -12,7 +12,7 @@ import {
   parseOptionalFrontmatter,
   type NotePropertyMap,
   type NotePropertyValue,
-} from '../../shared/note-markdown'
+} from '@shared/notes/note-markdown'
 
 function firstScalarPropertyValue(v: NotePropertyValue | undefined): string | undefined {
   if (v === undefined) return undefined

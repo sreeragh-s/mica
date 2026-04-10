@@ -1,9 +1,9 @@
 {
   "extends": "@electron-toolkit/tsconfig/tsconfig.web.json",
   "include": [
-    "src/renderer/src/env.d.ts",
-    "src/renderer/src/**/*",
-    "src/renderer/src/**/*.tsx",
+    "src/renderer/env.d.ts",
+    "src/renderer/**/*",
+    "src/renderer/**/*.tsx",
     "src/preload/*.d.ts",
     "src/shared/**/*.ts"
   ],
@@ -12,9 +12,10 @@
     "jsx": "react-jsx",
     "baseUrl": ".",
     "paths": {
-      "@/*": ["src/renderer/src/*"],
+      "@/*": ["src/renderer/*"],
+      "@shared/*": ["src/shared/*"],
       "@renderer/*": [
-        "src/renderer/src/*"
+        "src/renderer/*"
       ]
     }
   }
