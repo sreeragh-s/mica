@@ -1,6 +1,27 @@
-# notelab.io
+# notelab
 
-An Electron application with React and TypeScript
+A powerful note-taking application with AI-powered features, built with Electron, React, and TypeScript.
+
+## Features
+
+- Rich text editing with Lexical
+- AI integration with Ollama
+- Markdown support
+- Terminal emulator
+- Drawing and diagramming
+- And much more...
+
+## License
+
+This project is licensed under the [MIT License](LICENSE).
+
+## Contributing
+
+Contributions are welcome! Please read our [Contributing Guide](CONTRIBUTING.md) for details.
+
+## Code of Conduct
+
+Please read our [Code of Conduct](CODE_OF_CONDUCT.md) to keep our community approachable and respectable.
 
 ## Recommended IDE Setup
 
@@ -11,24 +32,29 @@ An Electron application with React and TypeScript
 ### Install
 
 ```bash
-$ npm install
+npm install
 ```
 
 ### Development
 
 ```bash
-$ npm run dev
+npm run dev
 ```
 
 ### Build
 
 ```bash
 # For windows
-$ npm run build:win
+npm run build:win
 
 # For macOS
-$ npm run build:mac
+npm run build:mac
 
 # For Linux
-$ npm run build:linux
+npm run build:linux
 ```
+
+## Links
+
+- [GitHub Repository](https://github.com/sreeraghs/notelab)
+- [Issues](https://github.com/sreeraghs/notelab/issues)

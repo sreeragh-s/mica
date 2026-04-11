@@ -35,21 +35,27 @@ export function registerCoreIpc(): void {
 
     try {
       const traffic = macTrafficLightPosition()
-      const applyLights = (): void => {
-        if (win.isDestroyed()) return
-        win.setWindowButtonVisibility(true)
-        win.setWindowButtonPosition(traffic)
-      }
-      if (process.platform === 'darwin') {
-        // Simple fullscreen avoids macOS Space creation and the slow native fullscreen animation.
-        win.setSimpleFullScreen(enabled)
-        setTimeout(applyLights, 0)
-      } else if (enabled) {
+      if (enabled) {
         win.setFullScreen(true)
-        setTimeout(applyLights, 0)
+        if (process.platform === 'darwin') {
+          const applyLights = (): void => {
+            if (win.isDestroyed()) return
+            win.setWindowButtonVisibility(true)
+            win.setWindowButtonPosition(traffic)
+          }
+          setTimeout(applyLights, 0)
+          win.once('enter-full-screen', applyLights)
+        }
       } else {
         win.setFullScreen(false)
-        setTimeout(applyLights, 0)
+        if (process.platform === 'darwin') {
+          const applyLights = (): void => {
+            if (win.isDestroyed()) return
+            win.setWindowButtonVisibility(true)
+            win.setWindowButtonPosition(traffic)
+          }
+          setTimeout(applyLights, 0)
+        }
       }
       return { ok: true as const }
     } catch {
