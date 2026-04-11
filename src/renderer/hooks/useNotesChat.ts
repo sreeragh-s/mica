@@ -101,7 +101,24 @@ async function saveCurrentSession(s: ChatSession): Promise<{ ok: boolean; error?
     messages: s.messages.map((m) => ({
       role: m.role,
       content: m.content,
-      timestamp: m.timestamp
+      timestamp: m.timestamp,
+      sources: m.sources?.map((src) => ({
+        note: src.note,
+        title: src.title,
+        folder: src.folder,
+        chunkText: src.chunkText,
+        score: src.score,
+        source: src.source
+      })),
+      chainOfThoughts: m.pipelineStatus
+        ? {
+            stage: m.pipelineStatus.stage,
+            mode: m.pipelineStatus.mode,
+            seedNotes: m.pipelineStatus.seedNotes.map((n) => n.note),
+            connectedNotes: m.pipelineStatus.connectedNotes.map((n) => n.note),
+            finalNotes: m.pipelineStatus.finalNotes.map((n) => n.note)
+          }
+        : undefined
     }))
   })
   return res.ok ? { ok: true } : { ok: false, error: res.error }

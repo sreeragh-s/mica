@@ -1,10 +1,9 @@
 'use client'
 
 import { useControllableState } from '@radix-ui/react-use-controllable-state'
-import { ChevronDownIcon, DotIcon, Loader2Icon, SearchIcon, type LucideIcon } from 'lucide-react'
+import { ChevronDownIcon, DotIcon, FileTextIcon, Loader2Icon, SearchIcon, type LucideIcon } from 'lucide-react'
 import type { ComponentProps, ReactNode } from 'react'
 import { createContext, memo, useContext, useMemo } from 'react'
-import { Badge } from '@/components/ui/badge'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { cn } from '@/lib/utils'
 
@@ -75,16 +74,14 @@ export const ChainOfThoughtHeader = memo(
       <Collapsible onOpenChange={setIsOpen} open={isOpen}>
         <CollapsibleTrigger
           className={cn(
-            'flex w-full items-center gap-2 text-muted-foreground text-sm transition-colors hover:text-foreground',
+            'flex items-center gap-2 text-primary text-xs',
             className
           )}
           {...props}
         >
           {loading ? <Loader2Icon className="size-4 animate-spin" /> : <Icon className="size-4" />}
-          <span className="flex-1 text-left">{children ?? 'Chain of Thought'}</span>
-          <ChevronDownIcon
-            className={cn('size-4 transition-transform', isOpen ? 'rotate-180' : 'rotate-0')}
-          />
+          <span className="font-medium">{children ?? 'Chain of Thought'}</span>
+          <ChevronDownIcon className={cn('size-4 transition-transform', isOpen && 'rotate-180')} />
         </CollapsibleTrigger>
       </Collapsible>
     )
@@ -142,21 +139,28 @@ export type ChainOfThoughtSearchResultsProps = ComponentProps<'div'>
 
 export const ChainOfThoughtSearchResults = memo(
   ({ className, ...props }: ChainOfThoughtSearchResultsProps) => (
-    <div className={cn('flex flex-wrap items-center gap-2', className)} {...props} />
+    <div className={cn('flex w-fit flex-col gap-2', className)} {...props} />
   )
 )
 
-export type ChainOfThoughtSearchResultProps = ComponentProps<typeof Badge>
+export type ChainOfThoughtSearchResultProps = ComponentProps<'button'> & {
+  title?: string
+}
 
 export const ChainOfThoughtSearchResult = memo(
-  ({ className, children, ...props }: ChainOfThoughtSearchResultProps) => (
-    <Badge
-      className={cn('gap-1 px-2 py-0.5 font-normal text-xs', className)}
-      variant="secondary"
+  ({ className, title, children, ...props }: ChainOfThoughtSearchResultProps) => (
+    <button
+      type="button"
+      className={cn('flex items-center gap-2 text-left', className)}
       {...props}
     >
-      {children}
-    </Badge>
+      <FileTextIcon className="h-4 w-4 shrink-0" />
+      {title !== undefined ? (
+        <span className="block font-medium">{title}</span>
+      ) : (
+        children
+      )}
+    </button>
   )
 )
 

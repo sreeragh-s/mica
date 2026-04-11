@@ -20,6 +20,25 @@ export type ChatHistoryMessage = {
   role: 'user' | 'assistant'
   content: string
   timestamp: number
+  sources?: ChatSourceMeta[]
+  chainOfThoughts?: ChainOfThoughtsMeta
+}
+
+export type ChatSourceMeta = {
+  note: string
+  title: string
+  folder: string
+  chunkText: string
+  score?: number
+  source?: string
+}
+
+export type ChainOfThoughtsMeta = {
+  stage: string
+  mode: string
+  seedNotes: string[]
+  connectedNotes: string[]
+  finalNotes: string[]
 }
 
 export type ChatHistorySession = {
@@ -49,14 +68,45 @@ function buildMarkdown(payload: ChatHistorySession): string {
     `# ${payload.title}`,
     ``,
     `*${new Date(payload.createdAt).toLocaleString()}*`,
-    ``,
-    `---`,
     ``
   ]
   for (const msg of payload.messages) {
     const role = msg.role === 'user' ? '**You**' : '**Assistant**'
     const time = new Date(msg.timestamp).toLocaleString()
-    lines.push(`### ${role}`, `*${time}*`, ``, msg.content, ``, `---`, ``)
+    lines.push(`### ${role}`, `*${time}*`, ``, msg.content, ``)
+
+    if (msg.sources && msg.sources.length > 0) {
+      lines.push(`---`, `sources:`)
+      for (const src of msg.sources) {
+        const chunkText = src.chunkText.replace(/"/g, '\\"').replace(/\n/g, '\\n')
+        lines.push(
+          `  - note: "${src.note}"`,
+          `    title: "${src.title.replace(/"/g, '\\"')}"`,
+          `    folder: "${src.folder.replace(/"/g, '\\"')}"`,
+          `    chunkText: "${chunkText}"`,
+          src.score !== undefined ? `    score: ${src.score}` : '',
+          src.source ? `    source: "${src.source}"` : ''
+        )
+      }
+    } else {
+      lines.push(`---`, `sources: []`)
+    }
+
+    if (msg.chainOfThoughts) {
+      const cot = msg.chainOfThoughts
+      lines.push(
+        `chainOfThoughts:`,
+        `  stage: "${cot.stage}"`,
+        `  mode: "${cot.mode}"`,
+        `  seedNotes: [${cot.seedNotes.map((n) => `"${n}"`).join(', ')}]`,
+        `  connectedNotes: [${cot.connectedNotes.map((n) => `"${n}"`).join(', ')}]`,
+        `  finalNotes: [${cot.finalNotes.map((n) => `"${n}"`).join(', ')}]`
+      )
+    } else {
+      lines.push(`chainOfThoughts: null`)
+    }
+
+    lines.push(`---`, ``)
   }
   return lines.join('\n')
 }
@@ -85,50 +135,140 @@ export function parseSessionMarkdown(content: string): ChatHistorySession | null
   const createdAt = createdRaw ? new Date(createdRaw).getTime() : Date.now()
 
   const afterFm = content.slice(fmMatch[0].length)
-  const sep = '\n\n---\n\n'
-  const sepIdx = afterFm.indexOf(sep)
-  if (sepIdx === -1) {
+  const msgSep = '\n\n---\n\n'
+  const msgSepIdx = afterFm.indexOf(msgSep)
+  if (msgSepIdx === -1) {
     return { sessionId: idLine, title, createdAt, messages: [] }
   }
 
-  let msgText = afterFm.slice(sepIdx + sep.length).trimStart()
+  let msgText = afterFm.slice(msgSepIdx + msgSep.length).trimStart()
   const messages: ChatHistoryMessage[] = []
-  let pos = 0
-  let i = 0
 
-  while (pos < msgText.length) {
-    const slice = msgText.slice(pos)
-    const roleMatch = slice.match(/^### \*\*(You|Assistant)\*\*/)
-    if (!roleMatch) {
-      const next = msgText.indexOf('\n\n### **', pos)
-      if (next === -1) break
-      pos = next + 2
-      continue
-    }
+  while (msgText.length > 0) {
+    const roleMatch = msgText.match(/^### \*\*(You|Assistant)\*\*/)
+    if (!roleMatch) break
 
     const role: 'user' | 'assistant' = roleMatch[1] === 'You' ? 'user' : 'assistant'
-    pos += roleMatch[0].length
+    let pos = roleMatch[0].length
+
     const rest = msgText.slice(pos)
     const timeMatch = rest.match(/^\n\*([^*]+)\*\n\n/)
     if (!timeMatch) break
 
     let timestamp = Date.parse(timeMatch[1].trim())
     if (Number.isNaN(timestamp)) {
-      timestamp = createdAt + i * 1000
+      timestamp = Date.now()
     }
     pos += timeMatch[0].length
 
-    const endDelim = msgText.indexOf('\n\n---\n\n', pos)
-    const contentEnd = endDelim === -1 ? msgText.length : endDelim
-    let body = msgText.slice(pos, contentEnd)
-    if (body.endsWith('\n')) body = body.slice(0, -1)
+    const bodyStart = msgText.indexOf('\n\n---\nsources:', pos)
+    const bodyEnd = bodyStart === -1 ? msgText.indexOf('\n\n---', pos) : bodyStart
 
-    messages.push({ role, content: body, timestamp })
-    pos = endDelim === -1 ? msgText.length : endDelim + sep.length
-    i++
+    const body = bodyStart === -1 ? msgText.slice(pos).trim() : msgText.slice(pos, bodyEnd).trim()
+
+    let sources: ChatSourceMeta[] | undefined
+    let chainOfThoughts: ChainOfThoughtsMeta | undefined
+
+    const yamlStart = msgText.indexOf('\n\n---\nsources:', pos)
+    if (yamlStart !== -1) {
+      const yamlBlockStart = yamlStart + '\n\n---\nsources:'.length
+      const yamlBlockEnd = msgText.indexOf('\n\n---\n\n###', yamlBlockStart)
+      const yamlBlock =
+        yamlBlockEnd === -1
+          ? msgText.slice(yamlBlockStart).trim()
+          : msgText.slice(yamlBlockStart, yamlBlockEnd).trim()
+
+      sources = parseSourcesYaml(yamlBlock)
+      chainOfThoughts = parseChainOfThoughtsYaml(yamlBlock)
+    }
+
+    messages.push({
+      role,
+      content: body,
+      timestamp,
+      sources,
+      chainOfThoughts
+    })
+
+    const nextMsgIdx = msgText.indexOf('\n\n### **', pos)
+    if (nextMsgIdx === -1) break
+    msgText = msgText.slice(nextMsgIdx + 2)
   }
 
   return { sessionId: idLine, title, createdAt, messages }
+}
+
+function parseSourcesYaml(yamlBlock: string): ChatSourceMeta[] | undefined {
+  const sourcesStart = yamlBlock.indexOf('sources:')
+  if (sourcesStart === -1) return undefined
+
+  const afterSources = yamlBlock.slice(sourcesStart + 'sources:'.length).trimStart()
+  if (afterSources.startsWith('[]')) return []
+
+  const sources: ChatSourceMeta[] = []
+  const lines = afterSources.split('\n')
+  let current: Partial<ChatSourceMeta> | null = null
+
+  for (const line of lines) {
+    const indent = line.match(/^(\s*)/)?.[1]?.length ?? 0
+    if (indent === 0) continue
+
+    const trimmed = line.trim()
+    if (trimmed.startsWith('- note:')) {
+      if (current && current.note) sources.push(current as ChatSourceMeta)
+      current = { note: trimmed.replace('- note:', '').trim().replace(/^"|"$/g, '') }
+    } else if (trimmed.startsWith('title:')) {
+      current!.title = trimmed.replace('title:', '').trim().replace(/^"|"$/g, '')
+    } else if (trimmed.startsWith('folder:')) {
+      current!.folder = trimmed.replace('folder:', '').trim().replace(/^"|"$/g, '')
+    } else if (trimmed.startsWith('chunkText:')) {
+      current!.chunkText = trimmed
+        .replace('chunkText:', '')
+        .trim()
+        .replace(/^"|"$/g, '')
+        .replace(/\\n/g, '\n')
+        .replace(/\\"/g, '"')
+    } else if (trimmed.startsWith('score:')) {
+      current!.score = parseFloat(trimmed.replace('score:', '').trim())
+    } else if (trimmed.startsWith('source:')) {
+      current!.source = trimmed.replace('source:', '').trim().replace(/^"|"$/g, '')
+    }
+  }
+  if (current && current.note) sources.push(current as ChatSourceMeta)
+
+  return sources.length > 0 ? sources : undefined
+}
+
+function parseChainOfThoughtsYaml(yamlBlock: string): ChainOfThoughtsMeta | undefined {
+  const cotStart = yamlBlock.indexOf('chainOfThoughts:')
+  if (cotStart === -1) return undefined
+
+  const afterCot = yamlBlock.slice(cotStart + 'chainOfThoughts:'.length).trimStart()
+  if (afterCot.startsWith('null')) return undefined
+
+  const stageMatch = afterCot.match(/stage:\s*"([^"]+)"/)
+  const modeMatch = afterCot.match(/mode:\s*"([^"]+)"/)
+  const seedMatch = afterCot.match(/seedNotes:\s*\[(.*?)\]/)
+  const connectedMatch = afterCot.match(/connectedNotes:\s*\[(.*?)\]/)
+  const finalMatch = afterCot.match(/finalNotes:\s*\[(.*?)\]/)
+
+  if (!stageMatch || !modeMatch) return undefined
+
+  const parseNotes = (match: RegExpMatchArray | null): string[] => {
+    if (!match) return []
+    return match[1]
+      .split(',')
+      .map((s) => s.trim().replace(/^"|"$/g, ''))
+      .filter(Boolean)
+  }
+
+  return {
+    stage: stageMatch[1],
+    mode: modeMatch[1],
+    seedNotes: parseNotes(seedMatch),
+    connectedNotes: parseNotes(connectedMatch),
+    finalNotes: parseNotes(finalMatch)
+  }
 }
 
 export function registerChatHistoryIpc(): void {

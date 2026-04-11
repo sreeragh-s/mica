@@ -56,7 +56,7 @@ export function EmbeddingsSettingsView({
   const totalCount = notes.length
   const errorCount = notes.filter((n) => n.state === 'error').length
   const indexedPercent = totalCount > 0 ? Math.round((indexedCount / totalCount) * 100) : 0
-  const showReindexAll = import.meta.env.DEV
+  const showDebug = import.meta.env.DEV
 
   const disabled = !isLoggedIn || guestMode || running
 
@@ -141,7 +141,7 @@ export function EmbeddingsSettingsView({
           Index Pending{pendingCount > 0 ? ` (${pendingCount})` : ''}
         </Button>
 
-        {showReindexAll ? (
+        {showDebug ? (
           <Button
             type="button"
             variant="outline"
@@ -173,38 +173,40 @@ export function EmbeddingsSettingsView({
           Refresh
         </Button>
 
-        <Button
-          type="button"
-          variant="ghost"
-          disabled={!workspacePath}
-          onClick={() => {
-            if (!workspacePath) return
-            const api = getApi()
-            void api?.embeddings?.dumpIndex?.({ workspacePath }).then((result) => {
-              if (!result) return
-              if (!result.ok) {
-                console.error('[embeddings] dumpIndex failed:', result.error)
-                return
-              }
-              console.group(
-                `[embeddings] Vectra dump — ${result.totalDocuments} document(s), ${result.totalChunks} chunk(s)`
-              )
-              for (const document of result.documents) {
-                console.log(document)
-              }
-              console.groupEnd()
-            })
-          }}
-          className="gap-2"
-          title="Dump the current workspace index to DevTools console"
-        >
-          <Database className="size-4" aria-hidden />
-          Dump to Console
-        </Button>
+        {showDebug ? (
+          <Button
+            type="button"
+            variant="ghost"
+            disabled={!workspacePath}
+            onClick={() => {
+              if (!workspacePath) return
+              const api = getApi()
+              void api?.embeddings?.dumpIndex?.({ workspacePath }).then((result) => {
+                if (!result) return
+                if (!result.ok) {
+                  console.error('[embeddings] dumpIndex failed:', result.error)
+                  return
+                }
+                console.group(
+                  `[embeddings] Vectra dump — ${result.totalDocuments} document(s), ${result.totalChunks} chunk(s)`
+                )
+                for (const document of result.documents) {
+                  console.log(document)
+                }
+                console.groupEnd()
+              })
+            }}
+            className="gap-2"
+            title="Dump the current workspace index to DevTools console"
+          >
+            <Database className="size-4" aria-hidden />
+            Dump to Console
+          </Button>
+        ) : null}
       </div>
 
       {/* Per-note list */}
-      {notes.length > 0 && (
+      {showDebug && notes.length > 0 && (
         <div className="flex flex-col gap-1">
           <h3 className="text-muted-foreground mb-1 text-xs font-medium uppercase tracking-wider">
             Notes

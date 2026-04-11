@@ -1,9 +1,7 @@
 import {
-  AlertCircleIcon,
   ArrowUpIcon,
   BotIcon,
   CopyIcon,
-  FileTextIcon,
   History,
   Link2Icon,
   Loader2Icon,
@@ -48,12 +46,6 @@ import { Message, MessageActions, MessageContent, MessageResponse } from '@/feat
 import { Source, Sources, SourcesContent, SourcesTrigger } from '@/features/ai/sources'
 import { Suggestion, Suggestions } from '@/features/ai/suggestion'
 import { Action, Actions } from '@/features/ai/actions'
-import { Command, CommandGroup, CommandItem, CommandList } from '@/components/ui/command'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuTrigger
-} from '@/components/ui/dropdown-menu'
 import { InputGroup, InputGroupAddon, InputGroupButton } from '@/components/ui/input-group'
 import { Separator } from '@/components/ui/separator'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
@@ -74,6 +66,8 @@ import type {
   ChatSidebarProps,
   NoteLinksData
 } from '@/features/notes/chat/chat-sidebar-types'
+import { ModePicker, PaywallBanner } from '@/features/notes/chat/chat-sidebar-input-controls'
+import { PipelineProgress } from '@/features/notes/chat/PipelineProgress'
 import type { ChatHistoryMeta, ChatPipelineStatus } from '@/hooks/useNotesChat'
 import { useNotesChat } from '@/hooks/useNotesChat'
 import { useBillingStatus } from '@/hooks/useBillingStatus'
@@ -81,38 +75,6 @@ import { useOllama } from '@/hooks/useOllama'
 import { classifyQueryComplexity, type Mode } from '@/lib/ai/chat-retrieval-pipeline'
 
 const DEV_UI_PREVIEW = import.meta.env.VITE_ENV === 'development'
-
-function formatModeLabel(mode: Mode): string {
-  return mode === 'efficiency' ? 'Efficiency' : mode === 'medium' ? 'Medium' : 'High'
-}
-
-const seedNoteDescriptions = [
-  'Finding relevant notes from your workspace',
-  'Locating notes with matching keywords',
-  'Searching your note collection',
-  'Discovering related notes',
-  'Fetching potential matches'
-]
-
-const connectedNoteDescriptions = [
-  'Expanding through bidirectional links',
-  'Following connections between notes',
-  'Mapping linked references',
-  'Finding connected properties',
-  'Traversing note relationships'
-]
-
-const finalContextDescriptions = [
-  'Curating final context for response',
-  'Preparing notes for the model',
-  'Compiling context window',
-  'Building response context',
-  'Assembling relevant notes'
-]
-
-function getRandomDescription(descriptions: string[]): string {
-  return descriptions[Math.floor(Math.random() * descriptions.length)]
-}
 
 function estimateTokenCount(text: string): number {
   const trimmed = text.trim()
@@ -136,130 +98,9 @@ function estimateContextUsage(args: {
   return messageBudget + inputBudget + referenceBudget + 256
 }
 
-function pipelineHeadline(status: ChatPipelineStatus): string {
-  switch (status.stage) {
-    case 'analyzing':
-      return 'Analyzing query...'
-    case 'searching':
-      return 'Searching all notes...'
-    case 'seed-results':
-      return `Found ${status.seedNotes.length} seed notes`
-    case 'expanding':
-      return 'Expanding connections...'
-    case 'connected-results':
-      return `${status.connectedNotes.length} connected notes found`
-    case 'reranking':
-      return 'Re-ranking results...'
-    case 'context-ready':
-      return `Context ready (${status.finalNotes.length} notes)`
-  }
-}
-
-function PipelineProgressSources({
-  status,
-  onOpenNote
-}: {
-  status: ChatPipelineStatus
-  onOpenNote: (notePath: string) => void
-}): JSX.Element {
-  const showSeedNotes =
-    status.stage === 'seed-results' ||
-    status.stage === 'expanding' ||
-    status.stage === 'connected-results' ||
-    status.stage === 'reranking' ||
-    status.stage === 'context-ready'
-
-  const showConnectedNotes =
-    status.stage === 'connected-results' ||
-    status.stage === 'reranking' ||
-    status.stage === 'context-ready'
-
-  const showFinalNotes = status.stage === 'context-ready'
-
-  const seedDescription = useMemo(() => getRandomDescription(seedNoteDescriptions), [])
-  const connectedDescription = useMemo(() => getRandomDescription(connectedNoteDescriptions), [])
-  const finalDescription = useMemo(() => getRandomDescription(finalContextDescriptions), [])
-
-  return (
-    <div className="mb-0 mt-2">
-      <div className="flex items-center gap-2 text-xs text-foreground/90">
-        <div className="flex min-w-0 flex-1 flex-col">
-          <p className="font-medium">{pipelineHeadline(status)}</p>
-          <p className="text-[11px] text-muted-foreground">
-            {formatModeLabel(status.mode)} mode
-            {status.mode !== status.suggestedMode
-              ? `, overriding ${formatModeLabel(status.suggestedMode)}`
-              : ''}
-          </p>
-        </div>
-      </div>
-      <div className="mt-3 space-y-3">
-        {showSeedNotes && status.seedNotes.length > 0 && (
-          <div>
-            <p className="text-[11px] text-muted-foreground">{seedDescription}</p>
-            <p className="text-xs font-medium">Found {status.seedNotes.length} seed notes</p>
-            <div className="mt-1.5 flex flex-col gap-1.5">
-              {status.seedNotes.map((note) => (
-                <button
-                  key={`seed-${note.note}`}
-                  className="flex items-center gap-2 text-left text-xs hover:text-foreground"
-                  onClick={() => onOpenNote(note.note)}
-                  type="button"
-                >
-                  <FileTextIcon className="size-3.5 shrink-0 text-muted-foreground" />
-                  <span className="truncate">{note.title}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-        {showConnectedNotes && status.connectedNotes.length > 0 && (
-          <div>
-            <p className="text-[11px] text-muted-foreground">{connectedDescription}</p>
-            <p className="text-xs font-medium">{status.connectedNotes.length} connected notes</p>
-            <div className="mt-1.5 flex flex-col gap-1.5">
-              {status.connectedNotes.map((note) => (
-                <button
-                  key={`connected-${note.note}`}
-                  className="flex items-center gap-2 text-left text-xs hover:text-foreground"
-                  onClick={() => onOpenNote(note.note)}
-                  type="button"
-                >
-                  <FileTextIcon className="size-3.5 shrink-0 text-muted-foreground" />
-                  <span className="truncate">{note.title}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-        {showFinalNotes && status.finalNotes.length > 0 && (
-          <div>
-            <p className="text-[11px] text-muted-foreground">{finalDescription}</p>
-            <p className="text-xs font-medium">{status.finalNotes.length} notes in context</p>
-            <div className="mt-1.5 flex flex-col gap-1.5">
-              {status.finalNotes.map((note) => (
-                <button
-                  key={`final-${note.note}`}
-                  className="flex items-center gap-2 text-left text-xs hover:text-foreground"
-                  onClick={() => onOpenNote(note.note)}
-                  type="button"
-                >
-                  <FileTextIcon className="size-3.5 shrink-0 text-muted-foreground" />
-                  <span className="truncate">{note.title}</span>
-                  {note.source === 'global_fallback' && (
-                    <span className="shrink-0 rounded bg-amber-100 px-1 py-0.5 text-[10px] text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
-                      global
-                    </span>
-                  )}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  )
-}
+// ---------------------------------------------------------------------------
+// Dev preview fixtures
+// ---------------------------------------------------------------------------
 
 const DEV_PREVIEW_STATUS: ChatPipelineStatus = {
   stage: 'context-ready',
@@ -299,153 +140,83 @@ const DEV_PREVIEW_MARKDOWN = `### Retrieval Preview
 
 > This mock response only appears in development so the chat UI can be styled quickly.`
 
-function ModePicker({
-  activeMode,
-  suggestedMode,
-  disabled,
-  onModeChange
+// ---------------------------------------------------------------------------
+// AssistantMessage — renders pipeline progress above response content
+// ---------------------------------------------------------------------------
+
+function AssistantMessage({
+  content,
+  pipelineStatus,
+  isActiveStreaming,
+  sources,
+  onOpenNote,
+  onCopy,
+  validNoteIds
 }: {
-  activeMode: Mode
-  suggestedMode: Mode
-  disabled: boolean
-  onModeChange: (mode: Mode | null) => void
+  content: string
+  pipelineStatus: ChatPipelineStatus | undefined
+  /** True while this is the in-flight message (no content yet or still streaming) */
+  isActiveStreaming: boolean
+  sources: Array<{ note: string; title: string; source?: string }> | undefined
+  onOpenNote: (path: string) => void
+  onCopy: (text: string) => void
+  validNoteIds: Set<string>
 }): JSX.Element {
-  const [open, setOpen] = useState(false)
-  const modeDescriptions: Record<Mode, string> = {
-    efficiency: 'Fastest path with the smallest seed and context set.',
-    medium: 'Balanced retrieval depth for most note questions.',
-    high: 'Broadest graph expansion and reranked context set.'
-  }
-  const options: Mode[] = ['efficiency', 'medium', 'high']
+  // Pipeline is "active" (keep open) when it's the live message and there's no content yet.
+  // Once content starts streaming we auto-collapse it.
+  const pipelineIsActive = isActiveStreaming && !content
+
+  const visibleSources = sources ? sources.filter((s) => validNoteIds.has(s.note)) : []
 
   return (
-    <DropdownMenu modal={false} onOpenChange={setOpen} open={open}>
-      <DropdownMenuTrigger asChild>
-        <InputGroupButton
-          aria-label="Select retrieval mode"
-          className="pointer-events-auto min-w-0 max-w-[120px] shrink-0 px-2 text-xs font-normal text-muted-foreground hover:text-foreground"
-          disabled={disabled}
-          size="sm"
-          type="button"
-          variant="ghost"
-        >
-          <span className="truncate">{formatModeLabel(activeMode)}</span>
-        </InputGroupButton>
-      </DropdownMenuTrigger>
+    <Message from="assistant">
+      {pipelineStatus && (
+        <PipelineProgress
+          isActive={pipelineIsActive}
+          onOpenNote={onOpenNote}
+          status={pipelineStatus}
+        />
+      )}
 
-      <DropdownMenuContent
-        align="end"
-        className="w-[250px] p-0"
-        onCloseAutoFocus={(e) => e.preventDefault()}
-        side="top"
-        sideOffset={6}
-      >
-        <Command>
-          <CommandList className="max-h-[260px]">
-            <CommandGroup heading={`Suggested: ${formatModeLabel(suggestedMode)}`}>
-              {options.map((mode) => {
-                const isSelected = activeMode === mode
-                const isSuggested = suggestedMode === mode
-                return (
-                  <CommandItem
-                    key={mode}
-                    onSelect={() => {
-                      onModeChange(mode === suggestedMode ? null : mode)
-                      setOpen(false)
-                    }}
-                    value={mode}
-                    className="gap-2 text-xs"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="truncate">{formatModeLabel(mode)}</span>
-                        {isSuggested && (
-                          <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] text-primary">
-                            auto
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-muted-foreground mt-0.5 text-[11px] leading-relaxed">
-                        {modeDescriptions[mode]}
-                      </p>
-                    </div>
-                    {isSelected && <span className="size-3 shrink-0" />}
-                  </CommandItem>
-                )
-              })}
-            </CommandGroup>
-          </CommandList>
-        </Command>
-      </DropdownMenuContent>
-    </DropdownMenu>
+      <MessageContent>
+        <MessageResponse>{content || ' '}</MessageResponse>
+      </MessageContent>
+
+      {visibleSources.length > 0 && (
+        <Sources className="mt-1">
+          <SourcesTrigger count={visibleSources.length} />
+          <SourcesContent>
+            {visibleSources.map((src, i) => (
+              <Source
+                key={`${src.note}-${i}`}
+                href="#"
+                onClick={(e) => {
+                  e.preventDefault()
+                  onOpenNote(src.note)
+                }}
+                title={src.title}
+              />
+            ))}
+          </SourcesContent>
+        </Sources>
+      )}
+
+      {content && (
+        <MessageActions>
+          <Actions>
+            <Action onClick={() => onCopy(content)} tooltip="Copy response">
+              <CopyIcon className="size-4" />
+            </Action>
+          </Actions>
+        </MessageActions>
+      )}
+    </Message>
   )
 }
 
-function PaywallBanner({
-  billing,
-  creditsLow,
-  isLocalModelSelected,
-  ollamaRunning,
-  onOpenLocalSetup
-}: {
-  billing: { status: string; overageEnabled?: boolean } | null
-  creditsLow: boolean
-  isLocalModelSelected: boolean
-  ollamaRunning: boolean
-  onOpenLocalSetup: () => void
-}): JSX.Element | null {
-  if (isLocalModelSelected && ollamaRunning) return null
-
-  if (!billing || billing.status === 'active') {
-    if (creditsLow && billing) {
-      return (
-        <div className="border-border border-t bg-yellow-50 px-3 py-2 dark:bg-yellow-950/20">
-          <p className="text-xs text-yellow-700 dark:text-yellow-400 flex items-center gap-1.5">
-            <AlertCircleIcon className="size-3 shrink-0" />
-            {billing.overageEnabled
-              ? 'Credits low — overage billing active.'
-              : 'Credits running low. Enable overage in account settings to avoid interruption.'}
-          </p>
-        </div>
-      )
-    }
-    return null
-  }
-
-  const messages: Record<string, string> = {
-    on_hold: 'Payment issue — please update your payment method at notelab.io.',
-    cancelled: 'Your subscription has been cancelled.',
-    expired: 'Your subscription has expired.',
-    none: 'A Notelab subscription is required to use AI chat.'
-  }
-
-  return (
-    <div className="border-border border-t bg-destructive/5 px-3 py-2.5">
-      <p className="text-destructive flex items-center gap-1.5 text-xs">
-        <AlertCircleIcon className="size-3 shrink-0" />
-        {messages[billing.status] ?? 'Subscription required.'}
-      </p>
-      <div className="mt-1 flex items-center gap-3">
-        <a
-          className="text-primary block text-xs underline underline-offset-2"
-          href={`${import.meta.env.VITE_AUTH_BASE}`}
-          rel="noreferrer"
-          target="_blank"
-        >
-          Subscribe at notelab.io →
-        </a>
-        <span className="text-muted-foreground text-xs">or</span>
-        <button
-          className="text-primary text-xs underline underline-offset-2"
-          onClick={onOpenLocalSetup}
-          type="button"
-        >
-          Use local models →
-        </button>
-      </div>
-    </div>
-  )
-}
+// ---------------------------------------------------------------------------
+// Main component
+// ---------------------------------------------------------------------------
 
 /** Chat UI; parent animates width/opacity when `open` toggles. */
 export function ChatSidebarInner({
@@ -928,39 +699,35 @@ export function ChatSidebarInner({
               {session.messages.length === 0 ? (
                 DEV_UI_PREVIEW ? (
                   <>
+                    {/* Dev preview: pipeline shown above assistant message */}
                     <Message from="user">
                       <MessageContent>
                         <p>How do the roadmap notes connect to the search architecture docs?</p>
                       </MessageContent>
-                      <PipelineProgressSources
-                        onOpenNote={selectNote}
-                        status={DEV_PREVIEW_PROCESSING_STATUS}
-                      />
                     </Message>
-                    <Message from="assistant">
+                    <AssistantMessage
+                      content={DEV_PREVIEW_MARKDOWN}
+                      isActiveStreaming={false}
+                      onCopy={handleCopy}
+                      onOpenNote={selectNote}
+                      pipelineStatus={DEV_PREVIEW_STATUS}
+                      sources={DEV_PREVIEW_STATUS.finalNotes}
+                      validNoteIds={validNoteIds}
+                    />
+                    <Message from="user">
                       <MessageContent>
-                        <MessageResponse>{DEV_PREVIEW_MARKDOWN}</MessageResponse>
+                        <p>What about the processing pipeline?</p>
                       </MessageContent>
-                      <PipelineProgressSources
-                        onOpenNote={selectNote}
-                        status={DEV_PREVIEW_STATUS}
-                      />
-                      <Sources className="mt-1">
-                        <SourcesTrigger count={3} />
-                        <SourcesContent>
-                          {DEV_PREVIEW_STATUS.finalNotes.map((src) => (
-                            <Source
-                              key={src.note}
-                              href="#"
-                              onClick={(e) => {
-                                e.preventDefault()
-                              }}
-                              title={src.title}
-                            />
-                          ))}
-                        </SourcesContent>
-                      </Sources>
                     </Message>
+                    <AssistantMessage
+                      content=""
+                      isActiveStreaming={true}
+                      onCopy={handleCopy}
+                      onOpenNote={selectNote}
+                      pipelineStatus={DEV_PREVIEW_PROCESSING_STATUS}
+                      sources={undefined}
+                      validNoteIds={validNoteIds}
+                    />
                   </>
                 ) : (
                   <ConversationEmptyState
@@ -971,85 +738,61 @@ export function ChatSidebarInner({
                 )
               ) : (
                 session.messages.map((msg, index) => {
-                  const visibleSources =
-                    msg.role === 'assistant' && msg.sources
-                      ? msg.sources.filter((s) => validNoteIds.has(s.note))
-                      : []
-                  const prevMsg = session.messages[index - 1]
-                  const isFirstAssistantMsg =
-                    isLoading && msg.role === 'assistant' && index === session.messages.length - 1
+                  if (msg.role === 'user') {
+                    return (
+                      <Message key={msg.id} from="user">
+                        <MessageContent>
+                          <p>{msg.content}</p>
+                        </MessageContent>
+                      </Message>
+                    )
+                  }
+
+                  // Assistant message
+                  const isLastMsg = index === session.messages.length - 1
+                  const isActiveStreaming = isLoading && isLastMsg
+
+                  // Use live pipelineStatus for the in-flight message, or the
+                  // persisted one from the message record once it's done.
+                  const resolvedPipelineStatus: ChatPipelineStatus | undefined = isActiveStreaming
+                    ? (pipelineStatus ?? msg.pipelineStatus)
+                    : msg.pipelineStatus
+
+                  // Show a simple "references ready" chip when the user pinned
+                  // notes explicitly and there's no retrieval pipeline status.
+                  const showRefsChip =
+                    !resolvedPipelineStatus &&
+                    currentRequestRefs.length > 0 &&
+                    isLastMsg &&
+                    isLoading
 
                   return (
                     <div key={msg.id}>
-                      <Message from={msg.role}>
-                        <MessageContent>
-                          {msg.role === 'assistant' ? (
-                            <MessageResponse>{msg.content || ' '}</MessageResponse>
-                          ) : (
-                            <p>{msg.content}</p>
-                          )}
-                        </MessageContent>
-
-                        {msg.role === 'assistant' && visibleSources.length > 0 && (
-                          <Sources className="mt-1">
-                            <SourcesTrigger count={visibleSources.length} />
-                            <SourcesContent>
-                              {visibleSources.map((src, i) => (
-                                <Source
-                                  key={`${src.note}-${i}`}
-                                  href="#"
-                                  onClick={(e) => {
-                                    e.preventDefault()
-                                    selectNote(src.note)
-                                  }}
-                                  title={src.title}
-                                />
-                              ))}
-                            </SourcesContent>
-                          </Sources>
-                        )}
-
-                        {msg.role === 'assistant' && msg.content && (
-                          <MessageActions>
-                            <Actions>
-                              <Action
-                                onClick={() => handleCopy(msg.content)}
-                                tooltip="Copy response"
-                              >
-                                <CopyIcon className="size-4" />
-                              </Action>
-                            </Actions>
-                          </MessageActions>
-                        )}
-                      </Message>
-
-                      {prevMsg?.role === 'user' &&
-                        (isFirstAssistantMsg && pipelineStatus ? (
-                          <PipelineProgressSources
-                            onOpenNote={selectNote}
-                            status={pipelineStatus}
-                          />
-                        ) : msg.pipelineStatus ? (
-                          <PipelineProgressSources
-                            onOpenNote={selectNote}
-                            status={msg.pipelineStatus}
-                          />
-                        ) : currentRequestRefs.length > 0 && msg.content ? (
-                          <div className="mb-0 mt-2">
-                            <div className="flex items-center gap-2 text-xs text-foreground/90">
-                              <div className="flex min-w-0 flex-1 flex-col">
-                                <p className="font-medium">References ready</p>
-                                <p className="text-[11px] text-muted-foreground">
-                                  {currentRequestRefs.filter((r) => r.kind === 'note').length} note
-                                  {currentRequestRefs.filter((r) => r.kind === 'note').length !== 1
-                                    ? 's'
-                                    : ''}{' '}
-                                  in context
-                                </p>
-                              </div>
+                      {showRefsChip && (
+                        <div className="mb-0 mt-2">
+                          <div className="flex items-center gap-2 text-xs text-foreground/90">
+                            <div className="flex min-w-0 flex-1 flex-col">
+                              <p className="font-medium">References ready</p>
+                              <p className="text-[11px] text-muted-foreground">
+                                {currentRequestRefs.filter((r) => r.kind === 'note').length} note
+                                {currentRequestRefs.filter((r) => r.kind === 'note').length !== 1
+                                  ? 's'
+                                  : ''}{' '}
+                                in context
+                              </p>
                             </div>
                           </div>
-                        ) : null)}
+                        </div>
+                      )}
+                      <AssistantMessage
+                        content={msg.content}
+                        isActiveStreaming={isActiveStreaming}
+                        onCopy={handleCopy}
+                        onOpenNote={selectNote}
+                        pipelineStatus={resolvedPipelineStatus}
+                        sources={msg.sources}
+                        validNoteIds={validNoteIds}
+                      />
                     </div>
                   )
                 })
