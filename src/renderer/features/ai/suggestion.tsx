@@ -59,11 +59,7 @@ export default function SuggestionDemo() {
     <div className="p-6">
       <Suggestions>
         {suggestions.map((suggestion) => (
-          <Suggestion
-            key={suggestion}
-            onClick={(s) => console.log('Selected:', s)}
-            suggestion={suggestion}
-          />
+          <Suggestion key={suggestion} onClick={() => {}} suggestion={suggestion} />
         ))}
       </Suggestions>
     </div>

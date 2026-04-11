@@ -91,7 +91,6 @@ export function useOllama(): UseOllamaResult {
     void refreshStatus()
   }, [refreshStatus])
 
-  // When Ollama is running, fetch models
   useEffect(() => {
     if (status?.running) {
       void refreshModels()
@@ -112,7 +111,7 @@ export function useOllama(): UseOllamaResult {
         setDownloadProgress(percent)
         setDownloadMessage(message)
       },
-      onEnd: (_version) => {
+      onEnd: () => {
         setDownloadProgress(null)
         setDownloadMessage('')
         void refreshStatus()

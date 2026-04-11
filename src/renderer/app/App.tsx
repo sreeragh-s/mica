@@ -61,21 +61,15 @@ export default function App(): JSX.Element {
       clearGuestMode()
       setUser(parsed.user)
       const setup = loadSetupState()
-      const setupKeyRaw = localStorage.getItem('notelab-setup')
-      const hasNotesKey = localStorage.getItem('notelab-notes') != null
-      const hasConfigBlob = localStorage.getItem('notelab-config-v1') != null
       const nextPhase: AppPhase = !setup.complete ? 'setup' : 'app'
       console.info('[notelab-app] session: signed in', {
-        setupKeyInStorage: setupKeyRaw != null,
         setupComplete: setup.complete,
         setupSyncMode: setup.syncMode ?? null,
-        hasNotesKey,
-        hasConfigBlob,
         nextPhase,
         reason:
           nextPhase === 'setup'
             ? 'setup.complete is false — show SetupScreen until Get started or GitHub flow completes'
-            : 'setup.complete is true (hydrated from ~/.notelab/notelab.config or localStorage) — go to notes'
+            : 'setup.complete is true (hydrated from ~/.notelab/notelab.config) — go to notes'
       })
       if (!setup.complete) {
         setPhase('setup')
@@ -97,12 +91,15 @@ export default function App(): JSX.Element {
   useEffect(() => {
     void (async () => {
       const savedRoot = loadSetupState().workspaceRoot
-      if (api?.workspace?.ensureDataRoot) {
-        const r = await api.workspace.ensureDataRoot(savedRoot ? { path: savedRoot } : undefined)
-        if (r.ok) {
-          setInitialRoot(r)
-          await hydrateAppConfig(r.configRoot)
-        }
+      const [configRootResult] = await Promise.all([
+        api?.workspace?.ensureDataRoot
+          ? api.workspace.ensureDataRoot(savedRoot ? { path: savedRoot } : undefined)
+          : Promise.resolve(null),
+        Promise.resolve(null)
+      ])
+      if (configRootResult?.ok) {
+        setInitialRoot(configRootResult)
+        await hydrateAppConfig(configRootResult.configRoot)
       } else {
         await hydrateAppConfig(null)
       }

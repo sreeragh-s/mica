@@ -8,3 +8,8 @@ releases
 .DS_Store
 .eslintcache
 *.log*
+
+# NoteLab
+~/.notelab
+.notelab
+.agents

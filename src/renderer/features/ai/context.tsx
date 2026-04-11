@@ -1,5 +1,5 @@
 import type { LanguageModelUsage } from 'ai'
-import { type ComponentProps, createContext, useContext } from 'react'
+import { type ComponentProps, createContext, memo, useContext } from 'react'
 import { getUsage } from 'tokenlens'
 import { Button } from '@/components/ui/button'
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card'
@@ -48,7 +48,7 @@ export const Context = ({ usedTokens, maxTokens, usage, modelId, ...props }: Con
   </ContextContext.Provider>
 )
 
-const ContextIcon = () => {
+const ContextIcon = memo(function ContextIcon() {
   const { usedTokens, maxTokens } = useContextValue()
   const circumference = 2 * Math.PI * ICON_RADIUS
   const usedPercent = usedTokens / maxTokens
@@ -87,7 +87,7 @@ const ContextIcon = () => {
       />
     </svg>
   )
-}
+})
 
 export type ContextTriggerProps = ComponentProps<typeof Button>
 

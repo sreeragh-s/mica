@@ -70,16 +70,16 @@ export default function ActionsDemo() {
         </MessageContent>
 
         <Actions>
-          <Action onClick={() => console.log('Copied!')} tooltip="Copy to clipboard">
+          <Action onClick={() => {}} tooltip="Copy to clipboard">
             <CopyIcon className="size-4" />
           </Action>
-          <Action onClick={() => console.log('Regenerating...')} tooltip="Regenerate response">
+          <Action onClick={() => {}} tooltip="Regenerate response">
             <RefreshCcwIcon className="size-4" />
           </Action>
-          <Action onClick={() => console.log('Thumbs up!')} tooltip="Good response">
+          <Action onClick={() => {}} tooltip="Good response">
             <ThumbsUpIcon className="size-4" />
           </Action>
-          <Action onClick={() => console.log('Thumbs down!')} tooltip="Bad response">
+          <Action onClick={() => {}} tooltip="Bad response">
             <ThumbsDownIcon className="size-4" />
           </Action>
         </Actions>

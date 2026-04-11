@@ -75,11 +75,8 @@ export type ChatHistoryMeta = {
 }
 
 // ---------------------------------------------------------------------------
-// localStorage helpers
+// Session helpers
 // ---------------------------------------------------------------------------
-
-const LS_CURRENT_KEY = 'notelab:chat:current-session'
-const LS_HISTORY_KEY = 'notelab:chat:history-meta'
 
 function newSessionId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
@@ -89,40 +86,32 @@ function emptySession(): ChatSession {
   return { id: newSessionId(), title: 'New chat', createdAt: Date.now(), messages: [] }
 }
 
-function loadCurrentSession(): ChatSession {
-  try {
-    const raw = localStorage.getItem(LS_CURRENT_KEY)
-    if (raw) return JSON.parse(raw) as ChatSession
-  } catch {
-    /* ignore */
-  }
-  return emptySession()
+const currentSessionCache = {
+  session: null as ChatSession | null
 }
 
-function saveCurrentSession(s: ChatSession): void {
-  try {
-    localStorage.setItem(LS_CURRENT_KEY, JSON.stringify(s))
-  } catch {
-    /* ignore */
-  }
+async function saveCurrentSession(s: ChatSession): Promise<{ ok: boolean; error?: string }> {
+  currentSessionCache.session = s
+  const chatHistoryApi = window.api.chatHistory
+  if (!chatHistoryApi) return { ok: false, error: 'API unavailable' }
+  const res = await chatHistoryApi.write({
+    sessionId: s.id,
+    title: s.title,
+    createdAt: s.createdAt,
+    messages: s.messages.map((m) => ({
+      role: m.role,
+      content: m.content,
+      timestamp: m.timestamp
+    }))
+  })
+  return res.ok ? { ok: true } : { ok: false, error: res.error }
 }
 
-function loadHistoryMeta(): ChatHistoryMeta[] {
-  try {
-    const raw = localStorage.getItem(LS_HISTORY_KEY)
-    if (raw) return JSON.parse(raw) as ChatHistoryMeta[]
-  } catch {
-    /* ignore */
-  }
-  return []
-}
-
-function saveHistoryMeta(list: ChatHistoryMeta[]): void {
-  try {
-    localStorage.setItem(LS_HISTORY_KEY, JSON.stringify(list))
-  } catch {
-    /* ignore */
-  }
+async function loadHistoryMeta(): Promise<ChatHistoryMeta[]> {
+  const chatHistoryApi = window.api.chatHistory
+  if (!chatHistoryApi) return []
+  const res = await chatHistoryApi.list()
+  return res.ok ? res.sessions : []
 }
 
 // ---------------------------------------------------------------------------
@@ -283,19 +272,20 @@ export function useNotesChat({
   linkMentionIndex,
   modelId = 'llama-4-scout-17b'
 }: UseNotesChatOptions): UseNotesChatResult {
-  const [session, setSession] = useState<ChatSession>(loadCurrentSession)
-  const [historyMeta, setHistoryMeta] = useState<ChatHistoryMeta[]>(loadHistoryMeta)
+  const [session, setSession] = useState<ChatSession>(emptySession)
+  const [historyMeta, setHistoryMeta] = useState<ChatHistoryMeta[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [pipelineStatus, setPipelineStatus] = useState<ChatPipelineStatus | null>(null)
   const [filterWorkspaceId, setFilterWorkspaceId] = useState<string | null>(null)
   const [showHistory, setShowHistory] = useState(false)
 
-  // Keep localStorage in sync
+  const sessionRef = useRef(session)
+  sessionRef.current = session
+
   useEffect(() => {
-    saveCurrentSession(session)
+    void saveCurrentSession(session)
   }, [session])
 
-  // Abort ref — set to true when a new message is sent mid-stream
   const abortRef = useRef(false)
   const activeRequestIdRef = useRef<string | null>(null)
 
@@ -711,7 +701,7 @@ export function useNotesChat({
         const contextChunks = allSources.map(
           (source) => `[Source: "${source.title}"]\n${source.chunkText}`
         )
-        const historyForApi = session.messages.slice(-10).map((message) => ({
+        const historyForApi = sessionRef.current.messages.slice(-10).map((message) => ({
           role: message.role,
           content: message.content
         }))
@@ -899,8 +889,7 @@ export function useNotesChat({
         }
       }
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [isLoading, filterWorkspaceId, selectedNote, notes, session.messages, modelId, linkMentionIndex]
+    [isLoading, filterWorkspaceId, selectedNote, notes, modelId, linkMentionIndex]
   )
 
   // ---------------------------------------------------------------------------
@@ -909,26 +898,7 @@ export function useNotesChat({
 
   const persistCurrentSessionIfNeeded = useCallback(async () => {
     if (session.messages.length === 0) return
-    log.info(`persisting session to disk: ${session.id}`)
-    const chatHistoryApi = window.api.chatHistory
-    if (chatHistoryApi) {
-      const res = await chatHistoryApi.write({
-        sessionId: session.id,
-        title: session.title,
-        createdAt: session.createdAt,
-        messages: session.messages.map((m) => ({
-          role: m.role,
-          content: m.content,
-          timestamp: m.timestamp
-        }))
-      })
-      if (res.ok) {
-        log.info('session written to disk OK')
-      } else {
-        log.warn('failed to write session', res.error)
-      }
-    }
-
+    await saveCurrentSession(session)
     const meta: ChatHistoryMeta = {
       sessionId: session.id,
       title: session.title,
@@ -937,7 +907,6 @@ export function useNotesChat({
     }
     setHistoryMeta((prev) => {
       const deduped = [meta, ...prev.filter((m) => m.sessionId !== session.id)]
-      saveHistoryMeta(deduped)
       return deduped
     })
   }, [session])
@@ -952,7 +921,7 @@ export function useNotesChat({
     // Reset current session
     const fresh = emptySession()
     setSession(fresh)
-    saveCurrentSession(fresh)
+    await saveCurrentSession(fresh)
     setShowHistory(false) // stay in chat view to start the new conversation
     log.info(`started new chat session: ${fresh.id}`)
     return fresh
@@ -995,14 +964,9 @@ export function useNotesChat({
   // ---------------------------------------------------------------------------
 
   useEffect(() => {
-    const chatHistoryApi = window.api.chatHistory
-    if (!chatHistoryApi) return
-    void chatHistoryApi.list().then((res) => {
-      if (res.ok) {
-        log.info(`loaded ${res.sessions.length} session(s) from disk`)
-        setHistoryMeta(res.sessions)
-        saveHistoryMeta(res.sessions)
-      }
+    void loadHistoryMeta().then((meta) => {
+      log.info(`loaded ${meta.length} session(s) from disk`)
+      setHistoryMeta(meta)
     })
   }, [])
 

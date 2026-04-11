@@ -1175,9 +1175,7 @@ export default function PromptInputDemo() {
         className="bg-background"
         inputGroupClassName="bg-background"
         multiple
-        onSubmit={(message) => {
-          console.log('Submitting message:', message)
-        }}
+        onSubmit={() => {}}
       >
         <PromptInputAttachments>
           {(attachment) => <PromptInputAttachment data={attachment} />}
