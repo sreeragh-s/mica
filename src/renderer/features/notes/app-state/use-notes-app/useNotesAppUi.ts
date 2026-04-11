@@ -62,6 +62,7 @@ type UseNotesAppUiArgs = {
   lastZenEscPressRef: MutableRefObject<number>
 }
 
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type -- hook return shape is inferred from the returned action object below
 export function useNotesAppUi({
   appMode,
   setAppMode,
@@ -100,6 +101,19 @@ export function useNotesAppUi({
   sidebarCollapsedBeforeZenRef,
   lastZenEscPressRef
 }: UseNotesAppUiArgs) {
+  const closeMainViews = useCallback(() => {
+    setGraphViewOpen(false)
+    setCanvasViewOpen(false)
+    setJournalViewOpen(false)
+    setTabOverviewOpen(false)
+  }, [setCanvasViewOpen, setGraphViewOpen, setJournalViewOpen, setTabOverviewOpen])
+
+  const openExplorerNotesView = useCallback(() => {
+    setWorkspaceSettingsFolderId(null)
+    setAppMode('notes')
+    setAppSidebarView('explorer')
+  }, [setAppMode, setAppSidebarView, setWorkspaceSettingsFolderId])
+
   const backToNotes = useCallback(() => {
     setAppMode('notes')
     setAppSidebarView('explorer')
@@ -171,29 +185,15 @@ export function useNotesAppUi({
   }, [setGraphViewOpen])
 
   const openGraphView = useCallback(() => {
-    setWorkspaceSettingsFolderId(null)
-    setAppMode('notes')
-    setAppSidebarView('explorer')
-    setTabOverviewOpen(false)
-    setCanvasViewOpen(false)
-    setJournalViewOpen(false)
+    openExplorerNotesView()
+    closeMainViews()
     setGraphViewOpen(true)
-  }, [
-    setAppMode,
-    setAppSidebarView,
-    setCanvasViewOpen,
-    setGraphViewOpen,
-    setJournalViewOpen,
-    setTabOverviewOpen,
-    setWorkspaceSettingsFolderId
-  ])
+  }, [closeMainViews, openExplorerNotesView, setGraphViewOpen])
 
   const openTabOverview = useCallback(() => {
-    setGraphViewOpen(false)
-    setCanvasViewOpen(false)
-    setJournalViewOpen(false)
+    closeMainViews()
     setTabOverviewOpen(true)
-  }, [setCanvasViewOpen, setGraphViewOpen, setJournalViewOpen, setTabOverviewOpen])
+  }, [closeMainViews, setTabOverviewOpen])
 
   useEffect(() => {
     if (!enableInfinityCanvas && canvasViewOpen) {
@@ -203,22 +203,10 @@ export function useNotesAppUi({
 
   const openCanvasView = useCallback(() => {
     if (!enableInfinityCanvas) return
-    setWorkspaceSettingsFolderId(null)
-    setAppMode('notes')
-    setAppSidebarView('explorer')
-    setTabOverviewOpen(false)
-    setGraphViewOpen(false)
-    setJournalViewOpen(false)
+    openExplorerNotesView()
+    closeMainViews()
     setCanvasViewOpen(true)
-  }, [
-    setAppMode,
-    setAppSidebarView,
-    setCanvasViewOpen,
-    setGraphViewOpen,
-    setJournalViewOpen,
-    setTabOverviewOpen,
-    setWorkspaceSettingsFolderId
-  ])
+  }, [closeMainViews, openExplorerNotesView, setCanvasViewOpen])
 
   const closeCanvasView = useCallback(() => {
     setCanvasViewOpen(false)
@@ -229,22 +217,10 @@ export function useNotesAppUi({
   }, [setJournalViewOpen])
 
   const openJournalView = useCallback(() => {
-    setWorkspaceSettingsFolderId(null)
-    setAppMode('notes')
-    setAppSidebarView('explorer')
-    setTabOverviewOpen(false)
-    setGraphViewOpen(false)
-    setCanvasViewOpen(false)
+    openExplorerNotesView()
+    closeMainViews()
     setJournalViewOpen(true)
-  }, [
-    setAppMode,
-    setAppSidebarView,
-    setCanvasViewOpen,
-    setGraphViewOpen,
-    setJournalViewOpen,
-    setTabOverviewOpen,
-    setWorkspaceSettingsFolderId
-  ])
+  }, [closeMainViews, openExplorerNotesView, setJournalViewOpen])
 
   const closeTabOverview = useCallback(() => {
     setTabOverviewOpen(false)
@@ -318,21 +294,15 @@ export function useNotesAppUi({
 
   const openShortcuts = useCallback(() => {
     setWorkspaceSettingsFolderId(null)
-    setGraphViewOpen(false)
-    setCanvasViewOpen(false)
-    setJournalViewOpen(false)
-    setTabOverviewOpen(false)
+    closeMainViews()
     setAppMode('settings')
     setAppSidebarView('settings')
     setSettingsSection('shortcuts')
   }, [
+    closeMainViews,
     setAppMode,
     setAppSidebarView,
-    setCanvasViewOpen,
-    setGraphViewOpen,
-    setJournalViewOpen,
     setSettingsSection,
-    setTabOverviewOpen,
     setWorkspaceSettingsFolderId
   ])
 

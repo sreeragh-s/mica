@@ -118,7 +118,6 @@ export function useNotesApp({
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [zenMode, setZenMode] = useState(false)
   const zenModeRef = useRef(false)
-  zenModeRef.current = zenMode
   const sidebarCollapsedBeforeZenRef = useRef<boolean | null>(null)
   const lastZenEscPressRef = useRef(0)
 
@@ -127,7 +126,6 @@ export function useNotesApp({
   const [editorSettings, setEditorSettings] = useState(() => loadEditorSettings())
   const [appearanceSettings, setAppearanceSettings] = useState(() => loadAppearanceSettings())
   const shortcutBindingsRef = useRef(shortcutBindings)
-  shortcutBindingsRef.current = shortcutBindings
   const shortcutsSuppressedRef = useRef(false)
 
   const [chatSidebarOpen, setChatSidebarOpen] = useState(false)
@@ -143,11 +141,8 @@ export function useNotesApp({
   /** Ref so the keyboard handler (defined before startFolderCreate) can call it. */
   const startFolderCreateRef = useRef<(() => void) | null>(null)
   const foldersRef = useRef(folders)
-  foldersRef.current = folders
   const notesRef = useRef(notes)
-  notesRef.current = notes
   const openNoteTabIdsRef = useRef(openNoteTabPaths)
-  openNoteTabIdsRef.current = openNoteTabPaths
   const noteFlushTimers = useRef<Map<string, number>>(new Map())
   const pendingDiskWrites = useRef<Set<string>>(new Set())
   const pendingSavedNotesRef = useRef<Map<string, SavedNote>>(new Map())
@@ -156,6 +151,20 @@ export function useNotesApp({
 
   // App sidebar: explorer (notes tree), source control, or settings nav
   const [appSidebarView, setAppSidebarView] = useState<AppSidebarView>('explorer')
+
+  useEffect(() => {
+    zenModeRef.current = zenMode
+  }, [zenMode])
+
+  useEffect(() => {
+    shortcutBindingsRef.current = shortcutBindings
+  }, [shortcutBindings])
+
+  useEffect(() => {
+    foldersRef.current = folders
+    notesRef.current = notes
+    openNoteTabIdsRef.current = openNoteTabPaths
+  }, [folders, notes, openNoteTabPaths])
 
   const applyWorkspaceViewFromDisk = useCallback((snap: NotelabWorkspaceViewSnapshotV1) => {
     setSelectedId(snap.selectedNotePath)
@@ -227,7 +236,6 @@ export function useNotesApp({
     setOpenNoteTabIds,
     setFocusedFolderId,
     setNewNoteDestinationFolderId,
-    setChatSidebarOpen,
     dataRootRef,
     foldersRef,
     notesRef,
@@ -475,19 +483,6 @@ export function useNotesApp({
     [folders, dataRootPath]
   )
 
-  const toggleGitSourceControl = useCallback(() => {
-    setAppSidebarView((v) => {
-      const next: AppSidebarView = v === 'source-control' ? 'explorer' : 'source-control'
-      if (next === 'source-control') {
-        setWorkspaceSettingsFolderId(null)
-        setGraphViewOpen(false)
-        setTabOverviewOpen(false)
-      }
-      return next
-    })
-    setAppMode('notes')
-  }, [])
-
   const {
     gitSourceControlFiles,
     gitSourceControlLoading,
@@ -568,6 +563,34 @@ export function useNotesApp({
   const gitUiBusy = gitSyncBusy || gitSourceControlBusy
   const gitUiError = gitSyncError ?? gitSourceControlActionError
 
+  const enterNotesExplorer = useCallback(() => {
+    setAppMode('notes')
+    setAppSidebarView('explorer')
+  }, [])
+
+  const closeGraphAndTabOverview = useCallback(() => {
+    setGraphViewOpen(false)
+    setTabOverviewOpen(false)
+  }, [])
+
+  const closeSettingsIncompatibleViews = useCallback(() => {
+    setGraphViewOpen(false)
+    setJournalViewOpen(false)
+    setTabOverviewOpen(false)
+  }, [])
+
+  const toggleGitSourceControl = useCallback(() => {
+    setAppSidebarView((v) => {
+      const next: AppSidebarView = v === 'source-control' ? 'explorer' : 'source-control'
+      if (next === 'source-control') {
+        setWorkspaceSettingsFolderId(null)
+        closeGraphAndTabOverview()
+      }
+      return next
+    })
+    setAppMode('notes')
+  }, [closeGraphAndTabOverview])
+
   useEffect(() => {
     folderDraftRef.current = folderDraft
   }, [folderDraft])
@@ -580,13 +603,14 @@ export function useNotesApp({
   }, [folderCreateOpen])
 
   useEffect(() => {
-    if (
-      focusedFolderId &&
+    const shouldClearFocusedFolder =
+      focusedFolderId != null &&
       focusedFolderId !== DEFAULT_WORKSPACE_ID &&
       !folders.some((f) => f.folder === focusedFolderId)
-    ) {
-      setFocusedFolderId(null)
-    }
+    if (!shouldClearFocusedFolder) return
+    queueMicrotask(() => {
+      setFocusedFolderId((current) => (current === focusedFolderId ? null : current))
+    })
   }, [folders, focusedFolderId])
 
   useEffect(() => {
@@ -594,29 +618,69 @@ export function useNotesApp({
     const ok =
       workspaceSettingsFolderId === DEFAULT_WORKSPACE_ID ||
       folders.some((f) => f.folder === workspaceSettingsFolderId)
-    if (!ok) setWorkspaceSettingsFolderId(null)
+    if (ok) return
+    queueMicrotask(() => {
+      setWorkspaceSettingsFolderId((current) =>
+        current === workspaceSettingsFolderId ? null : current
+      )
+    })
   }, [folders, workspaceSettingsFolderId])
 
   useEffect(() => {
     const notePathSet = new Set(notes.map((n) => n.path))
-    setOpenNoteTabIds((prev) => {
-      const next = prev.filter((path) => notePathSet.has(path))
-      return next.length === prev.length ? prev : next
+    queueMicrotask(() => {
+      setOpenNoteTabIds((prev) => {
+        const next = prev.filter((path) => notePathSet.has(path))
+        return next.length === prev.length ? prev : next
+      })
     })
   }, [notes])
 
   useEffect(() => {
+    const flushTimers = noteFlushTimers.current
     return () => {
-      for (const timerId of noteFlushTimers.current.values()) {
+      for (const timerId of flushTimers.values()) {
         window.clearTimeout(timerId)
       }
-      noteFlushTimers.current.clear()
+      flushTimers.clear()
     }
   }, [])
 
   const pushOpenNoteTab = useCallback((notePath: string) => {
     setOpenNoteTabIds((prev) => (prev.includes(notePath) ? prev : [...prev, notePath]))
   }, [])
+
+  const focusFolderWorkspace = useCallback(
+    (folder: string, options: { openSettings?: boolean } = {}) => {
+      enterNotesExplorer()
+      setTabOverviewOpen(false)
+      setWorkspaceSettingsFolderId(options.openSettings ? folder : null)
+      setSelectedId(null)
+      setFocusedFolderId(folder)
+      setNewNoteDestinationFolderId(folder)
+      setTreeExpandIds(treeExpandIdsForFolderId(folder))
+      setTreeExpandNonce((n) => n + 1)
+    },
+    [enterNotesExplorer]
+  )
+
+  const openNoteInEditor = useCallback(
+    (note: SavedNote, options: { openTab?: boolean } = {}) => {
+      enterNotesExplorer()
+      closeGraphAndTabOverview()
+      setWorkspaceSettingsFolderId(null)
+      setJournalViewOpen(note.folder === JOURNAL_FOLDER_ID)
+      setSelectedId(note.path)
+      setFocusedFolderId(null)
+      setNewNoteDestinationFolderId(DEFAULT_WORKSPACE_ID)
+      setTreeExpandIds(treeExpandIdsForFolderId(note.folder))
+      setTreeExpandNonce((n) => n + 1)
+      if (options.openTab !== false && note.folder !== JOURNAL_FOLDER_ID) {
+        pushOpenNoteTab(note.path)
+      }
+    },
+    [closeGraphAndTabOverview, enterNotesExplorer, pushOpenNoteTab]
+  )
 
   /** Stores a pending subpath (e.g. `#my-heading`) to scroll to after note navigation. */
   const pendingSubpathRef = useRef<string | null>(null)
@@ -629,20 +693,9 @@ export function useNotesApp({
       const note = findLatestNote(notePath)
       if (!note) return
       pendingSubpathRef.current = subpath ?? null
-      setWorkspaceSettingsFolderId(null)
-      setAppMode('notes')
-      setAppSidebarView('explorer')
-      setJournalViewOpen(note.folder === JOURNAL_FOLDER_ID)
-      setSelectedId(notePath)
-      setFocusedFolderId(null)
-      setNewNoteDestinationFolderId(DEFAULT_WORKSPACE_ID)
-      setTreeExpandIds(treeExpandIdsForFolderId(note.folder))
-      setTreeExpandNonce((n) => n + 1)
-      if (note.folder !== JOURNAL_FOLDER_ID) {
-        pushOpenNoteTab(notePath)
-      }
+      openNoteInEditor(note)
     },
-    [commitPendingNoteToState, findLatestNote, pushOpenNoteTab, selectedNotePath]
+    [commitPendingNoteToState, findLatestNote, openNoteInEditor, selectedNotePath]
   )
 
   /**
@@ -736,20 +789,11 @@ export function useNotesApp({
     if (!valid) {
       fid = DEFAULT_WORKSPACE_ID
     }
-    setAppMode('notes')
-    setAppSidebarView('explorer')
-    setGraphViewOpen(false)
-    setTabOverviewOpen(false)
     const notePath = buildNotePath(fid, '', 'note')
     const note = createEmptyNote(fid, notePath)
     note.hasFrontmatterBlock = editorSettings.newNotesStartWithFrontmatter
     setNotes((prev) => [note, ...prev])
-    setSelectedId(note.path)
-    setFocusedFolderId(null)
-    setNewNoteDestinationFolderId(DEFAULT_WORKSPACE_ID)
-    setTreeExpandIds(treeExpandIdsForFolderId(fid))
-    setTreeExpandNonce((n) => n + 1)
-    pushOpenNoteTab(note.path)
+    openNoteInEditor(note)
     if (diskMode) {
       window.setTimeout(() => scheduleNoteFlush(note.path), 0)
     }
@@ -758,9 +802,9 @@ export function useNotesApp({
     newNoteDestinationFolderId,
     diskMode,
     scheduleNoteFlush,
-    pushOpenNoteTab,
     editorSettings,
     commitPendingNoteToState,
+    openNoteInEditor,
     selectedNotePath
   ])
 
@@ -793,19 +837,10 @@ export function useNotesApp({
     if (!valid) {
       fid = DEFAULT_WORKSPACE_ID
     }
-    setAppMode('notes')
-    setAppSidebarView('explorer')
-    setGraphViewOpen(false)
-    setTabOverviewOpen(false)
     const notePath = buildNotePath(fid, 'New drawing', 'drawing')
     const note = createEmptyDrawing(fid, notePath)
     setNotes((prev) => [note, ...prev])
-    setSelectedId(note.path)
-    setFocusedFolderId(null)
-    setNewNoteDestinationFolderId(DEFAULT_WORKSPACE_ID)
-    setTreeExpandIds(treeExpandIdsForFolderId(fid))
-    setTreeExpandNonce((n) => n + 1)
-    pushOpenNoteTab(note.path)
+    openNoteInEditor(note)
     if (diskMode) {
       window.setTimeout(() => scheduleNoteFlush(note.path), 0)
     }
@@ -814,8 +849,8 @@ export function useNotesApp({
     newNoteDestinationFolderId,
     diskMode,
     scheduleNoteFlush,
-    pushOpenNoteTab,
     commitPendingNoteToState,
+    openNoteInEditor,
     selectedNotePath
   ])
 
@@ -1133,13 +1168,11 @@ export function useNotesApp({
 
   const openSettings = useCallback(() => {
     setWorkspaceSettingsFolderId(null)
-    setGraphViewOpen(false)
-    setJournalViewOpen(false)
-    setTabOverviewOpen(false)
+    closeSettingsIncompatibleViews()
     setAppMode('settings')
     setAppSidebarView('settings')
     setSettingsSection('account')
-  }, [])
+  }, [closeSettingsIncompatibleViews])
 
   const selectAppSidebarView = useCallback(
     (view: AppSidebarView) => {
@@ -1151,57 +1184,41 @@ export function useNotesApp({
       setAppMode('notes')
       if (view === 'source-control') {
         setWorkspaceSettingsFolderId(null)
-        setGraphViewOpen(false)
-        setJournalViewOpen(false)
-        setTabOverviewOpen(false)
+        closeSettingsIncompatibleViews()
       }
     },
-    [openSettings]
+    [closeSettingsIncompatibleViews, openSettings]
   )
 
-  const openFolderSettings = useCallback((folder: string, e: MouseEvent) => {
-    e.stopPropagation()
-    setAppMode('notes')
-    setAppSidebarView('explorer')
-    setTabOverviewOpen(false)
-    setWorkspaceSettingsFolderId(folder)
-    setSelectedId(null)
-    setFocusedFolderId(folder)
-    setNewNoteDestinationFolderId(folder)
-    setTreeExpandIds(treeExpandIdsForFolderId(folder))
-    setTreeExpandNonce((n) => n + 1)
-  }, [])
+  const openFolderSettings = useCallback(
+    (folder: string, e: MouseEvent) => {
+      e.stopPropagation()
+      focusFolderWorkspace(folder, { openSettings: true })
+    },
+    [focusFolderWorkspace]
+  )
 
   const navigateToNotesRoot = useCallback(() => {
-    setAppMode('notes')
-    setAppSidebarView('explorer')
+    enterNotesExplorer()
     setWorkspaceSettingsFolderId(null)
     setSelectedId(null)
     setFocusedFolderId(null)
     setNewNoteDestinationFolderId(DEFAULT_WORKSPACE_ID)
-  }, [])
+  }, [enterNotesExplorer])
 
-  const focusFolderInTree = useCallback((folder: string) => {
-    setWorkspaceSettingsFolderId(null)
-    setAppMode('notes')
-    setAppSidebarView('explorer')
-    setSelectedId(null)
-    setFocusedFolderId(folder)
-    setNewNoteDestinationFolderId(folder)
-    setTreeExpandIds(treeExpandIdsForFolderId(folder))
-    setTreeExpandNonce((n) => n + 1)
-  }, [])
+  const focusFolderInTree = useCallback(
+    (folder: string) => {
+      focusFolderWorkspace(folder)
+    },
+    [focusFolderWorkspace]
+  )
 
-  const openFolderSettingsPanel = useCallback((folder: string) => {
-    setAppMode('notes')
-    setAppSidebarView('explorer')
-    setWorkspaceSettingsFolderId(folder)
-    setSelectedId(null)
-    setFocusedFolderId(folder)
-    setNewNoteDestinationFolderId(folder)
-    setTreeExpandIds(treeExpandIdsForFolderId(folder))
-    setTreeExpandNonce((n) => n + 1)
-  }, [])
+  const openFolderSettingsPanel = useCallback(
+    (folder: string) => {
+      focusFolderWorkspace(folder, { openSettings: true })
+    },
+    [focusFolderWorkspace]
+  )
 
   const clearSidebarWorkspaceIntent = useCallback(() => {
     setNewNoteDestinationFolderId(DEFAULT_WORKSPACE_ID)
@@ -1378,7 +1395,10 @@ export function useNotesApp({
     setFolderDraft('')
     folderDraftRef.current = ''
   }, [])
-  startFolderCreateRef.current = startFolderCreate
+
+  useEffect(() => {
+    startFolderCreateRef.current = startFolderCreate
+  }, [startFolderCreate])
 
   const onFolderNameChange = useCallback((value: string) => {
     setFolderDraft(value)
@@ -1428,17 +1448,9 @@ export function useNotesApp({
         title: note.title
       })
       setNotes((prev) => [note, ...prev])
-      setWorkspaceSettingsFolderId(null)
-      setAppMode('notes')
-      setAppSidebarView('explorer')
-      setJournalViewOpen(true)
-      setSelectedId(note.path)
-      setFocusedFolderId(null)
-      setNewNoteDestinationFolderId(DEFAULT_WORKSPACE_ID)
-      setTreeExpandIds(treeExpandIdsForFolderId(note.folder))
-      setTreeExpandNonce((n) => n + 1)
+      openNoteInEditor(note, { openTab: false })
     },
-    [buildNotePath, selectNote]
+    [buildNotePath, openNoteInEditor, selectNote]
   )
 
   return {

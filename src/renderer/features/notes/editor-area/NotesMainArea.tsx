@@ -4,7 +4,8 @@ import { format, startOfDay } from 'date-fns'
 
 import type { NotesAppViewModel } from '@/features/notes/app-state/useNotesApp'
 import { getNoteDragId, isNoteDragEvent } from '@/features/notes/editor-area/NotesPrimaryPane'
-import { NotesMainAreaLayout, countIndexingStates } from '@/features/notes/editor-area/layout'
+import { countIndexingStates } from '@/features/notes/editor-area/indexing-status'
+import { NotesMainAreaLayout } from '@/features/notes/editor-area/layout'
 import { JOURNAL_FOLDER_ID } from '@/lib/notes/notes-types'
 
 export type NotesMainAreaProps = {
@@ -92,7 +93,7 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
 
   useEffect(() => {
     if (!pendingDeleteNote) {
-      setSkipDeleteConfirmNextTime(false)
+      queueMicrotask(() => setSkipDeleteConfirmNextTime(false))
     }
   }, [pendingDeleteNote])
 
@@ -110,7 +111,7 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
 
     // Opening journal from the sidebar should land on today and create/select that entry.
     if (justEnteredJournal) {
-      setJournalTimelineDate(today)
+      queueMicrotask(() => setJournalTimelineDate(today))
       pendingJournalDateRef.current = today
       vm.handleJournalDateSelect(today)
       return
@@ -147,7 +148,7 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
     if (selectedNote?.folder !== JOURNAL_FOLDER_ID) return
     const selectedNoteDate = getJournalNoteDate(selectedNote)
     if (!selectedNoteDate || selectedNoteDate === journalTimelineDate) return
-    setJournalTimelineDate(selectedNoteDate)
+    queueMicrotask(() => setJournalTimelineDate(selectedNoteDate))
   }, [journalTimelineDate, journalViewOpen, selectedNote])
 
   const indexingOverlayPhase = (() => {
@@ -162,12 +163,15 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
 
   useEffect(() => {
     if (!zenMode) {
-      setZenHintVisible(false)
+      queueMicrotask(() => setZenHintVisible(false))
       return
     }
-    setZenHintVisible(true)
+    const showId = window.setTimeout(() => setZenHintVisible(true), 0)
     const id = window.setTimeout(() => setZenHintVisible(false), 4500)
-    return () => clearTimeout(id)
+    return () => {
+      clearTimeout(showId)
+      clearTimeout(id)
+    }
   }, [zenMode])
 
   useEffect(() => {
@@ -175,7 +179,7 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
       indexingOverlayPhase !== 'idle' &&
       indexingOverlayPhase !== previousIndexingOverlayPhaseRef.current
     ) {
-      setIndexingOverlayDismissed(false)
+      queueMicrotask(() => setIndexingOverlayDismissed(false))
     }
     previousIndexingOverlayPhaseRef.current = indexingOverlayPhase
   }, [indexingOverlayPhase])

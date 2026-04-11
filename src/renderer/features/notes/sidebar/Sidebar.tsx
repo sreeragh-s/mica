@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type DragEvent, type JSX } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent, type JSX } from 'react'
 import { NotebookPen } from 'lucide-react'
 
 import { DEFAULT_WORKSPACE_ID, type SavedNote } from '@/lib/notes/notes-storage'
@@ -183,13 +183,16 @@ export function Sidebar({ vm }: SidebarProps): JSX.Element {
     if (draggedFolderId) reorderFolderToEnd(draggedFolderId)
   }
 
-  const findNoteById = (notePath: string): SavedNote | undefined => {
-    for (const list of notesByFolder.values()) {
-      const n = list.find((x) => x.path === notePath)
-      if (n) return n
-    }
-    return undefined
-  }
+  const findNoteById = useCallback(
+    (notePath: string): SavedNote | undefined => {
+      for (const list of notesByFolder.values()) {
+        const note = list.find((item) => item.path === notePath)
+        if (note) return note
+      }
+      return undefined
+    },
+    [notesByFolder]
+  )
 
   const beginRename = (treeId: string, initial: string): void => {
     skipRenameCommitRef.current = false
@@ -197,15 +200,17 @@ export function Sidebar({ vm }: SidebarProps): JSX.Element {
     setRenameDraft(initial)
   }
 
-  triggerRenameSelectedRef.current = () => {
-    if (selectedNotePath) {
-      const note = findNoteById(selectedNotePath)
-      if (note) beginRename(treeNotePath(selectedNotePath), note.title)
-    } else if (focusedFolderId) {
-      const folder = folders.find((f) => f.folder === focusedFolderId)
-      if (folder) beginRename(treeFolderPath(focusedFolderId), folder.name)
+  useEffect(() => {
+    triggerRenameSelectedRef.current = () => {
+      if (selectedNotePath) {
+        const note = findNoteById(selectedNotePath)
+        if (note) beginRename(treeNotePath(selectedNotePath), note.title)
+      } else if (focusedFolderId) {
+        const folder = folders.find((f) => f.folder === focusedFolderId)
+        if (folder) beginRename(treeFolderPath(focusedFolderId), folder.name)
+      }
     }
-  }
+  }, [findNoteById, focusedFolderId, folders, selectedNotePath, triggerRenameSelectedRef])
 
   const cancelRename = (): void => {
     skipRenameCommitRef.current = true

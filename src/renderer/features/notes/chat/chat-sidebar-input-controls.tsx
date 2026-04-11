@@ -8,9 +8,9 @@ import {
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu'
 import { InputGroupButton } from '@/components/ui/input-group'
-import { classifyQueryComplexity, type Mode } from '@/lib/ai/chat-retrieval-pipeline'
+import { type Mode } from '@/lib/ai/chat-retrieval-pipeline'
 
-export function formatModeLabel(mode: Mode): string {
+function formatModeLabel(mode: Mode): string {
   return mode === 'efficiency' ? 'Efficiency' : mode === 'medium' ? 'Medium' : 'High'
 }
 
@@ -24,7 +24,7 @@ export function ModePicker({
   suggestedMode: Mode
   disabled: boolean
   onModeChange: (mode: Mode | null) => void
-}) {
+}): React.JSX.Element {
   const [open, setOpen] = useState(false)
   const modeDescriptions: Record<Mode, string> = {
     efficiency: 'Fastest path with the smallest seed and context set.',
@@ -108,7 +108,7 @@ export function PaywallBanner({
   isLocalModelSelected: boolean
   ollamaRunning: boolean
   onOpenLocalSetup: () => void
-}) {
+}): React.JSX.Element | null {
   if (isLocalModelSelected && ollamaRunning) return null
 
   if (!billing || billing.status === 'active') {

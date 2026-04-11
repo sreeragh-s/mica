@@ -31,25 +31,7 @@ import { GraphPaneTopBar } from '@/features/notes/layout/GraphPaneTopBar'
 import { NotesMainTopBar } from '@/features/notes/layout/NotesMainTopBar'
 import { ShortcutsSettingsView } from '@/features/notes/settings/ShortcutsSettingsView'
 import type { NotesAppViewModel } from '@/features/notes/app-state/useNotesApp'
-export function countIndexingStates(notes: NotesAppViewModel['indexingStatus']['notes']): {
-  totalCount: number
-  pendingCount: number
-  indexingCount: number
-  indexedCount: number
-  errorCount: number
-} {
-  let pendingCount = 0,
-    indexingCount = 0,
-    indexedCount = 0,
-    errorCount = 0
-  for (const note of notes) {
-    if (note.state === 'pending') pendingCount++
-    else if (note.state === 'indexing') indexingCount++
-    else if (note.state === 'indexed') indexedCount++
-    else if (note.state === 'error') errorCount++
-  }
-  return { totalCount: notes.length, pendingCount, indexingCount, indexedCount, errorCount }
-}
+import { countIndexingStates } from '@/features/notes/editor-area/indexing-status'
 
 function MainAreaIndexingOverlay({
   indexingStatus,

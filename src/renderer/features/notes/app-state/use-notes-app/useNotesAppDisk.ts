@@ -50,7 +50,6 @@ type UseNotesAppDiskArgs = {
   setOpenNoteTabIds: Setter<string[]>
   setFocusedFolderId: Setter<string | null>
   setNewNoteDestinationFolderId: Setter<string>
-  setChatSidebarOpen: Setter<boolean>
   dataRootRef: MutableRefObject<string | null>
   foldersRef: MutableRefObject<Folder[]>
   notesRef: MutableRefObject<SavedNote[]>
@@ -60,6 +59,7 @@ type UseNotesAppDiskArgs = {
   applyWorkspaceViewFromDisk: (snap: NotelabWorkspaceViewSnapshotV1) => void
 }
 
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type -- hook return shape is inferred from the returned controller object below
 export function useNotesAppDisk({
   initialGithubRemoteUrl,
   folders,
@@ -70,7 +70,6 @@ export function useNotesAppDisk({
   setOpenNoteTabIds,
   setFocusedFolderId,
   setNewNoteDestinationFolderId,
-  setChatSidebarOpen,
   dataRootRef,
   foldersRef,
   notesRef,
@@ -79,7 +78,6 @@ export function useNotesAppDisk({
   pendingDiskWrites,
   applyWorkspaceViewFromDisk
 }: UseNotesAppDiskArgs) {
-  void setChatSidebarOpen
   const [githubRemoteUrl, setGithubRemoteUrl] = useState(() => initialGithubRemoteUrl)
   const [diskMode, setDiskMode] = useState(false)
   /** Data root (~/.notelab); used when `folders` omits the default workspace but Git still runs at repo root. */
@@ -151,6 +149,27 @@ export function useNotesAppDisk({
     [refreshWorkspaceGitStatuses]
   )
 
+  const resolveNoteWriteCwd = useCallback(
+    (cwd: string, folderId: string): string | null => {
+      if (folderId === DEFAULT_WORKSPACE_ID || folderId === JOURNAL_FOLDER_ID) {
+        return cwd
+      }
+      return foldersRef.current.find((folder) => folder.folder === folderId)?.localGitPath ?? null
+    },
+    [foldersRef]
+  )
+
+  const markNotePersisted = useCallback(
+    (notePath: string, note: SavedNote): void => {
+      pendingSavedNotesRef.current.delete(notePath)
+      const persistedAt = Date.now()
+      setNotes((prev) =>
+        prev.map((item) => (item.path === notePath ? { ...note, updatedAt: persistedAt } : item))
+      )
+    },
+    [pendingSavedNotesRef, setNotes]
+  )
+
   const applyNotelabIndex = useCallback(
     (idx: NotelabIndexOk, cwd: string) => {
       /** Root bucket `default/` is shown as top-level notes only, not a second folder row. */
@@ -200,7 +219,7 @@ export function useNotesAppDisk({
       }
       /** Keep notes created in this session that are not in the index yet (e.g. before disk flush). */
       const diskPaths = new Set(mappedNotes.map((n) => n.path))
-      const validFolderId = (fid: string) =>
+      const validFolderId = (fid: string): boolean =>
         fid === DEFAULT_WORKSPACE_ID || mappedFolders.some((f) => f.folder === fid)
       const localPending = notesRef.current.filter(
         (n) => !diskPaths.has(n.path) && validFolderId(n.folder)
@@ -266,9 +285,7 @@ export function useNotesAppDisk({
         log.info('flushNoteToDisk skipped: transient note', { notePath, title: note.title })
         return
       }
-      const isRoot = note.folder === DEFAULT_WORKSPACE_ID || note.folder === JOURNAL_FOLDER_ID
-      const folder = foldersRef.current.find((f) => f.folder === note.folder)
-      const effectiveCwd = isRoot ? cwd : folder?.localGitPath
+      const effectiveCwd = resolveNoteWriteCwd(cwd, note.folder)
       if (!effectiveCwd) {
         log.warn('flushNoteToDisk skipped: no effective cwd', {
           notePath,
@@ -315,11 +332,7 @@ export function useNotesAppDisk({
           console.error('[notelab] write note failed', wr.error)
         } else {
           log.info('flushNoteToDisk write succeeded', { notePath, rel })
-          pendingSavedNotesRef.current.delete(notePath)
-          const persistedAt = Date.now()
-          setNotes((prev) =>
-            prev.map((n) => (n.path === notePath ? { ...note, updatedAt: persistedAt } : n))
-          )
+          markNotePersisted(notePath, note)
         }
         scheduleWorkspaceGitStatusRefresh()
       } finally {
@@ -328,12 +341,11 @@ export function useNotesAppDisk({
     },
     [
       dataRootRef,
-      foldersRef,
       getLatestNoteSnapshot,
+      markNotePersisted,
       pendingDiskWrites,
-      pendingSavedNotesRef,
-      scheduleWorkspaceGitStatusRefresh,
-      setNotes
+      resolveNoteWriteCwd,
+      scheduleWorkspaceGitStatusRefresh
     ]
   )
 
@@ -348,9 +360,7 @@ export function useNotesAppDisk({
         })
         return
       }
-      const targetRoot = note.folder === DEFAULT_WORKSPACE_ID || note.folder === JOURNAL_FOLDER_ID
-      const targetFolder = foldersRef.current.find((f) => f.folder === note.folder)
-      const writeCwd = targetRoot ? cwd : targetFolder?.localGitPath
+      const writeCwd = resolveNoteWriteCwd(cwd, note.folder)
       if (!writeCwd) {
         log.warn('flushNoteMoveToDisk skipped: no write cwd', {
           previousPath,
@@ -402,12 +412,9 @@ export function useNotesAppDisk({
             previousPath,
             rel
           })
+          markNotePersisted(note.path, note)
           pendingSavedNotesRef.current.delete(previousPath)
           pendingSavedNotesRef.current.delete(note.path)
-          const persistedAt = Date.now()
-          setNotes((prev) =>
-            prev.map((n) => (n.path === note.path ? { ...note, updatedAt: persistedAt } : n))
-          )
         }
         scheduleWorkspaceGitStatusRefresh()
       } finally {
@@ -416,11 +423,11 @@ export function useNotesAppDisk({
     },
     [
       dataRootRef,
-      foldersRef,
+      markNotePersisted,
       pendingDiskWrites,
       pendingSavedNotesRef,
-      scheduleWorkspaceGitStatusRefresh,
-      setNotes
+      resolveNoteWriteCwd,
+      scheduleWorkspaceGitStatusRefresh
     ]
   )
 
@@ -648,15 +655,16 @@ export function useNotesAppDisk({
   }, [dataRootRef, diskMode, pendingDiskWrites, refreshWorkspaceGitStatuses, reloadNotesFromDisk])
 
   useEffect(() => {
+    const flushTimers = noteFlushTimers.current
     return () => {
       if (gitStatusRefreshTimerRef.current !== null) {
         window.clearTimeout(gitStatusRefreshTimerRef.current)
         gitStatusRefreshTimerRef.current = null
       }
-      for (const tid of noteFlushTimers.current.values()) {
+      for (const tid of flushTimers.values()) {
         window.clearTimeout(tid)
       }
-      noteFlushTimers.current.clear()
+      flushTimers.clear()
     }
   }, [noteFlushTimers])
 
