@@ -32,6 +32,8 @@ import {
   saveEditorSettings,
   saveAppearanceSettings
 } from '@/lib/config/notelab-app-config'
+import type { NotelabWorkspaceViewSnapshotV1 } from '@/lib/config/notelab-config-schema'
+import { schedulePersistWorkspaceViewSnapshot } from '@/lib/config/workspace-view-storage'
 import {
   buildFolderPath,
   buildUniqueNoteRelativePath,
@@ -146,9 +148,32 @@ export function useNotesApp({
   const noteFlushTimers = useRef<Map<string, number>>(new Map())
   const pendingDiskWrites = useRef<Set<string>>(new Set())
   const pendingSavedNotesRef = useRef<Map<string, SavedNote>>(new Map())
+  /** Avoid persisting view state before async restore from `<workspace>/notelab.json` finishes. */
+  const workspaceViewRestoredRef = useRef(false)
 
   // App sidebar: explorer (notes tree), source control, or settings nav
   const [appSidebarView, setAppSidebarView] = useState<AppSidebarView>('explorer')
+
+  const applyWorkspaceViewFromDisk = useCallback((snap: NotelabWorkspaceViewSnapshotV1) => {
+    setSelectedId(snap.selectedNotePath)
+    setOpenNoteTabIds(snap.openNoteTabPaths)
+    setChatSidebarOpen(snap.chatSidebarOpen)
+    setChatSidebarPanel(snap.chatSidebarPanel)
+    setChatSidebarLinkMode(snap.chatSidebarLinkMode)
+    setSidebarCollapsed(snap.sidebarCollapsed)
+    setZenMode(snap.zenMode)
+    setGraphViewOpen(snap.graphViewOpen)
+    setCanvasViewOpen(snap.canvasViewOpen)
+    setJournalViewOpen(snap.journalViewOpen)
+    setTabOverviewOpen(snap.tabOverviewOpen)
+    setAppSidebarView(snap.appSidebarView)
+    setAppMode(snap.appMode)
+    setSettingsSection(snap.settingsSection)
+    setFocusedFolderId(snap.focusedFolderId)
+    setNewNoteDestinationFolderId(snap.newNoteDestinationFolderId)
+    setWorkspaceSettingsFolderId(snap.workspaceSettingsFolderId)
+    workspaceViewRestoredRef.current = true
+  }, [])
 
   const {
     githubRemoteUrl,
@@ -205,8 +230,60 @@ export function useNotesApp({
     notesRef,
     pendingSavedNotesRef,
     noteFlushTimers,
-    pendingDiskWrites
+    pendingDiskWrites,
+    applyWorkspaceViewFromDisk
   })
+
+  useEffect(() => {
+    if (!diskMode) workspaceViewRestoredRef.current = false
+  }, [diskMode])
+
+  useEffect(() => {
+    workspaceViewRestoredRef.current = false
+  }, [dataRootPath])
+
+  useEffect(() => {
+    if (!diskMode || !dataRootPath || !workspaceViewRestoredRef.current) return
+    schedulePersistWorkspaceViewSnapshot({
+      selectedNotePath,
+      openNoteTabPaths,
+      chatSidebarOpen,
+      chatSidebarPanel,
+      chatSidebarLinkMode,
+      sidebarCollapsed,
+      zenMode,
+      graphViewOpen,
+      canvasViewOpen,
+      journalViewOpen,
+      tabOverviewOpen,
+      appSidebarView,
+      appMode,
+      settingsSection,
+      focusedFolderId,
+      newNoteDestinationFolderId,
+      workspaceSettingsFolderId
+    })
+  }, [
+    diskMode,
+    dataRootPath,
+    selectedNotePath,
+    openNoteTabPaths,
+    chatSidebarOpen,
+    chatSidebarPanel,
+    chatSidebarLinkMode,
+    sidebarCollapsed,
+    zenMode,
+    graphViewOpen,
+    canvasViewOpen,
+    journalViewOpen,
+    tabOverviewOpen,
+    appSidebarView,
+    appMode,
+    settingsSection,
+    focusedFolderId,
+    newNoteDestinationFolderId,
+    workspaceSettingsFolderId
+  ])
 
   const { indexingStatus, refreshIndexingStatus, runIndexPending, runReindexAll } =
     useNotesAppIndexing({

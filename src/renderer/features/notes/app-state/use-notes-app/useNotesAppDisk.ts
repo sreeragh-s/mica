@@ -13,6 +13,11 @@ import { getApi } from '@/lib/auth/auth-bridge'
 import { createElectronLogger } from '@/lib/core/electron-log'
 import { loadSetupState } from '@/lib/workspace/setup-storage'
 import { switchDataRoot } from '@/lib/config/notelab-app-config'
+import {
+  restoreWorkspaceViewAfterIndex,
+  type WindowSessionLike
+} from '@/lib/config/workspace-view-storage'
+import type { NotelabWorkspaceViewSnapshotV1 } from '@/lib/config/notelab-config-schema'
 import { diskBodyToContent } from '@/lib/editor/markdown-to-serialized'
 import { JOURNAL_FOLDER_ID } from '@/lib/notes/notes-types'
 import {
@@ -52,6 +57,7 @@ type UseNotesAppDiskArgs = {
   pendingSavedNotesRef: MutableRefObject<Map<string, SavedNote>>
   noteFlushTimers: MutableRefObject<Map<string, number>>
   pendingDiskWrites: MutableRefObject<Set<string>>
+  applyWorkspaceViewFromDisk: (snap: NotelabWorkspaceViewSnapshotV1) => void
 }
 
 export function useNotesAppDisk({
@@ -70,7 +76,8 @@ export function useNotesAppDisk({
   notesRef,
   pendingSavedNotesRef,
   noteFlushTimers,
-  pendingDiskWrites
+  pendingDiskWrites,
+  applyWorkspaceViewFromDisk
 }: UseNotesAppDiskArgs) {
   const [githubRemoteUrl, setGithubRemoteUrl] = useState(() => initialGithubRemoteUrl)
   const [diskMode, setDiskMode] = useState(false)
@@ -442,7 +449,7 @@ export function useNotesAppDisk({
       const urlWorkspace = new URLSearchParams(window.location.search).get('workspace')
 
       // Restore the window session for note/tab/chat state (not workspace — URL param handles that).
-      const windowSession = await getApi()?.multiWindow?.getSession?.() ?? null
+      const windowSession = (await getApi()?.multiWindow?.getSession?.()) as WindowSessionLike | null
 
       const workspacePathOverride = urlWorkspace ?? windowSession?.workspacePath ?? null
       const effectiveRoot = workspacePathOverride ?? savedRoot
@@ -529,31 +536,19 @@ export function useNotesAppDisk({
       setDiskMode(true)
       applyNotelabIndex(fresh, cwd)
 
-      // Restore last selected note and open tabs from window session.
-      if (windowSession) {
-        const allNoteIds = new Set(fresh.notes.map((n) => n.note))
-        if (windowSession.selectedNoteId && allNoteIds.has(windowSession.selectedNoteId)) {
-          setSelectedId(windowSession.selectedNoteId)
-        }
-        if (windowSession.openNoteTabPaths) {
-          const validTabs = windowSession.openNoteTabPaths.filter((id) => allNoteIds.has(id))
-          if (validTabs.length > 0) setOpenNoteTabIds(validTabs)
-        }
-        if (windowSession.chatSidebarOpen) {
-          setChatSidebarOpen(true)
-        }
-      }
+      const allNoteIds = new Set(fresh.notes.map((n) => n.note))
+      await restoreWorkspaceViewAfterIndex(
+        cwd,
+        allNoteIds,
+        windowSession,
+        true,
+        applyWorkspaceViewFromDisk
+      )
     })()
     return () => {
       cancelled = true
     }
-  }, [
-    applyNotelabIndex,
-    dataRootRef,
-    setChatSidebarOpen,
-    setOpenNoteTabIds,
-    setSelectedId
-  ])
+  }, [applyNotelabIndex, dataRootRef, applyWorkspaceViewFromDisk])
 
   useEffect(() => {
     if (!diskMode) return
@@ -674,7 +669,23 @@ export function useNotesAppDisk({
     if (!idxR.ok) return
     setDiskMode(true)
     applyNotelabIndex(idxR, cwd)
-  }, [applyNotelabIndex, dataRootRef, setFolders, setNotes, setOpenNoteTabIds, setSelectedId])
+    const allNoteIds = new Set(idxR.notes.map((n) => n.note))
+    await restoreWorkspaceViewAfterIndex(
+      cwd,
+      allNoteIds,
+      null,
+      false,
+      applyWorkspaceViewFromDisk
+    )
+  }, [
+    applyNotelabIndex,
+    applyWorkspaceViewFromDisk,
+    dataRootRef,
+    setFolders,
+    setNotes,
+    setOpenNoteTabIds,
+    setSelectedId
+  ])
 
   return {
     githubRemoteUrl,

@@ -1,7 +1,6 @@
 /**
- * Multi-window session state (in-memory only).
- *
- * Session is persisted to <workspaceRoot>/notelab.json by the renderer.
+ * Multi-window session state (in-memory only). Used as a fallback when the workspace
+ * has no `workspaceView` in `<notesWorkspace>/notelab.json` yet.
  */
 
 import type { WebContents } from 'electron'

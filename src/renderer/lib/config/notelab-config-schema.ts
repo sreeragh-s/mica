@@ -34,7 +34,39 @@ export type NotelabAppearanceSettingsV1 = {
   animationsEnabled?: boolean
 }
 
-/** Persisted at <workspaceRoot>/.notelab.config (Notelab). */
+/**
+ * UI snapshot stored under `workspaceView` in `<notesWorkspace>/notelab.json`
+ * (not the global ~/.notelab config file).
+ */
+export type NotelabWorkspaceViewSnapshotV1 = {
+  selectedNotePath: string | null
+  openNoteTabPaths: string[]
+  chatSidebarOpen: boolean
+  chatSidebarPanel: 'chat' | 'links'
+  chatSidebarLinkMode: 'linked' | 'linking'
+  sidebarCollapsed: boolean
+  zenMode: boolean
+  graphViewOpen: boolean
+  canvasViewOpen: boolean
+  journalViewOpen: boolean
+  tabOverviewOpen: boolean
+  appSidebarView: 'explorer' | 'source-control' | 'settings'
+  appMode: 'notes' | 'settings'
+  settingsSection:
+    | 'account'
+    | 'workspace'
+    | 'github'
+    | 'appearance'
+    | 'editor'
+    | 'shortcuts'
+    | 'debug'
+    | 'indexing'
+  focusedFolderId: string | null
+  newNoteDestinationFolderId: string
+  workspaceSettingsFolderId: string | null
+}
+
+/** Global app config: ~/.notelab/notelab.json (configRoot), not the notes workspace folder. */
 export type NotelabConfigFileV1 = {
   version: 1
   setup?: NotelabSetupState
