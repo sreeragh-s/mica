@@ -152,11 +152,11 @@ export function ChatSidebarToolbarLeading({
             )}
             size="sm"
           >
-            <SelectValue placeholder="All workspaces" />
+            <SelectValue placeholder="All folders" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem className="text-xs" value="__all__">
-              All workspaces
+              All Folders
             </SelectItem>
             {folders.map((f) => (
               <SelectItem className="text-xs" key={f.folder} value={f.folder}>
