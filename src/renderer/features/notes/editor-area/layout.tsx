@@ -500,8 +500,8 @@ export function NotesMainAreaLayout({
                     onNewNote={handleNewNote}
                     chatSidebarOpen={chatSidebarOpen}
                     onToggleChatSidebar={toggleChatSidebar}
-                    linkSidebarActive={chatSidebarOpen && chatSidebarPanel === 'links'}
                     onOpenLinkedSidebar={openLinkedNotesSidebar}
+                    chatSidebarPanel={chatSidebarPanel}
                   />
                 )}
 

@@ -32,8 +32,8 @@ export type NotesMainTopBarProps = {
   onNewNote: () => void
   chatSidebarOpen: boolean
   onToggleChatSidebar: () => void
-  linkSidebarActive: boolean
   onOpenLinkedSidebar: () => void
+  chatSidebarPanel: 'chat' | 'links'
 }
 
 function NotesMainTopBarInner({
@@ -57,8 +57,8 @@ function NotesMainTopBarInner({
   onNewNote,
   chatSidebarOpen,
   onToggleChatSidebar,
-  linkSidebarActive,
-  onOpenLinkedSidebar
+  onOpenLinkedSidebar,
+  chatSidebarPanel
 }: NotesMainTopBarProps): JSX.Element {
   return (
     <div
@@ -122,8 +122,8 @@ function NotesMainTopBarInner({
             onNewNote={onNewNote}
             chatSidebarOpen={chatSidebarOpen}
             onToggleChatSidebar={onToggleChatSidebar}
-            linkSidebarActive={linkSidebarActive}
             onOpenLinkedSidebar={onOpenLinkedSidebar}
+            chatSidebarPanel={chatSidebarPanel}
           />
         </div>
       ) : null}

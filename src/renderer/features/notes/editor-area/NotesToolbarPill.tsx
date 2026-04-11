@@ -54,8 +54,8 @@ export type NotesToolbarPillProps = {
   onNewNote: () => void
   chatSidebarOpen: boolean
   onToggleChatSidebar: () => void
-  linkSidebarActive: boolean
   onOpenLinkedSidebar: () => void
+  chatSidebarPanel: 'chat' | 'links'
 }
 
 export function NotesToolbarPill({
@@ -64,8 +64,8 @@ export function NotesToolbarPill({
   onNewNote,
   chatSidebarOpen,
   onToggleChatSidebar,
-  linkSidebarActive,
-  onOpenLinkedSidebar
+  onOpenLinkedSidebar,
+  chatSidebarPanel
 }: NotesToolbarPillProps): JSX.Element {
   return (
     <div className={toolbarShellClass} style={macTitlebarStyles.noDrag}>
@@ -96,12 +96,14 @@ export function NotesToolbarPill({
         variant="ghost"
         size="icon"
         className={
-          chatSidebarOpen
+          chatSidebarOpen && chatSidebarPanel === 'chat'
             ? 'bg-accent text-accent-foreground size-7 shrink-0 rounded-md'
             : 'text-muted-foreground size-7 shrink-0 rounded-md'
         }
-        aria-label={chatSidebarOpen ? 'Close chat panel' : 'Open chat panel'}
-        aria-pressed={chatSidebarOpen}
+        aria-label={
+          chatSidebarOpen && chatSidebarPanel === 'chat' ? 'Close chat panel' : 'Open chat panel'
+        }
+        aria-pressed={chatSidebarOpen && chatSidebarPanel === 'chat'}
         onClick={onToggleChatSidebar}
       >
         <MessageCircle className="size-3.5" aria-hidden />
@@ -111,12 +113,16 @@ export function NotesToolbarPill({
         variant="ghost"
         size="icon"
         className={
-          linkSidebarActive
+          chatSidebarOpen && chatSidebarPanel === 'links'
             ? 'bg-accent text-accent-foreground size-7 shrink-0 rounded-md'
             : 'text-muted-foreground size-7 shrink-0 rounded-md'
         }
-        aria-label={linkSidebarActive ? 'Close note links panel' : 'Open note links panel'}
-        aria-pressed={linkSidebarActive}
+        aria-label={
+          chatSidebarOpen && chatSidebarPanel === 'links'
+            ? 'Close note links panel'
+            : 'Open note links panel'
+        }
+        aria-pressed={chatSidebarOpen && chatSidebarPanel === 'links'}
         onClick={onOpenLinkedSidebar}
       >
         <Link2 className="size-3.5" aria-hidden />
