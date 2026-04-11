@@ -21,6 +21,8 @@ import {
   useState
 } from 'react'
 
+import { classifyQueryComplexity, type Mode } from '@/lib/ai/chat-retrieval-pipeline'
+import { cn } from '@/lib/utils'
 import {
   PromptInputChatMentionTextarea,
   type PromptInputChatMentionTextareaHandle,
@@ -68,10 +70,62 @@ import type {
   ChatSidebarProps,
   NoteLinksData
 } from '@/features/notes/chat/chat-sidebar-types'
-import type { ChatHistoryMeta } from '@/hooks/useNotesChat'
+import type { ChatHistoryMeta, ChatPipelineStatus } from '@/hooks/useNotesChat'
 import { useNotesChat } from '@/hooks/useNotesChat'
 import { useBillingStatus } from '@/hooks/useBillingStatus'
 import { useOllama } from '@/hooks/useOllama'
+
+function formatModeLabel(mode: Mode): string {
+  return mode === 'efficiency' ? 'Efficiency' : mode === 'medium' ? 'Medium' : 'High'
+}
+
+function pipelineHeadline(status: ChatPipelineStatus): string {
+  switch (status.stage) {
+    case 'analyzing':
+      return 'Analyzing query...'
+    case 'searching':
+      return 'Searching all notes...'
+    case 'seed-results':
+      return `Found ${status.seedNotes.length} seed notes`
+    case 'expanding':
+      return 'Expanding connections...'
+    case 'connected-results':
+      return `${status.connectedNotes.length} connected notes found`
+    case 'reranking':
+      return 'Re-ranking results...'
+    case 'context-ready':
+      return `Context ready (${status.finalNotes.length} notes)`
+  }
+}
+
+function PipelineNoteChips({
+  notes,
+  onOpenNote
+}: {
+  notes: ChatPipelineStatus['seedNotes']
+  onOpenNote: (notePath: string) => void
+}): JSX.Element | null {
+  if (notes.length === 0) return null
+  return (
+    <div className="mt-2 flex flex-wrap gap-1.5">
+      {notes.map((note) => (
+        <button
+          key={`${note.source}-${note.note}`}
+          className="bg-background hover:bg-accent/60 inline-flex items-center gap-1.5 rounded-full border border-border px-2.5 py-1 text-[11px] font-medium transition-colors"
+          onClick={() => onOpenNote(note.note)}
+          type="button"
+        >
+          <span className="truncate max-w-[10rem]">{note.title}</span>
+          {note.source === 'global_fallback' ? (
+            <span className="bg-amber-100 text-amber-700 rounded-full px-1.5 py-0.5 text-[10px] font-semibold dark:bg-amber-500/15 dark:text-amber-300">
+              global
+            </span>
+          ) : null}
+        </button>
+      ))}
+    </div>
+  )
+}
 
 /** Chat UI; parent animates width/opacity when `open` toggles. */
 export function ChatSidebarInner({
@@ -90,8 +144,10 @@ export function ChatSidebarInner({
   isMacNotelab,
   linkMentionIndex
 }: ChatSidebarProps): JSX.Element {
+  const MODE_OPTIONS: Mode[] = ['efficiency', 'medium', 'high']
   const [selectedModelId, setSelectedModelId] = useState<string>(DEFAULT_NOTELAB_MODEL_ID)
   const [localSetupOpen, setLocalSetupOpen] = useState(false)
+  const [modeOverride, setModeOverride] = useState<Mode | null>(null)
 
   const ollama = useOllama()
 
@@ -111,6 +167,7 @@ export function ChatSidebarInner({
     session,
     historyMeta,
     isLoading,
+    pipelineStatus,
     filterWorkspaceId,
     setFilterWorkspaceId,
     setShowHistory,
@@ -118,7 +175,14 @@ export function ChatSidebarInner({
     persistCurrentSessionIfNeeded,
     newChat,
     loadHistorySession
-  } = useNotesChat({ notes, folders, workspacePath, selectedNote, modelId: selectedModelId })
+  } = useNotesChat({
+    notes,
+    folders,
+    workspacePath,
+    selectedNote,
+    linkMentionIndex,
+    modelId: selectedModelId
+  })
 
   const { billing, canChat, creditsLow } = useBillingStatus()
 
@@ -143,6 +207,9 @@ export function ChatSidebarInner({
     }
     return Array.from(map.values())
   }, [folders])
+
+  const suggestedMode = useMemo(() => classifyQueryComplexity(input), [input])
+  const activeMode = modeOverride ?? suggestedMode
 
   const visibleSessionTabs = useMemo(() => {
     if (openSessionTabs.length === 0) {
@@ -277,9 +344,11 @@ export function ChatSidebarInner({
       }
       setInput('')
       setChatReferences([])
-      await sendMessage(q, { explicitNoteIds, explicitWorkspaceIds })
+      const modeForRequest = activeMode
+      setModeOverride(null)
+      await sendMessage(q, { explicitNoteIds, explicitWorkspaceIds, mode: modeForRequest })
     },
-    [input, chatReferences, isLoading, canChatEffective, sendMessage]
+    [input, chatReferences, isLoading, canChatEffective, sendMessage, activeMode]
   )
 
   const handleKeyDown = useCallback(
@@ -493,6 +562,22 @@ export function ChatSidebarInner({
     return 'Ask about your notes…'
   })()
 
+  const showSeedNotes =
+    pipelineStatus &&
+    (pipelineStatus.stage === 'seed-results' ||
+      pipelineStatus.stage === 'expanding' ||
+      pipelineStatus.stage === 'connected-results' ||
+      pipelineStatus.stage === 'reranking' ||
+      pipelineStatus.stage === 'context-ready')
+
+  const showConnectedNotes =
+    pipelineStatus &&
+    (pipelineStatus.stage === 'connected-results' ||
+      pipelineStatus.stage === 'reranking' ||
+      pipelineStatus.stage === 'context-ready')
+
+  const showFinalNotes = pipelineStatus?.stage === 'context-ready'
+
   return (
     <aside
       aria-label="Chat"
@@ -671,6 +756,84 @@ export function ChatSidebarInner({
           {paywallBanner}
 
           <form className="border-border border-t p-2" onSubmit={(e) => void handleSubmit(e)}>
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <span className="text-muted-foreground text-[11px] font-medium uppercase tracking-wide">
+                  Retrieval
+                </span>
+                <span className="text-muted-foreground text-xs">
+                  Suggested: <span className="text-foreground">{formatModeLabel(suggestedMode)}</span>
+                </span>
+              </div>
+              <div className="bg-muted/50 inline-flex rounded-lg border border-border p-0.5">
+                {MODE_OPTIONS.map((mode) => {
+                  const isSelected = activeMode === mode
+                  const isSuggested = suggestedMode === mode
+                  return (
+                    <button
+                      key={mode}
+                      className={cn(
+                        'relative rounded-md px-2.5 py-1 text-[11px] font-medium transition-colors',
+                        isSelected
+                          ? 'bg-background text-foreground shadow-sm'
+                          : 'text-muted-foreground hover:text-foreground',
+                        isSuggested && !isSelected && 'ring-1 ring-primary/30'
+                      )}
+                      disabled={isLoading || !canChatEffective}
+                      onClick={() => setModeOverride(mode === suggestedMode ? null : mode)}
+                      type="button"
+                    >
+                      {formatModeLabel(mode)}
+                      {isSuggested ? (
+                        <span className="ml-1 rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] text-primary">
+                          auto
+                        </span>
+                      ) : null}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+
+            {pipelineStatus ? (
+              <div className="bg-muted/35 mb-2 rounded-2xl border border-border px-3 py-2.5">
+                <div className="flex items-center gap-2">
+                  <Loader2Icon className="text-muted-foreground size-3.5 animate-spin" />
+                  <p className="text-sm font-medium">{pipelineHeadline(pipelineStatus)}</p>
+                </div>
+                <p className="text-muted-foreground mt-1 text-xs">
+                  {formatModeLabel(pipelineStatus.mode)} mode
+                  {pipelineStatus.mode !== pipelineStatus.suggestedMode
+                    ? ` (override from ${formatModeLabel(pipelineStatus.suggestedMode)})`
+                    : ''}
+                </p>
+                {showSeedNotes ? (
+                  <div className="mt-2">
+                    <p className="text-muted-foreground text-[11px] font-medium uppercase tracking-wide">
+                      Seed notes
+                    </p>
+                    <PipelineNoteChips notes={pipelineStatus.seedNotes} onOpenNote={selectNote} />
+                  </div>
+                ) : null}
+                {showConnectedNotes ? (
+                  <div className="mt-2">
+                    <p className="text-muted-foreground text-[11px] font-medium uppercase tracking-wide">
+                      Connected notes
+                    </p>
+                    <PipelineNoteChips notes={pipelineStatus.connectedNotes} onOpenNote={selectNote} />
+                  </div>
+                ) : null}
+                {showFinalNotes ? (
+                  <div className="mt-2">
+                    <p className="text-muted-foreground text-[11px] font-medium uppercase tracking-wide">
+                      Final context
+                    </p>
+                    <PipelineNoteChips notes={pipelineStatus.finalNotes} onOpenNote={selectNote} />
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+
             <PromptInputChatReferenceChips
               className="mb-1.5"
               editorNote={

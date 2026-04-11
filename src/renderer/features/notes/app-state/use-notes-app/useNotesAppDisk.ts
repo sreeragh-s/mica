@@ -79,6 +79,7 @@ export function useNotesAppDisk({
   pendingDiskWrites,
   applyWorkspaceViewFromDisk
 }: UseNotesAppDiskArgs) {
+  void setChatSidebarOpen
   const [githubRemoteUrl, setGithubRemoteUrl] = useState(() => initialGithubRemoteUrl)
   const [diskMode, setDiskMode] = useState(false)
   /** Data root (~/.notelab); used when `folders` omits the default workspace but Git still runs at repo root. */

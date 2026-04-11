@@ -196,18 +196,6 @@ function pickSeedNotes(rows: ChatSource[], count: number): ChatPipelineNote[] {
   return seeds
 }
 
-function toPipelineNotes(
-  noteIds: string[],
-  titlesByPath: Map<string, string>,
-  source: ChatPipelineNote['source']
-): ChatPipelineNote[] {
-  return noteIds.map((note) => ({
-    note,
-    title: titlesByPath.get(note) ?? 'Untitled',
-    source
-  }))
-}
-
 function parseRerankerResponse(raw: string): Array<{ id: string; score: number }> | null {
   const trimmed = raw.trim()
   if (!trimmed) return null

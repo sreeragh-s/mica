@@ -59,7 +59,7 @@ export function defaultWorkspaceViewSnapshot(): NotelabWorkspaceViewSnapshotV1 {
 let notesWorkspaceCwd: string | null = null
 /** Full JSON object written back so unknown keys are preserved. */
 let fileEnvelope: Record<string, unknown> = { version: 1 }
-let persistTimer: ReturnType<typeof setTimeout> | null = null
+let persistTimer: number | null = null
 
 function coerceSnapshot(raw: unknown): NotelabWorkspaceViewSnapshotV1 {
   const d = defaultWorkspaceViewSnapshot()
