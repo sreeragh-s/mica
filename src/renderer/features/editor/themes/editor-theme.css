@@ -89,3 +89,14 @@
 .Collapsible__container[open] >.Collapsible__title {
   list-style-type: disclosure-open;
 }
+
+/* In-note find (CSS Custom Highlight API — Chromium / Safari 16.4+) */
+::highlight(notelab-editor-find) {
+  background-color: color-mix(in oklch, var(--color-primary) 22%, transparent);
+  color: inherit;
+}
+
+::highlight(notelab-editor-find-active) {
+  background-color: color-mix(in oklch, var(--color-primary) 48%, transparent);
+  color: inherit;
+}

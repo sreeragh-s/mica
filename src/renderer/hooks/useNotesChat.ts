@@ -1,6 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { EmbeddingsSearchRow } from '@/lib/auth/auth-bridge'
+import type { CandidateSource, Mode } from '@/lib/ai/chat-retrieval-pipeline'
+import {
+  classifyQueryComplexity,
+  expandSeedConnections,
+  getModeConfig,
+  shouldBlendGlobalFallback
+} from '@/lib/ai/chat-retrieval-pipeline'
 import { createElectronLogger } from '@/lib/core/electron-log'
+import type { WorkspaceLinkMentionIndex } from '@/lib/notes/cache/notes-cache-types'
 import type { SavedNote, Folder } from '@/lib/notes/notes-storage'
 
 const LOG = '[useNotesChat]'
@@ -15,6 +23,32 @@ export type ChatSource = {
   title: string
   folder: string
   chunkText: string
+  score?: number
+  source?: CandidateSource
+}
+
+export type ChatPipelineStage =
+  | 'analyzing'
+  | 'searching'
+  | 'seed-results'
+  | 'expanding'
+  | 'connected-results'
+  | 'reranking'
+  | 'context-ready'
+
+export type ChatPipelineNote = {
+  note: string
+  title: string
+  source: 'seed' | 'connected' | 'global_fallback'
+}
+
+export type ChatPipelineStatus = {
+  stage: ChatPipelineStage
+  mode: Mode
+  suggestedMode: Mode
+  seedNotes: ChatPipelineNote[]
+  connectedNotes: ChatPipelineNote[]
+  finalNotes: ChatPipelineNote[]
 }
 
 export type ChatMessage = {
@@ -127,10 +161,74 @@ function searchRowsToSources(
         note: row.note,
         title: note?.title || row.title || 'Untitled',
         folder: row.folder,
-        chunkText: row.text
+        chunkText: row.text,
+        score: row.score
       }
     })
     .filter((source) => existingNoteIds.has(source.note))
+}
+
+function dedupeSourcesByExcerpt(sources: ChatSource[]): ChatSource[] {
+  const deduped: ChatSource[] = []
+  const seen = new Set<string>()
+  for (const source of sources) {
+    const key = `${source.note}:${source.chunkText.slice(0, 80)}`
+    if (seen.has(key)) continue
+    seen.add(key)
+    deduped.push(source)
+  }
+  return deduped
+}
+
+function noteTitleByPath(notes: SavedNote[]): Map<string, string> {
+  return new Map(notes.map((note) => [note.path, note.title?.trim() || 'Untitled']))
+}
+
+function pickSeedNotes(rows: ChatSource[], count: number): ChatPipelineNote[] {
+  const seeds: ChatPipelineNote[] = []
+  const seen = new Set<string>()
+  for (const row of rows) {
+    if (seen.has(row.note)) continue
+    seen.add(row.note)
+    seeds.push({ note: row.note, title: row.title, source: 'seed' })
+    if (seeds.length >= count) break
+  }
+  return seeds
+}
+
+function toPipelineNotes(
+  noteIds: string[],
+  titlesByPath: Map<string, string>,
+  source: ChatPipelineNote['source']
+): ChatPipelineNote[] {
+  return noteIds.map((note) => ({
+    note,
+    title: titlesByPath.get(note) ?? 'Untitled',
+    source
+  }))
+}
+
+function parseRerankerResponse(raw: string): Array<{ id: string; score: number }> | null {
+  const trimmed = raw.trim()
+  if (!trimmed) return null
+  const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/i)
+  const payload = fenced?.[1] ?? trimmed
+  try {
+    const parsed = JSON.parse(payload) as unknown
+    if (!Array.isArray(parsed)) return null
+    const rows = parsed
+      .map((entry) => {
+        if (!entry || typeof entry !== 'object') return null
+        const candidate = entry as { id?: unknown; score?: unknown }
+        return typeof candidate.id === 'string' && typeof candidate.score === 'number'
+          ? { id: candidate.id, score: candidate.score }
+          : null
+      })
+      .filter((entry): entry is { id: string; score: number } => entry !== null)
+    return rows.length > 0 ? rows : null
+  } catch {
+    return null
+  }
 }
 
 function parseSSEChunks(raw: string): { tokens: string[]; done: boolean } {
@@ -161,6 +259,7 @@ export type UseNotesChatOptions = {
   folders?: Folder[]
   selectedNote: SavedNote | null
   workspacePath: string | null
+  linkMentionIndex?: WorkspaceLinkMentionIndex | null
   /** Notelab model ID to use for chat requests. Defaults to llama-4-scout-17b. */
   modelId?: string
 }
@@ -169,12 +268,14 @@ export type UseNotesChatOptions = {
 export type SendMessageContextOptions = {
   explicitNoteIds?: string[]
   explicitWorkspaceIds?: string[]
+  mode?: Mode
 }
 
 export type UseNotesChatResult = {
   session: ChatSession
   historyMeta: ChatHistoryMeta[]
   isLoading: boolean
+  pipelineStatus: ChatPipelineStatus | null
   filterWorkspaceId: string | null
   setFilterWorkspaceId: (id: string | null) => void
   showHistory: boolean
@@ -190,11 +291,13 @@ export function useNotesChat({
   notes,
   selectedNote,
   workspacePath,
+  linkMentionIndex,
   modelId = 'llama-4-scout-17b'
 }: UseNotesChatOptions): UseNotesChatResult {
   const [session, setSession] = useState<ChatSession>(loadCurrentSession)
   const [historyMeta, setHistoryMeta] = useState<ChatHistoryMeta[]>(loadHistoryMeta)
   const [isLoading, setIsLoading] = useState(false)
+  const [pipelineStatus, setPipelineStatus] = useState<ChatPipelineStatus | null>(null)
   const [filterWorkspaceId, setFilterWorkspaceId] = useState<string | null>(null)
   const [showHistory, setShowHistory] = useState(false)
 
@@ -205,6 +308,7 @@ export function useNotesChat({
 
   // Abort ref — set to true when a new message is sent mid-stream
   const abortRef = useRef(false)
+  const activeRequestIdRef = useRef<string | null>(null)
 
   // Cleanup for the active stream
   const streamCleanupRef = useRef<(() => void) | null>(null)
@@ -215,6 +319,7 @@ export function useNotesChat({
 
   const sendMessage = useCallback(
     async (query: string, contextOpts?: SendMessageContextOptions) => {
+      const ABORTED = '__NOTELAB_ABORTED__'
       const explicitNoteIds = contextOpts?.explicitNoteIds?.filter(Boolean) ?? []
       const explicitWorkspaceIds = contextOpts?.explicitWorkspaceIds?.filter(Boolean) ?? []
       const trimmedQuery =
@@ -240,6 +345,36 @@ export function useNotesChat({
       abortRef.current = true
       streamCleanupRef.current?.()
       abortRef.current = false
+      const requestId = newSessionId()
+      activeRequestIdRef.current = requestId
+
+      const isCancelled = (): boolean =>
+        abortRef.current || activeRequestIdRef.current !== requestId
+      const ensureActive = (): void => {
+        if (isCancelled()) throw new Error(ABORTED)
+      }
+
+      const suggestedMode = classifyQueryComplexity(trimmedQuery)
+      const mode = contextOpts?.mode ?? suggestedMode
+      const modeConfig = getModeConfig(mode)
+      const titlesByPath = noteTitleByPath(notes)
+
+      const updatePipeline = (
+        stage: ChatPipelineStage,
+        seedNotes: ChatPipelineNote[] = [],
+        connectedNotes: ChatPipelineNote[] = [],
+        finalNotes: ChatPipelineNote[] = []
+      ): void => {
+        if (isCancelled()) return
+        setPipelineStatus({
+          stage,
+          mode,
+          suggestedMode,
+          seedNotes,
+          connectedNotes,
+          finalNotes
+        })
+      }
 
       const userMsg: ChatMessage = {
         id: newSessionId(),
@@ -249,6 +384,7 @@ export function useNotesChat({
       }
 
       setIsLoading(true)
+      updatePipeline('analyzing')
 
       // Add user message + placeholder assistant message
       const assistantId = newSessionId()
@@ -265,288 +401,442 @@ export function useNotesChat({
         return updated
       })
 
-      const existingNoteIds = new Set(notes.map((n) => n.path))
-      const searchApi = window.api.embeddings?.searchDocuments
+      try {
+        const existingNoteIds = new Set(notes.map((n) => n.path))
+        const searchApi = window.api.embeddings?.searchDocuments
+        const workspaceFilter = filterWorkspaceId ? { folder: { $eq: filterWorkspaceId } } : undefined
 
-      // -----------------------------------------------------------------------
-      // 1. Retrieve document sections from the workspace-local Vectra index
-      // -----------------------------------------------------------------------
-      const mentionSources: ChatSource[] = []
-      if (
-        workspacePath &&
-        searchApi &&
-        (explicitNoteIds.length > 0 || explicitWorkspaceIds.length > 0)
-      ) {
-        const seenMention = new Set<string>()
-        if (explicitNoteIds.length > 0) {
-          const res = await searchApi({
-            workspacePath,
-            query: trimmedQuery,
-            maxDocuments: Math.min(Math.max(explicitNoteIds.length, 1), 12),
-            maxChunks: 24,
-            maxSections: 1,
-            maxTokens: 320,
-            filter: { note: { $in: explicitNoteIds } },
-            isBm25: true
-          })
-          if (res.ok) {
-            for (const source of searchRowsToSources(res.rows, notes, existingNoteIds)) {
-              const key = `${source.note}:${source.chunkText.slice(0, 40)}`
-              if (seenMention.has(key)) continue
-              seenMention.add(key)
-              mentionSources.push(source)
-            }
+        const runReranker = async (
+          candidates: Array<ChatSource & { id: string }>
+        ): Promise<Array<{ id: string; score: number }> | null> => {
+          if (candidates.length === 0) return null
+
+          const system =
+            'You are a relevance scorer. Given a query and a list of note excerpts, return a JSON array of { id, score } where score is 0.0–1.0 based on how directly useful each excerpt is for answering the query. Return only JSON.'
+          const user = `Query: ${trimmedQuery}\n\nExcerpts:\n${candidates
+            .map(
+              (candidate) =>
+                `- id: ${candidate.id}\n  title: ${candidate.title}\n  excerpt: ${candidate.chunkText.slice(0, 700)}`
+            )
+            .join('\n\n')}`
+
+          const timeoutMs = 3000
+          if (isLocalModel && ollamaModelName) {
+            const chatStream = window.api.ollama?.chatStream
+            if (!chatStream) return null
+
+            const result = await new Promise<string | null>((resolve) => {
+              let text = ''
+              let settled = false
+              let buffer = ''
+              const timer = window.setTimeout(() => {
+                settled = true
+                cleanup()
+                resolve(null)
+              }, timeoutMs)
+
+              const cleanup = chatStream(
+                JSON.stringify({
+                  model: ollamaModelName,
+                  messages: [
+                    { role: 'system', content: system },
+                    { role: 'user', content: user }
+                  ],
+                  stream: true
+                }),
+                {
+                  onChunk: (chunk) => {
+                    if (settled || isCancelled()) return
+                    buffer += chunk
+                    const lines = buffer.split('\n')
+                    buffer = lines.pop() ?? ''
+                    for (const line of lines) {
+                      try {
+                        const parsed = JSON.parse(line) as { message?: { content?: string } }
+                        text += parsed.message?.content ?? ''
+                      } catch {
+                        /* skip malformed */
+                      }
+                    }
+                  },
+                  onEnd: () => {
+                    if (settled) return
+                    settled = true
+                    window.clearTimeout(timer)
+                    if (buffer.trim()) {
+                      try {
+                        const parsed = JSON.parse(buffer) as { message?: { content?: string } }
+                        text += parsed.message?.content ?? ''
+                      } catch {
+                        /* ignore tail */
+                      }
+                    }
+                    resolve(text)
+                  },
+                  onError: () => {
+                    if (settled) return
+                    settled = true
+                    window.clearTimeout(timer)
+                    resolve(null)
+                  }
+                }
+              )
+            })
+
+            ensureActive()
+            return result ? parseRerankerResponse(result) : null
           }
+
+          const authFetch = window.api.auth.fetch
+          const baseUrl = (import.meta.env.VITE_AUTH_URL?.trim() ?? '').replace(/\/$/, '')
+          if (!authFetch || !baseUrl) return null
+
+          const response = await Promise.race([
+            authFetch(`${baseUrl}/api/chat`, {
+              method: 'POST',
+              body: JSON.stringify({
+                modelId,
+                contextChunks: [],
+                messages: [
+                  { role: 'system', content: system },
+                  { role: 'user', content: user }
+                ]
+              })
+            }),
+            new Promise<null>((resolve) => {
+              window.setTimeout(() => resolve(null), timeoutMs)
+            })
+          ])
+
+          ensureActive()
+          if (!response || !response.ok) return null
+
+          const parsedStream = parseSSEChunks(response.body)
+          const payload = parsedStream.tokens.length > 0 ? parsedStream.tokens.join('') : response.body
+          return parseRerankerResponse(payload)
         }
-        if (explicitWorkspaceIds.length > 0) {
-          const res = await searchApi({
-            workspacePath,
-            query: trimmedQuery,
-            maxDocuments: Math.min(Math.max(explicitWorkspaceIds.length * 3, 3), 16),
-            maxChunks: 32,
-            maxSections: 1,
-            maxTokens: 320,
-            filter: { folder: { $in: explicitWorkspaceIds } },
-            isBm25: true
-          })
-          if (res.ok) {
-            for (const source of searchRowsToSources(res.rows, notes, existingNoteIds)) {
-              const key = `${source.note}:${source.chunkText.slice(0, 40)}`
-              if (seenMention.has(key)) continue
-              seenMention.add(key)
-              mentionSources.push(source)
-            }
-          }
-        }
-        log.info(
-          `[1/3] @-mention context — sections=${mentionSources.length} explicitNotes=${explicitNoteIds.length} explicitWorkspaces=${explicitWorkspaceIds.length}`
-        )
-      }
 
-      const workspaceFilter = filterWorkspaceId ? { folder: { $eq: filterWorkspaceId } } : undefined
-
-      log.info(`[1/3] notes in memory: ${notes.length}`)
-      notes.slice(0, 15).forEach((n, i) => {
-        log.info(`notes[${i}] id="${n.path}" title="${n.title}" folder="${n.folder}"`)
-      })
-      if (notes.length > 15) log.info(`… and ${notes.length - 15} more notes in memory`)
-
-      log.info(
-        `[1/3] Vectra queryDocuments — workspacePath=${workspacePath ?? '(none)'} maxDocuments=5 workspaceFilter=${filterWorkspaceId ?? '(none)'}`
-      )
-      const searchRes =
-        workspacePath && searchApi
-          ? await searchApi({
+        // ---------------------------------------------------------------------
+        // Mention context (preserved from existing flow)
+        // ---------------------------------------------------------------------
+        const mentionSources: ChatSource[] = []
+        if (
+          workspacePath &&
+          searchApi &&
+          (explicitNoteIds.length > 0 || explicitWorkspaceIds.length > 0)
+        ) {
+          const seenMention = new Set<string>()
+          if (explicitNoteIds.length > 0) {
+            const res = await searchApi({
               workspacePath,
               query: trimmedQuery,
-              maxDocuments: 5,
-              maxChunks: 20,
+              maxDocuments: Math.min(Math.max(explicitNoteIds.length, 1), 12),
+              maxChunks: 24,
               maxSections: 1,
               maxTokens: 320,
-              filter: workspaceFilter,
+              filter: { note: { $in: explicitNoteIds } },
               isBm25: true
             })
-          : null
-      log.info('[1/3] raw Vectra rows', searchRes)
-
-      let ragSources: ChatSource[] = []
-      if (searchRes?.ok) {
-        log.info(`[1/3] ${searchRes.rows.length} row(s) returned from Vectra`)
-        ragSources = searchRowsToSources(searchRes.rows, notes, existingNoteIds)
-      } else {
-        log.warn('[1/3] document search failed or unavailable', searchRes)
-      }
-
-      // @-mention sections first, then top search hits (dedup by notePath + section prefix)
-      {
-        const merged: ChatSource[] = []
-        const seen = new Set<string>()
-        for (const s of [...mentionSources, ...ragSources]) {
-          const key = `${s.note}:${s.chunkText.slice(0, 30)}`
-          if (seen.has(key)) continue
-          seen.add(key)
-          merged.push(s)
+            ensureActive()
+            if (res.ok) {
+              for (const source of searchRowsToSources(res.rows, notes, existingNoteIds)) {
+                const key = `${source.note}:${source.chunkText.slice(0, 40)}`
+                if (seenMention.has(key)) continue
+                seenMention.add(key)
+                mentionSources.push({ ...source, source: 'mention' })
+              }
+            }
+          }
+          if (explicitWorkspaceIds.length > 0) {
+            const res = await searchApi({
+              workspacePath,
+              query: trimmedQuery,
+              maxDocuments: Math.min(Math.max(explicitWorkspaceIds.length * 3, 3), 16),
+              maxChunks: 32,
+              maxSections: 1,
+              maxTokens: 320,
+              filter: { folder: { $in: explicitWorkspaceIds } },
+              isBm25: true
+            })
+            ensureActive()
+            if (res.ok) {
+              for (const source of searchRowsToSources(res.rows, notes, existingNoteIds)) {
+                const key = `${source.note}:${source.chunkText.slice(0, 40)}`
+                if (seenMention.has(key)) continue
+                seenMention.add(key)
+                mentionSources.push({ ...source, source: 'mention' })
+              }
+            }
+          }
         }
-        ragSources = merged
-      }
 
-      // allSources = all sections passed to the AI for context (full detail)
-      const allSources = ragSources
+        // ---------------------------------------------------------------------
+        // Stage 1: global embedding query
+        // ---------------------------------------------------------------------
+        updatePipeline('searching')
+        const stage1Res =
+          workspacePath && searchApi
+            ? await searchApi({
+                workspacePath,
+                query: trimmedQuery,
+                maxDocuments: modeConfig.seedCount,
+                maxChunks: Math.max(modeConfig.seedCount * 4, 12),
+                maxSections: 1,
+                maxTokens: 320,
+                filter: workspaceFilter,
+                isBm25: true
+              })
+            : null
+        ensureActive()
 
-      // uniqueSources = deduplicated by notePath for the "Used N sources" display
-      const uniqueSources = allSources.filter(
-        (s, i, arr) => arr.findIndex((x) => x.note === s.note) === i
-      )
-      log.info(`[1/3] ${allSources.length} section(s) → ${uniqueSources.length} unique note(s)`)
-
-      // -----------------------------------------------------------------------
-      // 2. Build context for the AI (all sections, not deduplicated)
-      // -----------------------------------------------------------------------
-      const contextChunks = allSources.map((s) => `[Source: "${s.title}"]\n${s.chunkText}`)
-
-      log.info(`[2/3] context — ${contextChunks.length} section(s)`)
-      contextChunks.forEach((c, i) => {
-        log.info(`context[${i}] chars=${c.length} text="${c.slice(0, 150).replace(/\n/g, '↵')}"`)
-      })
-
-      // -----------------------------------------------------------------------
-      // 3. Build message history for the API (last 10 messages, no sources)
-      // -----------------------------------------------------------------------
-      const historyForApi = session.messages.slice(-10).map((m) => ({
-        role: m.role,
-        content: m.content
-      }))
-      historyForApi.push({ role: 'user' as const, content: trimmedQuery })
-
-      log.info(
-        `[3/3] POST /api/chat — messages=${historyForApi.length} contextSections=${contextChunks.length}`
-      )
-      historyForApi.forEach((m, i) => {
-        log.info(`msg[${i}] [${m.role}]: "${m.content.slice(0, 80)}"`)
-      })
-
-      // -----------------------------------------------------------------------
-      // 5. Stream from /api/chat (cloud) or Ollama local server
-      // -----------------------------------------------------------------------
-      let accumulatedContent = ''
-      let chunkCount = 0
-
-      // Helper: finalize assistant message with accumulated content + sources
-      const finalizeMessage = (): void => {
-        setSession((prev) => ({
-          ...prev,
-          messages: prev.messages.map((m) =>
-            m.id === assistantId ? { ...m, sources: uniqueSources, content: accumulatedContent } : m
+        let stage1Sources: ChatSource[] = []
+        if (stage1Res?.ok) {
+          stage1Sources = searchRowsToSources(stage1Res.rows, notes, existingNoteIds).sort(
+            (left, right) => (right.score ?? 0) - (left.score ?? 0)
           )
-        }))
-        setIsLoading(false)
-        streamCleanupRef.current = null
-      }
+        } else if (stage1Res) {
+          log.warn('[pipeline] stage 1 document search failed', stage1Res)
+        }
 
-      const handleStreamError = (msg: string): void => {
-        log.error(`[3/3] stream error after ${chunkCount} chunk(s)`, msg)
-        setSession((prev) => ({
-          ...prev,
-          messages: prev.messages.map((m) =>
-            m.id === assistantId
-              ? { ...m, content: accumulatedContent || `⚠️ Stream error: ${msg}` }
-              : m
+        const seedNotes = pickSeedNotes(stage1Sources, modeConfig.seedCount)
+        updatePipeline('seed-results', seedNotes)
+
+        // ---------------------------------------------------------------------
+        // Stage 2: graph expansion
+        // ---------------------------------------------------------------------
+        updatePipeline('expanding', seedNotes)
+        const expandedNodes = expandSeedConnections(
+          seedNotes.map((note) => note.note),
+          linkMentionIndex,
+          modeConfig.expandedNodeCap
+        )
+        ensureActive()
+        const connectedNotes = expandedNodes.map((node) => ({
+          note: node.note,
+          title: titlesByPath.get(node.note) ?? 'Untitled',
+          source: 'connected' as const
+        }))
+        updatePipeline('connected-results', seedNotes, connectedNotes)
+
+        // ---------------------------------------------------------------------
+        // Stage 3: focused embedding query on expanded pool
+        // ---------------------------------------------------------------------
+        updatePipeline('reranking', seedNotes, connectedNotes)
+        let candidatePool: ChatSource[] = []
+        if (workspacePath && searchApi && expandedNodes.length > 0) {
+          const stage3Res = await searchApi({
+            workspacePath,
+            query: trimmedQuery,
+            maxDocuments: expandedNodes.length,
+            maxChunks: Math.max(modeConfig.expandedNodeCap * 2, 12),
+            maxSections: 1,
+            maxTokens: 320,
+            filter: { note: { $in: expandedNodes.map((node) => node.note) } },
+            isBm25: true
+          })
+          ensureActive()
+          if (stage3Res.ok) {
+            candidatePool = searchRowsToSources(stage3Res.rows, notes, existingNoteIds).map((row) => ({
+              ...row,
+              source: 'connected'
+            }))
+          }
+        }
+        candidatePool.sort((left, right) => (right.score ?? 0) - (left.score ?? 0))
+
+        // ---------------------------------------------------------------------
+        // Stage 4: confidence fallback
+        // ---------------------------------------------------------------------
+        const notesInPool = new Set(candidatePool.map((candidate) => candidate.note))
+        if (shouldBlendGlobalFallback(candidatePool[0]?.score ?? null)) {
+          for (const source of stage1Sources) {
+            if (notesInPool.has(source.note)) continue
+            candidatePool.push({ ...source, source: 'global_fallback' })
+            notesInPool.add(source.note)
+            if (
+              candidatePool.filter((candidate) => candidate.source === 'global_fallback').length >= 3
+            ) {
+              break
+            }
+          }
+        }
+
+        candidatePool = dedupeSourcesByExcerpt(candidatePool)
+        const rerankCandidates = candidatePool.map((candidate, index) => ({
+          ...candidate,
+          id: `${candidate.note}::${index}`
+        }))
+
+        // ---------------------------------------------------------------------
+        // Stage 5: LLM reranker with silent fallback
+        // ---------------------------------------------------------------------
+        const rerankedScores = await runReranker(rerankCandidates).catch(() => null)
+        ensureActive()
+        const rerankScoreById = new Map(rerankedScores?.map((row) => [row.id, row.score]) ?? [])
+        const sortedCandidates = [...rerankCandidates].sort((left, right) => {
+          const rightScore = rerankScoreById.get(right.id) ?? right.score ?? 0
+          const leftScore = rerankScoreById.get(left.id) ?? left.score ?? 0
+          return rightScore - leftScore
+        })
+        const topCandidates = sortedCandidates.slice(0, modeConfig.finalContextCount)
+        const finalPipelineNotes = Array.from(
+          new Map(
+            topCandidates.map((candidate) => [
+              candidate.note,
+              {
+                note: candidate.note,
+                title: candidate.title,
+                source:
+                  candidate.source === 'global_fallback'
+                    ? ('global_fallback' as const)
+                    : ('connected' as const)
+              }
+            ])
+          ).values()
+        )
+        updatePipeline('context-ready', seedNotes, connectedNotes, finalPipelineNotes)
+
+        // ---------------------------------------------------------------------
+        // Stage 6: assemble context and stream final LLM call
+        // ---------------------------------------------------------------------
+        const allSources = dedupeSourcesByExcerpt([...mentionSources, ...topCandidates])
+        const uniqueSources = allSources.filter(
+          (source, index, arr) => arr.findIndex((candidate) => candidate.note === source.note) === index
+        )
+        const contextChunks = allSources.map((source) => `[Source: "${source.title}"]\n${source.chunkText}`)
+        const historyForApi = session.messages.slice(-10).map((message) => ({
+          role: message.role,
+          content: message.content
+        }))
+        historyForApi.push({ role: 'user' as const, content: trimmedQuery })
+
+        let accumulatedContent = ''
+        let chunkCount = 0
+
+        const finalizeMessage = (): void => {
+          if (isCancelled()) return
+          setSession((prev) => ({
+            ...prev,
+            messages: prev.messages.map((message) =>
+              message.id === assistantId
+                ? { ...message, sources: uniqueSources, content: accumulatedContent }
+                : message
+            )
+          }))
+          setIsLoading(false)
+          setPipelineStatus(null)
+          streamCleanupRef.current = null
+        }
+
+        const handleStreamError = (msg: string): void => {
+          if (isCancelled()) return
+          log.error('[pipeline] stream error', msg)
+          setSession((prev) => ({
+            ...prev,
+            messages: prev.messages.map((message) =>
+              message.id === assistantId
+                ? { ...message, content: accumulatedContent || `⚠️ Stream error: ${msg}` }
+                : message
+            )
+          }))
+          setIsLoading(false)
+          setPipelineStatus(null)
+          streamCleanupRef.current = null
+        }
+
+        if (isLocalModel && ollamaModelName) {
+          const systemPrompt =
+            contextChunks.length > 0
+              ? `You are a helpful notes assistant. Use the following excerpts from the user's notes to answer questions:\n\n${contextChunks.join('\n\n---\n\n')}`
+              : 'You are a helpful notes assistant.'
+
+          const ollamaMessages = [
+            { role: 'system', content: systemPrompt },
+            ...historyForApi.map((message) => ({ role: message.role, content: message.content }))
+          ]
+
+          const chatStream = window.api.ollama?.chatStream
+          if (!chatStream) {
+            handleStreamError('Local Ollama chat bridge unavailable')
+            return
+          }
+
+          let buf = ''
+          let ollamaStreamFailed = false
+          const ollamaStreamError = (msg: string): void => {
+            ollamaStreamFailed = true
+            handleStreamError(msg)
+          }
+
+          const processLine = (line: string): void => {
+            const trimmed = line.trim()
+            if (!trimmed || isCancelled()) return
+            try {
+              const obj = JSON.parse(trimmed) as {
+                message?: { content?: string }
+                done?: boolean
+                error?: string
+              }
+              if (obj.error) {
+                ollamaStreamError(obj.error)
+                return
+              }
+              const token = obj.message?.content ?? ''
+              if (token) {
+                chunkCount++
+                accumulatedContent += token
+                setSession((prev) => ({
+                  ...prev,
+                  messages: prev.messages.map((message) =>
+                    message.id === assistantId ? { ...message, content: accumulatedContent } : message
+                  )
+                }))
+              }
+            } catch {
+              /* skip malformed */
+            }
+          }
+
+          streamCleanupRef.current = chatStream(
+            JSON.stringify({
+              model: ollamaModelName,
+              messages: ollamaMessages,
+              stream: true
+            }),
+            {
+              onChunk: (text) => {
+                if (isCancelled() || ollamaStreamFailed) return
+                buf += text
+                const lines = buf.split('\n')
+                buf = lines.pop() ?? ''
+                for (const line of lines) {
+                  processLine(line)
+                }
+              },
+              onEnd: () => {
+                if (!ollamaStreamFailed && buf.trim()) processLine(buf)
+                if (!ollamaStreamFailed) finalizeMessage()
+              },
+              onError: ollamaStreamError
+            }
           )
-        }))
-        setIsLoading(false)
-        streamCleanupRef.current = null
-      }
-
-      if (isLocalModel && ollamaModelName) {
-        // ── Local Ollama path ──
-        log.info(`[3/3] streaming from local Ollama — model="${ollamaModelName}"`)
-
-        // Build Ollama chat messages format (with system prompt containing context)
-        const systemPrompt =
-          contextChunks.length > 0
-            ? `You are a helpful notes assistant. Use the following excerpts from the user's notes to answer questions:\n\n${contextChunks.join('\n\n---\n\n')}`
-            : 'You are a helpful notes assistant.'
-
-        const ollamaMessages = [
-          { role: 'system', content: systemPrompt },
-          ...historyForApi.map((m) => ({ role: m.role, content: m.content }))
-        ]
-
-        // Stream via main process — renderer fetch() to localhost hits CORS from the Vite dev origin.
-        const chatStream = window.api.ollama?.chatStream
-        if (!chatStream) {
-          handleStreamError('Local Ollama chat bridge unavailable')
           return
         }
 
-        const bodyJson = JSON.stringify({
-          model: ollamaModelName,
-          messages: ollamaMessages,
-          stream: true
-        })
-
-        /** Ollama may send an error JSON line; main still ends the stream afterward. */
-        let ollamaStreamFailed = false
-        const ollamaStreamError = (msg: string): void => {
-          ollamaStreamFailed = true
-          handleStreamError(msg)
-        }
-
-        let buf = ''
-        const processLine = (line: string): void => {
-          const trimmed = line.trim()
-          if (!trimmed) return
-          try {
-            const obj = JSON.parse(trimmed) as {
-              message?: { content?: string }
-              done?: boolean
-              error?: string
-            }
-            if (obj.error) {
-              ollamaStreamError(obj.error)
-              return
-            }
-            const token = obj.message?.content ?? ''
-            if (token) {
-              chunkCount++
-              accumulatedContent += token
-              setSession((prev) => ({
-                ...prev,
-                messages: prev.messages.map((m) =>
-                  m.id === assistantId ? { ...m, content: accumulatedContent } : m
-                )
-              }))
-            }
-            if (obj.done) {
-              log.info(
-                `[3/3] Ollama stream done — tokens=${chunkCount} chars=${accumulatedContent.length}`
-              )
-            }
-          } catch {
-            /* skip malformed */
-          }
-        }
-
-        const cleanupStream = chatStream(bodyJson, {
-          onChunk: (text) => {
-            if (abortRef.current || ollamaStreamFailed) return
-            buf += text
-            const lines = buf.split('\n')
-            buf = lines.pop() ?? ''
-            for (const line of lines) {
-              processLine(line)
-            }
-          },
-          onEnd: () => {
-            if (!ollamaStreamFailed && buf.trim()) {
-              processLine(buf)
-              buf = ''
-            }
-            if (!ollamaStreamFailed) finalizeMessage()
-          },
-          onError: ollamaStreamError
-        })
-        streamCleanupRef.current = cleanupStream
-      } else {
-        // ── Cloud API path ──
         const streamFetch = window.api.auth.streamFetch
         if (!streamFetch) {
-          log.error('streamFetch not available')
-          setIsLoading(false)
+          handleStreamError('streamFetch not available')
           return
         }
 
         const baseUrl = (import.meta.env.VITE_AUTH_URL?.trim() ?? '').replace(/\/$/, '')
         if (!baseUrl) {
-          log.error('VITE_AUTH_URL not set')
-          setIsLoading(false)
+          handleStreamError('VITE_AUTH_URL not set')
           return
         }
 
         let rawBuffer = ''
-        log.info(`[3/3] starting stream from ${baseUrl}/api/chat`)
-
-        const cleanup = streamFetch(
+        streamCleanupRef.current = streamFetch(
           `${baseUrl}/api/chat`,
           {
             method: 'POST',
@@ -554,44 +844,46 @@ export function useNotesChat({
           },
           {
             onChunk: (chunk: string) => {
-              if (abortRef.current) return
+              if (isCancelled()) return
               chunkCount++
-              log.info(
-                `SSE raw chunk[${chunkCount}] bytes=${chunk.length} preview=${JSON.stringify(chunk.slice(0, 120))}`
-              )
               rawBuffer += chunk
               const { tokens } = parseSSEChunks(rawBuffer)
               const lastNewline = rawBuffer.lastIndexOf('\n')
-              if (lastNewline >= 0) {
-                rawBuffer = rawBuffer.slice(lastNewline + 1)
-              }
+              if (lastNewline >= 0) rawBuffer = rawBuffer.slice(lastNewline + 1)
               if (tokens.length > 0) {
-                log.info(`SSE tokens[${chunkCount}] ${tokens.join('')}`)
                 accumulatedContent += tokens.join('')
                 setSession((prev) => ({
                   ...prev,
-                  messages: prev.messages.map((m) =>
-                    m.id === assistantId ? { ...m, content: accumulatedContent } : m
+                  messages: prev.messages.map((message) =>
+                    message.id === assistantId ? { ...message, content: accumulatedContent } : message
                   )
                 }))
               }
             },
-            onEnd: () => {
-              log.info(
-                `[3/3] stream ended — chunks=${chunkCount} chars=${accumulatedContent.length}`
-              )
-              log.info(`[3/3] final response preview: "${accumulatedContent.slice(0, 200)}"`)
-              finalizeMessage()
-            },
+            onEnd: finalizeMessage,
             onError: handleStreamError
           }
         )
-
-        streamCleanupRef.current = cleanup
+      } catch (error) {
+        if (error instanceof Error && error.message === ABORTED) return
+        const message = error instanceof Error ? error.message : String(error)
+        log.error('[pipeline] sendMessage failed', message)
+        if (!isCancelled()) {
+          setIsLoading(false)
+          setPipelineStatus(null)
+          setSession((prev) => ({
+            ...prev,
+            messages: prev.messages.map((messageItem) =>
+              messageItem.id === assistantId
+                ? { ...messageItem, content: `⚠️ ${message}` }
+                : messageItem
+            )
+          }))
+        }
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [isLoading, filterWorkspaceId, selectedNote, notes, session.messages, modelId]
+    [isLoading, filterWorkspaceId, selectedNote, notes, session.messages, modelId, linkMentionIndex]
   )
 
   // ---------------------------------------------------------------------------
