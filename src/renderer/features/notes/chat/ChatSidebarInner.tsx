@@ -1,6 +1,8 @@
 import {
   AlertCircleIcon,
   BotIcon,
+  BookOpenIcon,
+  CheckIcon,
   CopyIcon,
   History,
   Link2Icon,
@@ -50,7 +52,14 @@ import {
 import { Message, MessageActions, MessageContent, MessageResponse } from '@/features/ai/message'
 import { Source, Sources, SourcesContent, SourcesTrigger } from '@/features/ai/sources'
 import { Suggestion, Suggestions } from '@/features/ai/suggestion'
+import { Command, CommandGroup, CommandItem, CommandList } from '@/components/ui/command'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger
+} from '@/components/ui/dropdown-menu'
 import { InputGroup, InputGroupAddon, InputGroupButton } from '@/components/ui/input-group'
+import { Collapsible } from '@/components/ui/collapsible'
 import { Separator } from '@/components/ui/separator'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { copyPlainTextToClipboard } from '@/lib/core/copy-to-clipboard'
@@ -124,6 +133,86 @@ function PipelineNoteChips({
         </button>
       ))}
     </div>
+  )
+}
+
+function PipelineProgressSources({
+  status,
+  onOpenNote
+}: {
+  status: ChatPipelineStatus
+  onOpenNote: (notePath: string) => void
+}): JSX.Element {
+  const showSeedNotes =
+    status.stage === 'seed-results' ||
+    status.stage === 'expanding' ||
+    status.stage === 'connected-results' ||
+    status.stage === 'reranking' ||
+    status.stage === 'context-ready'
+
+  const showConnectedNotes =
+    status.stage === 'connected-results' ||
+    status.stage === 'reranking' ||
+    status.stage === 'context-ready'
+
+  const showFinalNotes = status.stage === 'context-ready'
+
+  return (
+    <Collapsible className="not-prose mb-0 mt-2 text-xs text-muted-foreground/90" defaultOpen>
+      <SourcesTrigger
+        className="items-center gap-2 rounded-full bg-muted/45 px-2.5 py-1.5 text-xs text-foreground/85"
+        count={Math.max(status.finalNotes.length, status.connectedNotes.length, status.seedNotes.length, 1)}
+      >
+        <>
+          <Loader2Icon className="size-3.5 animate-spin" />
+          <p className="font-medium">{pipelineHeadline(status)}</p>
+        </>
+      </SourcesTrigger>
+      <SourcesContent className="mt-2 gap-3 rounded-2xl bg-muted/20 p-3">
+        <p className="text-[11px] text-muted-foreground">
+          {formatModeLabel(status.mode)} mode
+          {status.mode !== status.suggestedMode
+            ? `, overriding ${formatModeLabel(status.suggestedMode)}`
+            : ''}
+        </p>
+        {showSeedNotes ? (
+          <div>
+            <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+              Seed notes
+            </p>
+            <div className="mt-2 flex flex-col gap-1.5">
+              {status.seedNotes.map((note) => (
+                <button
+                  key={`seed-${note.note}`}
+                  className="flex items-center gap-2 text-left text-xs text-foreground/85 transition-colors hover:text-foreground"
+                  onClick={() => onOpenNote(note.note)}
+                  type="button"
+                >
+                  <BookOpenIcon className="size-3.5 shrink-0" />
+                  <span className="truncate">{note.title}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : null}
+        {showConnectedNotes ? (
+          <div>
+            <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+              Connected notes
+            </p>
+            <PipelineNoteChips notes={status.connectedNotes} onOpenNote={onOpenNote} />
+          </div>
+        ) : null}
+        {showFinalNotes ? (
+          <div>
+            <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+              Final context
+            </p>
+            <PipelineNoteChips notes={status.finalNotes} onOpenNote={onOpenNote} />
+          </div>
+        ) : null}
+      </SourcesContent>
+    </Collapsible>
   )
 }
 
@@ -562,22 +651,6 @@ export function ChatSidebarInner({
     return 'Ask about your notes…'
   })()
 
-  const showSeedNotes =
-    pipelineStatus &&
-    (pipelineStatus.stage === 'seed-results' ||
-      pipelineStatus.stage === 'expanding' ||
-      pipelineStatus.stage === 'connected-results' ||
-      pipelineStatus.stage === 'reranking' ||
-      pipelineStatus.stage === 'context-ready')
-
-  const showConnectedNotes =
-    pipelineStatus &&
-    (pipelineStatus.stage === 'connected-results' ||
-      pipelineStatus.stage === 'reranking' ||
-      pipelineStatus.stage === 'context-ready')
-
-  const showFinalNotes = pipelineStatus?.stage === 'context-ready'
-
   return (
     <aside
       aria-label="Chat"
@@ -693,6 +766,16 @@ export function ChatSidebarInner({
                           )}
                         </MessageContent>
 
+                        {pipelineStatus &&
+                          isLoading &&
+                          msg.role === 'user' &&
+                          msg.id === session.messages.at(-2)?.id && (
+                            <PipelineProgressSources
+                              onOpenNote={selectNote}
+                              status={pipelineStatus}
+                            />
+                          )}
+
                         {msg.role === 'assistant' && visibleSources.length > 0 && (
                           <Sources className="mt-1">
                             <SourcesTrigger count={visibleSources.length} />
@@ -756,84 +839,6 @@ export function ChatSidebarInner({
           {paywallBanner}
 
           <form className="border-border border-t p-2" onSubmit={(e) => void handleSubmit(e)}>
-            <div className="mb-2 flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <span className="text-muted-foreground text-[11px] font-medium uppercase tracking-wide">
-                  Retrieval
-                </span>
-                <span className="text-muted-foreground text-xs">
-                  Suggested: <span className="text-foreground">{formatModeLabel(suggestedMode)}</span>
-                </span>
-              </div>
-              <div className="bg-muted/50 inline-flex rounded-lg border border-border p-0.5">
-                {MODE_OPTIONS.map((mode) => {
-                  const isSelected = activeMode === mode
-                  const isSuggested = suggestedMode === mode
-                  return (
-                    <button
-                      key={mode}
-                      className={cn(
-                        'relative rounded-md px-2.5 py-1 text-[11px] font-medium transition-colors',
-                        isSelected
-                          ? 'bg-background text-foreground shadow-sm'
-                          : 'text-muted-foreground hover:text-foreground',
-                        isSuggested && !isSelected && 'ring-1 ring-primary/30'
-                      )}
-                      disabled={isLoading || !canChatEffective}
-                      onClick={() => setModeOverride(mode === suggestedMode ? null : mode)}
-                      type="button"
-                    >
-                      {formatModeLabel(mode)}
-                      {isSuggested ? (
-                        <span className="ml-1 rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] text-primary">
-                          auto
-                        </span>
-                      ) : null}
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
-
-            {pipelineStatus ? (
-              <div className="bg-muted/35 mb-2 rounded-2xl border border-border px-3 py-2.5">
-                <div className="flex items-center gap-2">
-                  <Loader2Icon className="text-muted-foreground size-3.5 animate-spin" />
-                  <p className="text-sm font-medium">{pipelineHeadline(pipelineStatus)}</p>
-                </div>
-                <p className="text-muted-foreground mt-1 text-xs">
-                  {formatModeLabel(pipelineStatus.mode)} mode
-                  {pipelineStatus.mode !== pipelineStatus.suggestedMode
-                    ? ` (override from ${formatModeLabel(pipelineStatus.suggestedMode)})`
-                    : ''}
-                </p>
-                {showSeedNotes ? (
-                  <div className="mt-2">
-                    <p className="text-muted-foreground text-[11px] font-medium uppercase tracking-wide">
-                      Seed notes
-                    </p>
-                    <PipelineNoteChips notes={pipelineStatus.seedNotes} onOpenNote={selectNote} />
-                  </div>
-                ) : null}
-                {showConnectedNotes ? (
-                  <div className="mt-2">
-                    <p className="text-muted-foreground text-[11px] font-medium uppercase tracking-wide">
-                      Connected notes
-                    </p>
-                    <PipelineNoteChips notes={pipelineStatus.connectedNotes} onOpenNote={selectNote} />
-                  </div>
-                ) : null}
-                {showFinalNotes ? (
-                  <div className="mt-2">
-                    <p className="text-muted-foreground text-[11px] font-medium uppercase tracking-wide">
-                      Final context
-                    </p>
-                    <PipelineNoteChips notes={pipelineStatus.finalNotes} onOpenNote={selectNote} />
-                  </div>
-                ) : null}
-              </div>
-            ) : null}
-
             <PromptInputChatReferenceChips
               className="mb-1.5"
               editorNote={
@@ -886,6 +891,34 @@ export function ChatSidebarInner({
                   </Tooltip>
                 </TooltipProvider>
                 <div className="ml-auto flex min-w-0 items-center gap-1.5">
+                  <div className="bg-muted/50 inline-flex shrink-0 rounded-lg border border-border p-0.5">
+                    {MODE_OPTIONS.map((mode) => {
+                      const isSelected = activeMode === mode
+                      const isSuggested = suggestedMode === mode
+                      return (
+                        <button
+                          key={mode}
+                          className={cn(
+                            'relative rounded-md px-2 py-1 text-[10px] font-medium transition-colors',
+                            isSelected
+                              ? 'bg-background text-foreground shadow-sm'
+                              : 'text-muted-foreground hover:text-foreground',
+                            isSuggested && !isSelected && 'ring-1 ring-primary/30'
+                          )}
+                          disabled={isLoading || !canChatEffective}
+                          onClick={() => setModeOverride(mode === suggestedMode ? null : mode)}
+                          title={
+                            isSuggested
+                              ? `${formatModeLabel(mode)} (auto suggested)`
+                              : formatModeLabel(mode)
+                          }
+                          type="button"
+                        >
+                          {formatModeLabel(mode).slice(0, mode === 'efficiency' ? 3 : 1)}
+                        </button>
+                      )
+                    })}
+                  </div>
                   <NoteLabModelPicker
                     selectedModelId={selectedModelId}
                     onModelChange={setSelectedModelId}
