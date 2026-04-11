@@ -993,6 +993,7 @@ export function useNotesChat({
     session,
     historyMeta,
     isLoading,
+    pipelineStatus,
     filterWorkspaceId,
     setFilterWorkspaceId,
     showHistory,
