@@ -43,7 +43,7 @@ export function buildNoteMarkdownDocument(note: SavedNote): string {
     const scene = note.excalidrawScene?.trim() ?? ""
     return scene ? `${scene}\n` : "{}\n"
   }
-  const bodyMarkdown = buildMarkdownNoteBody(note.title, serializedStateToMarkdown(note.content))
+  const bodyMarkdown = buildMarkdownNoteBody(serializedStateToMarkdown(note.content))
   const properties = {
     ...(note.properties ?? {}),
     ...(note.coverImageSrc ? { cover_image: note.coverImageSrc } : {}),

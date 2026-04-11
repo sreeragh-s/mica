@@ -16,7 +16,7 @@ import { HR } from "@/features/editor/transformers/markdown-hr-transformer"
 import { IMAGE } from "@/features/editor/transformers/markdown-image-transformer"
 import { TABLE } from "@/features/editor/transformers/markdown-table-transformer"
 import { TWEET } from "@/features/editor/transformers/markdown-tweet-transformer"
-import { stripLeadingTitleHeading } from '@shared/notes/note-markdown'
+import { stripLeadingTitleHeadingIfMatches } from '@shared/notes/note-markdown'
 
 const MARKDOWN_TRANSFORMERS = [
   TABLE,
@@ -68,15 +68,14 @@ export function markdownToSerializedState(
   }
 }
 
-export function diskBodyToContent(body: string): SerializedEditorState | null {
-  const { body: withoutTitle } = stripLeadingTitleHeading(body)
-  const t = withoutTitle.trim()
+export function diskBodyToContent(
+  body: string,
+  fileTitle: string
+): SerializedEditorState | null {
+  const withoutLegacyDupTitle = stripLeadingTitleHeadingIfMatches(body, fileTitle)
+  const t = withoutLegacyDupTitle.trim()
   if (!t || t === "_Empty note._") return null
   return markdownToSerializedState(t)
-}
-
-export function extractDiskTitleHeading(body: string): string | null {
-  return stripLeadingTitleHeading(body).heading
 }
 
 export function stripSerializedLeadingTitleHeading(

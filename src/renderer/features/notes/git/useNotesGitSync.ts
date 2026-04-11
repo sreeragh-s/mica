@@ -112,11 +112,13 @@ export function useNotesGitSync({
     if (!cwd) {
       setGitRepoReady(null)
       setGitHasOriginRemote(false)
+      setGitSynced(false)
       return false
     }
     if (!api?.workspace?.gitStatus) {
       setGitRepoReady(false)
       setGitHasOriginRemote(false)
+      setGitSynced(false)
       return false
     }
 
@@ -124,21 +126,29 @@ export function useNotesGitSync({
     if (!r.ok) {
       setGitRepoReady(false)
       setGitHasOriginRemote(false)
+      setGitSynced(false)
       return false
     }
 
     const remoteUrl = r.remoteUrl?.trim() ?? ''
     setGitRepoReady(true)
     setGitHasOriginRemote(Boolean(remoteUrl))
+    if (!remoteUrl) {
+      setGitSynced(false)
+    }
     if (remoteUrl && !githubRemoteUrl.trim()) {
       setGithubRemoteUrl(remoteUrl)
     }
     return Boolean(remoteUrl)
-  }, [githubRemoteUrl, primaryGitFolder?.localGitPath])
+  }, [githubRemoteUrl, primaryGitFolder?.localGitPath, setGitSynced])
 
   useEffect(() => {
     void refreshGitRepositoryStatus()
   }, [refreshGitRepositoryStatus])
+
+  useEffect(() => {
+    setGitSynced(false)
+  }, [primaryGitFolder?.localGitPath, setGitSynced])
 
   const resolveActiveGitFolder = useCallback((workspaceId?: string) => {
     const wid = workspaceId ?? selectedNoteFolderId ?? focusedFolderId

@@ -386,7 +386,6 @@ export function NotesMainAreaLayout({
     updateShortcutBinding,
     resetShortcutsToDefaults,
     setShortcutsCaptureActive,
-    graphViewOpen,
     journalViewOpen,
     zenMode,
     tabOverviewOpen,

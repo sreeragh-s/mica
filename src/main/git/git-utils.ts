@@ -13,12 +13,67 @@ const LOG = '[notelab-workspace]'
 // Path / status parsing
 // ---------------------------------------------------------------------------
 
+/**
+ * Undo Git's C-style quoting used in `git status --porcelain` (without `-z`)
+ * for paths that contain spaces or special characters.
+ * See: https://git-scm.com/docs/git-status#_short_format
+ */
+function unquoteGitCStylePath(s: string): string {
+  const t = s.trim()
+  if (t.length < 2 || t[0] !== '"') return t
+
+  let out = ''
+  let i = 1
+  while (i < t.length) {
+    const c = t[i++]
+    if (c === '"') return out
+    if (c === '\\' && i < t.length) {
+      const esc = t[i++]
+      switch (esc) {
+        case 'n':
+          out += '\n'
+          break
+        case 't':
+          out += '\t'
+          break
+        case 'r':
+          out += '\r'
+          break
+        case '\\':
+          out += '\\'
+          break
+        case '"':
+          out += '"'
+          break
+        default:
+          if (esc >= '0' && esc <= '7') {
+            let code = parseInt(esc, 8)
+            let digits = 1
+            while (digits < 3 && i < t.length && t[i] >= '0' && t[i] <= '7') {
+              code = code * 8 + parseInt(t[i++], 8)
+              digits++
+            }
+            out += String.fromCharCode(code & 0xff)
+            break
+          }
+          out += esc
+      }
+    } else {
+      out += c
+    }
+  }
+  return t
+}
+
 export function parseGitStatusPath(rawPath: string): string {
   const trimmed = rawPath.trim()
   const renameSeparator = ' -> '
   const renameIndex = trimmed.lastIndexOf(renameSeparator)
-  if (renameIndex === -1) return trimmed
-  return trimmed.slice(renameIndex + renameSeparator.length).trim()
+  const pathPart =
+    renameIndex === -1
+      ? trimmed
+      : trimmed.slice(renameIndex + renameSeparator.length).trim()
+  return unquoteGitCStylePath(pathPart)
 }
 
 export function pathStillHasGitStatus(cwd: string, filePath: string): boolean {

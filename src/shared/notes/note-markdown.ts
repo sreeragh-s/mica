@@ -191,8 +191,25 @@ export function stripLeadingTitleHeading(markdown: string): {
   }
 }
 
-export function buildMarkdownNoteBody(title: string, bodyMarkdown: string): string {
-  const trimmedTitle = title.trim() || 'Untitled'
+/**
+ * Removes a leading `# …` line only when its text equals `title` (after trim).
+ * Used when loading notes so legacy files that duplicated the filename as an H1
+ * do not show that line in the editor, while unrelated leading headings stay.
+ */
+export function stripLeadingTitleHeadingIfMatches(
+  markdown: string,
+  title: string
+): string {
+  const normalizedTitle = title.trim() || 'Untitled'
+  const normalized = markdown.replace(/^\n+/, '')
+  const match = normalized.match(/^#\s+(.+?)\s*(?:\n+|$)/)
+  if (!match || match[1]!.trim() !== normalizedTitle) {
+    return normalized
+  }
+  return normalized.slice(match[0].length).replace(/^\n+/, '')
+}
+
+export function buildMarkdownNoteBody(bodyMarkdown: string): string {
   const normalizedBody = bodyMarkdown.replace(/^\n+/, '').trim()
-  return normalizedBody ? `# ${trimmedTitle}\n\n${normalizedBody}\n` : `# ${trimmedTitle}\n`
+  return normalizedBody ? `${normalizedBody}\n` : ''
 }

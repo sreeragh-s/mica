@@ -1,5 +1,5 @@
 import { Folder as FolderIcon, Pencil, Settings2, Trash2 } from 'lucide-react'
-import type { DragEvent, JSX, RefObject } from 'react'
+import { useCallback, useEffect, useRef, type DragEvent, type JSX, type RefObject } from 'react'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -87,6 +87,47 @@ export function SidebarExplorerTree({
   onFolderDraftKeyDown,
   onFolderNameBlur
 }: SidebarExplorerTreeProps): JSX.Element {
+  const selectedNoteRowRef = useRef<HTMLDivElement | null>(null)
+
+  const bindSelectedNoteRowRef = useCallback(
+    (el: HTMLDivElement | null, notePath: string) => {
+      if (notePath === selectedNotePath) {
+        selectedNoteRowRef.current = el
+      } else if (selectedNoteRowRef.current === el) {
+        selectedNoteRowRef.current = null
+      }
+    },
+    [selectedNotePath]
+  )
+
+  useEffect(() => {
+    if (!selectedNotePath) return
+    let cancelled = false
+    let rafId = 0
+    let attempts = 0
+    /** Folder rows mount only after TreeProvider applies `expandNodeIds` in an effect; one scroll pass often runs too early. */
+    const maxAttempts = 72
+
+    const step = (): void => {
+      if (cancelled) return
+      const el = selectedNoteRowRef.current
+      if (el) {
+        el.scrollIntoView({ block: 'nearest', inline: 'nearest' })
+        return
+      }
+      attempts += 1
+      if (attempts < maxAttempts) {
+        rafId = requestAnimationFrame(step)
+      }
+    }
+
+    rafId = requestAnimationFrame(step)
+    return () => {
+      cancelled = true
+      cancelAnimationFrame(rafId)
+    }
+  }, [selectedNotePath, treeExpandNonce])
+
   return (
     <TreeProvider
       key={defaultExpandedFolderIds.join('|')}
@@ -119,73 +160,78 @@ export function SidebarExplorerTree({
               const isRenaming = renamingNodeId === noteTreeId
               return (
                 <TreeNode key={note.path} nodeId={noteTreeId} isLast={isLastRootNote}>
-                  <TreeNodeTrigger
-                    draggable={!isRenaming}
-                    data-sidebar-interactive=""
-                    onDragStart={(e) => {
-                      const drag = e as unknown as globalThis.DragEvent
-                      if (!drag.dataTransfer) return
-                      drag.dataTransfer.setData(NOTE_DRAG_MIME, note.path)
-                      drag.dataTransfer.effectAllowed = 'copyMove'
-                    }}
-                    className={cn(
-                      'hover:bg-sidebar-accent/50',
-                      selectedNotePath === note.path &&
-                        !focusedFolderId &&
-                        '!bg-sidebar-accent !text-sidebar-accent-foreground'
-                    )}
+                  <div
+                    ref={(el) => bindSelectedNoteRowRef(el, note.path)}
+                    className="min-w-0 w-full"
                   >
-                    <TreeExpander hasChildren={false} />
-                    <TreeIcon
-                      hasChildren={false}
-                      icon={<NoteLeadingIcon note={note} variant="sidebar" />}
-                    />
-                    <TreeLabel
-                      className="flex min-w-0 flex-1 items-center"
-                      renameInitialValue={note.title}
+                    <TreeNodeTrigger
+                      draggable={!isRenaming}
+                      data-sidebar-interactive=""
+                      onDragStart={(e) => {
+                        const drag = e as unknown as globalThis.DragEvent
+                        if (!drag.dataTransfer) return
+                        drag.dataTransfer.setData(NOTE_DRAG_MIME, note.path)
+                        drag.dataTransfer.effectAllowed = 'copyMove'
+                      }}
+                      className={cn(
+                        'hover:bg-sidebar-accent/50',
+                        selectedNotePath === note.path &&
+                          !focusedFolderId &&
+                          '!bg-sidebar-accent !text-sidebar-accent-foreground'
+                      )}
                     >
-                      <span className="line-clamp-2 text-left font-medium leading-snug">
-                        {note.title || 'Untitled'}
-                      </span>
-                    </TreeLabel>
-                    <div className="flex h-6 shrink-0 items-center justify-end gap-0.5 pl-2">
-                      <span
-                        className="text-muted-foreground whitespace-nowrap text-[11px] tabular-nums group-hover:hidden"
-                        title={formatNoteTime(note.updatedAt)}
+                      <TreeExpander hasChildren={false} />
+                      <TreeIcon
+                        hasChildren={false}
+                        icon={<NoteLeadingIcon note={note} variant="sidebar" />}
+                      />
+                      <TreeLabel
+                        className="flex min-w-0 flex-1 items-center"
+                        renameInitialValue={note.title}
                       >
-                        {formatNoteTime(note.updatedAt)}
-                      </span>
-                      <span
-                        role="presentation"
-                        className="hidden shrink-0 gap-0.5 group-hover:flex"
-                        style={isMacNotelab ? macTitlebarStyles.noDrag : undefined}
-                      >
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon-xs"
-                          className="text-muted-foreground size-6"
-                          aria-label={`Rename ${note.title}`}
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            beginRename(noteTreeId, note.title)
-                          }}
+                        <span className="line-clamp-2 text-left font-medium leading-snug">
+                          {note.title || 'Untitled'}
+                        </span>
+                      </TreeLabel>
+                      <div className="flex h-6 shrink-0 items-center justify-end gap-0.5 pl-2">
+                        <span
+                          className="text-muted-foreground whitespace-nowrap text-[11px] tabular-nums group-hover:hidden"
+                          title={formatNoteTime(note.updatedAt)}
                         >
-                          <Pencil className="size-3.5" />
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon-xs"
-                          className="text-muted-foreground hover:text-destructive size-6"
-                          aria-label="Delete note"
-                          onClick={(e) => handleDeleteNote(note.path, e)}
+                          {formatNoteTime(note.updatedAt)}
+                        </span>
+                        <span
+                          role="presentation"
+                          className="hidden shrink-0 gap-0.5 group-hover:flex"
+                          style={isMacNotelab ? macTitlebarStyles.noDrag : undefined}
                         >
-                          <Trash2 className="size-3.5" />
-                        </Button>
-                      </span>
-                    </div>
-                  </TreeNodeTrigger>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon-xs"
+                            className="text-muted-foreground size-6"
+                            aria-label={`Rename ${note.title}`}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              beginRename(noteTreeId, note.title)
+                            }}
+                          >
+                            <Pencil className="size-3.5" />
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon-xs"
+                            className="text-muted-foreground hover:text-destructive size-6"
+                            aria-label="Delete note"
+                            onClick={(e) => handleDeleteNote(note.path, e)}
+                          >
+                            <Trash2 className="size-3.5" />
+                          </Button>
+                        </span>
+                      </div>
+                    </TreeNodeTrigger>
+                  </div>
                 </TreeNode>
               )
             })}
@@ -254,73 +300,78 @@ export function SidebarExplorerTree({
                         level={1}
                         isLast={isLastNote}
                       >
-                        <TreeNodeTrigger
-                          draggable={!isRenaming}
-                          data-sidebar-interactive=""
-                          onDragStart={(e) => {
-                            const drag = e as unknown as globalThis.DragEvent
-                            if (!drag.dataTransfer) return
-                            drag.dataTransfer.setData(NOTE_DRAG_MIME, note.path)
-                            drag.dataTransfer.effectAllowed = 'copyMove'
-                          }}
-                          className={cn(
-                            'hover:bg-sidebar-accent/50',
-                            selectedNotePath === note.path &&
-                              !focusedFolderId &&
-                              '!bg-sidebar-accent !text-sidebar-accent-foreground'
-                          )}
+                        <div
+                          ref={(el) => bindSelectedNoteRowRef(el, note.path)}
+                          className="min-w-0 w-full"
                         >
-                          <TreeExpander hasChildren={false} />
-                          <TreeIcon
-                            hasChildren={false}
-                            icon={<NoteLeadingIcon note={note} variant="sidebar" />}
-                          />
-                          <TreeLabel
-                            className="flex min-w-0 flex-1 items-center"
-                            renameInitialValue={note.title}
+                          <TreeNodeTrigger
+                            draggable={!isRenaming}
+                            data-sidebar-interactive=""
+                            onDragStart={(e) => {
+                              const drag = e as unknown as globalThis.DragEvent
+                              if (!drag.dataTransfer) return
+                              drag.dataTransfer.setData(NOTE_DRAG_MIME, note.path)
+                              drag.dataTransfer.effectAllowed = 'copyMove'
+                            }}
+                            className={cn(
+                              'hover:bg-sidebar-accent/50',
+                              selectedNotePath === note.path &&
+                                !focusedFolderId &&
+                                '!bg-sidebar-accent !text-sidebar-accent-foreground'
+                            )}
                           >
-                            <span className="line-clamp-2 text-left font-medium leading-snug">
-                              {note.title || 'Untitled'}
-                            </span>
-                          </TreeLabel>
-                          <div className="flex h-6 shrink-0 items-center justify-end gap-0.5 pl-2">
-                            <span
-                              className="text-muted-foreground whitespace-nowrap text-[11px] tabular-nums group-hover:hidden"
-                              title={formatNoteTime(note.updatedAt)}
+                            <TreeExpander hasChildren={false} />
+                            <TreeIcon
+                              hasChildren={false}
+                              icon={<NoteLeadingIcon note={note} variant="sidebar" />}
+                            />
+                            <TreeLabel
+                              className="flex min-w-0 flex-1 items-center"
+                              renameInitialValue={note.title}
                             >
-                              {formatNoteTime(note.updatedAt)}
-                            </span>
-                            <span
-                              role="presentation"
-                              className="hidden shrink-0 gap-0.5 group-hover:flex"
-                              style={isMacNotelab ? macTitlebarStyles.noDrag : undefined}
-                            >
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon-xs"
-                                className="text-muted-foreground size-6"
-                                aria-label={`Rename ${note.title}`}
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  beginRename(noteTreeId, note.title)
-                                }}
+                              <span className="line-clamp-2 text-left font-medium leading-snug">
+                                {note.title || 'Untitled'}
+                              </span>
+                            </TreeLabel>
+                            <div className="flex h-6 shrink-0 items-center justify-end gap-0.5 pl-2">
+                              <span
+                                className="text-muted-foreground whitespace-nowrap text-[11px] tabular-nums group-hover:hidden"
+                                title={formatNoteTime(note.updatedAt)}
                               >
-                                <Pencil className="size-3.5" />
-                              </Button>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon-xs"
-                                className="text-muted-foreground hover:text-destructive size-6"
-                                aria-label="Delete note"
-                                onClick={(e) => handleDeleteNote(note.path, e)}
+                                {formatNoteTime(note.updatedAt)}
+                              </span>
+                              <span
+                                role="presentation"
+                                className="hidden shrink-0 gap-0.5 group-hover:flex"
+                                style={isMacNotelab ? macTitlebarStyles.noDrag : undefined}
                               >
-                                <Trash2 className="size-3.5" />
-                              </Button>
-                            </span>
-                          </div>
-                        </TreeNodeTrigger>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon-xs"
+                                  className="text-muted-foreground size-6"
+                                  aria-label={`Rename ${note.title}`}
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    beginRename(noteTreeId, note.title)
+                                  }}
+                                >
+                                  <Pencil className="size-3.5" />
+                                </Button>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon-xs"
+                                  className="text-muted-foreground hover:text-destructive size-6"
+                                  aria-label="Delete note"
+                                  onClick={(e) => handleDeleteNote(note.path, e)}
+                                >
+                                  <Trash2 className="size-3.5" />
+                                </Button>
+                              </span>
+                            </div>
+                          </TreeNodeTrigger>
+                        </div>
                       </TreeNode>
                     )
                   })}

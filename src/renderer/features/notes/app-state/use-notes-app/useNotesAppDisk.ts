@@ -13,7 +13,7 @@ import { getApi } from '@/lib/auth/auth-bridge'
 import { createElectronLogger } from '@/lib/core/electron-log'
 import { loadSetupState } from '@/lib/workspace/setup-storage'
 import { switchDataRoot } from '@/lib/config/notelab-app-config'
-import { diskBodyToContent, extractDiskTitleHeading } from '@/lib/editor/markdown-to-serialized'
+import { diskBodyToContent } from '@/lib/editor/markdown-to-serialized'
 import { JOURNAL_FOLDER_ID } from '@/lib/notes/notes-types'
 import {
   DEFAULT_WORKSPACE_ID,
@@ -165,13 +165,12 @@ export function useNotesAppDisk({
             excalidrawScene: n.markdownBody.trim() || null
           }
         }
-        const derivedTitle = extractDiskTitleHeading(n.markdownBody)?.trim() || n.title
         return {
           path: n.note,
           folder: n.folder,
-          title: derivedTitle,
+          title: n.title,
           updatedAt: n.updatedAtMs,
-          content: diskBodyToContent(n.markdownBody),
+          content: diskBodyToContent(n.markdownBody, n.title),
           kind: 'note' as const,
           ...(n.coverImageSrc !== undefined ? { coverImageSrc: n.coverImageSrc } : {}),
           ...(n.titleEmoji !== undefined && n.titleEmoji !== ''

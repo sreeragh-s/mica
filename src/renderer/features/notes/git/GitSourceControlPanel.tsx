@@ -335,6 +335,8 @@ export function GitSourceControlPanel({ vm }: GitSourceControlPanelProps): JSX.E
   const hasChanges = stagedFiles.length > 0 || unstagedFiles.length > 0 || conflictedFiles.length > 0
   const showSyncButton = !hasChanges && !gitSourceControlLoading
   const canCommit = stagedFiles.length > 0 && gitCommitMessage.trim().length > 0 && !gitSyncBusy && !gitSourceControlHasConflicts
+  /** "Synced" only when we have origin and last pull/push succeeded — never when there is no remote. */
+  const showRemoteSynced = gitSynced && gitHasOriginRemote
 
   if (!cwd) {
     return (
@@ -476,7 +478,7 @@ export function GitSourceControlPanel({ vm }: GitSourceControlPanelProps): JSX.E
                 type="button"
                 size="sm"
                 className="h-7 w-full gap-1.5 px-2 text-xs"
-                disabled={gitSyncBusy || gitSynced}
+                disabled={gitSyncBusy || showRemoteSynced}
                 onClick={() => {
                   if (!gitHasOriginRemote) {
                     setGitRemoteDialogOpen(true)
@@ -486,8 +488,14 @@ export function GitSourceControlPanel({ vm }: GitSourceControlPanelProps): JSX.E
                 }}
                 data-sidebar-interactive=""
               >
-                {gitSyncBusy ? <Loader2 className="size-3 animate-spin" /> : gitSynced ? <Check className="size-3" /> : <ArrowUpDown className="size-3" />}
-                {gitSynced ? 'Synced' : 'Sync changes'}
+                {gitSyncBusy ? (
+                  <Loader2 className="size-3 animate-spin" />
+                ) : showRemoteSynced ? (
+                  <Check className="size-3" />
+                ) : (
+                  <ArrowUpDown className="size-3" />
+                )}
+                {showRemoteSynced ? 'Synced' : gitHasOriginRemote ? 'Sync changes' : 'Connect remote'}
               </Button>
             ) : (
               <>
@@ -693,9 +701,15 @@ export function GitSourceControlPanel({ vm }: GitSourceControlPanelProps): JSX.E
 
         {/* No changes at all */}
         {totalChanges === 0 && !gitSourceControlLoading && (
-          <div className="flex flex-col items-center justify-center gap-2 py-8 text-center">
+          <div className="flex flex-col items-center justify-center gap-2 px-3 py-8 text-center">
             <Check className="text-muted-foreground/40 size-8" aria-hidden />
             <p className="text-muted-foreground text-xs">Working tree clean</p>
+            {!gitHasOriginRemote && (
+              <p className="text-muted-foreground/80 max-w-[220px] text-[11px] leading-relaxed">
+                No <code className="text-foreground/90">origin</code> remote is set. Click{' '}
+                <span className="text-foreground/90">Connect remote</span> above to add a GitHub URL — the repo is already initialized.
+              </p>
+            )}
           </div>
         )}
       </div>
