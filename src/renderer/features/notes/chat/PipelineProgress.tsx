@@ -9,7 +9,7 @@ import {
   ChainOfThoughtSearchResults,
   ChainOfThoughtStep
 } from '@/features/ai/chain-of-thought'
-import type { ChatPipelineStatus } from '@/hooks/useNotesChat'
+import type { ChatPipelineStatus } from '@/hooks/notes/useNotesChat'
 
 const seedNoteDescriptions = [
   'Finding relevant notes from your workspace',

@@ -23,7 +23,6 @@ export type EmbeddingsSearchRow = {
   score: number
   uri: string
   section_index: number
-  is_bm25: boolean
 }
 
 /** OS window chrome (Notelab); optional so browser dev still type-checks. */
@@ -61,6 +60,15 @@ export type NotelabApi = {
         headers?: Record<string, string>
       }
     ) => Promise<{ ok: boolean; status: number; body: string }>
+    streamFetch?: (
+      url: string,
+      init: { method?: string; body?: string; headers?: Record<string, string> },
+      callbacks: {
+        onChunk: (chunk: string) => void
+        onEnd: () => void
+        onError: (message: string) => void
+      }
+    ) => () => void
   }
   workspace?: {
     checkGit?: () => Promise<{ ok: true; version: string } | { ok: false; error: string }>
@@ -238,6 +246,89 @@ export type NotelabApi = {
     }) => Promise<{ ok: true }>
     openWorkspaceInNewWindow: (workspacePath: string) => Promise<{ ok: true }>
   }
+  chatHistory?: {
+    write: (payload: {
+      sessionId: string
+      title: string
+      createdAt: number
+      messages: Array<{
+        role: 'user' | 'assistant'
+        content: string
+        timestamp: number
+        sources?: Array<{
+          note: string
+          title: string
+          folder: string
+          chunkText: string
+          score?: number
+          source?: string
+        }>
+        chainOfThoughts?: {
+          stage: string
+          mode: string
+          seedNotes: string[]
+          connectedNotes: string[]
+          finalNotes: string[]
+        }
+      }>
+    }) => Promise<{ ok: true } | { ok: false; error: string }>
+    list: () => Promise<
+      | {
+          ok: true
+          sessions: Array<{
+            sessionId: string
+            title: string
+            createdAt: number
+            messageCount: number
+          }>
+        }
+      | { ok: false; error: string }
+    >
+    read: (sessionId: string) => Promise<{ ok: true; content: string } | { ok: false; error: string }>
+    readSession: (sessionId: string) => Promise<
+      | {
+          ok: true
+          session: {
+            sessionId: string
+            title: string
+            createdAt: number
+            messages: Array<{
+              role: 'user' | 'assistant'
+              content: string
+              timestamp: number
+            }>
+          }
+        }
+      | { ok: false; error: string }
+    >
+  }
+  ollama?: {
+    chatStream: (
+      bodyJson: string,
+      callbacks: {
+        onChunk: (chunk: string) => void
+        onEnd: () => void
+        onError: (message: string) => void
+      }
+    ) => () => void
+  }
+  updater?: {
+    check: () => Promise<unknown>
+    getState: () => Promise<
+      | { status: 'idle' }
+      | { status: 'available'; version: string; downloadUrl: string }
+      | { status: 'error'; message: string }
+    >
+    openDownload: (downloadUrl: string) => Promise<{ ok: true } | { ok: false; error: string }>
+    onStateChange: (
+      callback: (state: {
+        status: string
+        version?: string
+        downloadUrl?: string
+        message?: string
+      }) => void
+    ) => () => void
+  }
   embeddings?: {
     getStatus: (payload: {
       workspacePath: string
@@ -272,7 +363,6 @@ export type NotelabApi = {
       maxSections?: number
       maxTokens?: number
       filter?: EmbeddingsFilter
-      isBm25?: boolean
     }) => Promise<{ ok: true; rows: EmbeddingsSearchRow[] } | { ok: false; error: string }>
     deleteNoteDocument: (payload: {
       workspacePath: string
@@ -302,11 +392,16 @@ export type NotelabApi = {
   }
 }
 
-export function getApi(): NotelabApi | null {
+export function getRendererApi(): NotelabApi | null {
   if (typeof window === 'undefined') return null
   const w = window as Window & { api?: NotelabApi }
-  if (!w.api?.auth) return null
-  return w.api
+  return w.api ?? null
+}
+
+export function getApi(): NotelabApi | null {
+  const api = getRendererApi()
+  if (!api?.auth) return null
+  return api
 }
 
 export function parseSession(

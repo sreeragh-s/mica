@@ -218,13 +218,17 @@ export function NotesGraphView({
     }
   }, [resize])
 
+  const folderColorIndexById = useMemo(() => {
+    return new Map(folders.map((folder, idx) => [folder.folder, idx]))
+  }, [folders])
+
   const folderColorFn = useCallback(
     (folder: string): string => {
       if (!displayRef.current.colorByFolder) return DEFAULT_NODE_COLOR
-      const i = folders.findIndex((f) => f.folder === folder)
+      const i = folderColorIndexById.get(folder) ?? 0
       return FOLDER_COLORS[(i >= 0 ? i : 0) % FOLDER_COLORS.length]
     },
-    [folders]
+    [folderColorIndexById]
   )
 
   const nodeRadius = useCallback(

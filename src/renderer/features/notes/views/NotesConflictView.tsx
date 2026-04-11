@@ -4,7 +4,7 @@ import { AlertTriangle, Check, Loader2, X } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import type { NotesAppViewModel } from '@/features/notes/app-state/useNotesApp'
+import type { NotesAppViewModel } from '@/hooks/notes/useNotesApp'
 
 type ConflictHunk = {
   type: 'context' | 'ours' | 'theirs'

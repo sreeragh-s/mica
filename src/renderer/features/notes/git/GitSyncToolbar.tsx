@@ -3,7 +3,7 @@ import type { JSX } from 'react'
 import { ArrowDownToLine, CloudUpload, GitCommitHorizontal, RefreshCw } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
-import { getApi } from '@/lib/auth/auth-bridge'
+import { getApi } from '@/bridges/auth/auth-bridge'
 import type { Folder } from '@/lib/notes/notes-storage'
 import { isPushRejectedFetchFirst } from '@/features/notes/git/git-sync-errors'
 

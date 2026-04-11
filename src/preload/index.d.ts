@@ -50,7 +50,6 @@ type EmbeddingsSearchRow = {
   score: number
   uri: string
   section_index: number
-  is_bm25: boolean
 }
 
 type NotelabApi = {
@@ -285,7 +284,7 @@ type NotelabApi = {
       }
     ) => () => void
     deleteModel: (modelName: string) => Promise<{ ok: true } | { ok: false; error: string }>
-    /** POST /api/embed for local bge-m3 embeddings used by Vectra-backed search. */
+    /** POST /api/embed for local bge-m3 embeddings used by SQLite-vector-backed search. */
     embed: (payload: {
       model: string
       input: string
@@ -343,7 +342,6 @@ type NotelabApi = {
       maxSections?: number
       maxTokens?: number
       filter?: EmbeddingsFilter
-      isBm25?: boolean
     }) => Promise<{ ok: true; rows: EmbeddingsSearchRow[] } | { ok: false; error: string }>
     deleteNoteDocument: (payload: {
       workspacePath: string

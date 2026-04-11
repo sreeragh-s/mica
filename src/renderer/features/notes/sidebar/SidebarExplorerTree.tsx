@@ -28,7 +28,7 @@ import {
   treeFolderPath,
   treeNotePath
 } from '@/features/notes/notes-app-utils'
-import type { NotesAppViewModel } from '@/features/notes/app-state/useNotesApp'
+import type { NotesAppViewModel } from '@/hooks/notes/useNotesApp'
 
 export type SidebarExplorerTreeProps = {
   defaultExpandedFolderIds: string[]

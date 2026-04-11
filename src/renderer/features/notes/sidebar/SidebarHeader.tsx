@@ -3,7 +3,7 @@ import type { JSX } from 'react'
 import { cn } from '@/lib/utils'
 import { SidebarEdgeToolbarPill } from '@/features/notes/editor-area/NotesToolbarPill'
 import { WorkspaceSwitcher } from '@/features/notes/sidebar/WorkspaceSwitcher'
-import type { NotesAppViewModel } from '@/features/notes/app-state/useNotesApp'
+import type { NotesAppViewModel } from '@/hooks/notes/useNotesApp'
 
 type SidebarHeaderProps = {
   isMacNotelab: boolean

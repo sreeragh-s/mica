@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent, type
 
 import { format, startOfDay } from 'date-fns'
 
-import type { NotesAppViewModel } from '@/features/notes/app-state/useNotesApp'
+import type { NotesAppViewModel } from '@/hooks/notes/useNotesApp'
 import { getNoteDragId, isNoteDragEvent } from '@/features/notes/editor-area/NotesPrimaryPane'
 import { countIndexingStates } from '@/features/notes/editor-area/indexing-status'
 import { NotesMainAreaLayout } from '@/features/notes/editor-area/layout'

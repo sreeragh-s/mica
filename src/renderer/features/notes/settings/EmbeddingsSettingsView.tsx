@@ -12,9 +12,9 @@ import {
 
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import { getApi } from '@/lib/auth/auth-bridge'
+import { getApi } from '@/bridges/auth/auth-bridge'
 import type { MacTitlebarStyles } from '@/features/notes/notes-app-types'
-import type { NotesAppViewModel } from '@/features/notes/app-state/useNotesApp'
+import type { NotesAppViewModel } from '@/hooks/notes/useNotesApp'
 
 export type EmbeddingsSettingsViewProps = {
   isMacNotelab: boolean
@@ -75,7 +75,7 @@ export function EmbeddingsSettingsView({
           Index your notes and drawings to enable AI-powered search. Content is chunked and embedded
           via local Ollama or your Cloudflare Worker using the{' '}
           <span className="text-foreground font-medium">bge-m3</span> model, then stored in a
-          workspace-local Vectra index.
+          workspace-local SQLite vector index.
         </p>
       </div>
 
@@ -188,7 +188,7 @@ export function EmbeddingsSettingsView({
                   return
                 }
                 console.group(
-                  `[embeddings] Vectra dump — ${result.totalDocuments} document(s), ${result.totalChunks} chunk(s)`
+                  `[embeddings] SQLite vector dump — ${result.totalDocuments} document(s), ${result.totalChunks} chunk(s)`
                 )
                 for (const document of result.documents) {
                   console.log(document)

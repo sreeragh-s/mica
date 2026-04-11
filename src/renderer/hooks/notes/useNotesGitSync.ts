@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, type Dispatch, type SetStateAction } from 'react'
 
-import { getApi } from '@/lib/auth/auth-bridge'
+import { getApi } from '@/bridges/auth/auth-bridge'
 import { createElectronLogger } from '@/lib/core/electron-log'
 import type { Folder } from '@/lib/notes/notes-storage'
 
 import { friendlyGitSyncError } from '@/features/notes/git/git-sync-errors'
 import type { NotesUser } from '@/features/notes/notes-app-types'
-import type { GitSourceControlSnapshot } from '@/features/notes/git/useNotesGitSourceControl'
+import type { GitSourceControlSnapshot } from '@/hooks/notes/useNotesGitSourceControl'
 
 const LOG = '[useNotesGitSync]'
 const log = createElectronLogger(LOG)

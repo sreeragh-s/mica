@@ -13,7 +13,7 @@ import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext
 import { $getNearestNodeFromDOMNode, isHTMLElement } from 'lexical'
 import { createPortal } from 'react-dom'
 
-import { useDebounce } from '@/features/editor/editor-hooks/use-debounce'
+import { useDebounce } from '@/hooks/editor/useDebounce'
 import { CopyButton } from '@/features/editor/editor-ui/code-button'
 
 const CODE_PADDING = 8

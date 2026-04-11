@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import type { SearchMatchSegment } from '@/lib/notes/notes-search'
 import { NOTES_APP_PILL_ROUNDED, NOTES_APP_PILL_SURFACE } from '@/features/notes/notes-app-utils'
-import type { ChatHistoryMeta } from '@/hooks/useNotesChat'
+import type { ChatHistoryMeta } from '@/hooks/notes/useNotesChat'
 import { ChatSidebarMacHitLayer } from '@/features/notes/chat/chat-sidebar-chrome'
 
 export function SearchHighlight({ segments }: { segments: SearchMatchSegment[] }): JSX.Element {

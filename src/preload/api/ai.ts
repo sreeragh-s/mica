@@ -152,7 +152,6 @@ export const embeddingsApi = {
     maxSections?: number
     maxTokens?: number
     filter?: Record<string, unknown>
-    isBm25?: boolean
   }): Promise<
     | {
         ok: true
@@ -165,7 +164,6 @@ export const embeddingsApi = {
           score: number
           uri: string
           section_index: number
-          is_bm25: boolean
         }[]
       }
     | { ok: false; error: string }

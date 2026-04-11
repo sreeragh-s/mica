@@ -3,7 +3,7 @@ import { useCallback, useState, type JSX } from 'react'
 import { FolderOpen, Loader2 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
-import { getApi } from '@/lib/auth/auth-bridge'
+import { getApi } from '@/bridges/auth/auth-bridge'
 import { loadSetupState, saveSetupState } from '@/lib/workspace/setup-storage'
 import type { MacTitlebarStyles } from '@/features/notes/notes-app-types'
 

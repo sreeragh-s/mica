@@ -3,14 +3,13 @@ import {
   useEffect,
   useMemo,
   useRef,
-  useState,
   type KeyboardEvent,
   type MouseEvent
 } from 'react'
 import type { SerializedEditorState } from 'lexical'
 import { toast } from 'sonner'
 
-import { getApi } from '@/lib/auth/auth-bridge'
+import { getApi } from '@/bridges/auth/auth-bridge'
 import { isMacNotelab as checkIsMac } from '@/lib/core/electron-env'
 import { createElectronLogger } from '@/lib/core/electron-log'
 import { stripSerializedLeadingTitleHeading } from '@/lib/editor/markdown-to-serialized'
@@ -20,15 +19,11 @@ import {
   DEFAULT_WORKSPACE_ID,
   extractPlainTextFromSerialized,
   type NotePropertyMap,
-  loadNotesState,
   type NotePropertyValue,
   type SavedNote,
   type Folder
 } from '@/lib/notes/notes-storage'
-import { loadShortcutBindings, type ShortcutBindingsMap } from '@/lib/config/shortcuts-storage'
 import {
-  loadEditorSettings,
-  loadAppearanceSettings,
   saveEditorSettings,
   saveAppearanceSettings
 } from '@/lib/config/notelab-app-config'
@@ -39,7 +34,7 @@ import {
   buildUniqueNoteRelativePath,
   newFolderPath
 } from '@/lib/workspace/workspace-markdown-sync'
-import type { AppMode, NotesAppProps, SettingsSection } from '@/features/notes/notes-app-types'
+import type { NotesAppProps } from '@/features/notes/notes-app-types'
 import {
   createEmptyDrawing,
   createEmptyNote,
@@ -50,17 +45,14 @@ import {
   treeFolderPath,
   treeNotePath
 } from '@/features/notes/notes-app-utils'
-import { treeExpandIdsForFolderId } from './use-notes-app/shared'
-import { useNotesAppDisk } from './use-notes-app/useNotesAppDisk'
-import { useNotesAppIndexing } from './use-notes-app/useNotesAppIndexing'
-import { useNotesAppUi } from './use-notes-app/useNotesAppUi'
-import { useNotesGitSourceControl } from '@/features/notes/git/useNotesGitSourceControl'
-import { useNotesGitSync } from '@/features/notes/git/useNotesGitSync'
-import { useWorkspaceNotesCache } from '@/features/notes/hooks/useWorkspaceNotesCache'
-import type {
-  ChatSidebarLinkMode,
-  ChatSidebarPanel
-} from '@/features/notes/chat/chat-sidebar-panel-types'
+import { treeExpandIdsForFolderId } from './internal/shared'
+import { useNotesAppDisk } from './internal/useNotesAppDisk'
+import { useNotesAppIndexing } from './internal/useNotesAppIndexing'
+import { useNotesAppUi } from './internal/useNotesAppUi'
+import { useNotesGitSourceControl } from '@/hooks/notes/useNotesGitSourceControl'
+import { useNotesGitSync } from '@/hooks/notes/useNotesGitSync'
+import { useWorkspaceNotesCache } from '@/hooks/notes/useWorkspaceNotesCache'
+import { useNotesStore } from '@/stores/notes/useNotesStore'
 
 const LOG = '[useNotesApp]'
 const log = createElectronLogger(LOG)
@@ -76,65 +68,69 @@ export function useNotesApp({
   const folderInputRef = useRef<HTMLInputElement>(null)
   const folderDraftRef = useRef('')
   const dataRootRef = useRef<string | null>(null)
-
-  const [appMode, setAppMode] = useState<AppMode>('notes')
-  const [settingsSection, setSettingsSection] = useState<SettingsSection>('account')
-
-  const initial = useMemo(() => loadNotesState(), [])
-  const initialFolders = initial.version === 3 ? [] : initial.folders
-  const initialNotes = initial.version === 3 ? [] : initial.notes
-  const [folders, setFolders] = useState<Folder[]>(initialFolders)
-  const [notes, setNotes] = useState<SavedNote[]>(initialNotes)
-
-  const initialMostRecentPath = useMemo(() => {
-    if (initialNotes.length === 0) return null
-    return [...initialNotes].sort((a, b) => b.updatedAt - a.updatedAt)[0]?.path ?? null
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps -- intentionally run once at mount
-
-  const [selectedNotePath, setSelectedId] = useState<string | null>(initialMostRecentPath)
-
-  const [openNoteTabPaths, setOpenNoteTabIds] = useState<string[]>(() =>
-    initialMostRecentPath ? [initialMostRecentPath] : []
-  )
-
-  const [focusedFolderId, setFocusedFolderId] = useState<string | null>(null)
-
-  /** User workspace folder for new notes, or {@link DEFAULT_WORKSPACE_ID} for root. */
-  const [newNoteDestinationFolderId, setNewNoteDestinationFolderId] =
-    useState<string>(DEFAULT_WORKSPACE_ID)
-
-  const [folderCreateOpen, setFolderCreateOpen] = useState(false)
-  const [folderDraft, setFolderDraft] = useState('')
-  const [pendingDeleteNote, setPendingDeleteNote] = useState<{
-    path: string
-    title: string
-  } | null>(null)
-
-  const [workspaceSettingsFolderId, setWorkspaceSettingsFolderId] = useState<string | null>(null)
-
-  const [treeExpandNonce, setTreeExpandNonce] = useState(0)
-  const [treeExpandIds, setTreeExpandIds] = useState<string[]>([])
-
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
-  const [zenMode, setZenMode] = useState(false)
+  const {
+    appMode,
+    setAppMode,
+    settingsSection,
+    setSettingsSection,
+    folders,
+    setFolders,
+    notes,
+    setNotes,
+    selectedNotePath,
+    setSelectedNotePath,
+    openNoteTabPaths,
+    setOpenNoteTabPaths,
+    focusedFolderId,
+    setFocusedFolderId,
+    newNoteDestinationFolderId,
+    setNewNoteDestinationFolderId,
+    folderCreateOpen,
+    setFolderCreateOpen,
+    folderDraft,
+    setFolderDraft,
+    pendingDeleteNote,
+    setPendingDeleteNote,
+    workspaceSettingsFolderId,
+    setWorkspaceSettingsFolderId,
+    treeExpandNonce,
+    setTreeExpandNonce,
+    treeExpandIds,
+    setTreeExpandIds,
+    sidebarCollapsed,
+    setSidebarCollapsed,
+    zenMode,
+    setZenMode,
+    shortcutBindings,
+    setShortcutBindings,
+    editorSettings,
+    setEditorSettings,
+    appearanceSettings,
+    setAppearanceSettings,
+    chatSidebarOpen,
+    setChatSidebarOpen,
+    chatSidebarPanel,
+    setChatSidebarPanel,
+    chatSidebarLinkMode,
+    setChatSidebarLinkMode,
+    graphViewOpen,
+    setGraphViewOpen,
+    canvasViewOpen,
+    setCanvasViewOpen,
+    journalViewOpen,
+    setJournalViewOpen,
+    tabOverviewOpen,
+    setTabOverviewOpen,
+    appSidebarView,
+    setAppSidebarView
+  } = useNotesStore()
+  const setSelectedId = setSelectedNotePath
+  const setOpenNoteTabIds = setOpenNoteTabPaths
   const zenModeRef = useRef(false)
   const sidebarCollapsedBeforeZenRef = useRef<boolean | null>(null)
   const lastZenEscPressRef = useRef(0)
-
-  const [shortcutBindings, setShortcutBindings] =
-    useState<ShortcutBindingsMap>(loadShortcutBindings)
-  const [editorSettings, setEditorSettings] = useState(() => loadEditorSettings())
-  const [appearanceSettings, setAppearanceSettings] = useState(() => loadAppearanceSettings())
   const shortcutBindingsRef = useRef(shortcutBindings)
   const shortcutsSuppressedRef = useRef(false)
-
-  const [chatSidebarOpen, setChatSidebarOpen] = useState(false)
-  const [chatSidebarPanel, setChatSidebarPanel] = useState<ChatSidebarPanel>('chat')
-  const [chatSidebarLinkMode, setChatSidebarLinkMode] = useState<ChatSidebarLinkMode>('linked')
-  const [graphViewOpen, setGraphViewOpen] = useState(false)
-  const [canvasViewOpen, setCanvasViewOpen] = useState(false)
-  const [journalViewOpen, setJournalViewOpen] = useState(false)
-  const [tabOverviewOpen, setTabOverviewOpen] = useState(false)
 
   /** Sidebar registers its rename-trigger here so the keyboard shortcut can invoke it. */
   const triggerRenameSelectedRef = useRef<(() => void) | null>(null)
@@ -148,9 +144,6 @@ export function useNotesApp({
   const pendingSavedNotesRef = useRef<Map<string, SavedNote>>(new Map())
   /** Avoid persisting view state before async restore from `<workspace>/notelab.json` finishes. */
   const workspaceViewRestoredRef = useRef(false)
-
-  // App sidebar: explorer (notes tree), source control, or settings nav
-  const [appSidebarView, setAppSidebarView] = useState<AppSidebarView>('explorer')
 
   useEffect(() => {
     zenModeRef.current = zenMode
@@ -227,7 +220,6 @@ export function useNotesApp({
     flushNoteMoveToDisk,
     handleWorkspaceRootChange
   } = useNotesAppDisk({
-    initialGithubRemoteUrl: initial.githubRemoteUrl ?? '',
     folders,
     notes,
     setFolders,
@@ -316,9 +308,13 @@ export function useNotesApp({
     await reindexNotesWorkspaceCacheNow()
   }, [reloadNotesFromDisk, reindexNotesWorkspaceCacheNow])
 
+  const notesByPath = useMemo(() => new Map(notes.map((note) => [note.path, note])), [notes])
+  const folderById = useMemo(() => new Map(folders.map((folder) => [folder.folder, folder])), [folders])
+  const folderIdSet = useMemo(() => new Set(folders.map((folder) => folder.folder)), [folders])
+
   const selectedNote = useMemo(
-    () => notes.find((n) => n.path === selectedNotePath) ?? null,
-    [notes, selectedNotePath]
+    () => (selectedNotePath ? notesByPath.get(selectedNotePath) ?? null : null),
+    [notesByPath, selectedNotePath]
   )
 
   const focusedFolder = useMemo((): Folder | null => {
@@ -326,8 +322,8 @@ export function useNotesApp({
     if (focusedFolderId === DEFAULT_WORKSPACE_ID) {
       return { folder: DEFAULT_WORKSPACE_ID, name: 'Root' }
     }
-    return folders.find((f) => f.folder === focusedFolderId) ?? null
-  }, [folders, focusedFolderId])
+    return folderById.get(focusedFolderId) ?? null
+  }, [folderById, focusedFolderId])
 
   const notesByFolder = useMemo(() => {
     const map = new Map<string, SavedNote[]>()
@@ -345,8 +341,8 @@ export function useNotesApp({
         continue
       }
       let fid = n.folder
-      if (!map.has(fid)) {
-        fid = folders.some((f) => f.folder === n.folder) ? n.folder : DEFAULT_WORKSPACE_ID
+      if (!folderIdSet.has(fid)) {
+        fid = DEFAULT_WORKSPACE_ID
       }
       map.get(fid)!.push(n)
     }
@@ -354,7 +350,7 @@ export function useNotesApp({
       list.sort((a, b) => b.updatedAt - a.updatedAt)
     }
     return map
-  }, [folders, notes])
+  }, [folderIdSet, folders, notes])
 
   const touchJournalProperties = useCallback(
     (note: SavedNote, properties?: NotePropertyMap): NotePropertyMap | undefined => {
@@ -435,7 +431,7 @@ export function useNotesApp({
   const workspaceSettingsFolder = useMemo(
     () =>
       workspaceSettingsFolderId
-        ? (folders.find((f) => f.folder === workspaceSettingsFolderId) ??
+        ? (folderById.get(workspaceSettingsFolderId) ??
           (workspaceSettingsFolderId === DEFAULT_WORKSPACE_ID && dataRootPath
             ? ({
                 folder: DEFAULT_WORKSPACE_ID,
@@ -444,7 +440,7 @@ export function useNotesApp({
               } satisfies Folder)
             : null))
         : null,
-    [folders, workspaceSettingsFolderId, dataRootPath]
+    [folderById, workspaceSettingsFolderId, dataRootPath]
   )
 
   const workspaceSettingsCanDelete = useMemo(
@@ -473,14 +469,15 @@ export function useNotesApp({
   const resolveGitFolderForId = useCallback(
     (workspaceId: string | undefined | null): Folder | null => {
       if (workspaceId == null) return null
-      const found = folders.find((x) => x.folder === workspaceId && x.localGitPath)
-      if (found) return found
+      const found = folderById.get(workspaceId)
+      if (found?.localGitPath) return found
+      if (found && !found.localGitPath) return null
       if (workspaceId === DEFAULT_WORKSPACE_ID && dataRootPath) {
         return { folder: DEFAULT_WORKSPACE_ID, name: 'Root', localGitPath: dataRootPath }
       }
       return null
     },
-    [folders, dataRootPath]
+    [folderById, dataRootPath]
   )
 
   const {
@@ -627,14 +624,13 @@ export function useNotesApp({
   }, [folders, workspaceSettingsFolderId])
 
   useEffect(() => {
-    const notePathSet = new Set(notes.map((n) => n.path))
     queueMicrotask(() => {
       setOpenNoteTabIds((prev) => {
-        const next = prev.filter((path) => notePathSet.has(path))
+        const next = prev.filter((path) => notesByPath.has(path))
         return next.length === prev.length ? prev : next
       })
     })
-  }, [notes])
+  }, [notesByPath])
 
   useEffect(() => {
     const flushTimers = noteFlushTimers.current

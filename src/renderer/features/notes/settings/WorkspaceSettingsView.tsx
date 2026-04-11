@@ -13,7 +13,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import type { Folder } from '@/lib/notes/notes-storage'
 import type { MacTitlebarStyles } from '@/features/notes/notes-app-types'
-import type { WorkspaceSettingsModel } from '@/features/notes/app-state/useWorkspaceSettings'
+import type { WorkspaceSettingsModel } from '@/hooks/notes/useWorkspaceSettings'
 
 export type WorkspaceSettingsViewProps = {
   folder: Folder

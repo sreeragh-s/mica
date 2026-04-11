@@ -1,4 +1,4 @@
-import type { DragEvent, JSX } from 'react'
+import { lazy, Suspense, useMemo, type DragEvent, type JSX } from 'react'
 
 import { AlertCircleIcon, Loader2Icon, ScanTextIcon, X } from 'lucide-react'
 
@@ -13,25 +13,55 @@ import {
 } from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
 import { enableInfinityCanvas } from '@/lib/core/vite-flags'
-import { AccountSettingsView } from '@/features/notes/settings/AccountSettingsView'
-import { AppearanceSettingsView } from '@/features/notes/settings/AppearanceSettingsView'
-import { DebugSettingsView } from '@/features/notes/settings/DebugSettingsView'
-import { EditorSettingsView } from '@/features/notes/settings/EditorSettingsView'
-import { EmbeddingsSettingsView } from '@/features/notes/settings/EmbeddingsSettingsView'
-import { GitHubSettingsView } from '@/features/notes/settings/GitHubSettingsView'
-import { NotesCanvasView } from '@/features/notes/views/NotesCanvasView'
-import { JournalView } from '@/features/notes/views/JournalView'
-import { NotesConflictView } from '@/features/notes/views/NotesConflictView'
-import { NotesGraphView } from '@/features/notes/views/NotesGraphView'
 import { AppSidebar } from '@/features/notes/chat/AppSidebar'
 import { NotesPrimaryPane } from '@/features/notes/editor-area/NotesPrimaryPane'
 import type { NotesPrimaryPaneProps } from '@/features/notes/editor-area/NotesPrimaryPane'
-import { NotesTabOverview } from '@/features/notes/views/NotesTabOverview'
+import type { OpenNoteTab } from '@/features/notes/editor-area/NoteTabStrip'
 import { GraphPaneTopBar } from '@/features/notes/layout/GraphPaneTopBar'
 import { NotesMainTopBar } from '@/features/notes/layout/NotesMainTopBar'
-import { ShortcutsSettingsView } from '@/features/notes/settings/ShortcutsSettingsView'
-import type { NotesAppViewModel } from '@/features/notes/app-state/useNotesApp'
+import type { NotesAppViewModel } from '@/hooks/notes/useNotesApp'
 import { countIndexingStates } from '@/features/notes/editor-area/indexing-status'
+
+const AccountSettingsView = lazy(async () => ({
+  default: (await import('@/features/notes/settings/AccountSettingsView')).AccountSettingsView
+}))
+const AppearanceSettingsView = lazy(async () => ({
+  default: (await import('@/features/notes/settings/AppearanceSettingsView')).AppearanceSettingsView
+}))
+const DebugSettingsView = lazy(async () => ({
+  default: (await import('@/features/notes/settings/DebugSettingsView')).DebugSettingsView
+}))
+const EditorSettingsView = lazy(async () => ({
+  default: (await import('@/features/notes/settings/EditorSettingsView')).EditorSettingsView
+}))
+const EmbeddingsSettingsView = lazy(async () => ({
+  default: (await import('@/features/notes/settings/EmbeddingsSettingsView')).EmbeddingsSettingsView
+}))
+const GitHubSettingsView = lazy(async () => ({
+  default: (await import('@/features/notes/settings/GitHubSettingsView')).GitHubSettingsView
+}))
+const JournalView = lazy(async () => ({
+  default: (await import('@/features/notes/views/JournalView')).JournalView
+}))
+const NotesCanvasView = lazy(async () => ({
+  default: (await import('@/features/notes/views/NotesCanvasView')).NotesCanvasView
+}))
+const NotesConflictView = lazy(async () => ({
+  default: (await import('@/features/notes/views/NotesConflictView')).NotesConflictView
+}))
+const NotesGraphView = lazy(async () => ({
+  default: (await import('@/features/notes/views/NotesGraphView')).NotesGraphView
+}))
+const NotesTabOverview = lazy(async () => ({
+  default: (await import('@/features/notes/views/NotesTabOverview')).NotesTabOverview
+}))
+const ShortcutsSettingsView = lazy(async () => ({
+  default: (await import('@/features/notes/settings/ShortcutsSettingsView')).ShortcutsSettingsView
+}))
+
+function LazyPaneFallback(): JSX.Element {
+  return <div className="bg-background flex min-h-0 flex-1" aria-hidden />
+}
 
 function MainAreaIndexingOverlay({
   indexingStatus,
@@ -163,7 +193,9 @@ function NotesMainNotesContent({
   if (conflictViewPath) {
     return (
       <div className="flex min-h-0 flex-1 flex-col">
-        <NotesConflictView vm={vm} />
+        <Suspense fallback={<LazyPaneFallback />}>
+          <NotesConflictView vm={vm} />
+        </Suspense>
       </div>
     )
   }
@@ -216,32 +248,36 @@ function NotesMainNotesContent({
 
   if (journalViewOpen) {
     return (
-      <JournalView
-        vm={vm}
-        selectedJournalNotePath={selectedJournalNotePath}
-        bottomChromePortal={showEditorBottomChrome ? editorBottomBarEl : undefined}
-        onDragOver={onDragOverMain}
-        onDrop={onDropPrimaryPane}
-      />
+      <Suspense fallback={<LazyPaneFallback />}>
+        <JournalView
+          vm={vm}
+          selectedJournalNotePath={selectedJournalNotePath}
+          bottomChromePortal={showEditorBottomChrome ? editorBottomBarEl : undefined}
+          onDragOver={onDragOverMain}
+          onDrop={onDropPrimaryPane}
+        />
+      </Suspense>
     )
   }
 
   if (enableInfinityCanvas && canvasViewOpen) {
     return (
       <div className="flex min-h-0 flex-1 flex-col">
-        <NotesCanvasView
-          notes={notes}
-          folders={folders}
-          isMacNotelab={isMacNotelab}
-          macTitlebarStyles={macTitlebarStyles}
-          onSelectNote={selectNote}
-          onClose={closeCanvasView}
-          onNoteSerializedChange={handleNoteSerializedChange}
-          onExcalidrawSceneChange={handleExcalidrawSceneChange}
-          onRenameNote={renameNote}
-          onSetNoteCover={setNoteCover}
-          onSetNoteTitleEmoji={setNoteTitleEmoji}
-        />
+        <Suspense fallback={<LazyPaneFallback />}>
+          <NotesCanvasView
+            notes={notes}
+            folders={folders}
+            isMacNotelab={isMacNotelab}
+            macTitlebarStyles={macTitlebarStyles}
+            onSelectNote={selectNote}
+            onClose={closeCanvasView}
+            onNoteSerializedChange={handleNoteSerializedChange}
+            onExcalidrawSceneChange={handleExcalidrawSceneChange}
+            onRenameNote={renameNote}
+            onSetNoteCover={setNoteCover}
+            onSetNoteTitleEmoji={setNoteTitleEmoji}
+          />
+        </Suspense>
       </div>
     )
   }
@@ -253,13 +289,15 @@ function NotesMainNotesContent({
         onDragOver={onDragOverMain}
         onDrop={onDropPrimaryPane}
       >
-        <NotesGraphView
-          notes={notes}
-          folders={folders}
-          isMacNotelab={isMacNotelab}
-          macTitlebarStyles={macTitlebarStyles}
-          onSelectNote={selectNote}
-        />
+        <Suspense fallback={<LazyPaneFallback />}>
+          <NotesGraphView
+            notes={notes}
+            folders={folders}
+            isMacNotelab={isMacNotelab}
+            macTitlebarStyles={macTitlebarStyles}
+            onSelectNote={selectNote}
+          />
+        </Suspense>
       </div>
     )
   }
@@ -283,14 +321,16 @@ function NotesMainNotesContent({
             macTitlebarStyles={macTitlebarStyles}
             onClose={closeGraphView}
           />
-          <NotesGraphView
-            notes={notes}
-            folders={folders}
-            isMacNotelab={isMacNotelab}
-            macTitlebarStyles={macTitlebarStyles}
-            onSelectNote={selectNote}
-            embedded
-          />
+          <Suspense fallback={<LazyPaneFallback />}>
+            <NotesGraphView
+              notes={notes}
+              folders={folders}
+              isMacNotelab={isMacNotelab}
+              macTitlebarStyles={macTitlebarStyles}
+              onSelectNote={selectNote}
+              embedded
+            />
+          </Suspense>
         </div>
       </div>
     )
@@ -399,6 +439,28 @@ export function NotesMainAreaLayout({
   const showJournalTimeline = showNotes && journalViewOpen
   const showTabs = showNotes && openNoteTabPaths.length > 0 && !journalViewOpen
   const showChatSidebarChrome = showNotes && !zenMode
+  const openTabs = useMemo<OpenNoteTab[]>(() => {
+    if (openNoteTabPaths.length === 0) return []
+
+    const remainingPaths = new Set(openNoteTabPaths)
+    const noteByPath = new Map<string, OpenNoteTab>()
+
+    for (const note of notes) {
+      if (!remainingPaths.has(note.path)) continue
+      noteByPath.set(note.path, {
+        path: note.path,
+        title: note.title,
+        kind: note.kind
+      })
+      remainingPaths.delete(note.path)
+      if (remainingPaths.size === 0) break
+    }
+
+    return openNoteTabPaths.flatMap((path) => {
+      const tab = noteByPath.get(path)
+      return tab ? [tab] : []
+    })
+  }, [notes, openNoteTabPaths])
 
   return (
     <div
@@ -471,8 +533,7 @@ export function NotesMainAreaLayout({
                     onJournalTimelineDateChange={onJournalTimelineDateChange}
                     availableDates={journalNoteDates}
                     showTabs={showTabs}
-                    openNoteTabPaths={openNoteTabPaths}
-                    notes={notes}
+                    openTabs={openTabs}
                     selectedNotePath={selectedNotePath}
                     reorderOpenNoteTabs={reorderOpenNoteTabs}
                     closeNoteTab={closeNoteTab}
@@ -508,74 +569,88 @@ export function NotesMainAreaLayout({
                         />
                       )}
                       {appMode === 'settings' && settingsSection === 'account' ? (
-                        <AccountSettingsView
-                          user={user}
-                          guestMode={guestMode}
-                          onSignOut={onSignOut}
-                          onConnectGitHub={onConnectGitHub}
-                          isMacNotelab={isMacNotelab}
-                          macTitlebarStyles={macTitlebarStyles}
-                        />
+                        <Suspense fallback={<LazyPaneFallback />}>
+                          <AccountSettingsView
+                            user={user}
+                            guestMode={guestMode}
+                            onSignOut={onSignOut}
+                            onConnectGitHub={onConnectGitHub}
+                            isMacNotelab={isMacNotelab}
+                            macTitlebarStyles={macTitlebarStyles}
+                          />
+                        </Suspense>
                       ) : appMode === 'settings' &&
                         (settingsSection === 'workspace' || settingsSection === 'github') ? (
-                        <GitHubSettingsView
-                          isMacNotelab={isMacNotelab}
-                          macTitlebarStyles={macTitlebarStyles}
-                          workspaceRoot={workspaceRoot}
-                          onWorkspaceRootChange={handleWorkspaceRootChange}
-                        />
+                        <Suspense fallback={<LazyPaneFallback />}>
+                          <GitHubSettingsView
+                            isMacNotelab={isMacNotelab}
+                            macTitlebarStyles={macTitlebarStyles}
+                            workspaceRoot={workspaceRoot}
+                            onWorkspaceRootChange={handleWorkspaceRootChange}
+                          />
+                        </Suspense>
                       ) : appMode === 'settings' && settingsSection === 'appearance' ? (
-                        <AppearanceSettingsView
-                          isMacNotelab={isMacNotelab}
-                          macTitlebarStyles={macTitlebarStyles}
-                          settings={appearanceSettings}
-                          onChange={setAppearanceSettings}
-                        />
+                        <Suspense fallback={<LazyPaneFallback />}>
+                          <AppearanceSettingsView
+                            isMacNotelab={isMacNotelab}
+                            macTitlebarStyles={macTitlebarStyles}
+                            settings={appearanceSettings}
+                            onChange={setAppearanceSettings}
+                          />
+                        </Suspense>
                       ) : appMode === 'settings' && settingsSection === 'editor' ? (
-                        <EditorSettingsView
-                          isMacNotelab={isMacNotelab}
-                          macTitlebarStyles={macTitlebarStyles}
-                          settings={editorSettings}
-                          onChange={setEditorSettings}
-                        />
+                        <Suspense fallback={<LazyPaneFallback />}>
+                          <EditorSettingsView
+                            isMacNotelab={isMacNotelab}
+                            macTitlebarStyles={macTitlebarStyles}
+                            settings={editorSettings}
+                            onChange={setEditorSettings}
+                          />
+                        </Suspense>
                       ) : appMode === 'settings' && settingsSection === 'shortcuts' ? (
-                        <ShortcutsSettingsView
-                          isMacNotelab={isMacNotelab}
-                          macTitlebarStyles={macTitlebarStyles}
-                          bindings={shortcutBindings}
-                          onChangeBinding={updateShortcutBinding}
-                          onResetAll={resetShortcutsToDefaults}
-                          onCaptureModeChange={setShortcutsCaptureActive}
-                        />
+                        <Suspense fallback={<LazyPaneFallback />}>
+                          <ShortcutsSettingsView
+                            isMacNotelab={isMacNotelab}
+                            macTitlebarStyles={macTitlebarStyles}
+                            bindings={shortcutBindings}
+                            onChangeBinding={updateShortcutBinding}
+                            onResetAll={resetShortcutsToDefaults}
+                            onCaptureModeChange={setShortcutsCaptureActive}
+                          />
+                        </Suspense>
                       ) : appMode === 'settings' && settingsSection === 'debug' ? (
-                        <DebugSettingsView
-                          isMacNotelab={isMacNotelab}
-                          macTitlebarStyles={macTitlebarStyles}
-                          workspacePath={dataRootPath}
-                          localGitPath={gitToolbarFolder?.localGitPath ?? null}
-                          githubRemoteUrl={githubRemoteUrl}
-                          foldersCount={folders.length}
-                          notesCount={notesCount}
-                          dirtyByWorkspaceId={dirtyByWorkspaceId}
-                          onRefreshGitStatus={() => void refreshWorkspaceGitStatuses()}
-                          notesCacheIndexedAt={notesCacheIndexedAt}
-                          onRebuildNotesSearchCacheFromFilesystem={
-                            rebuildNotesSearchCacheFromFilesystem
-                          }
-                          onClearNotesSearchCache={clearWorkspaceCache}
-                        />
+                        <Suspense fallback={<LazyPaneFallback />}>
+                          <DebugSettingsView
+                            isMacNotelab={isMacNotelab}
+                            macTitlebarStyles={macTitlebarStyles}
+                            workspacePath={dataRootPath}
+                            localGitPath={gitToolbarFolder?.localGitPath ?? null}
+                            githubRemoteUrl={githubRemoteUrl}
+                            foldersCount={folders.length}
+                            notesCount={notesCount}
+                            dirtyByWorkspaceId={dirtyByWorkspaceId}
+                            onRefreshGitStatus={() => void refreshWorkspaceGitStatuses()}
+                            notesCacheIndexedAt={notesCacheIndexedAt}
+                            onRebuildNotesSearchCacheFromFilesystem={
+                              rebuildNotesSearchCacheFromFilesystem
+                            }
+                            onClearNotesSearchCache={clearWorkspaceCache}
+                          />
+                        </Suspense>
                       ) : appMode === 'settings' && settingsSection === 'indexing' ? (
-                        <EmbeddingsSettingsView
-                          isMacNotelab={isMacNotelab}
-                          macTitlebarStyles={macTitlebarStyles}
-                          workspacePath={dataRootPath}
-                          guestMode={guestMode}
-                          isLoggedIn={Boolean(user?.email || user?.name)}
-                          indexingStatus={indexingStatus}
-                          refreshIndexingStatus={refreshIndexingStatus}
-                          runIndexPending={runIndexPending}
-                          runReindexAll={runReindexAll}
-                        />
+                        <Suspense fallback={<LazyPaneFallback />}>
+                          <EmbeddingsSettingsView
+                            isMacNotelab={isMacNotelab}
+                            macTitlebarStyles={macTitlebarStyles}
+                            workspacePath={dataRootPath}
+                            guestMode={guestMode}
+                            isLoggedIn={Boolean(user?.email || user?.name)}
+                            indexingStatus={indexingStatus}
+                            refreshIndexingStatus={refreshIndexingStatus}
+                            runIndexPending={runIndexPending}
+                            runReindexAll={runReindexAll}
+                          />
+                        </Suspense>
                       ) : appMode === 'notes' ? (
                         <NotesMainNotesContent
                           vm={vm}
@@ -616,23 +691,25 @@ export function NotesMainAreaLayout({
       </main>
 
       {tabOverviewOpen && (
-        <NotesTabOverview
-          notes={notes}
-          folders={folders}
-          openNoteTabPaths={openNoteTabPaths}
-          selectedNotePath={selectedNotePath}
-          macTitlebarStyles={macTitlebarStyles}
-          isMacNotelab={isMacNotelab}
-          sidebarCollapsed={sidebarCollapsed}
-          onToggleSidebar={toggleSidebar}
-          onClose={closeTabOverview}
-          onSelectNote={(id) => {
-            selectNote(id)
-            closeTabOverview()
-          }}
-          onNewNote={handleNewNote}
-          onCloseTab={closeNoteTab}
-        />
+        <Suspense fallback={null}>
+          <NotesTabOverview
+            notes={notes}
+            folders={folders}
+            openNoteTabPaths={openNoteTabPaths}
+            selectedNotePath={selectedNotePath}
+            macTitlebarStyles={macTitlebarStyles}
+            isMacNotelab={isMacNotelab}
+            sidebarCollapsed={sidebarCollapsed}
+            onToggleSidebar={toggleSidebar}
+            onClose={closeTabOverview}
+            onSelectNote={(id) => {
+              selectNote(id)
+              closeTabOverview()
+            }}
+            onNewNote={handleNewNote}
+            onCloseTab={closeNoteTab}
+          />
+        </Suspense>
       )}
     </div>
   )

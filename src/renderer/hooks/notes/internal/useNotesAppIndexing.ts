@@ -1,12 +1,12 @@
-import { useCallback, useRef, useState, type MutableRefObject } from 'react'
+import { useCallback, useRef, type MutableRefObject } from 'react'
 
 import {
   buildIndexingStatus,
   indexNote,
-  type IndexingNoteStatus,
-  type IndexingStatus
+  type IndexingNoteStatus
 } from '@/lib/ai/embedding-pipeline'
-import { getApi } from '@/lib/auth/auth-bridge'
+import { getApi } from '@/bridges/auth/auth-bridge'
+import { useNotesStore } from '@/stores/notes/useNotesStore'
 
 import { summarizeIndexingCounts } from './shared'
 
@@ -15,12 +15,7 @@ type UseNotesAppIndexingArgs = {
 }
 
 export function useNotesAppIndexing({ dataRootRef }: UseNotesAppIndexingArgs) {
-  const [indexingStatus, setIndexingStatus] = useState<IndexingStatus>({
-    notes: [],
-    pendingCount: 0,
-    indexedCount: 0,
-    running: false
-  })
+  const { indexingStatus, setIndexingStatus } = useNotesStore()
   /** Used to abort an in-progress indexing run when a new one starts. */
   const indexingAbortRef = useRef(false)
 

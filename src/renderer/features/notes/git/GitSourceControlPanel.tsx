@@ -17,9 +17,10 @@ import {
 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
-import { getApi } from '@/lib/auth/auth-bridge'
+import { getApi } from '@/bridges/auth/auth-bridge'
+import { getLogApi, getWorkspaceApi } from '@/bridges/workspace/workspace-bridge'
 import { cn } from '@/lib/utils'
-import type { NotesAppViewModel } from '@/features/notes/app-state/useNotesApp'
+import type { NotesAppViewModel } from '@/hooks/notes/useNotesApp'
 
 export type GitFileEntry = {
   path: string
@@ -282,8 +283,8 @@ export function GitSourceControlPanel({ vm }: GitSourceControlPanelProps): JSX.E
       setDiffLoading(true)
       setDiffContent(null)
       try {
-        const api = window.api
-        const r = await api.workspace.gitDiffFile?.({ cwd, path, staged })
+        const workspaceApi = getWorkspaceApi()
+        const r = await workspaceApi?.gitDiffFile?.({ cwd, path, staged })
         if (r?.ok) {
           setDiffContent(r.diff || '(no diff)')
         } else {
@@ -334,13 +335,14 @@ export function GitSourceControlPanel({ vm }: GitSourceControlPanelProps): JSX.E
   const handleStageAll = useCallback(async () => {
     if (!cwd) return
     const api = getApi()
+    const logApi = getLogApi()
     if (!api?.workspace?.gitStageFile) return
     setBulkActionBusy(true)
     try {
       for (const f of unstagedFiles) {
         const r = await api.workspace.gitStageFile({ cwd, path: f.path })
         if (!r.ok) {
-          window.api.log.error('[GitSourceControlPanel] bulk stage failed', f.path, r.error)
+          logApi?.error('[GitSourceControlPanel] bulk stage failed', f.path, r.error)
           break
         }
       }
@@ -353,13 +355,14 @@ export function GitSourceControlPanel({ vm }: GitSourceControlPanelProps): JSX.E
   const handleUnstageAll = useCallback(async () => {
     if (!cwd) return
     const api = getApi()
+    const logApi = getLogApi()
     if (!api?.workspace?.gitUnstageFile) return
     setBulkActionBusy(true)
     try {
       for (const f of stagedFiles) {
         const r = await api.workspace.gitUnstageFile({ cwd, path: f.path })
         if (!r.ok) {
-          window.api.log.error('[GitSourceControlPanel] bulk unstage failed', f.path, r.error)
+          logApi?.error('[GitSourceControlPanel] bulk unstage failed', f.path, r.error)
           break
         }
       }

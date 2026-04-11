@@ -1,6 +1,6 @@
 import { useCallback, useState, type Dispatch, type SetStateAction } from 'react'
 
-import { getApi } from '@/lib/auth/auth-bridge'
+import { getApi } from '@/bridges/auth/auth-bridge'
 import { createElectronLogger } from '@/lib/core/electron-log'
 import type { AppSidebarView } from '@/lib/notes/notes-types'
 import type { Folder } from '@/lib/notes/notes-storage'

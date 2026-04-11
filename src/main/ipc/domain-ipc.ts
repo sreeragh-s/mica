@@ -2,7 +2,7 @@ import { registerAuthIpc } from '../auth/auth'
 import { registerChatHistoryIpc } from '../chat/chat-history'
 import { registerWorkspaceIpc } from '../workspace/workspace-ipc'
 import { registerGitIpc } from '../git/git-ipc'
-import { registerVectraEmbeddingsIpc } from '../ai/vectra-embeddings'
+import { registerSQLiteVectorEmbeddingsIpc } from '../ai/sqlite-vector-embeddings'
 import { registerOllamaIpc } from '../ai/ollama'
 import { registerUpdaterIpc } from '../updater/updater'
 
@@ -11,7 +11,7 @@ export function registerDomainIpc(): void {
   registerChatHistoryIpc()
   registerWorkspaceIpc()
   registerGitIpc()
-  registerVectraEmbeddingsIpc()
+  registerSQLiteVectorEmbeddingsIpc()
   registerOllamaIpc()
   registerUpdaterIpc()
 }

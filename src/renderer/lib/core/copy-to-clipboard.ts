@@ -1,4 +1,4 @@
-import type { NotelabApi } from '@/lib/auth/auth-bridge'
+import type { NotelabApi } from '@/bridges/auth/auth-bridge'
 
 function getClipboardBridge(): NotelabApi['clipboard'] | null {
   if (typeof window === 'undefined') return null

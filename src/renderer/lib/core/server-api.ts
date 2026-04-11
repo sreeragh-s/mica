@@ -1,4 +1,4 @@
-import { getApi } from '@/lib/auth/auth-bridge'
+import { getApi } from '@/bridges/auth/auth-bridge'
 
 function baseUrl(): string {
   const u = import.meta.env.VITE_AUTH_URL?.trim() ?? ''

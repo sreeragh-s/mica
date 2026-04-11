@@ -1,4 +1,4 @@
-import { getApi } from '@/lib/auth/auth-bridge'
+import { getApi } from '@/bridges/auth/auth-bridge'
 
 type LogLevel = 'info' | 'warn' | 'error'
 

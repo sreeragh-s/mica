@@ -1,4 +1,4 @@
-import type { JSX } from 'react'
+import { memo, type JSX } from 'react'
 
 import { LayoutGrid, Link2, MessageCircle, PanelLeft, PanelLeftClose, Plus } from 'lucide-react'
 
@@ -17,7 +17,7 @@ export type SidebarEdgeToolbarPillProps = {
 }
 
 /** Single control matching {@link NotesToolbarPill} shell + icon sizing (collapse / expand). */
-export function SidebarEdgeToolbarPill({
+function SidebarEdgeToolbarPillInner({
   macTitlebarStyles,
   expanded,
   onClick,
@@ -48,6 +48,8 @@ export function SidebarEdgeToolbarPill({
   )
 }
 
+export const SidebarEdgeToolbarPill = memo(SidebarEdgeToolbarPillInner)
+
 export type NotesToolbarPillProps = {
   macTitlebarStyles: MacTitlebarStyles
   onOpenTabOverview: () => void
@@ -58,7 +60,7 @@ export type NotesToolbarPillProps = {
   chatSidebarPanel: 'chat' | 'links'
 }
 
-export function NotesToolbarPill({
+function NotesToolbarPillInner({
   macTitlebarStyles,
   onOpenTabOverview,
   onNewNote,
@@ -130,3 +132,5 @@ export function NotesToolbarPill({
     </div>
   )
 }
+
+export const NotesToolbarPill = memo(NotesToolbarPillInner)

@@ -1,4 +1,4 @@
-import type { JSX } from 'react'
+import { memo, type JSX } from 'react'
 
 import { X } from 'lucide-react'
 
@@ -12,7 +12,7 @@ export type GraphPaneTopBarProps = {
   onClose: () => void
 }
 
-export function GraphPaneTopBar({
+function GraphPaneTopBarInner({
   title,
   isMacNotelab,
   macTitlebarStyles,
@@ -43,3 +43,5 @@ export function GraphPaneTopBar({
     </div>
   )
 }
+
+export const GraphPaneTopBar = memo(GraphPaneTopBarInner)

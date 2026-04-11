@@ -25,7 +25,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
-import type { UseOllamaResult, OllamaLocalModel } from '@/hooks/useOllama'
+import type { UseOllamaResult, OllamaLocalModel } from '@/hooks/ai/useOllama'
 
 // ---------------------------------------------------------------------------
 // Suggested models to pull

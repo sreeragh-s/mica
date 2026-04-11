@@ -1,9 +1,9 @@
 /**
- * Embedding pipeline: normalize note text, then upsert a Vectra document in the
+ * Embedding pipeline: normalize note text, then upsert a SQLite-backed document in the
  * current workspace-local index. The main process owns chunking, embedding, and retrieval.
  */
 
-import { getApi } from '@/lib/auth/auth-bridge'
+import { getApi } from '@/bridges/auth/auth-bridge'
 import { createElectronLogger } from '@/lib/core/electron-log'
 import { extractExcalidrawText } from '@/lib/ai/markdown-chunker'
 
@@ -43,7 +43,7 @@ export type IndexNoteResult =
  * 2. If hash matches stored hash, skip (content unchanged).
  * 3. Normalize the note content for indexing.
  * 4. If there is no indexable text, delete the stored document and skip.
- * 5. Ask the main process to upsert the Vectra document.
+ * 5. Ask the main process to upsert the SQLite vector document.
  */
 export async function indexNote(opts: {
   workspacePath: string
@@ -93,11 +93,13 @@ export async function indexNote(opts: {
   })
 
   if (!result.ok) {
-    log.error(`indexNote(${note}): Vectra upsert failed`, result.error)
+    log.error(`indexNote(${note}): SQLite vector upsert failed`, result.error)
     return { ok: false, error: result.error }
   }
 
-  log.info(`indexNote(${note}): stored ${result.indexed} chunk(s) in workspace-local Vectra index`)
+  log.info(
+    `indexNote(${note}): stored ${result.indexed} chunk(s) in workspace-local SQLite vector index`
+  )
   return { ok: true, indexed: result.indexed, skipped: false }
 }
 

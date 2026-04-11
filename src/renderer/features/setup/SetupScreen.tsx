@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { isMacNotelab } from '@/lib/core/electron-env'
 import { saveSetupState } from '@/lib/workspace/setup-storage'
 import { cn } from '@/lib/utils'
-import type { NotelabApi } from '@/lib/auth/auth-bridge'
+import type { NotelabApi } from '@/bridges/auth/auth-bridge'
 
 type InitialRootResult = {
   path: string

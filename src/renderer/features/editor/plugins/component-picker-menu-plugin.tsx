@@ -16,7 +16,7 @@ import {
 import { TextNode } from 'lexical'
 import { createPortal } from 'react-dom'
 
-import { useEditorModal } from '@/features/editor/editor-hooks/use-modal'
+import { useEditorModal } from '@/hooks/editor/useEditorModal'
 import { Command, CommandGroup, CommandItem, CommandList } from '@/components/ui/command'
 
 import { ComponentPickerOption } from './picker/component-picker-option'

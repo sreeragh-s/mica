@@ -1,4 +1,4 @@
-import type { NotesAppViewModel } from '@/features/notes/app-state/useNotesApp'
+import type { NotesAppViewModel } from '@/hooks/notes/useNotesApp'
 import type { SavedNote, Folder } from '@/lib/notes/notes-storage'
 import type { WorkspaceLinkMentionIndex } from '@/lib/notes/cache/notes-cache-types'
 

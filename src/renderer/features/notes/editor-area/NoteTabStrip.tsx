@@ -1,5 +1,7 @@
 import {
+  memo,
   useCallback,
+  useMemo,
   useRef,
   useState,
   type JSX,
@@ -12,7 +14,7 @@ import { motion } from 'motion/react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { NOTES_APP_PILL_ROUNDED, NOTES_APP_PILL_SURFACE } from '@/features/notes/notes-app-utils'
-import type { SavedNote } from '@/lib/notes/notes-storage'
+import type { NoteKind } from '@/lib/notes/notes-storage'
 import type { MacTitlebarStyles } from '@/features/notes/notes-app-types'
 
 /** Spring for other tabs sliding into position. */
@@ -74,8 +76,7 @@ function computeInsertionIdx(
 }
 
 export type NoteTabStripProps = {
-  openNoteTabPaths: string[]
-  notes: SavedNote[]
+  openTabs: OpenNoteTab[]
   selectedNotePath: string | null
   reorderOpenNoteTabs: (fn: (prev: string[]) => string[]) => void
   closeNoteTab: (id: string) => void
@@ -84,9 +85,14 @@ export type NoteTabStripProps = {
   macTitlebarStyles: MacTitlebarStyles
 }
 
-export function NoteTabStrip({
-  openNoteTabPaths,
-  notes,
+export type OpenNoteTab = {
+  path: string
+  title: string
+  kind?: NoteKind
+}
+
+function NoteTabStripInner({
+  openTabs,
   selectedNotePath,
   reorderOpenNoteTabs,
   closeNoteTab,
@@ -102,11 +108,15 @@ export function NoteTabStrip({
   const tabElsRef = useRef<Map<string, HTMLElement>>(new Map())
   const startPointerXRef = useRef(0)
   const suppressClickRef = useRef(false)
+  const openTabIndexByPath = useMemo(
+    () => new Map(openTabs.map((tab, idx) => [tab.path, idx])),
+    [openTabs]
+  )
 
   const onPointerDown = useCallback(
     (e: ReactPointerEvent<HTMLElement>, id: string) => {
       if (e.button !== 0) return
-      const idx = openNoteTabPaths.indexOf(id)
+      const idx = openTabIndexByPath.get(id) ?? -1
       if (idx < 0) return
       const el = tabElsRef.current.get(id)
       if (!el) return
@@ -125,7 +135,7 @@ export function NoteTabStrip({
       setDrag(state)
       e.currentTarget.setPointerCapture(e.pointerId)
     },
-    [openNoteTabPaths]
+    [openTabIndexByPath]
   )
 
   const onPointerMove = useCallback(
@@ -136,14 +146,14 @@ export function NoteTabStrip({
       const insertionIdx = computeInsertionIdx(
         deltaX,
         d.dragIdx,
-        openNoteTabPaths.length,
+        openTabs.length,
         d.tabWidth
       )
       const next: DragState = { ...d, deltaX, insertionIdx }
       dragRef.current = next
       setDrag(next)
     },
-    [openNoteTabPaths.length]
+    [openTabs.length]
   )
 
   const endDrag = useCallback(
@@ -211,14 +221,11 @@ export function NoteTabStrip({
         role="tablist"
       >
         <div className="flex min-h-0 min-w-0 flex-1 overflow-x-auto [scrollbar-width:thin]">
-          {openNoteTabPaths.map((id, idx) => {
-            const note = notes.find((n) => n.path === id)
-            if (!note) return null
-
-            const title = note.title.trim() || 'Untitled'
-            const active = id === selectedNotePath
-            const isDrawing = note.kind === 'drawing'
-            const isDragging = drag?.id === id
+          {openTabs.map((tab, idx) => {
+            const title = tab.title.trim() || 'Untitled'
+            const active = tab.path === selectedNotePath
+            const isDrawing = tab.kind === 'drawing'
+            const isDragging = drag?.id === tab.path
             const isLifted = isDragging && Math.abs(drag.deltaX) > DRAG_THRESHOLD
 
             // Compute per-tab x translation.
@@ -232,11 +239,11 @@ export function NoteTabStrip({
 
             return (
               <motion.div
-                key={id}
+                key={tab.path}
                 layout={false}
                 ref={(el) => {
-                  if (el) tabElsRef.current.set(id, el)
-                  else tabElsRef.current.delete(id)
+                  if (el) tabElsRef.current.set(tab.path, el)
+                  else tabElsRef.current.delete(tab.path)
                 }}
                 role="tab"
                 aria-selected={active}
@@ -271,7 +278,7 @@ export function NoteTabStrip({
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' || e.key === ' ') {
                     e.preventDefault()
-                    selectNote(id)
+                    selectNote(tab.path)
                   }
                 }}
               >
@@ -285,7 +292,7 @@ export function NoteTabStrip({
                   )}
                   onClick={(ev) => {
                     if ((ev.target as HTMLElement).closest('[data-tab-handle]')) return
-                    selectNote(id)
+                    selectNote(tab.path)
                   }}
                 >
                   {/* Close button */}
@@ -304,7 +311,7 @@ export function NoteTabStrip({
                       draggable={false}
                       onClick={(e) => {
                         e.stopPropagation()
-                        closeNoteTab(id)
+                        closeNoteTab(tab.path)
                       }}
                     >
                       <X className="size-3" aria-hidden />
@@ -315,11 +322,11 @@ export function NoteTabStrip({
                   <div
                     data-tab-handle
                     className="flex min-h-0 min-w-0 cursor-grab select-none items-center justify-center gap-1.5 px-0.5 active:cursor-grabbing"
-                    onPointerDown={(e) => onPointerDown(e, id)}
-                    onPointerMove={(e) => onPointerMove(e, id)}
-                    onPointerUp={(e) => onPointerUp(e, id)}
-                    onPointerCancel={(e) => onPointerUp(e, id)}
-                    onLostPointerCapture={(e) => onLostCapture(e, id)}
+                    onPointerDown={(e) => onPointerDown(e, tab.path)}
+                    onPointerMove={(e) => onPointerMove(e, tab.path)}
+                    onPointerUp={(e) => onPointerUp(e, tab.path)}
+                    onPointerCancel={(e) => onPointerUp(e, tab.path)}
+                    onLostPointerCapture={(e) => onLostCapture(e, tab.path)}
                     onClick={(e) => {
                       if (suppressClickRef.current) {
                         suppressClickRef.current = false
@@ -357,3 +364,32 @@ export function NoteTabStrip({
     </div>
   )
 }
+
+function areOpenTabsEqual(prev: OpenNoteTab[], next: OpenNoteTab[]): boolean {
+  if (prev === next) return true
+  if (prev.length !== next.length) return false
+  for (let i = 0; i < prev.length; i += 1) {
+    const prevTab = prev[i]
+    const nextTab = next[i]
+    if (
+      prevTab.path !== nextTab.path ||
+      prevTab.title !== nextTab.title ||
+      prevTab.kind !== nextTab.kind
+    ) {
+      return false
+    }
+  }
+  return true
+}
+
+export const NoteTabStrip = memo(NoteTabStripInner, (prev, next) => {
+  return (
+    prev.selectedNotePath === next.selectedNotePath &&
+    prev.reorderOpenNoteTabs === next.reorderOpenNoteTabs &&
+    prev.closeNoteTab === next.closeNoteTab &&
+    prev.selectNote === next.selectNote &&
+    prev.isMacNotelab === next.isMacNotelab &&
+    prev.macTitlebarStyles === next.macTitlebarStyles &&
+    areOpenTabsEqual(prev.openTabs, next.openTabs)
+  )
+})

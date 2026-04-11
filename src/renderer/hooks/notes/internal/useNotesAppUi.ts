@@ -6,7 +6,7 @@ import {
   type SetStateAction
 } from 'react'
 
-import { getApi, getWindowApi } from '@/lib/auth/auth-bridge'
+import { getApi, getWindowApi } from '@/bridges/auth/auth-bridge'
 import type { AppSidebarView } from '@/lib/notes/notes-types'
 import {
   resetShortcutBindings,

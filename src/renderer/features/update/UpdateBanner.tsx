@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import type { JSX } from 'react'
 
+import { getUpdaterApi } from '@/bridges/update/update-bridge'
+
 type UpdateState =
   | { status: 'idle' }
   | { status: 'available'; version: string; downloadUrl: string }
@@ -12,16 +14,16 @@ export function UpdateBanner(): JSX.Element | null {
   const [opening, setOpening] = useState(false)
 
   useEffect(() => {
-    const api = window.api
-    if (!api?.updater) return
+    const updaterApi = getUpdaterApi()
+    if (!updaterApi) return
 
     // Get current state on mount
-    void api.updater.getState().then((s) => {
+    void updaterApi.getState().then((s) => {
       setUpdateState(s as UpdateState)
     })
 
     // Listen for state changes pushed from main
-    const cleanup = api.updater.onStateChange((state) => {
+    const cleanup = updaterApi.onStateChange((state) => {
       setUpdateState(state as UpdateState)
       // Reset dismissed when a new version arrives
       if (state.status === 'available') setDismissed(false)
@@ -35,8 +37,10 @@ export function UpdateBanner(): JSX.Element | null {
   const { version, downloadUrl } = updateState
 
   async function handleDownload(): Promise<void> {
+    const updaterApi = getUpdaterApi()
+    if (!updaterApi) return
     setOpening(true)
-    await window.api.updater.openDownload(downloadUrl)
+    await updaterApi.openDownload(downloadUrl)
     setOpening(false)
   }
 

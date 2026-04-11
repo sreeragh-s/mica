@@ -3,13 +3,12 @@ import {
   useEffect,
   useMemo,
   useRef,
-  useState,
   type Dispatch,
   type MutableRefObject,
   type SetStateAction
 } from 'react'
 
-import { getApi } from '@/lib/auth/auth-bridge'
+import { getApi } from '@/bridges/auth/auth-bridge'
 import { createElectronLogger } from '@/lib/core/electron-log'
 import { loadSetupState } from '@/lib/workspace/setup-storage'
 import { switchDataRoot } from '@/lib/config/notelab-app-config'
@@ -34,6 +33,7 @@ import {
 } from '@/lib/workspace/workspace-markdown-sync'
 
 import type { NotelabIndexOk } from './shared'
+import { useNotesStore } from '@/stores/notes/useNotesStore'
 
 const LOG = '[useNotesAppDisk]'
 const log = createElectronLogger(LOG)
@@ -41,7 +41,6 @@ const log = createElectronLogger(LOG)
 type Setter<T> = Dispatch<SetStateAction<T>>
 
 type UseNotesAppDiskArgs = {
-  initialGithubRemoteUrl: string
   folders: Folder[]
   notes: SavedNote[]
   setFolders: Setter<Folder[]>
@@ -61,7 +60,6 @@ type UseNotesAppDiskArgs = {
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type -- hook return shape is inferred from the returned controller object below
 export function useNotesAppDisk({
-  initialGithubRemoteUrl,
   folders,
   notes,
   setFolders,
@@ -78,29 +76,44 @@ export function useNotesAppDisk({
   pendingDiskWrites,
   applyWorkspaceViewFromDisk
 }: UseNotesAppDiskArgs) {
-  const [githubRemoteUrl, setGithubRemoteUrl] = useState(() => initialGithubRemoteUrl)
-  const [diskMode, setDiskMode] = useState(false)
-  /** Data root (~/.notelab); used when `folders` omits the default workspace but Git still runs at repo root. */
-  const [dataRootPath, setDataRootPath] = useState<string | null>(null)
-  const [dirtyByWorkspaceId, setDirtyByWorkspaceId] = useState<Record<string, boolean>>({})
-  const [gitCommitMessage, setGitCommitMessage] = useState('Update notes')
-  const [gitSyncBusy, setGitSyncBusy] = useState(false)
-  const [gitSyncError, setGitSyncError] = useState<string | null>(null)
-  const [gitSynced, setGitSynced] = useState(false)
-  const [gitHubBusy, setGitHubBusy] = useState(false)
-  const [gitHubMessage, setGitHubMessage] = useState<string | null>(null)
-  const [gitRemoteDialogOpen, setGitRemoteDialogOpen] = useState(false)
-  const [gitUserConfigDialogOpen, setGitUserConfigDialogOpen] = useState(false)
-  /** The operation to retry after the user configures git user.name/email. */
-  const [gitPendingRetry, setGitPendingRetry] = useState<(() => Promise<void>) | null>(null)
-  const [gitRepoReady, setGitRepoReady] = useState<boolean | null>(null)
-  const [gitHasOriginRemote, setGitHasOriginRemote] = useState(false)
-  const [gitInitBusy, setGitInitBusy] = useState(false)
-  const [gitInitError, setGitInitError] = useState<string | null>(null)
-  /** Absolute path of workspace root as saved in setup state (may be null for default ~/.notelab). */
-  const [workspaceRoot, setWorkspaceRoot] = useState<string | null>(
-    () => loadSetupState().workspaceRoot ?? null
-  )
+  const {
+    githubRemoteUrl,
+    setGithubRemoteUrl,
+    diskMode,
+    setDiskMode,
+    dataRootPath,
+    setDataRootPath,
+    dirtyByWorkspaceId,
+    setDirtyByWorkspaceId,
+    gitCommitMessage,
+    setGitCommitMessage,
+    gitSyncBusy,
+    setGitSyncBusy,
+    gitSyncError,
+    setGitSyncError,
+    gitSynced,
+    setGitSynced,
+    gitHubBusy,
+    setGitHubBusy,
+    gitHubMessage,
+    setGitHubMessage,
+    gitRemoteDialogOpen,
+    setGitRemoteDialogOpen,
+    gitUserConfigDialogOpen,
+    setGitUserConfigDialogOpen,
+    gitPendingRetry,
+    setGitPendingRetry,
+    gitRepoReady,
+    setGitRepoReady,
+    gitHasOriginRemote,
+    setGitHasOriginRemote,
+    gitInitBusy,
+    setGitInitBusy,
+    gitInitError,
+    setGitInitError,
+    workspaceRoot,
+    setWorkspaceRoot
+  } = useNotesStore()
   const markdownSyncGen = useRef(0)
   const gitStatusRefreshTimerRef = useRef<number | null>(null)
 

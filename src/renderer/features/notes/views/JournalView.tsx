@@ -1,7 +1,7 @@
 import type { DragEvent, JSX } from 'react'
 
 import { NotesPrimaryPane } from '@/features/notes/editor-area/NotesPrimaryPane'
-import type { NotesAppViewModel } from '@/features/notes/app-state/useNotesApp'
+import type { NotesAppViewModel } from '@/hooks/notes/useNotesApp'
 
 export type JournalViewProps = {
   vm: NotesAppViewModel

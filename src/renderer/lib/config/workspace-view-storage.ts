@@ -3,7 +3,7 @@
  * Separate from global app config under ~/.notelab (see notelab-app-config).
  */
 
-import { getApi } from '@/lib/auth/auth-bridge'
+import { getApi } from '@/bridges/auth/auth-bridge'
 import { DEFAULT_WORKSPACE_ID } from '@/lib/notes/notes-storage'
 import type { NotelabWorkspaceViewSnapshotV1 } from './notelab-config-schema'
 

@@ -4,8 +4,8 @@ import { useState } from 'react'
 import { Bug, ClipboardCopy, Database, RefreshCw } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
-import { getApi } from '@/lib/auth/auth-bridge'
-import { getEmbeddingsApi } from '@/lib/ai/embeddings-bridge'
+import { getApi } from '@/bridges/auth/auth-bridge'
+import { getEmbeddingsApi } from '@/bridges/ai/embeddings-bridge'
 import { isMacNotelab as detectIsMacNotelab } from '@/lib/core/electron-env'
 import type { MacTitlebarStyles } from '@/features/notes/notes-app-types'
 
@@ -125,7 +125,7 @@ export function DebugSettingsView({
       return
     }
     const folder = '__notelab_debug__'
-    const note = '__vectra_ping__'
+    const note = '__sqlite_vector_ping__'
     setStorePingBusy(true)
     setStorePingText(null)
     void (async () => {
@@ -139,10 +139,10 @@ export function DebugSettingsView({
           workspacePath,
           folder,
           note,
-          title: 'Vectra ping',
+          title: 'SQLite vector ping',
           kind: 'note',
           contentHash: 'debug-ping',
-          text: 'vectra connectivity ping',
+          text: 'sqlite vector connectivity ping',
           docType: 'txt'
         })
         if (!indexed.ok) {
@@ -151,13 +151,12 @@ export function DebugSettingsView({
         }
         const searched = await emb.searchDocuments({
           workspacePath,
-          query: 'vectra connectivity ping',
+          query: 'sqlite vector connectivity ping',
           maxDocuments: 3,
           maxChunks: 10,
           maxSections: 1,
           maxTokens: 160,
-          filter: { workspaceId: { $eq: folder }, notePath: { $eq: note } },
-          isBm25: true
+          filter: { folder: { $eq: folder }, note: { $eq: note } }
         })
         if (!searched.ok) {
           setStorePingText(`searchDocuments failed: ${searched.error}`)
@@ -315,7 +314,9 @@ export function DebugSettingsView({
       <div className="space-y-2">
         <div className="flex items-center gap-2">
           <Database className="text-muted-foreground size-4 shrink-0" aria-hidden />
-          <h3 className="text-foreground text-sm font-medium">Local embedding store (Vectra)</h3>
+          <h3 className="text-foreground text-sm font-medium">
+            Local embedding store (SQLite vector)
+          </h3>
         </div>
         <dl className="border-border flex flex-col gap-2 rounded-lg border p-4">
           <Row

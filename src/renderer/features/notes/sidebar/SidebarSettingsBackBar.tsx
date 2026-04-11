@@ -3,7 +3,7 @@ import type { JSX } from 'react'
 
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import type { NotesAppViewModel } from '@/features/notes/app-state/useNotesApp'
+import type { NotesAppViewModel } from '@/hooks/notes/useNotesApp'
 
 type SidebarSettingsBackBarProps = {
   isMacNotelab: boolean

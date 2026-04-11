@@ -21,7 +21,7 @@ import { Popover as PopoverPrimitive } from 'radix-ui'
 import twitterIcon from '@/assets/icons/x.svg'
 import youtubeIcon from '@/assets/icons/youtube.svg'
 
-import { useEditorModal } from '@/features/editor/editor-hooks/use-modal'
+import { useEditorModal } from '@/hooks/editor/useEditorModal'
 import { INSERT_TWEET_COMMAND } from '@/features/editor/plugins/embeds/twitter-plugin'
 import { INSERT_YOUTUBE_COMMAND } from '@/features/editor/plugins/embeds/youtube-plugin'
 import { Button } from '@/components/ui/button'

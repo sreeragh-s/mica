@@ -10,7 +10,7 @@ import {
 import type { NotelabEditorSettingsV1 } from '@/lib/config/notelab-config-schema'
 import type { NotesPropertyCatalog } from '@/lib/notes/cache/notes-cache-types'
 
-import { useWorkspacePropertyCatalog } from '@/features/notes/hooks/useWorkspacePropertyCatalog'
+import { useWorkspacePropertyCatalog } from '@/hooks/notes/useWorkspacePropertyCatalog'
 import { KeySuggestDropdown } from './PropertySuggestDropdowns'
 import { buildPropertyKeySuggestions, PropertyIcon } from './PropertyIcon'
 import { PropertyRow } from './PropertyRow'

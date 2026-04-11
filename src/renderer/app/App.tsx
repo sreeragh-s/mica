@@ -14,7 +14,7 @@ import {
   loadUiFont
 } from '@/lib/theme/appearance-storage'
 import { applyThemeToDocument, getResolvedAppearanceMode } from '@/lib/theme/theme-preset-apply'
-import { getApi, parseSession } from '@/lib/auth/auth-bridge'
+import { getApi, parseSession } from '@/bridges/auth/auth-bridge'
 import { hydrateAppConfig } from '@/lib/config/notelab-app-config'
 import { clearGuestMode, isGuestMode, setGuestMode } from '@/lib/auth/guest-session'
 import { loadSetupState, saveSetupState } from '@/lib/workspace/setup-storage'

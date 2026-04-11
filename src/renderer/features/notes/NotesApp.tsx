@@ -13,7 +13,7 @@ import { GitRemoteDialog } from '@/features/notes/git/GitRemoteDialog'
 import { GitUserConfigDialog } from '@/features/notes/git/GitUserConfigDialog'
 import { NotesMainArea } from '@/features/notes/editor-area/NotesMainArea'
 import { LeftSidebar } from '@/features/notes/sidebar/LeftSidebar'
-import { useNotesApp } from '@/features/notes/app-state/useNotesApp'
+import { useNotesApp } from '@/hooks/notes/useNotesApp'
 
 export type { NotesAppProps } from '@/features/notes/notes-app-types'
 

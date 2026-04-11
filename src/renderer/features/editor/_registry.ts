@@ -34,8 +34,8 @@ export const ui: Registry['items'] = [
         type: 'registry:component'
       },
       {
-        path: 'editor/editor-hooks/use-modal.tsx',
-        target: 'components/editor/editor-hooks/use-modal.tsx',
+        path: 'hooks/editor/useEditorModal.tsx',
+        target: 'components/hooks/editor/useEditorModal.tsx',
         type: 'registry:hook'
       }
     ]
@@ -358,8 +358,8 @@ export const ui: Registry['items'] = [
         type: 'registry:component'
       },
       {
-        path: 'editor/editor-hooks/use-report.ts',
-        target: 'components/editor/editor-hooks/use-report.ts',
+        path: 'hooks/editor/useReport.ts',
+        target: 'components/hooks/editor/useReport.ts',
         type: 'registry:hook'
       },
       {
@@ -504,8 +504,8 @@ export const ui: Registry['items'] = [
         type: 'registry:component'
       },
       {
-        path: 'editor/editor-hooks/use-modal.tsx',
-        target: 'components/editor/editor-hooks/use-modal.tsx',
+        path: 'hooks/editor/useEditorModal.tsx',
+        target: 'components/hooks/editor/useEditorModal.tsx',
         type: 'registry:component'
       },
       {
@@ -540,8 +540,8 @@ export const ui: Registry['items'] = [
         type: 'registry:component'
       },
       {
-        path: 'editor/editor-hooks/use-modal.tsx',
-        target: 'components/editor/editor-hooks/use-modal.tsx',
+        path: 'hooks/editor/useEditorModal.tsx',
+        target: 'components/hooks/editor/useEditorModal.tsx',
         type: 'registry:component'
       },
       {
@@ -636,8 +636,8 @@ export const ui: Registry['items'] = [
         type: 'registry:component'
       },
       {
-        path: 'editor/editor-hooks/use-debounce.ts',
-        target: 'components/editor/editor-hooks/use-debounce.ts',
+        path: 'hooks/editor/useDebounce.ts',
+        target: 'components/hooks/editor/useDebounce.ts',
         type: 'registry:component'
       },
       {
@@ -1005,13 +1005,13 @@ export const ui: Registry['items'] = [
         type: 'registry:component'
       },
       {
-        path: 'editor/editor-hooks/use-modal.tsx',
-        target: 'components/editor/editor-hooks/use-modal.tsx',
+        path: 'hooks/editor/useEditorModal.tsx',
+        target: 'components/hooks/editor/useEditorModal.tsx',
         type: 'registry:component'
       },
       {
-        path: 'editor/editor-hooks/use-debounce.ts',
-        target: 'components/editor/editor-hooks/use-debounce.ts',
+        path: 'hooks/editor/useDebounce.ts',
+        target: 'components/hooks/editor/useDebounce.ts',
         type: 'registry:component'
       },
       {
@@ -1053,8 +1053,8 @@ export const ui: Registry['items'] = [
         type: 'registry:component'
       },
       {
-        path: 'editor/editor-hooks/use-report.ts',
-        target: 'components/editor/editor-hooks/use-report.ts',
+        path: 'hooks/editor/useReport.ts',
+        target: 'components/hooks/editor/useReport.ts',
         type: 'registry:component'
       }
     ]

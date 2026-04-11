@@ -20,7 +20,7 @@ src/
 │   ├── bootstrap/  # App initialization
 │   ├── core/      # Window management, shortcuts
 │   ├── ipc/       # IPC handlers (main <-> renderer)
-│   ├── ai/        # Ollama & vectra embeddings
+│   ├── ai/        # Ollama & sqlite-vector embeddings
 │   ├── auth/      # GitHub OAuth
 │   ├── git/       # Git operations
 │   ├── workspace/ # File system operations
@@ -76,7 +76,7 @@ src/
 
 ### Key Modules
 
-- **AI** (`ai/`) - Ollama chat & vectra embeddings
+- **AI** (`ai/`) - Ollama chat & sqlite-vector embeddings
 - **Auth** (`auth/`) - GitHub OAuth flow
 - **Git** (`git/`) - Repository init, status, commit
 - **Workspace** (`workspace/`) - File system operations
@@ -125,7 +125,7 @@ The cache database (`notes-cache-db.ts`) stores:
 ### AI Pipeline
 
 1. User message → Chat
-2. Retrieve relevant notes (vectra embeddings)
+2. Retrieve relevant notes (sqlite-vector embeddings)
 3. Build context from retrieved notes
 4. Send to Ollama with context
 5. Stream response

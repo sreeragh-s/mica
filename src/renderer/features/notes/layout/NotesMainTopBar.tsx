@@ -1,14 +1,15 @@
 import { memo, type JSX } from 'react'
 
 import { cn } from '@/lib/utils'
-import type { SavedNote } from '@/lib/notes/notes-storage'
 import type { MacTitlebarStyles } from '@/features/notes/notes-app-types'
-import { NoteTabStrip } from '@/features/notes/editor-area/NoteTabStrip'
+import { NoteTabStrip, type OpenNoteTab } from '@/features/notes/editor-area/NoteTabStrip'
 import {
   NotesToolbarPill,
   SidebarEdgeToolbarPill
 } from '@/features/notes/editor-area/NotesToolbarPill'
 import { TimelineRuler } from '@/components/ui/timeline-ruler'
+
+const EMPTY_DATES: string[] = []
 
 export type NotesMainTopBarProps = {
   isMacNotelab: boolean
@@ -21,8 +22,7 @@ export type NotesMainTopBarProps = {
   onJournalTimelineDateChange: (isoDate: string) => void
   availableDates?: string[]
   showTabs: boolean
-  openNoteTabPaths: string[]
-  notes: SavedNote[]
+  openTabs: OpenNoteTab[]
   selectedNotePath: string | null
   reorderOpenNoteTabs: (fn: (prev: string[]) => string[]) => void
   closeNoteTab: (id: string) => void
@@ -46,8 +46,7 @@ function NotesMainTopBarInner({
   onJournalTimelineDateChange,
   availableDates,
   showTabs,
-  openNoteTabPaths,
-  notes,
+  openTabs,
   selectedNotePath,
   reorderOpenNoteTabs,
   closeNoteTab,
@@ -87,7 +86,7 @@ function NotesMainTopBarInner({
           <div className="pointer-events-auto min-w-0 w-full flex-1">
             <TimelineRuler
               selectedDate={journalTimelineDate}
-              availableDates={availableDates ?? []}
+              availableDates={availableDates ?? EMPTY_DATES}
               onDateSelect={onJournalTimelineDateChange}
               isMacNotelab={isMacNotelab}
               macTitlebarStyles={macTitlebarStyles}
@@ -97,8 +96,7 @@ function NotesMainTopBarInner({
         ) : showTabs ? (
           <div className="pointer-events-auto min-w-0 flex-1">
             <NoteTabStrip
-              openNoteTabPaths={openNoteTabPaths}
-              notes={notes}
+              openTabs={openTabs}
               selectedNotePath={selectedNotePath}
               reorderOpenNoteTabs={reorderOpenNoteTabs}
               closeNoteTab={closeNoteTab}
@@ -131,4 +129,55 @@ function NotesMainTopBarInner({
   )
 }
 
-export const NotesMainTopBar = memo(NotesMainTopBarInner)
+function areStringArraysEqual(prev: string[] | undefined, next: string[] | undefined): boolean {
+  if (prev === next) return true
+  if (!prev || !next) return prev === next
+  if (prev.length !== next.length) return false
+  for (let i = 0; i < prev.length; i += 1) {
+    if (prev[i] !== next[i]) return false
+  }
+  return true
+}
+
+function areOpenTabsEqual(prev: OpenNoteTab[], next: OpenNoteTab[]): boolean {
+  if (prev === next) return true
+  if (prev.length !== next.length) return false
+  for (let i = 0; i < prev.length; i += 1) {
+    const prevTab = prev[i]
+    const nextTab = next[i]
+    if (
+      prevTab.path !== nextTab.path ||
+      prevTab.title !== nextTab.title ||
+      prevTab.kind !== nextTab.kind
+    ) {
+      return false
+    }
+  }
+  return true
+}
+
+export const NotesMainTopBar = memo(NotesMainTopBarInner, (prev, next) => {
+  return (
+    prev.isMacNotelab === next.isMacNotelab &&
+    prev.macTitlebarStyles === next.macTitlebarStyles &&
+    prev.sidebarCollapsed === next.sidebarCollapsed &&
+    prev.onToggleSidebar === next.onToggleSidebar &&
+    prev.showJournalTimeline === next.showJournalTimeline &&
+    prev.journalTimelineDate === next.journalTimelineDate &&
+    prev.onJournalTimelineDateChange === next.onJournalTimelineDateChange &&
+    areStringArraysEqual(prev.availableDates, next.availableDates) &&
+    prev.showTabs === next.showTabs &&
+    areOpenTabsEqual(prev.openTabs, next.openTabs) &&
+    prev.selectedNotePath === next.selectedNotePath &&
+    prev.reorderOpenNoteTabs === next.reorderOpenNoteTabs &&
+    prev.closeNoteTab === next.closeNoteTab &&
+    prev.selectNote === next.selectNote &&
+    prev.showNotesToolbar === next.showNotesToolbar &&
+    prev.onOpenTabOverview === next.onOpenTabOverview &&
+    prev.onNewNote === next.onNewNote &&
+    prev.chatSidebarOpen === next.chatSidebarOpen &&
+    prev.onToggleChatSidebar === next.onToggleChatSidebar &&
+    prev.onOpenLinkedSidebar === next.onOpenLinkedSidebar &&
+    prev.chatSidebarPanel === next.chatSidebarPanel
+  )
+})

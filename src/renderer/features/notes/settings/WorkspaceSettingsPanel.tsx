@@ -2,7 +2,7 @@ import type { JSX } from 'react'
 
 import type { Folder } from '@/lib/notes/notes-storage'
 import type { MacTitlebarStyles } from '@/features/notes/notes-app-types'
-import { useWorkspaceSettings } from '@/features/notes/app-state/useWorkspaceSettings'
+import { useWorkspaceSettings } from '@/hooks/notes/useWorkspaceSettings'
 import { WorkspaceSettingsView } from '@/features/notes/settings/WorkspaceSettingsView'
 
 export type WorkspaceSettingsPanelProps = {

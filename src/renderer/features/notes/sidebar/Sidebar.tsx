@@ -100,6 +100,10 @@ export function Sidebar({ vm }: SidebarProps): JSX.Element {
     notesByFolder.forEach((list) => notes.push(...list))
     return notes
   }, [notesByFolder])
+  const noteByPath = useMemo(() => {
+    return new Map(allNotes.map((note) => [note.path, note]))
+  }, [allNotes])
+  const folderById = useMemo(() => new Map(folders.map((folder) => [folder.folder, folder])), [folders])
 
   const searchResults = useMemo(
     () =>
@@ -184,14 +188,8 @@ export function Sidebar({ vm }: SidebarProps): JSX.Element {
   }
 
   const findNoteById = useCallback(
-    (notePath: string): SavedNote | undefined => {
-      for (const list of notesByFolder.values()) {
-        const note = list.find((item) => item.path === notePath)
-        if (note) return note
-      }
-      return undefined
-    },
-    [notesByFolder]
+    (notePath: string): SavedNote | undefined => noteByPath.get(notePath),
+    [noteByPath]
   )
 
   const beginRename = (treeId: string, initial: string): void => {
@@ -206,11 +204,11 @@ export function Sidebar({ vm }: SidebarProps): JSX.Element {
         const note = findNoteById(selectedNotePath)
         if (note) beginRename(treeNotePath(selectedNotePath), note.title)
       } else if (focusedFolderId) {
-        const folder = folders.find((f) => f.folder === focusedFolderId)
+        const folder = folderById.get(focusedFolderId)
         if (folder) beginRename(treeFolderPath(focusedFolderId), folder.name)
       }
     }
-  }, [findNoteById, focusedFolderId, folders, selectedNotePath, triggerRenameSelectedRef])
+  }, [findNoteById, focusedFolderId, folderById, selectedNotePath, triggerRenameSelectedRef])
 
   const cancelRename = (): void => {
     skipRenameCommitRef.current = true
@@ -231,7 +229,7 @@ export function Sidebar({ vm }: SidebarProps): JSX.Element {
     } else if (treeNodeId.startsWith('folder:')) {
       const folderPath = treeNodeId.slice('folder:'.length)
       const nextName = trimmed || 'Untitled folder'
-      const workspace = folders.find((f) => f.folder === folderPath)
+      const workspace = folderById.get(folderPath)
       if (workspace && nextName !== workspace.name) renameFolder(folderPath, nextName)
     }
     setRenamingNodeId(null)

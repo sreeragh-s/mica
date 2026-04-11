@@ -2,7 +2,7 @@ import { Bug, FolderOpen, Keyboard, Palette, PencilRuler, Sparkles, User } from 
 import type { JSX } from 'react'
 
 import { cn } from '@/lib/utils'
-import type { NotesAppViewModel } from '@/features/notes/app-state/useNotesApp'
+import type { NotesAppViewModel } from '@/hooks/notes/useNotesApp'
 
 type SidebarSettingsNavProps = {
   settingsSection: NotesAppViewModel['settingsSection']

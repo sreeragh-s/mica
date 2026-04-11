@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { EmbeddingsSearchRow } from '@/lib/auth/auth-bridge'
+import type { EmbeddingsSearchRow } from '@/bridges/auth/auth-bridge'
 import type { CandidateSource, Mode } from '@/lib/ai/chat-retrieval-pipeline'
 import {
   classifyQueryComplexity,
@@ -7,6 +7,10 @@ import {
   getModeConfig,
   shouldBlendGlobalFallback
 } from '@/lib/ai/chat-retrieval-pipeline'
+import { getEmbeddingsApi } from '@/bridges/ai/embeddings-bridge'
+import { getOllamaApi } from '@/bridges/ai/ollama-bridge'
+import { getApi } from '@/bridges/auth/auth-bridge'
+import { getChatHistoryApi } from '@/bridges/chat/chat-history-bridge'
 import { createElectronLogger } from '@/lib/core/electron-log'
 import type { WorkspaceLinkMentionIndex } from '@/lib/notes/cache/notes-cache-types'
 import type { SavedNote, Folder } from '@/lib/notes/notes-storage'
@@ -92,7 +96,7 @@ const currentSessionCache = {
 
 async function saveCurrentSession(s: ChatSession): Promise<{ ok: boolean; error?: string }> {
   currentSessionCache.session = s
-  const chatHistoryApi = window.api.chatHistory
+  const chatHistoryApi = getChatHistoryApi()
   if (!chatHistoryApi) return { ok: false, error: 'API unavailable' }
   const res = await chatHistoryApi.write({
     sessionId: s.id,
@@ -125,7 +129,7 @@ async function saveCurrentSession(s: ChatSession): Promise<{ ok: boolean; error?
 }
 
 async function loadHistoryMeta(): Promise<ChatHistoryMeta[]> {
-  const chatHistoryApi = window.api.chatHistory
+  const chatHistoryApi = getChatHistoryApi()
   if (!chatHistoryApi) return []
   const res = await chatHistoryApi.list()
   return res.ok ? res.sessions : []
@@ -408,7 +412,7 @@ export function useNotesChat({
 
       try {
         const existingNoteIds = new Set(notes.map((n) => n.path))
-        const searchApi = window.api.embeddings?.searchDocuments
+        const searchApi = getEmbeddingsApi()?.searchDocuments
         const workspaceFilter = filterWorkspaceId
           ? { folder: { $eq: filterWorkspaceId } }
           : undefined
@@ -429,7 +433,7 @@ export function useNotesChat({
 
           const timeoutMs = 3000
           if (isLocalModel && ollamaModelName) {
-            const chatStream = window.api.ollama?.chatStream
+            const chatStream = getOllamaApi()?.chatStream
             if (!chatStream) return null
 
             const result = await new Promise<string | null>((resolve) => {
@@ -494,7 +498,7 @@ export function useNotesChat({
             return result ? parseRerankerResponse(result) : null
           }
 
-          const authFetch = window.api.auth.fetch
+          const authFetch = getApi()?.auth.fetch
           const baseUrl = (import.meta.env.VITE_AUTH_URL?.trim() ?? '').replace(/\/$/, '')
           if (!authFetch || !baseUrl) return null
 
@@ -542,8 +546,7 @@ export function useNotesChat({
               maxChunks: 24,
               maxSections: 1,
               maxTokens: 320,
-              filter: { note: { $in: explicitNoteIds } },
-              isBm25: true
+              filter: { note: { $in: explicitNoteIds } }
             })
             ensureActive()
             if (res.ok) {
@@ -563,8 +566,7 @@ export function useNotesChat({
               maxChunks: 32,
               maxSections: 1,
               maxTokens: 320,
-              filter: { folder: { $in: explicitWorkspaceIds } },
-              isBm25: true
+              filter: { folder: { $in: explicitWorkspaceIds } }
             })
             ensureActive()
             if (res.ok) {
@@ -591,8 +593,7 @@ export function useNotesChat({
                 maxChunks: Math.max(modeConfig.seedCount * 4, 12),
                 maxSections: 1,
                 maxTokens: 320,
-                filter: workspaceFilter,
-                isBm25: true
+                filter: workspaceFilter
               })
             : null
         ensureActive()
@@ -639,8 +640,7 @@ export function useNotesChat({
             maxChunks: Math.max(modeConfig.expandedNodeCap * 2, 12),
             maxSections: 1,
             maxTokens: 320,
-            filter: { note: { $in: expandedNodes.map((node) => node.note) } },
-            isBm25: true
+            filter: { note: { $in: expandedNodes.map((node) => node.note) } }
           })
           ensureActive()
           if (stage3Res.ok) {
@@ -776,7 +776,7 @@ export function useNotesChat({
             ...historyForApi.map((message) => ({ role: message.role, content: message.content }))
           ]
 
-          const chatStream = window.api.ollama?.chatStream
+          const chatStream = getOllamaApi()?.chatStream
           if (!chatStream) {
             handleStreamError('Local Ollama chat bridge unavailable')
             return
@@ -846,7 +846,7 @@ export function useNotesChat({
           return
         }
 
-        const streamFetch = window.api.auth.streamFetch
+        const streamFetch = getApi()?.auth.streamFetch
         if (!streamFetch) {
           handleStreamError('streamFetch not available')
           return
@@ -950,7 +950,7 @@ export function useNotesChat({
 
   const loadHistorySession = useCallback(async (meta: ChatHistoryMeta) => {
     log.info(`loading history session from disk: ${meta.sessionId}`)
-    const chatHistoryApi = window.api.chatHistory
+    const chatHistoryApi = getChatHistoryApi()
     if (!chatHistoryApi?.readSession) return
 
     const res = await chatHistoryApi.readSession(meta.sessionId)

@@ -10,7 +10,7 @@ import {
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
-import { getApi } from '@/lib/auth/auth-bridge'
+import { getApi } from '@/bridges/auth/auth-bridge'
 import { loadSetupState, saveSetupState } from '@/lib/workspace/setup-storage'
 import { loadWorkspaces, upsertWorkspace } from '@/lib/config/notelab-app-config'
 import type { SavedWorkspace } from '@/lib/config/notelab-config-schema'

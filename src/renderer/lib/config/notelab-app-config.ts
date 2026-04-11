@@ -1,4 +1,4 @@
-import { getApi } from '../auth/auth-bridge'
+import { getApi } from '@/bridges/auth/auth-bridge'
 import type {
   NotelabConfigFileV1,
   NotelabThemeConfigV1,
