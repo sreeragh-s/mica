@@ -1,4 +1,4 @@
-"use client"
+'use client'
 
 /**
  * Copyright (c) Meta Platforms, Inc. and affiliates.
@@ -15,17 +15,17 @@ import {
   useEffect,
   useMemo,
   useRef,
-  useState,
-} from "react"
+  useState
+} from 'react'
 import {
   $createLinkNode,
   $isAutoLinkNode,
   $isLinkNode,
   $toggleLink,
-  TOGGLE_LINK_COMMAND,
-} from "@lexical/link"
-import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext"
-import { $findMatchingParent, mergeRegister } from "@lexical/utils"
+  TOGGLE_LINK_COMMAND
+} from '@lexical/link'
+import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext'
+import { $findMatchingParent, mergeRegister } from '@lexical/utils'
 import {
   $getSelection,
   $isLineBreakNode,
@@ -39,32 +39,31 @@ import {
   COMMAND_PRIORITY_LOW,
   KEY_ESCAPE_COMMAND,
   LexicalEditor,
-  SELECTION_CHANGE_COMMAND,
-} from "lexical"
-import { Check, Pencil, Trash, X } from "lucide-react"
-import { createPortal } from "react-dom"
+  SELECTION_CHANGE_COMMAND
+} from 'lexical'
+import { Check, Pencil, Trash, X } from 'lucide-react'
+import { createPortal } from 'react-dom'
 
-import { useNotelabEditorContext } from "@/features/editor/notelab-editor-context"
-import { NoteLinkPickerList } from "@/features/editor/note-link-picker"
-import { filterLinkableNotes } from "@/features/editor/obsidian-link-utils"
-import { getSelectedNode } from "@/features/editor/utils/get-selected-node"
-import { setFloatingElemPositionForLinkEditor } from "@/features/editor/utils/set-floating-elem-position-for-link-editor"
-import { sanitizeUrl } from "@/features/editor/utils/url"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover"
+import { useNotelabEditorContext } from '@/features/editor/notelab-editor-context'
+import { NoteLinkPickerList } from '@/features/editor/note-link-picker'
+import { filterLinkableNotes } from '@/features/editor/obsidian-link-utils'
+import { getSelectedNode } from '@/features/editor/utils/get-selected-node'
+import { setFloatingElemPositionForLinkEditor } from '@/features/editor/utils/set-floating-elem-position-for-link-editor'
+import { sanitizeUrl } from '@/features/editor/utils/url'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import {
   ExternalUrlPreviewBody,
   InternalNoteLinkIcon,
   InternalNoteLinkPreviewBody,
   LinkPreviewCardShell,
-  UrlFavicon,
-} from "@/features/editor/link-preview-card"
-import { buildInternalNoteLinkHref, parseInternalNotePathFromHref } from "@/lib/notes/internal-note-link"
+  UrlFavicon
+} from '@/features/editor/link-preview-card'
+import {
+  buildInternalNoteLinkHref,
+  parseInternalNotePathFromHref
+} from '@/lib/notes/internal-note-link'
 
 function FloatingLinkEditor({
   editor,
@@ -74,7 +73,7 @@ function FloatingLinkEditor({
   isLinkEditMode,
   setIsLinkEditMode,
   internalNotePickerOpen,
-  setInternalNotePickerOpen,
+  setInternalNotePickerOpen
 }: {
   editor: LexicalEditor
   isLink: boolean
@@ -87,10 +86,10 @@ function FloatingLinkEditor({
 }): JSX.Element {
   const editorRef = useRef<HTMLDivElement | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
-  const [linkUrl, setLinkUrl] = useState("")
-  const [editedLinkUrl, setEditedLinkUrl] = useState("https://")
+  const [linkUrl, setLinkUrl] = useState('')
+  const [editedLinkUrl, setEditedLinkUrl] = useState('https://')
   const [lastSelection, setLastSelection] = useState<BaseSelection | null>(null)
-  const [noteSearchPicker, setNoteSearchPicker] = useState("")
+  const [noteSearchPicker, setNoteSearchPicker] = useState('')
 
   const notelabCtx = useNotelabEditorContext()
 
@@ -108,17 +107,13 @@ function FloatingLinkEditor({
 
   const linkPickerNotes = useMemo(() => {
     if (!notelabCtx) return []
-    return filterLinkableNotes(
-      notelabCtx,
-      noteSearchPicker,
-      notelabCtx.currentNoteId
-    )
+    return filterLinkableNotes(notelabCtx, noteSearchPicker, notelabCtx.currentNoteId)
   }, [notelabCtx, noteSearchPicker])
 
   const applyInternalLinkTarget = useCallback(
     (notePath: string) => {
       setInternalNotePickerOpen(false)
-      setNoteSearchPicker("")
+      setNoteSearchPicker('')
       editor.update(() => {
         if (lastSelection !== null && $isRangeSelection(lastSelection)) {
           $setSelection(lastSelection.clone())
@@ -127,12 +122,7 @@ function FloatingLinkEditor({
       })
       setIsLinkEditMode(false)
     },
-    [
-      editor,
-      lastSelection,
-      setIsLinkEditMode,
-      setInternalNotePickerOpen,
-    ]
+    [editor, lastSelection, setIsLinkEditMode, setInternalNotePickerOpen]
   )
 
   const $updateLinkEditor = useCallback(() => {
@@ -146,7 +136,7 @@ function FloatingLinkEditor({
       } else if ($isLinkNode(node)) {
         setLinkUrl(node.getURL())
       } else {
-        setLinkUrl("")
+        setLinkUrl('')
       }
       if (isLinkEditMode) {
         setEditedLinkUrl(linkUrl)
@@ -178,25 +168,18 @@ function FloatingLinkEditor({
       setLastSelection(selection)
     } else if (
       !internalNotePickerOpen &&
-      (!activeElement || activeElement.className !== "link-input")
+      (!activeElement || activeElement.className !== 'link-input')
     ) {
       if (rootElement !== null) {
         setFloatingElemPositionForLinkEditor(null, editorElem, anchorElem)
       }
       setLastSelection(null)
       setIsLinkEditMode(false)
-      setLinkUrl("")
+      setLinkUrl('')
     }
 
     return true
-  }, [
-    anchorElem,
-    editor,
-    setIsLinkEditMode,
-    isLinkEditMode,
-    linkUrl,
-    internalNotePickerOpen,
-  ])
+  }, [anchorElem, editor, setIsLinkEditMode, isLinkEditMode, linkUrl, internalNotePickerOpen])
 
   useEffect(() => {
     const scrollerElem = anchorElem.parentElement
@@ -207,17 +190,17 @@ function FloatingLinkEditor({
       })
     }
 
-    window.addEventListener("resize", update)
+    window.addEventListener('resize', update)
 
     if (scrollerElem) {
-      scrollerElem.addEventListener("scroll", update)
+      scrollerElem.addEventListener('scroll', update)
     }
 
     return () => {
-      window.removeEventListener("resize", update)
+      window.removeEventListener('resize', update)
 
       if (scrollerElem) {
-        scrollerElem.removeEventListener("scroll", update)
+        scrollerElem.removeEventListener('scroll', update)
       }
     }
   }, [anchorElem.parentElement, editor, $updateLinkEditor])
@@ -265,13 +248,11 @@ function FloatingLinkEditor({
     }
   }, [isLinkEditMode, isLink])
 
-  const monitorInputInteraction = (
-    event: React.KeyboardEvent<HTMLInputElement>
-  ) => {
-    if (event.key === "Enter") {
+  const monitorInputInteraction = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'Enter') {
       event.preventDefault()
       handleLinkSubmission()
-    } else if (event.key === "Escape") {
+    } else if (event.key === 'Escape') {
       event.preventDefault()
       setIsLinkEditMode(false)
     }
@@ -279,7 +260,7 @@ function FloatingLinkEditor({
 
   const handleLinkSubmission = () => {
     if (lastSelection !== null) {
-      if (linkUrl !== "") {
+      if (linkUrl !== '') {
         editor.dispatchCommand(TOGGLE_LINK_COMMAND, sanitizeUrl(editedLinkUrl))
         editor.update(() => {
           const selection = $getSelection()
@@ -289,14 +270,14 @@ function FloatingLinkEditor({
               const linkNode = $createLinkNode(parent.getURL(), {
                 rel: parent.__rel,
                 target: parent.__target,
-                title: parent.__title,
+                title: parent.__title
               })
               parent.replace(linkNode, true)
             }
           }
         })
       }
-      setEditedLinkUrl("https://")
+      setEditedLinkUrl('https://')
       setIsLinkEditMode(false)
     }
   }
@@ -326,28 +307,21 @@ function FloatingLinkEditor({
           >
             <X className="h-4 w-4" />
           </Button>
-          <Button
-            size="icon"
-            onClick={handleLinkSubmission}
-            className="shrink-0"
-          >
+          <Button size="icon" onClick={handleLinkSubmission} className="shrink-0">
             <Check className="h-4 w-4" />
           </Button>
         </div>
       ) : isInternalNoteLink && notelabCtx ? (
         <LinkPreviewCardShell className="items-start gap-3">
           <InternalNoteLinkIcon />
-          <InternalNoteLinkPreviewBody
-            resolvedNote={resolvedNote}
-            notelabCtx={notelabCtx}
-          />
+          <InternalNoteLinkPreviewBody resolvedNote={resolvedNote} notelabCtx={notelabCtx} />
           <div className="flex shrink-0 items-start gap-1 pt-0.5">
             <Popover
               modal={false}
               open={internalNotePickerOpen}
               onOpenChange={(open) => {
                 setInternalNotePickerOpen(open)
-                if (!open) setNoteSearchPicker("")
+                if (!open) setNoteSearchPicker('')
               }}
             >
               <PopoverTrigger asChild>
@@ -392,10 +366,7 @@ function FloatingLinkEditor({
       ) : isInternalNoteLink ? (
         <LinkPreviewCardShell className="items-start gap-3">
           <InternalNoteLinkIcon />
-          <InternalNoteLinkPreviewBody
-            resolvedNote={undefined}
-            notelabCtx={null}
-          />
+          <InternalNoteLinkPreviewBody resolvedNote={undefined} notelabCtx={null} />
           <Button
             size="icon"
             variant="destructive"
@@ -468,10 +439,7 @@ function useFloatingLinkEditorToolbar(
       if ($isRangeSelection(selection)) {
         const focusNode = getSelectedNode(selection)
         const focusLinkNode = $findMatchingParent(focusNode, $isLinkNode)
-        const focusAutoLinkNode = $findMatchingParent(
-          focusNode,
-          $isAutoLinkNode
-        )
+        const focusAutoLinkNode = $findMatchingParent(focusNode, $isAutoLinkNode)
         if (!(focusLinkNode || focusAutoLinkNode)) {
           setIsLink(false)
           return
@@ -487,8 +455,7 @@ function useFloatingLinkEditorToolbar(
               (linkNode && !linkNode.is(focusLinkNode)) ||
               (focusAutoLinkNode && !focusAutoLinkNode.is(autoLinkNode)) ||
               (autoLinkNode &&
-                (!autoLinkNode.is(focusAutoLinkNode) ||
-                  autoLinkNode.getIsUnlinked()))
+                (!autoLinkNode.is(focusAutoLinkNode) || autoLinkNode.getIsUnlinked()))
             )
           })
         if (!badNode) {
@@ -536,7 +503,7 @@ function useFloatingLinkEditorToolbar(
             if ($isLinkNode(linkNode)) {
               const url = linkNode.getURL()
               if (payload.metaKey || payload.ctrlKey) {
-                window.open(url, "_blank")
+                window.open(url, '_blank')
                 return true
               }
             }
@@ -571,7 +538,7 @@ export function FloatingLinkEditorPlugin({
   anchorElem,
   isLinkEditMode,
   setIsLinkEditMode,
-  onOpenChange,
+  onOpenChange
 }: {
   anchorElem: HTMLDivElement | null
   isLinkEditMode: boolean

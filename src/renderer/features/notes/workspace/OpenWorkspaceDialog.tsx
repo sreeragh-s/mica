@@ -8,7 +8,7 @@ import {
   DialogContent,
   DialogDescription,
   DialogHeader,
-  DialogTitle,
+  DialogTitle
 } from '@/components/ui/dialog'
 import { getApi } from '@/lib/auth/auth-bridge'
 
@@ -28,7 +28,7 @@ export function OpenWorkspaceDialog({
   workspaceName,
   open,
   onOpenChange,
-  onOpen,
+  onOpen
 }: OpenWorkspaceDialogProps): JSX.Element {
   const handleOpen = (): void => {
     onOpenChange(false)
@@ -46,9 +46,7 @@ export function OpenWorkspaceDialog({
       <DialogContent className="max-w-sm">
         <DialogHeader>
           <DialogTitle className="truncate">Open "{workspaceName}"</DialogTitle>
-          <DialogDescription>
-            How do you want to open this workspace?
-          </DialogDescription>
+          <DialogDescription>How do you want to open this workspace?</DialogDescription>
         </DialogHeader>
         <div className="flex flex-col gap-2 pt-1">
           <Button variant="default" className="w-full justify-start gap-2" onClick={handleOpen}>

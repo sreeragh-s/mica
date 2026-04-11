@@ -1,15 +1,9 @@
-import { useEffect } from "react"
+import { useEffect } from 'react'
 
-import { useTheme } from "next-themes"
+import { useTheme } from 'next-themes'
 
-import {
-  loadThemeConfig,
-  loadThemePresetId,
-} from "@/lib/theme/appearance-storage"
-import {
-  applyThemeToDocument,
-  THEME_PRESET_CHANGED_EVENT,
-} from "@/lib/theme/theme-preset-apply"
+import { loadThemeConfig, loadThemePresetId } from '@/lib/theme/appearance-storage'
+import { applyThemeToDocument, THEME_PRESET_CHANGED_EVENT } from '@/lib/theme/theme-preset-apply'
 
 /**
  * Keeps CSS variables on `document.documentElement` in sync with the selected
@@ -17,7 +11,7 @@ import {
  */
 export function ThemePresetRuntime(): null {
   const { resolvedTheme } = useTheme()
-  const mode = resolvedTheme === "dark" ? "dark" : "light"
+  const mode = resolvedTheme === 'dark' ? 'dark' : 'light'
 
   useEffect(() => {
     applyThemeToDocument(loadThemePresetId(), mode, loadThemeConfig())

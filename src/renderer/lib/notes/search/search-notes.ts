@@ -38,7 +38,10 @@ export function searchNotes(
 
   for (const note of notes) {
     const title = note.title?.trim() || 'Untitled'
-    const titleExtras = [...extractAliasStrings(note.properties), ...extractTagStrings(note.properties)]
+    const titleExtras = [
+      ...extractAliasStrings(note.properties),
+      ...extractTagStrings(note.properties)
+    ]
       .join(' ')
       .trim()
     const titleHaystack = titleExtras ? `${title} ${titleExtras}` : title

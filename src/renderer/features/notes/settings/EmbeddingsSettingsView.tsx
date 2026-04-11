@@ -1,6 +1,14 @@
 import { useEffect, type JSX } from 'react'
 
-import { AlertCircle, CheckCircle2, Clock, Database, Loader2, RefreshCw, Sparkles } from 'lucide-react'
+import {
+  AlertCircle,
+  CheckCircle2,
+  Clock,
+  Database,
+  Loader2,
+  RefreshCw,
+  Sparkles
+} from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -21,7 +29,8 @@ export type EmbeddingsSettingsViewProps = {
 }
 
 function StatusIcon({ state }: { state: string }): JSX.Element {
-  if (state === 'indexing') return <Loader2 className="size-3.5 shrink-0 animate-spin text-blue-500" />
+  if (state === 'indexing')
+    return <Loader2 className="size-3.5 shrink-0 animate-spin text-blue-500" />
   if (state === 'indexed') return <CheckCircle2 className="size-3.5 shrink-0 text-green-500" />
   if (state === 'error') return <AlertCircle className="size-3.5 shrink-0 text-destructive" />
   return <Clock className="text-muted-foreground size-3.5 shrink-0" />
@@ -202,10 +211,7 @@ export function EmbeddingsSettingsView({
           </h3>
           <div className="border-border divide-border divide-y rounded-lg border">
             {notes.map((n) => (
-              <div
-                key={n.note}
-                className="flex items-center gap-3 px-3 py-2"
-              >
+              <div key={n.note} className="flex items-center gap-3 px-3 py-2">
                 <StatusIcon state={n.state} />
                 <span className="text-foreground min-w-0 flex-1 truncate text-sm">
                   {n.title.trim() || 'Untitled'}

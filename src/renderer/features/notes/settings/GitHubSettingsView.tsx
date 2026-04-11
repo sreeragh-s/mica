@@ -20,7 +20,7 @@ export function GitHubSettingsView({
   isMacNotelab,
   macTitlebarStyles,
   workspaceRoot,
-  onWorkspaceRootChange,
+  onWorkspaceRootChange
 }: GitHubSettingsViewProps): JSX.Element {
   const [pickBusy, setPickBusy] = useState(false)
   const [migratePrompt, setMigratePrompt] = useState<{
@@ -30,22 +30,25 @@ export function GitHubSettingsView({
   const [migrateBusy, setMigrateBusy] = useState(false)
   const [migrateError, setMigrateError] = useState<string | null>(null)
 
-  const applyNewRoot = useCallback(async (newPath: string): Promise<void> => {
-    const api = getApi()
-    if (!api?.workspace?.ensureDataRoot) return
-    const r = await api.workspace.ensureDataRoot({ path: newPath })
-    if (!r.ok) {
-      setMigrateError(r.error)
-      return
-    }
-    saveSetupState({
-      ...loadSetupState(),
-      workspaceRoot: newPath,
-      syncMode: r.gitInitialized ? 'git' : 'local',
-    })
-    setMigratePrompt(null)
-    await onWorkspaceRootChange(newPath)
-  }, [onWorkspaceRootChange])
+  const applyNewRoot = useCallback(
+    async (newPath: string): Promise<void> => {
+      const api = getApi()
+      if (!api?.workspace?.ensureDataRoot) return
+      const r = await api.workspace.ensureDataRoot({ path: newPath })
+      if (!r.ok) {
+        setMigrateError(r.error)
+        return
+      }
+      saveSetupState({
+        ...loadSetupState(),
+        workspaceRoot: newPath,
+        syncMode: r.gitInitialized ? 'git' : 'local'
+      })
+      setMigratePrompt(null)
+      await onWorkspaceRootChange(newPath)
+    },
+    [onWorkspaceRootChange]
+  )
 
   const handlePickDirectory = useCallback(async (): Promise<void> => {
     const api = getApi()
@@ -75,7 +78,7 @@ export function GitHubSettingsView({
     try {
       const r = await api.workspace.migrateWorkspace({
         fromCwd: migratePrompt.fromPath,
-        toCwd: migratePrompt.toPath,
+        toCwd: migratePrompt.toPath
       })
       if (!r.ok) {
         setMigrateError(r.error)

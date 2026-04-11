@@ -48,7 +48,7 @@ export function DebugSettingsView({
   onRefreshGitStatus,
   notesCacheIndexedAt,
   onRebuildNotesSearchCacheFromFilesystem,
-  onClearNotesSearchCache,
+  onClearNotesSearchCache
 }: DebugSettingsViewProps): JSX.Element {
   const api = getApi()
   const macDarwinUi = detectIsMacNotelab()
@@ -75,7 +75,7 @@ export function DebugSettingsView({
         gitPull: typeof w.gitPull === 'function',
         gitPush: typeof w.gitPush === 'function',
         readAppConfig: typeof w.readAppConfig === 'function',
-        writeAppConfig: typeof w.writeAppConfig === 'function',
+        writeAppConfig: typeof w.writeAppConfig === 'function'
       }
     : null
 
@@ -143,7 +143,7 @@ export function DebugSettingsView({
           kind: 'note',
           contentHash: 'debug-ping',
           text: 'vectra connectivity ping',
-          docType: 'txt',
+          docType: 'txt'
         })
         if (!indexed.ok) {
           setStorePingText(`upsertNoteDocument failed: ${indexed.error}`)
@@ -157,7 +157,7 @@ export function DebugSettingsView({
           maxSections: 1,
           maxTokens: 160,
           filter: { workspaceId: { $eq: folder }, notePath: { $eq: note } },
-          isBm25: true,
+          isBm25: true
         })
         if (!searched.ok) {
           setStorePingText(`searchDocuments failed: ${searched.error}`)
@@ -199,7 +199,10 @@ export function DebugSettingsView({
       <dl className="border-border flex flex-col gap-3 rounded-lg border p-4">
         <Row label="Renderer API" value={api ? 'window.api present' : 'window.api missing'} />
         <Row label="macOS Notelab UI" value={macDarwinUi ? 'yes' : 'no'} />
-        <Row label="User agent" value={typeof navigator !== 'undefined' ? navigator.userAgent : ''} />
+        <Row
+          label="User agent"
+          value={typeof navigator !== 'undefined' ? navigator.userAgent : ''}
+        />
         <Row label="Workspace path" value={workspacePath ?? '(none)'} />
         <Row label="Workspaces" value={String(foldersCount)} />
         <Row label="Notes" value={String(notesCount)} />
@@ -208,17 +211,13 @@ export function DebugSettingsView({
         <Row
           label="App config file"
           value={
-            localGitPath
-              ? `${localGitPath}/notelab.config`
-              : '(set when ~/.notelab is available)'
+            localGitPath ? `${localGitPath}/notelab.config` : '(set when ~/.notelab is available)'
           }
         />
         <Row
           label="Dirty by workspace"
           value={
-            Object.keys(dirtyByWorkspaceId).length === 0
-              ? '{}'
-              : JSON.stringify(dirtyByWorkspaceId)
+            Object.keys(dirtyByWorkspaceId).length === 0 ? '{}' : JSON.stringify(dirtyByWorkspaceId)
           }
         />
       </dl>
@@ -244,9 +243,9 @@ export function DebugSettingsView({
           <h3 className="text-foreground text-sm font-medium">Local notes cache (Dexie)</h3>
         </div>
         <p className="text-muted-foreground text-xs leading-relaxed">
-          IndexedDB mirror of plain text, frontmatter properties, tags, and internal links per workspace.
-          Rebuild after external file moves or if results look stale. Window focus already reloads notes from
-          disk when safe; this also refreshes the cache.
+          IndexedDB mirror of plain text, frontmatter properties, tags, and internal links per
+          workspace. Rebuild after external file moves or if results look stale. Window focus
+          already reloads notes from disk when safe; this also refreshes the cache.
         </p>
         <dl className="border-border flex flex-col gap-2 rounded-lg border p-4">
           <Row
@@ -272,16 +271,17 @@ export function DebugSettingsView({
                   setNotesCacheMessage('Reloaded from disk and rebuilt cache.')
                 })
                 .catch((e: unknown) => {
-                  setNotesCacheMessage(
-                    `Error: ${e instanceof Error ? e.message : String(e)}`
-                  )
+                  setNotesCacheMessage(`Error: ${e instanceof Error ? e.message : String(e)}`)
                 })
                 .finally(() => {
                   setNotesCacheBusy(false)
                 })
             }}
           >
-            <RefreshCw className={`mr-1 size-3.5 ${notesCacheBusy ? 'animate-spin' : ''}`} aria-hidden />
+            <RefreshCw
+              className={`mr-1 size-3.5 ${notesCacheBusy ? 'animate-spin' : ''}`}
+              aria-hidden
+            />
             Rebuild from filesystem
           </Button>
           <Button
@@ -297,9 +297,7 @@ export function DebugSettingsView({
                   setNotesCacheMessage('Cleared and rebuilt workspace cache from current notes.')
                 })
                 .catch((e: unknown) => {
-                  setNotesCacheMessage(
-                    `Error: ${e instanceof Error ? e.message : String(e)}`
-                  )
+                  setNotesCacheMessage(`Error: ${e instanceof Error ? e.message : String(e)}`)
                 })
                 .finally(() => {
                   setNotesCacheBusy(false)
@@ -324,12 +322,8 @@ export function DebugSettingsView({
             label="IPC bridge"
             value={emb ? 'window.api.embeddings available' : 'unavailable (use Electron app)'}
           />
-          {storeStatusText ? (
-            <Row label="Last status" value={storeStatusText} />
-          ) : null}
-          {storePingText ? (
-            <Row label="Last connectivity test" value={storePingText} />
-          ) : null}
+          {storeStatusText ? <Row label="Last status" value={storeStatusText} /> : null}
+          {storePingText ? <Row label="Last connectivity test" value={storePingText} /> : null}
         </dl>
         <div className="flex flex-wrap gap-2">
           <Button
@@ -356,10 +350,10 @@ export function DebugSettingsView({
           </Button>
         </div>
         <p className="text-muted-foreground text-xs leading-relaxed">
-          <strong className="text-foreground font-medium">Check status</strong> opens the workspace-local
-          index and reports the on-disk path.
-          <strong className="text-foreground font-medium"> Run connectivity test</strong> indexes a tiny
-          document, runs one retrieval query, then deletes the test document.
+          <strong className="text-foreground font-medium">Check status</strong> opens the
+          workspace-local index and reports the on-disk path.
+          <strong className="text-foreground font-medium"> Run connectivity test</strong> indexes a
+          tiny document, runs one retrieval query, then deletes the test document.
         </p>
       </div>
 

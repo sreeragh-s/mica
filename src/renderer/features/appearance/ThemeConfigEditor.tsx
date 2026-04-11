@@ -1,13 +1,13 @@
-import { useId, type JSX } from "react"
+import { useId, type JSX } from 'react'
 
-import type { NotelabThemeConfigV1 } from "@/lib/config/notelab-config-schema"
-import { humanizeThemeTokenKey } from "@/lib/theme/theme-config-utils"
-import { THEME_STYLE_VAR_KEYS } from "@/lib/theme/theme-preset-apply"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { cn } from "@/lib/utils"
+import type { NotelabThemeConfigV1 } from '@/lib/config/notelab-config-schema'
+import { humanizeThemeTokenKey } from '@/lib/theme/theme-config-utils'
+import { THEME_STYLE_VAR_KEYS } from '@/lib/theme/theme-preset-apply'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { ScrollArea } from '@/components/ui/scroll-area'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { cn } from '@/lib/utils'
 
 export type ThemeConfigEditorProps = {
   value: NotelabThemeConfigV1
@@ -17,43 +17,43 @@ export type ThemeConfigEditorProps = {
 
 function patchMode(
   config: NotelabThemeConfigV1,
-  mode: "light" | "dark",
+  mode: 'light' | 'dark',
   key: string,
   raw: string
 ): NotelabThemeConfigV1 {
   const trimmed = raw.trim()
   const prev = config[mode] as Record<string, string | undefined>
-  if (trimmed === "") {
+  if (trimmed === '') {
     const { [key]: _, ...rest } = prev
     return { ...config, [mode]: rest }
   }
   return {
     ...config,
-    [mode]: { ...prev, [key]: trimmed },
+    [mode]: { ...prev, [key]: trimmed }
   }
 }
 
 export function ThemeConfigEditor({
   value,
   onChange,
-  className,
+  className
 }: ThemeConfigEditorProps): JSX.Element {
   const baseId = useId()
 
   return (
-    <div className={cn("flex flex-col gap-2", className)}>
+    <div className={cn('flex flex-col gap-2', className)}>
       <Tabs defaultValue="light" className="w-full">
         <TabsList className="grid w-full max-w-md grid-cols-2">
           <TabsTrigger value="light">Light tokens</TabsTrigger>
           <TabsTrigger value="dark">Dark tokens</TabsTrigger>
         </TabsList>
-        {(["light", "dark"] as const).map((mode) => (
+        {(['light', 'dark'] as const).map((mode) => (
           <TabsContent key={mode} value={mode} className="mt-3">
             <ScrollArea className="h-[min(28rem,calc(100vh-16rem))] rounded-md border pr-3">
               <div className="flex flex-col gap-3 p-3">
                 {THEME_STYLE_VAR_KEYS.map((key) => {
                   const cur = value[mode] as Record<string, string | undefined>
-                  const v = cur[key] ?? ""
+                  const v = cur[key] ?? ''
                   const fieldId = `${baseId}-${mode}-${key}`
                   return (
                     <div
@@ -81,15 +81,9 @@ export function ThemeConfigEditor({
                             type="color"
                             aria-label={`${humanizeThemeTokenKey(key)} color picker`}
                             className="border-input size-9 shrink-0 cursor-pointer rounded-md border"
-                            value={
-                              v.trim().length === 4
-                                ? expandShortHex(v.trim())
-                                : v.trim()
-                            }
+                            value={v.trim().length === 4 ? expandShortHex(v.trim()) : v.trim()}
                             onChange={(e) => {
-                              onChange(
-                                patchMode(value, mode, key, e.target.value)
-                              )
+                              onChange(patchMode(value, mode, key, e.target.value))
                             }}
                           />
                         ) : null}
@@ -107,7 +101,7 @@ export function ThemeConfigEditor({
 }
 
 function expandShortHex(hex: string): string {
-  if (hex.length === 4 && hex.startsWith("#")) {
+  if (hex.length === 4 && hex.startsWith('#')) {
     const r = hex[1]
     const g = hex[2]
     const b = hex[3]

@@ -51,7 +51,7 @@ function buildMarkdown(payload: ChatHistorySession): string {
     `*${new Date(payload.createdAt).toLocaleString()}*`,
     ``,
     `---`,
-    ``,
+    ``
   ]
   for (const msg of payload.messages) {
     const role = msg.role === 'user' ? '**You**' : '**Assistant**'
@@ -69,7 +69,7 @@ function parseSessionMeta(content: string, sessionId: string): ChatHistoryMeta {
     sessionId,
     title: titleMatch?.[1]?.trim() ?? 'Chat session',
     createdAt: createdMatch?.[1] ? new Date(createdMatch[1].trim()).getTime() : 0,
-    messageCount: messagesMatch?.[1] ? parseInt(messagesMatch[1], 10) : 0,
+    messageCount: messagesMatch?.[1] ? parseInt(messagesMatch[1], 10) : 0
   }
 }
 
@@ -134,7 +134,10 @@ export function parseSessionMarkdown(content: string): ChatHistorySession | null
 export function registerChatHistoryIpc(): void {
   ipcMain.handle(
     'chat-history:write',
-    async (_evt, payload: ChatHistorySession): Promise<{ ok: true } | { ok: false; error: string }> => {
+    async (
+      _evt,
+      payload: ChatHistorySession
+    ): Promise<{ ok: true } | { ok: false; error: string }> => {
       console.info(LOG, 'writing session', payload.sessionId, `"${payload.title}"`)
       try {
         await ensureDir()
@@ -152,10 +155,7 @@ export function registerChatHistoryIpc(): void {
 
   ipcMain.handle(
     'chat-history:list',
-    async (): Promise<
-      | { ok: true; sessions: ChatHistoryMeta[] }
-      | { ok: false; error: string }
-    > => {
+    async (): Promise<{ ok: true; sessions: ChatHistoryMeta[] } | { ok: false; error: string }> => {
       console.info(LOG, 'listing sessions in', chatHistoryDir())
       try {
         await ensureDir()
@@ -180,10 +180,10 @@ export function registerChatHistoryIpc(): void {
 
   ipcMain.handle(
     'chat-history:read',
-    async (_evt, sessionId: string): Promise<
-      | { ok: true; content: string }
-      | { ok: false; error: string }
-    > => {
+    async (
+      _evt,
+      sessionId: string
+    ): Promise<{ ok: true; content: string } | { ok: false; error: string }> => {
       console.info(LOG, 'reading session', sessionId)
       try {
         const content = await readFile(sessionFilePath(sessionId), 'utf8')
@@ -198,10 +198,10 @@ export function registerChatHistoryIpc(): void {
 
   ipcMain.handle(
     'chat-history:read-session',
-    async (_evt, sessionId: string): Promise<
-      | { ok: true; session: ChatHistorySession }
-      | { ok: false; error: string }
-    > => {
+    async (
+      _evt,
+      sessionId: string
+    ): Promise<{ ok: true; session: ChatHistorySession } | { ok: false; error: string }> => {
       console.info(LOG, 'reading session (parsed)', sessionId)
       try {
         const content = await readFile(sessionFilePath(sessionId), 'utf8')

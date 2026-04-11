@@ -56,6 +56,7 @@ export type ChatMessage = {
   role: 'user' | 'assistant'
   content: string
   sources?: ChatSource[]
+  pipelineStatus?: ChatPipelineStatus
   timestamp: number
 }
 
@@ -354,14 +355,23 @@ export function useNotesChat({
         finalNotes: ChatPipelineNote[] = []
       ): void => {
         if (isCancelled()) return
-        setPipelineStatus({
+        latestPipelineStatus = {
           stage,
           mode,
           suggestedMode,
           seedNotes,
           connectedNotes,
           finalNotes
-        })
+        }
+        setPipelineStatus(latestPipelineStatus)
+      }
+      let latestPipelineStatus: ChatPipelineStatus = {
+        stage: 'analyzing',
+        mode,
+        suggestedMode,
+        seedNotes: [],
+        connectedNotes: [],
+        finalNotes: []
       }
 
       const userMsg: ChatMessage = {
@@ -392,7 +402,9 @@ export function useNotesChat({
       try {
         const existingNoteIds = new Set(notes.map((n) => n.path))
         const searchApi = window.api.embeddings?.searchDocuments
-        const workspaceFilter = filterWorkspaceId ? { folder: { $eq: filterWorkspaceId } } : undefined
+        const workspaceFilter = filterWorkspaceId
+          ? { folder: { $eq: filterWorkspaceId } }
+          : undefined
 
         const runReranker = async (
           candidates: Array<ChatSource & { id: string }>
@@ -500,7 +512,8 @@ export function useNotesChat({
           if (!response || !response.ok) return null
 
           const parsedStream = parseSSEChunks(response.body)
-          const payload = parsedStream.tokens.length > 0 ? parsedStream.tokens.join('') : response.body
+          const payload =
+            parsedStream.tokens.length > 0 ? parsedStream.tokens.join('') : response.body
           return parseRerankerResponse(payload)
         }
 
@@ -624,10 +637,12 @@ export function useNotesChat({
           })
           ensureActive()
           if (stage3Res.ok) {
-            candidatePool = searchRowsToSources(stage3Res.rows, notes, existingNoteIds).map((row) => ({
-              ...row,
-              source: 'connected'
-            }))
+            candidatePool = searchRowsToSources(stage3Res.rows, notes, existingNoteIds).map(
+              (row) => ({
+                ...row,
+                source: 'connected'
+              })
+            )
           }
         }
         candidatePool.sort((left, right) => (right.score ?? 0) - (left.score ?? 0))
@@ -642,7 +657,8 @@ export function useNotesChat({
             candidatePool.push({ ...source, source: 'global_fallback' })
             notesInPool.add(source.note)
             if (
-              candidatePool.filter((candidate) => candidate.source === 'global_fallback').length >= 3
+              candidatePool.filter((candidate) => candidate.source === 'global_fallback').length >=
+              3
             ) {
               break
             }
@@ -689,9 +705,12 @@ export function useNotesChat({
         // ---------------------------------------------------------------------
         const allSources = dedupeSourcesByExcerpt([...mentionSources, ...topCandidates])
         const uniqueSources = allSources.filter(
-          (source, index, arr) => arr.findIndex((candidate) => candidate.note === source.note) === index
+          (source, index, arr) =>
+            arr.findIndex((candidate) => candidate.note === source.note) === index
         )
-        const contextChunks = allSources.map((source) => `[Source: "${source.title}"]\n${source.chunkText}`)
+        const contextChunks = allSources.map(
+          (source) => `[Source: "${source.title}"]\n${source.chunkText}`
+        )
         const historyForApi = session.messages.slice(-10).map((message) => ({
           role: message.role,
           content: message.content
@@ -707,12 +726,16 @@ export function useNotesChat({
             ...prev,
             messages: prev.messages.map((message) =>
               message.id === assistantId
-                ? { ...message, sources: uniqueSources, content: accumulatedContent }
+                ? {
+                    ...message,
+                    sources: uniqueSources,
+                    content: accumulatedContent,
+                    pipelineStatus: latestPipelineStatus
+                  }
                 : message
             )
           }))
           setIsLoading(false)
-          setPipelineStatus(null)
           streamCleanupRef.current = null
         }
 
@@ -723,12 +746,15 @@ export function useNotesChat({
             ...prev,
             messages: prev.messages.map((message) =>
               message.id === assistantId
-                ? { ...message, content: accumulatedContent || `⚠️ Stream error: ${msg}` }
+                ? {
+                    ...message,
+                    content: accumulatedContent || `⚠️ Stream error: ${msg}`,
+                    pipelineStatus: latestPipelineStatus
+                  }
                 : message
             )
           }))
           setIsLoading(false)
-          setPipelineStatus(null)
           streamCleanupRef.current = null
         }
 
@@ -776,7 +802,9 @@ export function useNotesChat({
                 setSession((prev) => ({
                   ...prev,
                   messages: prev.messages.map((message) =>
-                    message.id === assistantId ? { ...message, content: accumulatedContent } : message
+                    message.id === assistantId
+                      ? { ...message, content: accumulatedContent }
+                      : message
                   )
                 }))
               }
@@ -843,7 +871,9 @@ export function useNotesChat({
                 setSession((prev) => ({
                   ...prev,
                   messages: prev.messages.map((message) =>
-                    message.id === assistantId ? { ...message, content: accumulatedContent } : message
+                    message.id === assistantId
+                      ? { ...message, content: accumulatedContent }
+                      : message
                   )
                 }))
               }
@@ -858,12 +888,11 @@ export function useNotesChat({
         log.error('[pipeline] sendMessage failed', message)
         if (!isCancelled()) {
           setIsLoading(false)
-          setPipelineStatus(null)
           setSession((prev) => ({
             ...prev,
             messages: prev.messages.map((messageItem) =>
               messageItem.id === assistantId
-                ? { ...messageItem, content: `⚠️ ${message}` }
+                ? { ...messageItem, content: `⚠️ ${message}`, pipelineStatus: latestPipelineStatus }
                 : messageItem
             )
           }))

@@ -11,10 +11,7 @@ import { motion } from 'motion/react'
 
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import {
-  NOTES_APP_PILL_ROUNDED,
-  NOTES_APP_PILL_SURFACE
-} from '@/features/notes/notes-app-utils'
+import { NOTES_APP_PILL_ROUNDED, NOTES_APP_PILL_SURFACE } from '@/features/notes/notes-app-utils'
 import type { SavedNote } from '@/lib/notes/notes-storage'
 import type { MacTitlebarStyles } from '@/features/notes/notes-app-types'
 
@@ -136,7 +133,12 @@ export function NoteTabStrip({
       const d = dragRef.current
       if (!d || d.id !== id || e.pointerId !== d.pointerId) return
       const deltaX = e.clientX - startPointerXRef.current
-      const insertionIdx = computeInsertionIdx(deltaX, d.dragIdx, openNoteTabPaths.length, d.tabWidth)
+      const insertionIdx = computeInsertionIdx(
+        deltaX,
+        d.dragIdx,
+        openNoteTabPaths.length,
+        d.tabWidth
+      )
       const next: DragState = { ...d, deltaX, insertionIdx }
       dragRef.current = next
       setDrag(next)
@@ -251,7 +253,12 @@ export function NoteTabStrip({
                       { duration: 0 }
                     : isDragging
                       ? // Dragged tab: x instant, opacity/scale spring for smooth lift/fade
-                        { x: { duration: 0 }, opacity: LIFT_SPRING, scale: LIFT_SPRING, zIndex: { duration: 0 } }
+                        {
+                          x: { duration: 0 },
+                          opacity: LIFT_SPRING,
+                          scale: LIFT_SPRING,
+                          zIndex: { duration: 0 }
+                        }
                       : // Other tabs: spring to their gap position
                         { ...SLIDE_SPRING, zIndex: { duration: 0 } }
                 }
@@ -322,9 +329,15 @@ export function NoteTabStrip({
                     }}
                   >
                     {isDrawing ? (
-                      <PenLine className="text-muted-foreground size-3.5 shrink-0 opacity-80" aria-hidden />
+                      <PenLine
+                        className="text-muted-foreground size-3.5 shrink-0 opacity-80"
+                        aria-hidden
+                      />
                     ) : (
-                      <FileText className="text-muted-foreground size-3.5 shrink-0 opacity-80" aria-hidden />
+                      <FileText
+                        className="text-muted-foreground size-3.5 shrink-0 opacity-80"
+                        aria-hidden
+                      />
                     )}
                     <span
                       className="min-h-0 min-w-0 max-w-[min(11rem,100%)] truncate py-1 text-center text-[13px] font-medium leading-tight tracking-tight"

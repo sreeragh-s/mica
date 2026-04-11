@@ -5,14 +5,14 @@
  * LICENSE file in the root directory of this source tree.
  *
  */
-import type { EditorConfig, LexicalNode, SerializedTextNode } from "lexical"
-import { TextNode } from "lexical"
+import type { EditorConfig, LexicalNode, SerializedTextNode } from 'lexical'
+import { TextNode } from 'lexical'
 
 export type SerializedKeywordNode = SerializedTextNode
 
 export class KeywordNode extends TextNode {
   static getType(): string {
-    return "keyword"
+    return 'keyword'
   }
 
   static clone(node: KeywordNode): KeywordNode {
@@ -31,15 +31,15 @@ export class KeywordNode extends TextNode {
   exportJSON(): SerializedKeywordNode {
     return {
       ...super.exportJSON(),
-      type: "keyword",
-      version: 1,
+      type: 'keyword',
+      version: 1
     }
   }
 
   createDOM(config: EditorConfig): HTMLElement {
     const dom = super.createDOM(config)
-    dom.style.cursor = "default"
-    dom.className = "keyword text-purple-900 font-bold"
+    dom.style.cursor = 'default'
+    dom.className = 'keyword text-purple-900 font-bold'
     return dom
   }
 

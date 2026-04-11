@@ -103,7 +103,12 @@ function NoteCanvasCard({ data }: NodeProps<NoteCanvasCardNode>): JSX.Element {
           'nodrag border-border bg-card text-card-foreground flex flex-col overflow-hidden rounded-xl border shadow-md',
           'hover:ring-2 hover:ring-primary/40'
         )}
-        style={{ width: NODE_MAX_W, maxWidth: NODE_MAX_W, height: NODE_MAX_H, maxHeight: NODE_MAX_H }}
+        style={{
+          width: NODE_MAX_W,
+          maxWidth: NODE_MAX_W,
+          height: NODE_MAX_H,
+          maxHeight: NODE_MAX_H
+        }}
       >
         {/* Title bar — this is the only drag handle */}
         <div className="canvas-drag-handle bg-muted/50 flex h-9 shrink-0 cursor-grab items-center gap-1.5 border-b px-3 active:cursor-grabbing">
@@ -293,10 +298,7 @@ function NotesCanvasViewInner({
         >
           <Background />
           <Controls />
-          <MiniMap
-            nodeColor={() => 'var(--color-muted-foreground)'}
-            maskColor="rgba(0,0,0,0.08)"
-          />
+          <MiniMap nodeColor={() => 'var(--color-muted-foreground)'} maskColor="rgba(0,0,0,0.08)" />
         </ReactFlow>
       </div>
     </div>

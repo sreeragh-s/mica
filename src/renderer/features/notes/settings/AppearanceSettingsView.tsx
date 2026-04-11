@@ -1,11 +1,4 @@
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type JSX,
-} from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from 'react'
 
 import { Monitor, Moon, PenLine, Sun } from 'lucide-react'
 import { useTheme } from 'next-themes'
@@ -18,7 +11,7 @@ import {
   SheetContent,
   SheetDescription,
   SheetHeader,
-  SheetTitle,
+  SheetTitle
 } from '@/components/ui/sheet'
 import { Label } from '@/components/ui/label'
 import {
@@ -41,10 +34,7 @@ import {
 } from '@/lib/theme/appearance-storage'
 import { buildThemeConfigFromPresetId } from '@/lib/theme/theme-config-utils'
 import { getThemeSwatchColors } from '@/lib/theme/theme-preset-preview'
-import {
-  CUSTOM_THEME_PRESET_ID,
-  DEFAULT_THEME_PRESET_ID,
-} from '@/lib/theme/theme-preset-apply'
+import { CUSTOM_THEME_PRESET_ID, DEFAULT_THEME_PRESET_ID } from '@/lib/theme/theme-preset-apply'
 import type { NotelabThemeConfigV1 } from '@/lib/config/notelab-config-schema'
 import type { NotelabAppearanceSettingsV1 } from '@/lib/config/notelab-config-schema'
 import type { MacTitlebarStyles } from '@/features/notes/notes-app-types'
@@ -55,10 +45,7 @@ function ThemeSwatchStrip({
   colors: readonly [string, string, string, string]
 }): JSX.Element {
   return (
-    <span
-      className="flex shrink-0 gap-1"
-      aria-hidden
-    >
+    <span className="flex shrink-0 gap-1" aria-hidden>
       {colors.map((c, i) => (
         <span
           key={i}
@@ -74,9 +61,9 @@ const THEME_PRESET_SELECT_OPTIONS = [
   { id: DEFAULT_THEME_PRESET_ID, label: 'Default' },
   ...Object.entries(defaultPresets).map(([id, p]) => ({
     id,
-    label: p.label ?? id,
+    label: p.label ?? id
   })),
-  { id: CUSTOM_THEME_PRESET_ID, label: 'Custom' },
+  { id: CUSTOM_THEME_PRESET_ID, label: 'Custom' }
 ] as const
 
 export type AppearanceSettingsViewProps = {
@@ -126,15 +113,12 @@ export function AppearanceSettingsView({
     return {
       preset,
       config: loadThemeConfig(),
-      lastBuiltIn:
-        preset !== CUSTOM_THEME_PRESET_ID ? preset : DEFAULT_THEME_PRESET_ID,
+      lastBuiltIn: preset !== CUSTOM_THEME_PRESET_ID ? preset : DEFAULT_THEME_PRESET_ID
     }
   }, [])
 
   const [themePresetId, setThemePresetId] = useState(appearanceInit.preset)
-  const [themeConfig, setThemeConfig] = useState<NotelabThemeConfigV1 | null>(
-    appearanceInit.config
-  )
+  const [themeConfig, setThemeConfig] = useState<NotelabThemeConfigV1 | null>(appearanceInit.config)
 
   const lastBuiltInPresetRef = useRef(appearanceInit.lastBuiltIn)
 
@@ -214,8 +198,7 @@ export function AppearanceSettingsView({
   )
 
   const paletteLabel =
-    THEME_PRESET_SELECT_OPTIONS.find((o) => o.id === themePresetId)?.label ??
-    'Palette'
+    THEME_PRESET_SELECT_OPTIONS.find((o) => o.id === themePresetId)?.label ?? 'Palette'
 
   return (
     <div
@@ -223,12 +206,10 @@ export function AppearanceSettingsView({
       style={isMacNotelab ? macTitlebarStyles.noDrag : undefined}
     >
       <div className="flex flex-col gap-1">
-        <h2 className="text-foreground text-lg font-semibold tracking-tight">
-          Appearance
-        </h2>
+        <h2 className="text-foreground text-lg font-semibold tracking-tight">Appearance</h2>
         <p className="text-muted-foreground text-sm leading-relaxed">
-          Choose light, dark, or system mode, pick a color palette (or edit
-          custom tokens), and set the interface font.
+          Choose light, dark, or system mode, pick a color palette (or edit custom tokens), and set
+          the interface font.
         </p>
       </div>
 
@@ -273,15 +254,12 @@ export function AppearanceSettingsView({
       </section>
 
       <section className="flex flex-col gap-3">
-        <Label
-          htmlFor="appearance-theme-preset"
-          className="text-foreground text-sm font-medium"
-        >
+        <Label htmlFor="appearance-theme-preset" className="text-foreground text-sm font-medium">
           Color palette
         </Label>
         <p className="text-muted-foreground text-xs">
-          Palette and token snapshots are saved in notelab.config. Use Edit
-          theme to change colors, radius, and shadows.
+          Palette and token snapshots are saved in notelab.config. Use Edit theme to change colors,
+          radius, and shadows.
         </p>
         <div className="flex flex-wrap items-center gap-2">
           <div className="min-w-0 flex-1 max-w-md">
@@ -333,33 +311,25 @@ export function AppearanceSettingsView({
         </div>
 
         <Sheet open={themePanelOpen} onOpenChange={setThemePanelOpen}>
-          <SheetContent
-            side="right"
-            showCloseButton
-            className="overflow-hidden rounded-none"
-          >
+          <SheetContent side="right" showCloseButton className="overflow-hidden rounded-none">
             {themeConfig ? (
               <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
                 <SheetHeader className="border-border shrink-0 space-y-1 border-b px-4 py-3 text-left">
                   <SheetTitle>Edit theme</SheetTitle>
                   <SheetDescription className="text-xs">
-                    Light and dark tokens, search, and reset per row. Saving
-                    edits switches the palette to Custom.
+                    Light and dark tokens, search, and reset per row. Saving edits switches the
+                    palette to Custom.
                   </SheetDescription>
                 </SheetHeader>
                 <ThemeConfigEditorPanel
                   className="min-h-0 flex-1 overflow-hidden"
                   value={themeConfig}
                   onChange={scheduleSaveThemeConfig}
-                  baseline={buildThemeConfigFromPresetId(
-                    lastBuiltInPresetRef.current
-                  )}
+                  baseline={buildThemeConfigFromPresetId(lastBuiltInPresetRef.current)}
                   onAppThemeChange={(t) => {
                     setTheme(t)
                   }}
-                  appResolvedMode={
-                    resolvedTheme === "dark" ? "dark" : "light"
-                  }
+                  appResolvedMode={resolvedTheme === 'dark' ? 'dark' : 'light'}
                   panelOpen={themePanelOpen}
                 />
               </div>

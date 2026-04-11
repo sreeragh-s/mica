@@ -49,14 +49,14 @@ function addListener(element: HTMLElement, cb: Listener): () => void {
         }
       }
     }
-    element.addEventListener("touchstart", handleTouchstart)
-    element.addEventListener("touchend", handleTouchend)
+    element.addEventListener('touchstart', handleTouchstart)
+    element.addEventListener('touchend', handleTouchend)
 
     elementValues = {
       handleTouchend,
       handleTouchstart,
       listeners,
-      start: null,
+      start: null
     }
     elements.set(element, elementValues)
   }
@@ -73,8 +73,8 @@ function deleteListener(element: HTMLElement, cb: Listener): void {
   listeners.delete(cb)
   if (listeners.size === 0) {
     elements.delete(element)
-    element.removeEventListener("touchstart", elementValues.handleTouchstart)
-    element.removeEventListener("touchend", elementValues.handleTouchend)
+    element.removeEventListener('touchstart', elementValues.handleTouchstart)
+    element.removeEventListener('touchend', elementValues.handleTouchend)
   }
 }
 

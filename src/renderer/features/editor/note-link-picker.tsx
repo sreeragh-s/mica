@@ -1,17 +1,17 @@
-"use client"
+'use client'
 
-import type { JSX } from "react"
+import type { JSX } from 'react'
 import {
   Command,
   CommandEmpty,
   CommandGroup,
   CommandInput,
   CommandItem,
-  CommandList,
-} from "@/components/ui/command"
-import { isDrawingNote } from "@/features/notes/notes-app-utils"
-import type { NotelabEditorContextValue } from "@/features/editor/notelab-editor-context"
-import type { SavedNote } from "@/lib/notes/notes-storage"
+  CommandList
+} from '@/components/ui/command'
+import { isDrawingNote } from '@/features/notes/notes-app-utils'
+import type { NotelabEditorContextValue } from '@/features/editor/notelab-editor-context'
+import type { SavedNote } from '@/lib/notes/notes-storage'
 
 export type NoteLinkPickerListProps = {
   noteSearch: string
@@ -26,7 +26,7 @@ export function NoteLinkPickerList({
   onNoteSearchChange,
   linkableNotes,
   notelabCtx,
-  onSelectNoteId,
+  onSelectNoteId
 }: NoteLinkPickerListProps): JSX.Element {
   return (
     <Command shouldFilter={false}>
@@ -40,10 +40,9 @@ export function NoteLinkPickerList({
         <CommandGroup heading="Workspace">
           {linkableNotes.map((note) => {
             const folderName =
-              notelabCtx.folders.find((f) => f.folder === note.folder)?.name ??
-              "Workspace"
-            const label = note.title?.trim() || "Untitled"
-            const kind = isDrawingNote(note) ? "Drawing" : "Note"
+              notelabCtx.folders.find((f) => f.folder === note.folder)?.name ?? 'Workspace'
+            const label = note.title?.trim() || 'Untitled'
+            const kind = isDrawingNote(note) ? 'Drawing' : 'Note'
             return (
               <CommandItem
                 key={note.path}

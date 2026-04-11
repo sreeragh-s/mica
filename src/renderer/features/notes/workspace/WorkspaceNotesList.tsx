@@ -19,7 +19,7 @@ export function WorkspaceNotesList({
   notes,
   onSelectNote,
   onNewNote,
-  canCreateNote,
+  canCreateNote
 }: WorkspaceNotesListProps): JSX.Element {
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -75,10 +75,7 @@ export function WorkspaceNotesList({
                   )}
                 >
                   {note.kind === 'drawing' ? (
-                    <PenLine
-                      className="text-muted-foreground mt-0.5 size-4 shrink-0"
-                      aria-hidden
-                    />
+                    <PenLine className="text-muted-foreground mt-0.5 size-4 shrink-0" aria-hidden />
                   ) : (
                     <FileText
                       className="text-muted-foreground mt-0.5 size-4 shrink-0"

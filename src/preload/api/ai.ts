@@ -37,21 +37,18 @@ export const ollamaApi = {
       'ollama:download:error': (message) => {
         cleanup()
         callbacks.onError(String(message))
-      },
+      }
     })
 
     ipcRenderer.send('ollama:download', requestId)
     return cleanup
   },
-  start: (): Promise<
-    | { ok: true; alreadyRunning: boolean }
-    | { ok: false; error: string }
-  > => ipcRenderer.invoke('ollama:start'),
+  start: (): Promise<{ ok: true; alreadyRunning: boolean } | { ok: false; error: string }> =>
+    ipcRenderer.invoke('ollama:start'),
   stop: (): Promise<{ ok: true } | { ok: false; error: string }> =>
     ipcRenderer.invoke('ollama:stop'),
   listModels: (): Promise<
-    | { ok: true; models: OllamaLocalModel[] }
-    | { ok: false; error: string }
+    { ok: true; models: OllamaLocalModel[] } | { ok: false; error: string }
   > => ipcRenderer.invoke('ollama:list-models'),
   pullModel: (
     modelName: string,
@@ -72,7 +69,7 @@ export const ollamaApi = {
       'ollama:pull-model:error': (message) => {
         cleanup()
         callbacks.onError(String(message))
-      },
+      }
     })
 
     ipcRenderer.send('ollama:pull-model', requestId, modelName)
@@ -83,17 +80,13 @@ export const ollamaApi = {
   embed: (payload: {
     model: string
     input: string
-  }): Promise<
-    | { ok: true; embedding: number[] }
-    | { ok: false; error: string }
-  > => ipcRenderer.invoke('ollama:embed', payload),
+  }): Promise<{ ok: true; embedding: number[] } | { ok: false; error: string }> =>
+    ipcRenderer.invoke('ollama:embed', payload),
   embedBatch: (payload: {
     model: string
     inputs: string[]
-  }): Promise<
-    | { ok: true; embeddings: number[][] }
-    | { ok: false; error: string }
-  > => ipcRenderer.invoke('ollama:embed-batch', payload),
+  }): Promise<{ ok: true; embeddings: number[][] } | { ok: false; error: string }> =>
+    ipcRenderer.invoke('ollama:embed-batch', payload),
   chatStream: (
     bodyJson: string,
     callbacks: {
@@ -112,7 +105,7 @@ export const ollamaApi = {
       'ollama:chat-stream:error': (message) => {
         cleanup()
         callbacks.onError(String(message))
-      },
+      }
     })
 
     ipcRenderer.send('ollama:chat-stream', requestId, bodyJson)
@@ -120,17 +113,23 @@ export const ollamaApi = {
       cleanup()
       ipcRenderer.send('ollama:chat-stream:cancel', requestId)
     }
-  },
+  }
 }
 
 export const embeddingsApi = {
-  getStatus: (payload: { workspacePath: string }): Promise<
+  getStatus: (payload: {
+    workspacePath: string
+  }): Promise<
     | { ok: true; indexPath: string; indexExists: boolean; documents: number; chunks: number }
     | { ok: false; error: string }
   > => ipcRenderer.invoke('embeddings:get-status', payload),
-  ensureIndex: (payload: { workspacePath: string }): Promise<{ ok: true } | { ok: false; error: string }> =>
+  ensureIndex: (payload: {
+    workspacePath: string
+  }): Promise<{ ok: true } | { ok: false; error: string }> =>
     ipcRenderer.invoke('embeddings:ensure-index', payload),
-  getIndexedHashes: (payload: { workspacePath: string }): Promise<
+  getIndexedHashes: (payload: {
+    workspacePath: string
+  }): Promise<
     | { ok: true; hashes: Record<string, { contentHash: string; folder: string }> }
     | { ok: false; error: string }
   > => ipcRenderer.invoke('embeddings:get-indexed-hashes', payload),
@@ -143,9 +142,8 @@ export const embeddingsApi = {
     contentHash: string
     text: string
     docType?: string
-  }): Promise<
-    { ok: true; indexed: number } | { ok: false; error: string }
-  > => ipcRenderer.invoke('embeddings:upsert-note-document', payload),
+  }): Promise<{ ok: true; indexed: number } | { ok: false; error: string }> =>
+    ipcRenderer.invoke('embeddings:upsert-note-document', payload),
   searchDocuments: (payload: {
     workspacePath: string
     query: string
@@ -175,18 +173,17 @@ export const embeddingsApi = {
   deleteNoteDocument: (payload: {
     workspacePath: string
     note: string
-  }): Promise<
-    | { ok: true; deleted: boolean }
-    | { ok: false; error: string }
-  > => ipcRenderer.invoke('embeddings:delete-note-document', payload),
+  }): Promise<{ ok: true; deleted: boolean } | { ok: false; error: string }> =>
+    ipcRenderer.invoke('embeddings:delete-note-document', payload),
   deleteWorkspaceDocuments: (payload: {
     workspacePath: string
     workspaceId: string
   }): Promise<
-    | { ok: true; deleted: boolean; deletedCount: number }
-    | { ok: false; error: string }
+    { ok: true; deleted: boolean; deletedCount: number } | { ok: false; error: string }
   > => ipcRenderer.invoke('embeddings:delete-workspace-documents', payload),
-  dumpIndex: (payload: { workspacePath: string }): Promise<
+  dumpIndex: (payload: {
+    workspacePath: string
+  }): Promise<
     | {
         ok: true
         indexPath: string
@@ -195,5 +192,5 @@ export const embeddingsApi = {
         totalChunks: number
       }
     | { ok: false; error: string }
-  > => ipcRenderer.invoke('embeddings:dump-index', payload),
+  > => ipcRenderer.invoke('embeddings:dump-index', payload)
 }

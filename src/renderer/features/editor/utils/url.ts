@@ -6,21 +6,14 @@
  *
  */
 
-const SUPPORTED_URL_PROTOCOLS = new Set([
-  "http:",
-  "https:",
-  "mailto:",
-  "obsidian:",
-  "sms:",
-  "tel:",
-])
+const SUPPORTED_URL_PROTOCOLS = new Set(['http:', 'https:', 'mailto:', 'obsidian:', 'sms:', 'tel:'])
 
 export function sanitizeUrl(url: string): string {
   try {
     const parsedUrl = new URL(url)
     // eslint-disable-next-line no-script-url
     if (!SUPPORTED_URL_PROTOCOLS.has(parsedUrl.protocol)) {
-      return "about:blank"
+      return 'about:blank'
     }
   } catch {
     return url
@@ -35,7 +28,7 @@ const urlRegExp = new RegExp(
 export function validateUrl(url: string): boolean {
   // TODO Fix UI for link insertion; it should never default to an invalid URL such as https://.
   // Maybe show a dialog where they user can type the URL before inserting it.
-  if (url === "https://") return true
+  if (url === 'https://') return true
   if (/^#notelab\/note\/.+/.test(url)) return true
   if (/^obsidian:\/\/\S+/i.test(url)) return true
   if (/^#.+/.test(url)) return true

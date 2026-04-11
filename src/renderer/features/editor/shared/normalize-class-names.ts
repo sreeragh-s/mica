@@ -11,7 +11,7 @@ export default function normalizeClassNames(
 ): string[] {
   const rval: string[] = []
   for (const className of classNames) {
-    if (className && typeof className === "string") {
+    if (className && typeof className === 'string') {
       for (const match of Array.from(className.matchAll(/\S+/g))) {
         const s = match[0]
         rval.push(s)

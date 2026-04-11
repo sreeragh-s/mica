@@ -1,8 +1,8 @@
-"use client"
+'use client'
 
-import { createContext, useContext, type ReactNode } from "react"
+import { createContext, useContext, type ReactNode } from 'react'
 
-import type { SavedNote, Folder } from "@/lib/notes/notes-storage"
+import type { SavedNote, Folder } from '@/lib/notes/notes-storage'
 
 export type NotelabEditorContextValue = {
   notes: SavedNote[]
@@ -15,16 +15,12 @@ const NotelabEditorContext = createContext<NotelabEditorContextValue | null>(nul
 
 export function NotelabEditorProvider({
   value,
-  children,
+  children
 }: {
   value: NotelabEditorContextValue | null
   children: ReactNode
 }): React.ReactElement {
-  return (
-    <NotelabEditorContext.Provider value={value}>
-      {children}
-    </NotelabEditorContext.Provider>
-  )
+  return <NotelabEditorContext.Provider value={value}>{children}</NotelabEditorContext.Provider>
 }
 
 export function useNotelabEditorContext(): NotelabEditorContextValue | null {

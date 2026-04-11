@@ -8,13 +8,13 @@ import {
   MediaSeekForwardButton,
   MediaTimeDisplay,
   MediaTimeRange,
-  MediaVolumeRange,
-} from "media-chrome/react"
-import type { ComponentProps, CSSProperties } from "react"
-import { Button } from "@/components/ui/button"
-import { cn } from "@/lib/utils"
+  MediaVolumeRange
+} from 'media-chrome/react'
+import type { ComponentProps, CSSProperties } from 'react'
+import { Button } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 
-export type AudioPlayerProps = Omit<ComponentProps<typeof MediaController>, "audio">
+export type AudioPlayerProps = Omit<ComponentProps<typeof MediaController>, 'audio'>
 
 export const AudioPlayer = ({ className, children, style, ...props }: AudioPlayerProps) => (
   <MediaController
@@ -22,27 +22,27 @@ export const AudioPlayer = ({ className, children, style, ...props }: AudioPlaye
     data-slot="audio-player"
     style={
       {
-        "--media-button-icon-width": "1rem",
-        "--media-button-icon-height": "1rem",
-        "--media-icon-color": "currentColor",
-        "--media-font": "var(--font-sans)",
-        "--media-font-size": "10px",
-        "--media-control-background": "transparent",
-        "--media-control-hover-background": "var(--color-accent)",
-        "--media-control-padding": "0",
-        "--media-background-color": "transparent",
-        "--media-primary-color": "var(--color-primary)",
-        "--media-secondary-color": "var(--color-secondary)",
-        "--media-text-color": "var(--color-foreground)",
-        "--media-tooltip-background": "var(--color-background)",
-        "--media-range-bar-color": "var(--color-primary)",
-        "--media-tooltip-arrow-display": "none",
-        "--media-tooltip-border-radius": "var(--radius-md)",
-        "--media-preview-time-text-shadow": "none",
-        "--media-preview-time-background": "var(--color-background)",
-        "--media-preview-time-border-radius": "var(--radius-md)",
-        "--media-range-track-background": "var(--color-secondary)",
-        ...style,
+        '--media-button-icon-width': '1rem',
+        '--media-button-icon-height': '1rem',
+        '--media-icon-color': 'currentColor',
+        '--media-font': 'var(--font-sans)',
+        '--media-font-size': '10px',
+        '--media-control-background': 'transparent',
+        '--media-control-hover-background': 'var(--color-accent)',
+        '--media-control-padding': '0',
+        '--media-background-color': 'transparent',
+        '--media-primary-color': 'var(--color-primary)',
+        '--media-secondary-color': 'var(--color-secondary)',
+        '--media-text-color': 'var(--color-foreground)',
+        '--media-tooltip-background': 'var(--color-background)',
+        '--media-range-bar-color': 'var(--color-primary)',
+        '--media-tooltip-arrow-display': 'none',
+        '--media-tooltip-border-radius': 'var(--radius-md)',
+        '--media-preview-time-text-shadow': 'none',
+        '--media-preview-time-background': 'var(--color-background)',
+        '--media-preview-time-border-radius': 'var(--radius-md)',
+        '--media-range-track-background': 'var(--color-secondary)',
+        ...style
       } as CSSProperties
     }
     {...props}
@@ -56,7 +56,7 @@ interface SpeechAudioData {
   mediaType: string
 }
 
-export type AudioPlayerElementProps = Omit<ComponentProps<"audio">, "src"> &
+export type AudioPlayerElementProps = Omit<ComponentProps<'audio'>, 'src'> &
   (
     | {
         data: SpeechAudioData
@@ -70,7 +70,7 @@ export const AudioPlayerElement = ({ ...props }: AudioPlayerElementProps) => (
   <audio
     data-slot="audio-player-element"
     slot="media"
-    src={"src" in props ? props.src : `data:${props.data.mediaType};base64,${props.data.base64}`}
+    src={'src' in props ? props.src : `data:${props.data.mediaType};base64,${props.data.base64}`}
     suppressHydrationWarning
     {...props}
   />
@@ -85,7 +85,7 @@ export const AudioPlayerControlBar = ({
 }: AudioPlayerControlBarProps) => (
   <MediaControlBar
     data-slot="audio-player-control-bar"
-    className={cn("flex items-center gap-1", className)}
+    className={cn('flex items-center gap-1', className)}
     {...props}
   >
     {children}
@@ -95,7 +95,7 @@ export const AudioPlayerControlBar = ({
 export type AudioPlayerPlayButtonProps = ComponentProps<typeof MediaPlayButton>
 
 export const AudioPlayerPlayButton = ({ className, ...props }: AudioPlayerPlayButtonProps) => (
-  <Button asChild size="icon" variant="outline" className={cn("size-8", className)}>
+  <Button asChild size="icon" variant="outline" className={cn('size-8', className)}>
     <MediaPlayButton data-slot="audio-player-play-button" {...props} />
   </Button>
 )
@@ -107,7 +107,7 @@ export const AudioPlayerSeekBackwardButton = ({
   className,
   ...props
 }: AudioPlayerSeekBackwardButtonProps) => (
-  <Button asChild size="icon" variant="outline" className={cn("size-8", className)}>
+  <Button asChild size="icon" variant="outline" className={cn('size-8', className)}>
     <MediaSeekBackwardButton
       data-slot="audio-player-seek-backward-button"
       seekOffset={seekOffset}
@@ -123,7 +123,7 @@ export const AudioPlayerSeekForwardButton = ({
   className,
   ...props
 }: AudioPlayerSeekForwardButtonProps) => (
-  <Button asChild size="icon" variant="outline" className={cn("size-8", className)}>
+  <Button asChild size="icon" variant="outline" className={cn('size-8', className)}>
     <MediaSeekForwardButton
       data-slot="audio-player-seek-forward-button"
       seekOffset={seekOffset}
@@ -135,7 +135,7 @@ export const AudioPlayerSeekForwardButton = ({
 export type AudioPlayerTimeDisplayProps = ComponentProps<typeof MediaTimeDisplay>
 
 export const AudioPlayerTimeDisplay = ({ className, ...props }: AudioPlayerTimeDisplayProps) => (
-  <span className={cn("px-2 text-muted-foreground text-xs tabular-nums", className)}>
+  <span className={cn('px-2 text-muted-foreground text-xs tabular-nums', className)}>
     <MediaTimeDisplay data-slot="audio-player-time-display" {...props} />
   </span>
 )
@@ -144,7 +144,7 @@ export type AudioPlayerTimeRangeProps = ComponentProps<typeof MediaTimeRange>
 
 export const AudioPlayerTimeRange = ({ className, ...props }: AudioPlayerTimeRangeProps) => (
   <MediaTimeRange
-    className={cn("flex-1", className)}
+    className={cn('flex-1', className)}
     data-slot="audio-player-time-range"
     {...props}
   />
@@ -156,7 +156,7 @@ export const AudioPlayerDurationDisplay = ({
   className,
   ...props
 }: AudioPlayerDurationDisplayProps) => (
-  <span className={cn("px-2 text-muted-foreground text-xs tabular-nums", className)}>
+  <span className={cn('px-2 text-muted-foreground text-xs tabular-nums', className)}>
     <MediaDurationDisplay data-slot="audio-player-duration-display" {...props} />
   </span>
 )
@@ -164,7 +164,7 @@ export const AudioPlayerDurationDisplay = ({
 export type AudioPlayerMuteButtonProps = ComponentProps<typeof MediaMuteButton>
 
 export const AudioPlayerMuteButton = ({ className, ...props }: AudioPlayerMuteButtonProps) => (
-  <Button asChild size="icon" variant="ghost" className={cn("size-8", className)}>
+  <Button asChild size="icon" variant="ghost" className={cn('size-8', className)}>
     <MediaMuteButton data-slot="audio-player-mute-button" {...props} />
   </Button>
 )
@@ -173,7 +173,7 @@ export type AudioPlayerVolumeRangeProps = ComponentProps<typeof MediaVolumeRange
 
 export const AudioPlayerVolumeRange = ({ className, ...props }: AudioPlayerVolumeRangeProps) => (
   <MediaVolumeRange
-    className={cn("w-20", className)}
+    className={cn('w-20', className)}
     data-slot="audio-player-volume-range"
     {...props}
   />

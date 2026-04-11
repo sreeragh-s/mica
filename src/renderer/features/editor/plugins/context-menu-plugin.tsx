@@ -6,15 +6,15 @@
  *
  */
 
-import type { JSX } from "react"
-import { useMemo } from "react"
-import { $isLinkNode, TOGGLE_LINK_COMMAND } from "@lexical/link"
-import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext"
+import type { JSX } from 'react'
+import { useMemo } from 'react'
+import { $isLinkNode, TOGGLE_LINK_COMMAND } from '@lexical/link'
+import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext'
 import {
   NodeContextMenuOption,
   NodeContextMenuPlugin,
-  NodeContextMenuSeparator,
-} from "@lexical/react/LexicalNodeContextMenuPlugin"
+  NodeContextMenuSeparator
+} from '@lexical/react/LexicalNodeContextMenuPlugin'
 import {
   $getSelection,
   $isDecoratorNode,
@@ -23,16 +23,9 @@ import {
   COPY_COMMAND,
   CUT_COMMAND,
   PASTE_COMMAND,
-  type LexicalNode,
-} from "lexical"
-import {
-  Clipboard,
-  ClipboardType,
-  Copy,
-  Link2Off,
-  Scissors,
-  Trash2,
-} from "lucide-react"
+  type LexicalNode
+} from 'lexical'
+import { Clipboard, ClipboardType, Copy, Link2Off, Scissors, Trash2 } from 'lucide-react'
 
 export function ContextMenuPlugin(): JSX.Element {
   const [editor] = useLexicalComposerContext()
@@ -45,24 +38,24 @@ export function ContextMenuPlugin(): JSX.Element {
         },
         $showOn: (node: LexicalNode) => $isLinkNode(node.getParent()),
         disabled: false,
-        icon: <Link2Off className="h-4 w-4" />,
+        icon: <Link2Off className="h-4 w-4" />
       }),
       new NodeContextMenuSeparator({
-        $showOn: (node: LexicalNode) => $isLinkNode(node.getParent()),
+        $showOn: (node: LexicalNode) => $isLinkNode(node.getParent())
       }),
       new NodeContextMenuOption(`Cut`, {
         $onSelect: () => {
           editor.dispatchCommand(CUT_COMMAND, null)
         },
         disabled: false,
-        icon: <Scissors className="h-4 w-4" />,
+        icon: <Scissors className="h-4 w-4" />
       }),
       new NodeContextMenuOption(`Copy`, {
         $onSelect: () => {
           editor.dispatchCommand(COPY_COMMAND, null)
         },
         disabled: false,
-        icon: <Copy className="h-4 w-4" />,
+        icon: <Copy className="h-4 w-4" />
       }),
       new NodeContextMenuOption(`Paste`, {
         $onSelect: () => {
@@ -74,10 +67,10 @@ export function ContextMenuPlugin(): JSX.Element {
 
             const permission = await navigator.permissions.query({
               // @ts-expect-error These types are incorrect.
-              name: "clipboard-read",
+              name: 'clipboard-read'
             })
-            if (permission.state === "denied") {
-              alert("Not allowed to paste from clipboard.")
+            if (permission.state === 'denied') {
+              alert('Not allowed to paste from clipboard.')
               return
             }
 
@@ -86,41 +79,41 @@ export function ContextMenuPlugin(): JSX.Element {
               data.setData(type, dataString)
             }
 
-            const event = new ClipboardEvent("paste", {
-              clipboardData: data,
+            const event = new ClipboardEvent('paste', {
+              clipboardData: data
             })
 
             editor.dispatchCommand(PASTE_COMMAND, event)
           })
         },
         disabled: false,
-        icon: <Clipboard className="h-4 w-4" />,
+        icon: <Clipboard className="h-4 w-4" />
       }),
       new NodeContextMenuOption(`Paste as Plain Text`, {
         $onSelect: () => {
           navigator.clipboard.read().then(async function () {
             const permission = await navigator.permissions.query({
               // @ts-expect-error These types are incorrect.
-              name: "clipboard-read",
+              name: 'clipboard-read'
             })
 
-            if (permission.state === "denied") {
-              alert("Not allowed to paste from clipboard.")
+            if (permission.state === 'denied') {
+              alert('Not allowed to paste from clipboard.')
               return
             }
 
             const data = new DataTransfer()
             const clipboardText = await navigator.clipboard.readText()
-            data.setData("text/plain", clipboardText)
+            data.setData('text/plain', clipboardText)
 
-            const event = new ClipboardEvent("paste", {
-              clipboardData: data,
+            const event = new ClipboardEvent('paste', {
+              clipboardData: data
             })
             editor.dispatchCommand(PASTE_COMMAND, event)
           })
         },
         disabled: false,
-        icon: <ClipboardType className="h-4 w-4" />,
+        icon: <ClipboardType className="h-4 w-4" />
       }),
       new NodeContextMenuSeparator(),
       new NodeContextMenuOption(`Delete Node`, {
@@ -141,8 +134,8 @@ export function ContextMenuPlugin(): JSX.Element {
           }
         },
         disabled: false,
-        icon: <Trash2 className="h-4 w-4" />,
-      }),
+        icon: <Trash2 className="h-4 w-4" />
+      })
     ]
   }, [editor])
 

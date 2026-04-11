@@ -10,17 +10,17 @@ interface SpeechRecognition extends EventTarget {
   stop(): void
   abort(): void
   addEventListener(
-    type: "result",
+    type: 'result',
     listener: (ev: SpeechRecognitionEvent) => void,
     options?: boolean | AddEventListenerOptions
   ): void
   addEventListener(
-    type: "end",
+    type: 'end',
     listener: (ev: Event) => void,
     options?: boolean | AddEventListenerOptions
   ): void
   addEventListener(
-    type: "error",
+    type: 'error',
     listener: (ev: SpeechRecognitionErrorEvent) => void,
     options?: boolean | AddEventListenerOptions
   ): void

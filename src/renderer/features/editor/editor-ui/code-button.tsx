@@ -5,17 +5,12 @@
  * LICENSE file in the root directory of this source tree.
  *
  */
-import { useState } from "react"
-import { $isCodeNode } from "@lexical/code"
-import {
-  $getNearestNodeFromDOMNode,
-  $getSelection,
-  $setSelection,
-  LexicalEditor,
-} from "lexical"
-import { CircleCheckIcon, CopyIcon } from "lucide-react"
+import { useState } from 'react'
+import { $isCodeNode } from '@lexical/code'
+import { $getNearestNodeFromDOMNode, $getSelection, $setSelection, LexicalEditor } from 'lexical'
+import { CircleCheckIcon, CopyIcon } from 'lucide-react'
 
-import { useDebounce } from "@/features/editor/editor-hooks/use-debounce"
+import { useDebounce } from '@/features/editor/editor-hooks/use-debounce'
 
 interface Props {
   editor: LexicalEditor
@@ -36,7 +31,7 @@ export function CopyButton({ editor, getCodeDOMNode }: Props) {
       return
     }
 
-    let content = ""
+    let content = ''
 
     editor.update(() => {
       const codeNode = $getNearestNodeFromDOMNode(codeDOMNode)
@@ -54,7 +49,7 @@ export function CopyButton({ editor, getCodeDOMNode }: Props) {
       setCopyCompleted(true)
       removeSuccessIcon()
     } catch (err) {
-      console.error("Failed to copy: ", err)
+      console.error('Failed to copy: ', err)
     }
   }
 
@@ -64,11 +59,7 @@ export function CopyButton({ editor, getCodeDOMNode }: Props) {
       onClick={handleClick}
       aria-label="copy"
     >
-      {isCopyCompleted ? (
-        <CircleCheckIcon className="size-4" />
-      ) : (
-        <CopyIcon className="size-4" />
-      )}
+      {isCopyCompleted ? <CircleCheckIcon className="size-4" /> : <CopyIcon className="size-4" />}
     </button>
   )
 }

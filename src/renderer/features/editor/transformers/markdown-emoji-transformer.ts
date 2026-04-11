@@ -1,7 +1,7 @@
-import { TextMatchTransformer } from "@lexical/markdown"
-import { $createTextNode } from "lexical"
+import { TextMatchTransformer } from '@lexical/markdown'
+import { $createTextNode } from 'lexical'
 
-import emojiList from "@/features/editor/utils/emoji-list"
+import emojiList from '@/features/editor/utils/emoji-list'
 
 export const EMOJI: TextMatchTransformer = {
   dependencies: [],
@@ -14,6 +14,6 @@ export const EMOJI: TextMatchTransformer = {
       textNode.replace($createTextNode(emoji))
     }
   },
-  trigger: ":",
-  type: "text-match",
+  trigger: ':',
+  type: 'text-match'
 }

@@ -20,13 +20,13 @@ export function WorkspaceSettingsPanel({
   macTitlebarStyles,
   onRename,
   canDelete,
-  onDeleteWorkspace,
+  onDeleteWorkspace
 }: WorkspaceSettingsPanelProps): JSX.Element {
   const model = useWorkspaceSettings({
     folder,
     onRename,
     canDelete,
-    onDelete: onDeleteWorkspace,
+    onDelete: onDeleteWorkspace
   })
   return (
     <WorkspaceSettingsView

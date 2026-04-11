@@ -57,7 +57,10 @@ import { useNotesAppUi } from './use-notes-app/useNotesAppUi'
 import { useNotesGitSourceControl } from '@/features/notes/git/useNotesGitSourceControl'
 import { useNotesGitSync } from '@/features/notes/git/useNotesGitSync'
 import { useWorkspaceNotesCache } from '@/features/notes/hooks/useWorkspaceNotesCache'
-import type { ChatSidebarLinkMode, ChatSidebarPanel } from '@/features/notes/chat/chat-sidebar-panel-types'
+import type {
+  ChatSidebarLinkMode,
+  ChatSidebarPanel
+} from '@/features/notes/chat/chat-sidebar-panel-types'
 
 const LOG = '[useNotesApp]'
 const log = createElectronLogger(LOG)
@@ -350,7 +353,11 @@ export function useNotesApp({
       if (note.folder !== JOURNAL_FOLDER_ID) return properties
       const nextProperties: NotePropertyMap = { ...(properties ?? {}) }
       const existingDate = note.properties?.date
-      if (typeof existingDate === 'string' && existingDate.trim() && typeof nextProperties.date !== 'string') {
+      if (
+        typeof existingDate === 'string' &&
+        existingDate.trim() &&
+        typeof nextProperties.date !== 'string'
+      ) {
         nextProperties.date = existingDate
       }
       nextProperties.last_updated_at = format(new Date(), "MMMM d, yyyy 'at' h:mm a")
@@ -369,7 +376,8 @@ export function useNotesApp({
 
   const findLatestNote = useCallback(
     (notePath: string): SavedNote | undefined =>
-      pendingSavedNotesRef.current.get(notePath) ?? notesRef.current.find((note) => note.path === notePath),
+      pendingSavedNotesRef.current.get(notePath) ??
+      notesRef.current.find((note) => note.path === notePath),
     []
   )
 
@@ -858,7 +866,7 @@ export function useNotesApp({
       findLatestNote,
       flushNoteMoveToDisk,
       replaceTrackedNoteId,
-      touchJournalProperties,
+      touchJournalProperties
     ]
   )
 
@@ -1043,7 +1051,10 @@ export function useNotesApp({
         }
 
         if (deleted && cwd && api?.embeddings?.deleteNoteDocument) {
-          const result = await api.embeddings.deleteNoteDocument({ workspacePath: cwd, note: notePath })
+          const result = await api.embeddings.deleteNoteDocument({
+            workspacePath: cwd,
+            note: notePath
+          })
           if (!result.ok) {
             console.error('[notelab] deleteNoteDocument failed', result.error)
           }
@@ -1361,7 +1372,6 @@ export function useNotesApp({
     setChatSidebarPanel('links')
     setChatSidebarOpen(true)
   }, [chatSidebarOpen, chatSidebarPanel])
-
 
   const startFolderCreate = useCallback(() => {
     setFolderCreateOpen(true)

@@ -196,10 +196,7 @@ export function stripLeadingTitleHeading(markdown: string): {
  * Used when loading notes so legacy files that duplicated the filename as an H1
  * do not show that line in the editor, while unrelated leading headings stay.
  */
-export function stripLeadingTitleHeadingIfMatches(
-  markdown: string,
-  title: string
-): string {
+export function stripLeadingTitleHeadingIfMatches(markdown: string, title: string): string {
   const normalizedTitle = title.trim() || 'Untitled'
   const normalized = markdown.replace(/^\n+/, '')
   const match = normalized.match(/^#\s+(.+?)\s*(?:\n+|$)/)

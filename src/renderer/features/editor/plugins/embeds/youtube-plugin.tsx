@@ -1,4 +1,4 @@
-"use client"
+'use client'
 
 /**
  * Copyright (c) Meta Platforms, Inc. and affiliates.
@@ -7,26 +7,22 @@
  * LICENSE file in the root directory of this source tree.
  *
  */
-import { JSX, useEffect } from "react"
-import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext"
-import { $insertNodeToNearestRoot } from "@lexical/utils"
-import { COMMAND_PRIORITY_EDITOR, createCommand, LexicalCommand } from "lexical"
+import { JSX, useEffect } from 'react'
+import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext'
+import { $insertNodeToNearestRoot } from '@lexical/utils'
+import { COMMAND_PRIORITY_EDITOR, createCommand, LexicalCommand } from 'lexical'
 
-import {
-  $createYouTubeNode,
-  YouTubeNode,  
-} from "@/features/editor/nodes/embeds/youtube-node"
+import { $createYouTubeNode, YouTubeNode } from '@/features/editor/nodes/embeds/youtube-node'
 
-export const INSERT_YOUTUBE_COMMAND: LexicalCommand<string> = createCommand(
-  "INSERT_YOUTUBE_COMMAND"
-)
+export const INSERT_YOUTUBE_COMMAND: LexicalCommand<string> =
+  createCommand('INSERT_YOUTUBE_COMMAND')
 
-export function YouTubePlugin(): JSX.Element | null { 
+export function YouTubePlugin(): JSX.Element | null {
   const [editor] = useLexicalComposerContext()
 
   useEffect(() => {
     if (!editor.hasNodes([YouTubeNode])) {
-      throw new Error("YouTubePlugin: YouTubeNode not registered on editor")
+      throw new Error('YouTubePlugin: YouTubeNode not registered on editor')
     }
 
     return editor.registerCommand<string>(

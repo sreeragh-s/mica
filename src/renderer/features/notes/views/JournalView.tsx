@@ -37,10 +37,9 @@ export function JournalView({
     notesPropertyCatalog
   } = vm
 
-  const selectedJournalNote =
-    (selectedJournalNotePath
-      ? notes.find((note) => note.path === selectedJournalNotePath) ?? null
-      : null)
+  const selectedJournalNote = selectedJournalNotePath
+    ? (notes.find((note) => note.path === selectedJournalNotePath) ?? null)
+    : null
 
   return (
     <div className="flex min-h-0 flex-1 flex-col" onDragOver={onDragOver} onDrop={onDrop}>

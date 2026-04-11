@@ -1,4 +1,4 @@
-"use client"
+'use client'
 
 /**
  * Copyright (c) Meta Platforms, Inc. and affiliates.
@@ -7,30 +7,25 @@
  * LICENSE file in the root directory of this source tree.
  *
  */
-import { JSX, useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext"
+import { JSX, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext'
 import {
   LexicalTypeaheadMenuPlugin,
-  useBasicTypeaheadTriggerMatch,
-} from "@lexical/react/LexicalTypeaheadMenuPlugin"
-import { TextNode } from "lexical"
-import { createPortal } from "react-dom"
+  useBasicTypeaheadTriggerMatch
+} from '@lexical/react/LexicalTypeaheadMenuPlugin'
+import { TextNode } from 'lexical'
+import { createPortal } from 'react-dom'
 
-import { useEditorModal } from "@/features/editor/editor-hooks/use-modal"
-import {
-  Command,
-  CommandGroup,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command"
+import { useEditorModal } from '@/features/editor/editor-hooks/use-modal'
+import { Command, CommandGroup, CommandItem, CommandList } from '@/components/ui/command'
 
-import { ComponentPickerOption } from "./picker/component-picker-option"
+import { ComponentPickerOption } from './picker/component-picker-option'
 
 function ComponentPickerMenu({
   options,
   selectedIndex,
   selectOptionAndCleanUp,
-  setHighlightedIndex,
+  setHighlightedIndex
 }: {
   options: Array<ComponentPickerOption>
   selectedIndex: number | null
@@ -42,8 +37,8 @@ function ComponentPickerMenu({
   useEffect(() => {
     if (selectedIndex !== null && itemRefs.current[selectedIndex]) {
       itemRefs.current[selectedIndex]?.scrollIntoView({
-        block: "nearest",
-        behavior: "auto",
+        block: 'nearest',
+        behavior: 'auto'
       })
     }
   }, [selectedIndex])
@@ -52,18 +47,16 @@ function ComponentPickerMenu({
     <div className="absolute z-10 h-min w-[250px] rounded-md shadow-md">
       <Command
         onKeyDown={(e) => {
-          if (e.key === "ArrowUp") {
+          if (e.key === 'ArrowUp') {
             e.preventDefault()
             setHighlightedIndex(
               selectedIndex !== null
                 ? (selectedIndex - 1 + options.length) % options.length
                 : options.length - 1
             )
-          } else if (e.key === "ArrowDown") {
+          } else if (e.key === 'ArrowDown') {
             e.preventDefault()
-            setHighlightedIndex(
-              selectedIndex !== null ? (selectedIndex + 1) % options.length : 0
-            )
+            setHighlightedIndex(selectedIndex !== null ? (selectedIndex + 1) % options.length : 0)
           }
         }}
       >
@@ -80,7 +73,7 @@ function ComponentPickerMenu({
                   selectOptionAndCleanUp(option)
                 }}
                 className={`flex items-center gap-2 ${
-                  selectedIndex === index ? "bg-accent" : "!bg-transparent"
+                  selectedIndex === index ? 'bg-accent' : '!bg-transparent'
                 }`}
               >
                 {option.icon}
@@ -96,21 +89,17 @@ function ComponentPickerMenu({
 
 export function ComponentPickerMenuPlugin({
   baseOptions = [],
-  dynamicOptionsFn,
+  dynamicOptionsFn
 }: {
   baseOptions?: Array<ComponentPickerOption>
-  dynamicOptionsFn?: ({
-    queryString,
-  }: {
-    queryString: string
-  }) => Array<ComponentPickerOption>
+  dynamicOptionsFn?: ({ queryString }: { queryString: string }) => Array<ComponentPickerOption>
 }): JSX.Element {
   const [editor] = useLexicalComposerContext()
   const [modal, showModal] = useEditorModal()
   const [queryString, setQueryString] = useState<string | null>(null)
 
-  const checkForTriggerMatch = useBasicTypeaheadTriggerMatch("/", {
-    minLength: 0,
+  const checkForTriggerMatch = useBasicTypeaheadTriggerMatch('/', {
+    minLength: 0
   })
 
   const options = useMemo(() => {
@@ -118,15 +107,14 @@ export function ComponentPickerMenuPlugin({
       return baseOptions
     }
 
-    const regex = new RegExp(queryString, "i")
+    const regex = new RegExp(queryString, 'i')
 
     return [
       ...(dynamicOptionsFn?.({ queryString }) || []),
       ...baseOptions.filter(
         (option) =>
-          regex.test(option.title) ||
-          option.keywords.some((keyword) => regex.test(keyword))
-      ),
+          regex.test(option.title) || option.keywords.some((keyword) => regex.test(keyword))
+      )
     ]
   }, [editor, queryString, showModal])
 

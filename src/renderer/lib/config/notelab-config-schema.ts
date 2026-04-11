@@ -1,6 +1,6 @@
-import { ThemeStyleProps } from "@/features/appearance/theme-presets"
+import { ThemeStyleProps } from '@/features/appearance/theme-presets'
 
-export type NotelabSyncMode = "git" | "local"
+export type NotelabSyncMode = 'git' | 'local'
 
 export type NotelabSetupState = {
   /** User finished first-run setup (or chose skip). */

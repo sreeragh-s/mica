@@ -148,9 +148,7 @@ export function useNotesAppIndexing({ dataRootRef }: UseNotesAppIndexingArgs) {
       if (indexingAbortRef.current) break
       setIndexingStatus((prev) => ({
         ...prev,
-        notes: prev.notes.map((ns) =>
-          ns.note === n.note ? { ...ns, state: 'indexing' } : ns
-        )
+        notes: prev.notes.map((ns) => (ns.note === n.note ? { ...ns, state: 'indexing' } : ns))
       }))
       // Pass no storedHash to force re-embed
       const result = await indexNote({

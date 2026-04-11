@@ -34,6 +34,6 @@ export function createElectronLogger(scope: string): {
   return {
     info: (...args: unknown[]) => emit('info', ...args),
     warn: (...args: unknown[]) => emit('warn', ...args),
-    error: (...args: unknown[]) => emit('error', ...args),
+    error: (...args: unknown[]) => emit('error', ...args)
   }
 }

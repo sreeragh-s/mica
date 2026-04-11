@@ -1,26 +1,26 @@
-"use client"
+'use client'
 
-import { JSX } from "react"
-import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext"
-import { TreeView } from "@lexical/react/LexicalTreeView"
-import { NotebookPenIcon } from "lucide-react"
+import { JSX } from 'react'
+import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext'
+import { TreeView } from '@lexical/react/LexicalTreeView'
+import { NotebookPenIcon } from 'lucide-react'
 
-import { Button } from "@/components/ui/button"
+import { Button } from '@/components/ui/button'
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog"
-import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area"
+  DialogTrigger
+} from '@/components/ui/dialog'
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area'
 
 export function TreeViewPlugin(): JSX.Element {
-  const [editor] = useLexicalComposerContext()  
+  const [editor] = useLexicalComposerContext()
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <Button size={"sm"} variant={"ghost"} className="p-2">
+        <Button size={'sm'} variant={'ghost'} className="p-2">
           <NotebookPenIcon className="h-4 w-4" />
         </Button>
       </DialogTrigger>

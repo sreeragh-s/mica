@@ -21,10 +21,7 @@ export function displayPropertyValue(value: NotePropertyValue | undefined): stri
 }
 
 /** Split user input into a string array for multi-value keys; otherwise return scalar string. */
-export function parsePropertyInput(
-  key: string,
-  raw: string
-): NotePropertyValue | null {
+export function parsePropertyInput(key: string, raw: string): NotePropertyValue | null {
   const t = raw.trim()
   if (!t) return null
   if (!isMultiValuePropertyKey(key)) return raw
@@ -35,7 +32,11 @@ export function parsePropertyInput(
 }
 
 /** For catalog: add every displayable token from `value` under `key` (splits comma-scalars for multi keys). */
-export function addPropertyValueTokens(key: string, value: NotePropertyValue, target: Set<string>): void {
+export function addPropertyValueTokens(
+  key: string,
+  value: NotePropertyValue,
+  target: Set<string>
+): void {
   if (Array.isArray(value)) {
     for (const s of value) {
       const u = s.trim()

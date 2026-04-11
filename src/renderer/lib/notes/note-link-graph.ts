@@ -139,8 +139,7 @@ export function buildNoteLinkGraph(notes: SavedNote[]): {
       // of the file (from n.path), falling back to n.folder.
       const pathParts = n.path.replace(/\\/g, '/').split('/')
       // pathParts[-1] is the filename; pathParts[-2] is the parent dir (if any)
-      const parentDir =
-        pathParts.length >= 2 ? pathParts[pathParts.length - 2] : n.folder
+      const parentDir = pathParts.length >= 2 ? pathParts[pathParts.length - 2] : n.folder
       const qualifier = parentDir && parentDir !== 'default' ? parentDir : n.folder
       if (qualifier && qualifier !== 'default') {
         displayTitle = `${baseTitle} (${qualifier})`

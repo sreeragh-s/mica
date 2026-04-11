@@ -5,12 +5,12 @@
  * LICENSE file in the root directory of this source tree.
  *
  */
-import { JSX } from "react"
-import { BlockWithAlignableContents } from "@lexical/react/LexicalBlockWithAlignableContents"
+import { JSX } from 'react'
+import { BlockWithAlignableContents } from '@lexical/react/LexicalBlockWithAlignableContents'
 import {
   DecoratorBlockNode,
-  SerializedDecoratorBlockNode,
-} from "@lexical/react/LexicalDecoratorBlockNode"
+  SerializedDecoratorBlockNode
+} from '@lexical/react/LexicalDecoratorBlockNode'
 import type {
   DOMConversionMap,
   DOMConversionOutput,
@@ -20,8 +20,8 @@ import type {
   LexicalEditor,
   LexicalNode,
   NodeKey,
-  Spread,
-} from "lexical"
+  Spread
+} from 'lexical'
 
 type YouTubeComponentProps = Readonly<{
   className: Readonly<{
@@ -33,18 +33,9 @@ type YouTubeComponentProps = Readonly<{
   videoID: string
 }>
 
-function YouTubeComponent({
-  className,
-  format,
-  nodeKey,
-  videoID,
-}: YouTubeComponentProps) {
+function YouTubeComponent({ className, format, nodeKey, videoID }: YouTubeComponentProps) {
   return (
-    <BlockWithAlignableContents
-      className={className}
-      format={format}
-      nodeKey={nodeKey}
-    >
+    <BlockWithAlignableContents className={className} format={format} nodeKey={nodeKey}>
       <iframe
         width="560"
         height="315"
@@ -65,10 +56,8 @@ export type SerializedYouTubeNode = Spread<
   SerializedDecoratorBlockNode
 >
 
-function $convertYoutubeElement(
-  domNode: HTMLElement
-): null | DOMConversionOutput {
-  const videoID = domNode.getAttribute("data-lexical-youtube")
+function $convertYoutubeElement(domNode: HTMLElement): null | DOMConversionOutput {
+  const videoID = domNode.getAttribute('data-lexical-youtube')
   if (videoID) {
     const node = $createYouTubeNode(videoID)
     return { node }
@@ -80,7 +69,7 @@ export class YouTubeNode extends DecoratorBlockNode {
   __id: string
 
   static getType(): string {
-    return "youtube"
+    return 'youtube'
   }
 
   static clone(node: YouTubeNode): YouTubeNode {
@@ -96,9 +85,9 @@ export class YouTubeNode extends DecoratorBlockNode {
   exportJSON(): SerializedYouTubeNode {
     return {
       ...super.exportJSON(),
-      type: "youtube",
+      type: 'youtube',
       version: 1,
-      videoID: this.__id,
+      videoID: this.__id
     }
   }
 
@@ -108,35 +97,32 @@ export class YouTubeNode extends DecoratorBlockNode {
   }
 
   exportDOM(): DOMExportOutput {
-    const element = document.createElement("iframe")
-    element.setAttribute("data-lexical-youtube", this.__id)
-    element.setAttribute("width", "560")
-    element.setAttribute("height", "315")
+    const element = document.createElement('iframe')
+    element.setAttribute('data-lexical-youtube', this.__id)
+    element.setAttribute('width', '560')
+    element.setAttribute('height', '315')
+    element.setAttribute('src', `https://www.youtube-nocookie.com/embed/${this.__id}`)
+    element.setAttribute('frameborder', '0')
     element.setAttribute(
-      "src",
-      `https://www.youtube-nocookie.com/embed/${this.__id}`
+      'allow',
+      'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture'
     )
-    element.setAttribute("frameborder", "0")
-    element.setAttribute(
-      "allow",
-      "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-    )
-    element.setAttribute("allowfullscreen", "true")
-    element.setAttribute("title", "YouTube video")
+    element.setAttribute('allowfullscreen', 'true')
+    element.setAttribute('title', 'YouTube video')
     return { element }
   }
 
   static importDOM(): DOMConversionMap | null {
     return {
       iframe: (domNode: HTMLElement) => {
-        if (!domNode.hasAttribute("data-lexical-youtube")) {
+        if (!domNode.hasAttribute('data-lexical-youtube')) {
           return null
         }
         return {
           conversion: $convertYoutubeElement,
-          priority: 1,
+          priority: 1
         }
-      },
+      }
     }
   }
 
@@ -160,8 +146,8 @@ export class YouTubeNode extends DecoratorBlockNode {
   decorate(_editor: LexicalEditor, config: EditorConfig): JSX.Element {
     const embedBlockTheme = config.theme.embedBlock || {}
     const className = {
-      base: embedBlockTheme.base || "",
-      focus: embedBlockTheme.focus || "",
+      base: embedBlockTheme.base || '',
+      focus: embedBlockTheme.focus || ''
     }
     return (
       <YouTubeComponent

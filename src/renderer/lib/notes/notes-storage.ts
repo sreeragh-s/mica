@@ -1,11 +1,11 @@
-import type { SerializedEditorState } from "lexical"
+import type { SerializedEditorState } from 'lexical'
 
 import {
   loadNotesState as loadNotesStateFromConfig,
-  saveNotesState as saveNotesStateToConfig,
-} from "../config/notelab-app-config"
-import { extractPreviewText as extractPreviewTextImpl } from "./notes-state-normalize"
-import type { NotesState, SavedNote } from "./notes-types"
+  saveNotesState as saveNotesStateToConfig
+} from '../config/notelab-app-config'
+import { extractPreviewText as extractPreviewTextImpl } from './notes-state-normalize'
+import type { NotesState, SavedNote } from './notes-types'
 
 export {
   DEFAULT_WORKSPACE_ID,
@@ -16,8 +16,8 @@ export {
   type NotesStateV2,
   type NotesStateV3,
   type SavedNote,
-  type Folder,
-} from "./notes-types"
+  type Folder
+} from './notes-types'
 
 export function loadNotesState(): NotesState {
   return loadNotesStateFromConfig()
@@ -41,20 +41,17 @@ export function saveNotes(notes: SavedNote[]): void {
   saveNotesState({ ...state, notes })
 }
 
-export function extractPreviewText(
-  serialized: SerializedEditorState,
-  maxLen = 72
-): string {
+export function extractPreviewText(serialized: SerializedEditorState, maxLen = 72): string {
   return extractPreviewTextImpl(serialized, maxLen)
 }
 
-export { extractPlainTextFromSerialized } from "./notes-state-normalize"
+export { extractPlainTextFromSerialized } from './notes-state-normalize'
 
 export function formatNoteTime(ts: number): string {
   return new Intl.DateTimeFormat(undefined, {
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit'
   }).format(new Date(ts))
 }

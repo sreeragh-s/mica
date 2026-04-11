@@ -1,17 +1,10 @@
-import {
-  existsSync,
-  mkdirSync,
-  readdirSync,
-  renameSync,
-  unlinkSync,
-  writeFileSync,
-} from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, renameSync, unlinkSync, writeFileSync } from 'node:fs'
 import { readdir, readFile, stat } from 'node:fs/promises'
 import { basename, dirname, extname, join, relative, resolve, sep } from 'node:path'
 import {
   parseOptionalFrontmatter,
   type NotePropertyMap,
-  type NotePropertyValue,
+  type NotePropertyValue
 } from '@shared/notes/note-markdown'
 
 function firstScalarPropertyValue(v: NotePropertyValue | undefined): string | undefined {
@@ -43,7 +36,11 @@ function assertSafeRelativePath(cwd: string, rel: string): string {
   return abs
 }
 
-function parseNotelabNoteFile(content: string, filePath: string, updatedAtMs: number): {
+function parseNotelabNoteFile(
+  content: string,
+  filePath: string,
+  updatedAtMs: number
+): {
   note: string
   title: string
   updatedAtMs: number
@@ -56,7 +53,8 @@ function parseNotelabNoteFile(content: string, filePath: string, updatedAtMs: nu
 } | null {
   const parsed = parseOptionalFrontmatter(content)
   const title = basename(filePath, extname(filePath))
-  const kind: 'note' | 'drawing' = extname(filePath).toLowerCase() === '.excalidraw' ? 'drawing' : 'note'
+  const kind: 'note' | 'drawing' =
+    extname(filePath).toLowerCase() === '.excalidraw' ? 'drawing' : 'note'
   const normalizedPath = filePath.replace(/\\/g, '/')
   const coverImageSrc = firstScalarPropertyValue(parsed.properties.cover_image)
   const titleEmoji = firstScalarPropertyValue(parsed.properties.title_emoji)
@@ -69,7 +67,7 @@ function parseNotelabNoteFile(content: string, filePath: string, updatedAtMs: nu
     ...(coverImageSrc !== undefined ? { coverImageSrc } : {}),
     ...(titleEmoji !== undefined ? { titleEmoji } : {}),
     properties: parsed.properties,
-    hasFrontmatterBlock: parsed.hasFrontmatterBlock,
+    hasFrontmatterBlock: parsed.hasFrontmatterBlock
   }
 }
 
@@ -115,7 +113,11 @@ export function deleteNoteFile(cwd: string, relativePath: string): void {
   unlinkSync(abs)
 }
 
-export function renameWorkspacePath(cwd: string, fromRelativePath: string, toRelativePath: string): void {
+export function renameWorkspacePath(
+  cwd: string,
+  fromRelativePath: string,
+  toRelativePath: string
+): void {
   const fromAbs = assertSafeRelativePath(cwd, fromRelativePath)
   const toAbs = assertSafeRelativePath(cwd, toRelativePath)
   if (!existsSync(fromAbs)) {
@@ -164,7 +166,8 @@ export async function readNotelabIndexImpl(cwd: string): Promise<{
       }
       const subEnts = await readdir(join(cwd, folder), { withFileTypes: true })
       for (const file of subEnts) {
-        if (!file.isFile() || (!file.name.endsWith('.md') && !file.name.endsWith('.excalidraw'))) continue
+        if (!file.isFile() || (!file.name.endsWith('.md') && !file.name.endsWith('.excalidraw')))
+          continue
         noteTasks.push([folder, `${folder}/${file.name}`])
       }
     }
@@ -175,10 +178,7 @@ export async function readNotelabIndexImpl(cwd: string): Promise<{
     await Promise.all(
       noteTasks.map(async ([folder, relativeFilePath]) => {
         const filePath = join(cwd, relativeFilePath)
-        const [content, fileStat] = await Promise.all([
-          readFile(filePath, 'utf8'),
-          stat(filePath),
-        ])
+        const [content, fileStat] = await Promise.all([readFile(filePath, 'utf8'), stat(filePath)])
         const parsed = parseNotelabNoteFile(content, relativeFilePath, fileStat.mtimeMs)
         if (!parsed) return null
         return {
@@ -193,7 +193,7 @@ export async function readNotelabIndexImpl(cwd: string): Promise<{
             ? { titleEmoji: parsed.titleEmoji }
             : {}),
           ...(Object.keys(parsed.properties).length > 0 ? { properties: parsed.properties } : {}),
-          ...(parsed.hasFrontmatterBlock ? { hasFrontmatterBlock: true } : {}),
+          ...(parsed.hasFrontmatterBlock ? { hasFrontmatterBlock: true } : {})
         }
       })
     )

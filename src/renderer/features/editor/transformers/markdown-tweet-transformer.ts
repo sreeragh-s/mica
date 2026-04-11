@@ -1,10 +1,10 @@
-import { ElementTransformer } from "@lexical/markdown"
+import { ElementTransformer } from '@lexical/markdown'
 
 import {
   $createTweetNode,
   $isTweetNode,
-  TweetNode,
-} from "@/features/editor/nodes/embeds/tweet-node"
+  TweetNode
+} from '@/features/editor/nodes/embeds/tweet-node'
 
 export const TWEET: ElementTransformer = {
   dependencies: [TweetNode],
@@ -21,5 +21,5 @@ export const TWEET: ElementTransformer = {
     const tweetNode = $createTweetNode(id)
     textNode.replace(tweetNode)
   },
-  type: "element",
+  type: 'element'
 }

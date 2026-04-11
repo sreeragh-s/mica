@@ -17,16 +17,16 @@ This keeps the embeddings alongside the workspace instead of in global app data.
 
 ## IPC API
 
-| Method | Purpose |
-|--------|---------|
-| `embeddings.getStatus({ workspacePath })` | Returns the Vectra index path and current document/chunk counts. |
-| `embeddings.ensureIndex({ workspacePath })` | Creates or validates the workspace-local Vectra index. |
-| `embeddings.getIndexedHashes({ workspacePath })` | Returns `noteId -> { contentHash, workspaceId }` for incremental reindex checks. |
-| `embeddings.upsertNoteDocument({ workspacePath, workspaceId, noteId, title, kind, contentHash, text, docType })` | Replaces the indexed representation of one note. |
-| `embeddings.searchDocuments({ workspacePath, query, filter, ... })` | Runs Vectra `queryDocuments()` and returns rendered text sections plus note metadata. |
-| `embeddings.deleteNoteDocument({ workspacePath, noteId })` | Deletes one note from the workspace index. |
-| `embeddings.deleteWorkspaceDocuments({ workspacePath, workspaceId })` | Deletes all indexed notes for one workspace folder. |
-| `embeddings.dumpIndex({ workspacePath })` | Dumps document metadata for debugging. |
+| Method                                                                                                           | Purpose                                                                               |
+| ---------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| `embeddings.getStatus({ workspacePath })`                                                                        | Returns the Vectra index path and current document/chunk counts.                      |
+| `embeddings.ensureIndex({ workspacePath })`                                                                      | Creates or validates the workspace-local Vectra index.                                |
+| `embeddings.getIndexedHashes({ workspacePath })`                                                                 | Returns `noteId -> { contentHash, workspaceId }` for incremental reindex checks.      |
+| `embeddings.upsertNoteDocument({ workspacePath, workspaceId, noteId, title, kind, contentHash, text, docType })` | Replaces the indexed representation of one note.                                      |
+| `embeddings.searchDocuments({ workspacePath, query, filter, ... })`                                              | Runs Vectra `queryDocuments()` and returns rendered text sections plus note metadata. |
+| `embeddings.deleteNoteDocument({ workspacePath, noteId })`                                                       | Deletes one note from the workspace index.                                            |
+| `embeddings.deleteWorkspaceDocuments({ workspacePath, workspaceId })`                                            | Deletes all indexed notes for one workspace folder.                                   |
+| `embeddings.dumpIndex({ workspacePath })`                                                                        | Dumps document metadata for debugging.                                                |
 
 ## Retrieval model
 

@@ -43,9 +43,7 @@ export function WorkspaceSettingsView({
       style={isMacNotelab ? macTitlebarStyles.noDrag : undefined}
     >
       <div className="flex flex-col gap-1">
-        <h2 className="text-foreground text-lg font-semibold tracking-tight">
-          Folder settings
-        </h2>
+        <h2 className="text-foreground text-lg font-semibold tracking-tight">Folder settings</h2>
         <p className="text-muted-foreground text-sm leading-relaxed">
           Rename this folder. GitHub and Git live under Settings → GitHub & Git.
         </p>
@@ -88,11 +86,7 @@ export function WorkspaceSettingsView({
             </p>
           </div>
           <div>
-            <Button
-              type="button"
-              variant="destructive"
-              onClick={() => setDeleteOpen(true)}
-            >
+            <Button type="button" variant="destructive" onClick={() => setDeleteOpen(true)}>
               Delete folder…
             </Button>
           </div>
@@ -110,8 +104,9 @@ export function WorkspaceSettingsView({
           <DialogHeader>
             <DialogTitle>Delete this folder?</DialogTitle>
             <DialogDescription>
-              Type the folder name <span className="text-foreground font-medium">{folder.name}</span> to
-              confirm. The folder and all notes inside it will be removed from your data directory.
+              Type the folder name{' '}
+              <span className="text-foreground font-medium">{folder.name}</span> to confirm. The
+              folder and all notes inside it will be removed from your data directory.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2">

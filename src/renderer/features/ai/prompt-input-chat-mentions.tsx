@@ -1,4 +1,4 @@
-import { BookOpenIcon, FolderIcon, XIcon } from "lucide-react"
+import { BookOpenIcon, FolderIcon, XIcon } from 'lucide-react'
 import {
   type ChangeEvent,
   type ComponentProps,
@@ -11,23 +11,23 @@ import {
   useImperativeHandle,
   useMemo,
   useRef,
-  useState,
-} from "react"
-import { Badge, badgeVariants } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { InputGroupTextarea } from "@/components/ui/input-group"
-import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover"
-import { DEFAULT_WORKSPACE_ID } from "@/lib/notes/notes-storage"
-import { cn } from "@/lib/utils"
+  useState
+} from 'react'
+import { Badge, badgeVariants } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { InputGroupTextarea } from '@/components/ui/input-group'
+import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover'
+import { DEFAULT_WORKSPACE_ID } from '@/lib/notes/notes-storage'
+import { cn } from '@/lib/utils'
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
 export type PromptInputChatReference =
-  | { kind: "note"; refId: string; label: string }
-  | { kind: "workspace"; refId: string; label: string }
+  | { kind: 'note'; refId: string; label: string }
+  | { kind: 'workspace'; refId: string; label: string }
 
 export type PromptInputChatMentionNote = {
   path: string
@@ -45,34 +45,34 @@ export type PromptInputChatMentionWorkspace = { folder: string; name: string }
 /** Cursor is inside an unfinished `@query` segment (same line, after whitespace-start `@`). */
 export function getActiveMentionText(
   value: string,
-  cursor: number,
+  cursor: number
 ): { start: number; query: string } | null {
   const before = value.slice(0, cursor)
-  const at = before.lastIndexOf("@")
+  const at = before.lastIndexOf('@')
   if (at === -1) return null
-  const charBefore = at > 0 ? before[at - 1] : ""
+  const charBefore = at > 0 ? before[at - 1] : ''
   if (at > 0 && !/[\s\n]/.test(charBefore)) return null
   const afterAt = before.slice(at + 1)
-  if (afterAt.includes("\n")) return null
+  if (afterAt.includes('\n')) return null
   return { start: at, query: afterAt }
 }
 
 function referenceKey(r: PromptInputChatReference): string {
-  return r.kind === "note" ? `n:${r.refId}` : `w:${r.refId}`
+  return r.kind === 'note' ? `n:${r.refId}` : `w:${r.refId}`
 }
 
 export function addChatReference(
   refs: PromptInputChatReference[],
-  next: PromptInputChatReference,
+  next: PromptInputChatReference
 ): PromptInputChatReference[] {
   const k = referenceKey(next)
-  if (refs.some(r => referenceKey(r) === k)) return refs
+  if (refs.some((r) => referenceKey(r) === k)) return refs
   return [...refs, next]
 }
 
 /** Matches Sidebar / note-link-picker: empty title shows as "Untitled" in UI. */
 function displayNoteTitle(title: string): string {
-  return title.trim() || "Untitled"
+  return title.trim() || 'Untitled'
 }
 
 // ---------------------------------------------------------------------------
@@ -100,33 +100,33 @@ export function PromptInputChatReferenceChips({
   onRemove,
   onReferencesChange,
   className,
-  editorNote,
+  editorNote
 }: PromptInputChatReferenceChipsProps) {
   const editorNoteInReferences = Boolean(
-    editorNote && references.some((r) => r.kind === "note" && r.refId === editorNote.path),
+    editorNote && references.some((r) => r.kind === 'note' && r.refId === editorNote.path)
   )
   const showOutlineEditorPill = Boolean(editorNote && !editorNoteInReferences)
 
   if (references.length === 0 && !showOutlineEditorPill) return null
 
   return (
-    <div className={cn("flex flex-wrap items-center gap-1.5", className)}>
+    <div className={cn('flex flex-wrap items-center gap-1.5', className)}>
       {showOutlineEditorPill && editorNote ? (
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
               <button
                 className={cn(
-                  badgeVariants({ variant: "outline" }),
-                  "max-w-full cursor-pointer gap-1  font-normal hover:bg-accent/50",
+                  badgeVariants({ variant: 'outline' }),
+                  'max-w-full cursor-pointer gap-1  font-normal hover:bg-accent/50'
                 )}
                 onClick={() =>
-                  onReferencesChange(prev =>
+                  onReferencesChange((prev) =>
                     addChatReference(prev, {
-                      kind: "note",
+                      kind: 'note',
                       label: displayNoteTitle(editorNote.title),
-                      refId: editorNote.path,
-                    }),
+                      refId: editorNote.path
+                    })
                   )
                 }
                 type="button"
@@ -138,22 +138,20 @@ export function PromptInputChatReferenceChips({
                 ) : (
                   <BookOpenIcon aria-hidden className="size-3 shrink-0 opacity-70" />
                 )}
-                <span className="max-w-[160px] truncate">
-                  {displayNoteTitle(editorNote.title)}
-                </span>
+                <span className="max-w-[160px] truncate">{displayNoteTitle(editorNote.title)}</span>
               </button>
             </TooltipTrigger>
             <TooltipContent side="top">Add open note as reference</TooltipContent>
           </Tooltip>
         </TooltipProvider>
       ) : null}
-      {references.map(r => (
+      {references.map((r) => (
         <Badge
           key={referenceKey(r)}
           className="max-w-full gap-1 pr-0.5 font-normal"
           variant="secondary"
         >
-          {r.kind === "note" ? (
+          {r.kind === 'note' ? (
             <BookOpenIcon aria-hidden className="size-3 shrink-0 opacity-70" />
           ) : (
             <FolderIcon aria-hidden className="size-3 shrink-0 opacity-70" />
@@ -179,7 +177,7 @@ export function PromptInputChatReferenceChips({
 
 export type PromptInputChatMentionTextareaProps = Omit<
   ComponentProps<typeof InputGroupTextarea>,
-  "onChange" | "value"
+  'onChange' | 'value'
 > & {
   value: string
   onChange: (value: string) => void
@@ -190,16 +188,16 @@ export type PromptInputChatMentionTextareaProps = Omit<
 
 /** Imperative API (paperclip / shortcuts): same behavior as typing `@`. */
 export type PromptInputChatMentionTextareaHandle = {
-  focus: (options?: Parameters<HTMLTextAreaElement["focus"]>[0]) => void
+  focus: (options?: Parameters<HTMLTextAreaElement['focus']>[0]) => void
   blur: () => void
   /** Inserts `@` at the caret and opens the reference picker. */
   openReferencePicker: () => void
 }
 
 type MentionCandidate =
-  | { kind: "workspace"; folder: string; label: string }
+  | { kind: 'workspace'; folder: string; label: string }
   | {
-      kind: "note"
+      kind: 'note'
       path: string
       label: string
       folderLabel: string
@@ -221,7 +219,7 @@ export const PromptInputChatMentionTextarea = forwardRef<
     disabled,
     ...rest
   },
-  ref,
+  ref
 ) {
   const innerRef = useRef<HTMLTextAreaElement | null>(null)
   const listRef = useRef<HTMLDivElement | null>(null)
@@ -233,10 +231,10 @@ export const PromptInputChatMentionTextarea = forwardRef<
     const end = el.selectionEnd ?? value.length
     const before = value.slice(0, start)
     const after = value.slice(end)
-    let insertStr = "@"
+    let insertStr = '@'
     if (start > 0) {
       const prev = value[start - 1]
-      if (prev && !/[\s\n]/.test(prev)) insertStr = " @"
+      if (prev && !/[\s\n]/.test(prev)) insertStr = ' @'
     }
     const newValue = before + insertStr + after
     onChange(newValue)
@@ -247,7 +245,7 @@ export const PromptInputChatMentionTextarea = forwardRef<
       ta.focus()
       ta.setSelectionRange(pos, pos)
       setMentionOpen(true)
-      setTick(t => t + 1)
+      setTick((t) => t + 1)
     })
   }, [disabled, onChange, value])
 
@@ -255,11 +253,11 @@ export const PromptInputChatMentionTextarea = forwardRef<
     ref,
     () => ({
       blur: () => innerRef.current?.blur(),
-      focus: (options?: Parameters<HTMLTextAreaElement["focus"]>[0]) =>
+      focus: (options?: Parameters<HTMLTextAreaElement['focus']>[0]) =>
         innerRef.current?.focus(options),
-      openReferencePicker,
+      openReferencePicker
     }),
-    [openReferencePicker],
+    [openReferencePicker]
   )
 
   const [mentionOpen, setMentionOpen] = useState(false)
@@ -274,24 +272,24 @@ export const PromptInputChatMentionTextarea = forwardRef<
   }, [value, tick])
 
   const candidates = useMemo((): MentionCandidate[] => {
-    const q = (mention?.query ?? "").toLowerCase().trim()
+    const q = (mention?.query ?? '').toLowerCase().trim()
     const ws: MentionCandidate[] = workspaces
-      .filter(w => !q || w.name.toLowerCase().includes(q))
+      .filter((w) => !q || w.name.toLowerCase().includes(q))
       .slice(0, 8)
-      .map((w) => ({ kind: "workspace" as const, folder: w.folder, label: w.name }))
+      .map((w) => ({ kind: 'workspace' as const, folder: w.folder, label: w.name }))
     const ns: MentionCandidate[] = notes
-      .filter(n => !q || displayNoteTitle(n.title).toLowerCase().includes(q))
+      .filter((n) => !q || displayNoteTitle(n.title).toLowerCase().includes(q))
       .slice(0, 12)
-      .map(n => {
+      .map((n) => {
         const folderLabel =
           workspaces.find((w) => w.folder === n.folder)?.name ??
-          (n.folder === DEFAULT_WORKSPACE_ID ? "Root" : "Workspace")
-      return {
-        kind: "note" as const,
-        path: n.path,
-        label: displayNoteTitle(n.title),
-        folderLabel,
-        titleEmoji: n.titleEmoji,
+          (n.folder === DEFAULT_WORKSPACE_ID ? 'Root' : 'Workspace')
+        return {
+          kind: 'note' as const,
+          path: n.path,
+          label: displayNoteTitle(n.title),
+          folderLabel,
+          titleEmoji: n.titleEmoji
         }
       })
     return [...ws, ...ns]
@@ -307,7 +305,7 @@ export const PromptInputChatMentionTextarea = forwardRef<
   useEffect(() => {
     if (!showMentionPopover) return
     const el = listRef.current?.querySelector(`[data-mention-index="${activeIndex}"]`)
-    el?.scrollIntoView({ block: "nearest" })
+    el?.scrollIntoView({ block: 'nearest' })
   }, [activeIndex, showMentionPopover])
 
   const selectCandidate = useCallback(
@@ -323,10 +321,10 @@ export const PromptInputChatMentionTextarea = forwardRef<
       onChange(before + after)
 
       const next: PromptInputChatReference =
-        item.kind === "note"
-          ? { kind: "note", refId: item.path, label: item.label }
-          : { kind: "workspace", refId: item.folder, label: item.label }
-      onReferencesChange(prev => addChatReference(prev, next))
+        item.kind === 'note'
+          ? { kind: 'note', refId: item.path, label: item.label }
+          : { kind: 'workspace', refId: item.folder, label: item.label }
+      onReferencesChange((prev) => addChatReference(prev, next))
 
       setMentionOpen(false)
 
@@ -336,10 +334,10 @@ export const PromptInputChatMentionTextarea = forwardRef<
         const pos = before.length
         ta.focus()
         ta.setSelectionRange(pos, pos)
-        setTick(t => t + 1)
+        setTick((t) => t + 1)
       })
     },
-    [onChange, onReferencesChange, value],
+    [onChange, onReferencesChange, value]
   )
 
   const handleChange = (e: ChangeEvent<HTMLTextAreaElement>) => {
@@ -349,15 +347,15 @@ export const PromptInputChatMentionTextarea = forwardRef<
     const m = getActiveMentionText(v, pos)
     if (m) setMentionOpen(true)
     else setMentionOpen(false)
-    setTick(t => t + 1)
+    setTick((t) => t + 1)
   }
 
-  const handleKeyDown: KeyboardEventHandler<HTMLTextAreaElement> = e => {
+  const handleKeyDown: KeyboardEventHandler<HTMLTextAreaElement> = (e) => {
     const el = innerRef.current
     const mNow = el ? getActiveMentionText(value, el.selectionStart ?? value.length) : null
 
     if (mentionOpen && mNow) {
-      if (e.key === "Escape") {
+      if (e.key === 'Escape') {
         e.preventDefault()
         if (el) {
           const cursor = el.selectionStart ?? value.length
@@ -370,24 +368,24 @@ export const PromptInputChatMentionTextarea = forwardRef<
             const pos = mNow.start
             ta.focus()
             ta.setSelectionRange(pos, pos)
-            setTick(t => t + 1)
+            setTick((t) => t + 1)
           })
         }
         setMentionOpen(false)
         return
       }
       if (candidates.length > 0) {
-        if (e.key === "ArrowDown") {
+        if (e.key === 'ArrowDown') {
           e.preventDefault()
-          setHighlight(h => Math.min(h + 1, candidates.length - 1))
+          setHighlight((h) => Math.min(h + 1, candidates.length - 1))
           return
         }
-        if (e.key === "ArrowUp") {
+        if (e.key === 'ArrowUp') {
           e.preventDefault()
-          setHighlight(h => Math.max(h - 1, 0))
+          setHighlight((h) => Math.max(h - 1, 0))
           return
         }
-        if (e.key === "Enter" && !e.shiftKey) {
+        if (e.key === 'Enter' && !e.shiftKey) {
           e.preventDefault()
           const maxIdx = Math.max(0, candidates.length - 1)
           const idx = Math.min(highlight, maxIdx)
@@ -401,12 +399,12 @@ export const PromptInputChatMentionTextarea = forwardRef<
     onKeyDown?.(e)
   }
 
-  const hasWorkspaces = candidates.some(c => c.kind === "workspace")
+  const hasWorkspaces = candidates.some((c) => c.kind === 'workspace')
 
   return (
     <Popover
       open={showMentionPopover}
-      onOpenChange={next => {
+      onOpenChange={(next) => {
         if (!next) setMentionOpen(false)
       }}
     >
@@ -420,8 +418,8 @@ export const PromptInputChatMentionTextarea = forwardRef<
             disabled={disabled}
             onChange={handleChange}
             onKeyDown={handleKeyDown}
-            onSelect={() => setTick(t => t + 1)}
-            onClick={() => setTick(t => t + 1)}
+            onSelect={() => setTick((t) => t + 1)}
+            onClick={() => setTick((t) => t + 1)}
             value={value}
             {...rest}
           />
@@ -430,8 +428,8 @@ export const PromptInputChatMentionTextarea = forwardRef<
       <PopoverContent
         align="center"
         className="border-border bg-popover text-popover-foreground max-h-[min(50vh,340px)] w-[min(28rem,calc(100vw-2rem))] overflow-hidden p-0 shadow-lg"
-        onCloseAutoFocus={e => e.preventDefault()}
-        onOpenAutoFocus={e => e.preventDefault()}
+        onCloseAutoFocus={(e) => e.preventDefault()}
+        onOpenAutoFocus={(e) => e.preventDefault()}
         side="top"
         sideOffset={6}
       >
@@ -454,14 +452,14 @@ export const PromptInputChatMentionTextarea = forwardRef<
               )}
               {candidates.map((c, idx) => {
                 const showNotesHeader =
-                  c.kind === "note" && (idx === 0 || candidates[idx - 1]!.kind === "workspace")
+                  c.kind === 'note' && (idx === 0 || candidates[idx - 1]!.kind === 'workspace')
                 return (
-                  <div key={`${c.kind}-${c.kind === "note" ? c.path : c.folder}`}>
+                  <div key={`${c.kind}-${c.kind === 'note' ? c.path : c.folder}`}>
                     {showNotesHeader && (
                       <p
                         className={cn(
-                          "text-muted-foreground px-2.5 py-1.5 text-[10px] font-medium uppercase tracking-wide",
-                          idx > 0 && "border-border mt-1 border-t",
+                          'text-muted-foreground px-2.5 py-1.5 text-[10px] font-medium uppercase tracking-wide',
+                          idx > 0 && 'border-border mt-1 border-t'
                         )}
                       >
                         Notes
@@ -470,19 +468,19 @@ export const PromptInputChatMentionTextarea = forwardRef<
                     <Button
                       aria-selected={idx === activeIndex}
                       className={cn(
-                        "h-auto min-h-0 w-full flex-col items-stretch gap-1 rounded-md px-2.5 py-2 text-left font-normal",
-                        idx === activeIndex && "bg-accent text-accent-foreground",
+                        'h-auto min-h-0 w-full flex-col items-stretch gap-1 rounded-md px-2.5 py-2 text-left font-normal',
+                        idx === activeIndex && 'bg-accent text-accent-foreground'
                       )}
                       data-mention-index={idx}
                       onClick={() => selectCandidate(c)}
-                      onMouseDown={e => e.preventDefault()}
+                      onMouseDown={(e) => e.preventDefault()}
                       onMouseEnter={() => setHighlight(idx)}
                       role="option"
                       type="button"
                       variant="ghost"
                     >
                       <div className="flex min-w-0 items-center gap-2">
-                        {c.kind === "workspace" ? (
+                        {c.kind === 'workspace' ? (
                           <FolderIcon
                             aria-hidden
                             className="text-muted-foreground size-4 shrink-0 opacity-90"
@@ -504,7 +502,7 @@ export const PromptInputChatMentionTextarea = forwardRef<
                           {c.label}
                         </span>
                       </div>
-                      {c.kind === "note" && (
+                      {c.kind === 'note' && (
                         <div className="text-muted-foreground pl-6 text-xs leading-snug">
                           <span className="mt-0.5 block opacity-80">{c.folderLabel}</span>
                         </div>

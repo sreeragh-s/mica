@@ -1,12 +1,7 @@
 import { useCallback, useState, type JSX } from 'react'
 
 import { Button } from '@/components/ui/button'
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { getApi } from '@/lib/auth/auth-bridge'
 
 type Props = {
@@ -31,7 +26,7 @@ export function GitRemoteDialog({
   githubUsername: _githubUsername,
   onRemoteSet,
   onRequestUserConfig,
-  onRetryWithUserConfig,
+  onRetryWithUserConfig
 }: Props): JSX.Element {
   const [existingUrl, setExistingUrl] = useState('')
   const [existingBusy, setExistingBusy] = useState(false)
@@ -42,7 +37,10 @@ export function GitRemoteDialog({
     const workspace = api?.workspace
     if (!workspace?.setGitRemote) return
     const url = existingUrl.trim()
-    if (!url) { setExistingError('Enter a repository URL.'); return }
+    if (!url) {
+      setExistingError('Enter a repository URL.')
+      return
+    }
     setExistingBusy(true)
     setExistingError(null)
     try {
@@ -61,7 +59,10 @@ export function GitRemoteDialog({
               setExistingError(null)
               try {
                 const retryR = await workspace.setGitRemote({ cwd, url })
-                if (!retryR.ok) { setExistingError(retryR.error); return }
+                if (!retryR.ok) {
+                  setExistingError(retryR.error)
+                  return
+                }
                 await onRemoteSet(url)
                 onOpenChange(false)
               } finally {
@@ -100,9 +101,7 @@ export function GitRemoteDialog({
             disabled={existingBusy}
             autoFocus
           />
-          {existingError && (
-            <p className="text-destructive text-[11px]">{existingError}</p>
-          )}
+          {existingError && <p className="text-destructive text-[11px]">{existingError}</p>}
           <Button
             type="button"
             className="w-full gap-1.5 text-xs"

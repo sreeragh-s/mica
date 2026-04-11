@@ -1,20 +1,20 @@
 import {
   loadShortcutBindings as loadFromConfig,
-  saveShortcutBindings as saveToConfig,
-} from "./notelab-app-config"
+  saveShortcutBindings as saveToConfig
+} from './notelab-app-config'
 import {
   SHORTCUT_DEFINITIONS,
   type ShortcutActionId,
   type ShortcutBinding,
-  type ShortcutBindingsMap,
-} from "./shortcuts-definitions"
+  type ShortcutBindingsMap
+} from './shortcuts-definitions'
 
 export type {
   ShortcutActionId,
   ShortcutBinding,
-  ShortcutBindingsMap,
-} from "./shortcuts-definitions"
-export { SHORTCUT_DEFINITIONS } from "./shortcuts-definitions"
+  ShortcutBindingsMap
+} from './shortcuts-definitions'
+export { SHORTCUT_DEFINITIONS } from './shortcuts-definitions'
 
 export function loadShortcutBindings(): ShortcutBindingsMap {
   return loadFromConfig()
@@ -48,7 +48,7 @@ export function keyboardEventMatchesBinding(e: KeyboardEvent, b: ShortcutBinding
 }
 
 function bindingKeyForLookup(b: ShortcutBinding): string {
-  return `${b.mod ? 1 : 0}|k:${b.key ?? ""}|c:${b.code ?? ""}`
+  return `${b.mod ? 1 : 0}|k:${b.key ?? ''}|c:${b.code ?? ''}`
 }
 
 /** Returns duplicate action ids that share the same binding, if any. */
@@ -64,15 +64,15 @@ export function findDuplicateShortcutBindings(map: ShortcutBindingsMap): Shortcu
 }
 
 const CODE_LABELS: Record<string, string> = {
-  Backslash: "\\",
-  BracketLeft: "[",
-  BracketRight: "]",
-  Slash: "/",
-  F2: "F2",
+  Backslash: '\\',
+  BracketLeft: '[',
+  BracketRight: ']',
+  Slash: '/',
+  F2: 'F2'
 }
 
 export function formatBindingLabel(b: ShortcutBinding, mac: boolean): string {
-  const mod = b.mod ? (mac ? "⌘" : "Ctrl+") : ""
+  const mod = b.mod ? (mac ? '⌘' : 'Ctrl+') : ''
   if (b.code && CODE_LABELS[b.code]) {
     return `${mod}${CODE_LABELS[b.code]}`
   }
@@ -83,7 +83,7 @@ export function formatBindingLabel(b: ShortcutBinding, mac: boolean): string {
   if (b.code) {
     return `${mod}${b.code}`
   }
-  return mod || "—"
+  return mod || '—'
 }
 
 /** Capture next keydown into a binding (mod required). */
@@ -92,8 +92,8 @@ export function bindingFromKeyboardEvent(e: KeyboardEvent): ShortcutBinding | nu
   e.preventDefault()
   e.stopPropagation()
   const mod = true
-  if (e.code === "Backslash" || e.key === "\\") {
-    return { mod, code: "Backslash" }
+  if (e.code === 'Backslash' || e.key === '\\') {
+    return { mod, code: 'Backslash' }
   }
   if (e.key.length === 1 && /[a-zA-Z0-9]/.test(e.key)) {
     return { mod, key: e.key.toLowerCase() }

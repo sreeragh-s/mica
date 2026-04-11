@@ -4,7 +4,7 @@ import { subscribe } from './ipc'
 
 export const clipboardApi = {
   writeText: (text: string): Promise<{ ok: true } | { ok: false; error: string }> =>
-    ipcRenderer.invoke('clipboard:write-text', text),
+    ipcRenderer.invoke('clipboard:write-text', text)
 }
 
 export const windowApi = {
@@ -16,13 +16,13 @@ export const windowApi = {
   setZenPresentation: (enabled: boolean): Promise<{ ok: boolean }> =>
     ipcRenderer.invoke('window:set-zen-presentation', enabled),
   onNativeFullScreenExit: (callback: () => void): (() => void) =>
-    subscribe('window:left-full-screen', () => callback()),
+    subscribe('window:left-full-screen', () => callback())
 }
 
 export const logApi = {
   info: (...args: unknown[]): void => ipcRenderer.send('log:info', ...args),
   warn: (...args: unknown[]): void => ipcRenderer.send('log:warn', ...args),
-  error: (...args: unknown[]): void => ipcRenderer.send('log:error', ...args),
+  error: (...args: unknown[]): void => ipcRenderer.send('log:error', ...args)
 }
 
 export const updaterApi = {
@@ -31,11 +31,18 @@ export const updaterApi = {
   openDownload: (downloadUrl: string): Promise<{ ok: true } | { ok: false; error: string }> =>
     ipcRenderer.invoke('update:open-download', downloadUrl),
   onStateChange: (
-    callback: (state: { status: string; version?: string; downloadUrl?: string; message?: string }) => void
+    callback: (state: {
+      status: string
+      version?: string
+      downloadUrl?: string
+      message?: string
+    }) => void
   ): (() => void) =>
     subscribe('notelab:update-state', (state) => {
-      callback(state as { status: string; version?: string; downloadUrl?: string; message?: string })
-    }),
+      callback(
+        state as { status: string; version?: string; downloadUrl?: string; message?: string }
+      )
+    })
 }
 
 export const multiWindowApi = {
@@ -52,5 +59,5 @@ export const multiWindowApi = {
     chatSidebarOpen?: boolean
   }): Promise<{ ok: true }> => ipcRenderer.invoke('window:set-session', data),
   openWorkspaceInNewWindow: (workspacePath: string): Promise<{ ok: true }> =>
-    ipcRenderer.invoke('window:open-workspace-in-new-window', workspacePath),
+    ipcRenderer.invoke('window:open-workspace-in-new-window', workspacePath)
 }

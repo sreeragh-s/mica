@@ -13,7 +13,7 @@ import {
   Plus,
   RefreshCw,
   RotateCcw,
-  X,
+  X
 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -47,13 +47,20 @@ function statusLabel(x: string, y: string): string {
 
 function statusColor(label: string): string {
   switch (label) {
-    case 'A': return 'text-green-500 dark:text-green-400'
-    case 'M': return 'text-yellow-500 dark:text-yellow-400'
-    case 'D': return 'text-red-500 dark:text-red-400'
-    case 'C': return 'text-orange-500 dark:text-orange-400'
-    case 'R': return 'text-blue-500 dark:text-blue-400'
-    case 'U': return 'text-muted-foreground'
-    default: return 'text-muted-foreground'
+    case 'A':
+      return 'text-green-500 dark:text-green-400'
+    case 'M':
+      return 'text-yellow-500 dark:text-yellow-400'
+    case 'D':
+      return 'text-red-500 dark:text-red-400'
+    case 'C':
+      return 'text-orange-500 dark:text-orange-400'
+    case 'R':
+      return 'text-blue-500 dark:text-blue-400'
+    case 'U':
+      return 'text-muted-foreground'
+    default:
+      return 'text-muted-foreground'
   }
 }
 
@@ -101,9 +108,7 @@ function FileRow({
       ) : null}
       <span className="min-w-0 flex-1 truncate">
         <span className="font-medium">{filename}</span>
-        {dirPart && (
-          <span className="text-muted-foreground ml-1.5 text-[10px]">{dirPart}</span>
-        )}
+        {dirPart && <span className="text-muted-foreground ml-1.5 text-[10px]">{dirPart}</span>}
       </span>
       <span
         className={cn('ml-auto shrink-0 w-3.5 text-right text-[10px] font-semibold', colorClass)}
@@ -119,7 +124,10 @@ function FileRow({
             size="icon-xs"
             className="size-5 text-muted-foreground"
             title="Resolve conflict"
-            onClick={(e) => { e.stopPropagation(); onOpenConflict(file.path) }}
+            onClick={(e) => {
+              e.stopPropagation()
+              onOpenConflict(file.path)
+            }}
           >
             <AlertTriangle className="size-3" />
           </Button>
@@ -131,7 +139,10 @@ function FileRow({
               size="icon-xs"
               className="size-5 text-muted-foreground"
               title="Unstage"
-              onClick={(e) => { e.stopPropagation(); void onUnstage(file.path) }}
+              onClick={(e) => {
+                e.stopPropagation()
+                void onUnstage(file.path)
+              }}
             >
               <Minus className="size-3" />
             </Button>
@@ -144,7 +155,10 @@ function FileRow({
               size="icon-xs"
               className="size-5 text-muted-foreground"
               title="Stage file"
-              onClick={(e) => { e.stopPropagation(); void onStage(file.path) }}
+              onClick={(e) => {
+                e.stopPropagation()
+                void onStage(file.path)
+              }}
             >
               <Plus className="size-3" />
             </Button>
@@ -154,7 +168,10 @@ function FileRow({
               size="icon-xs"
               className="size-5 text-muted-foreground hover:text-destructive"
               title="Discard changes"
-              onClick={(e) => { e.stopPropagation(); void onDiscard(file.path) }}
+              onClick={(e) => {
+                e.stopPropagation()
+                void onDiscard(file.path)
+              }}
             >
               <RotateCcw className="size-3" />
             </Button>
@@ -167,7 +184,11 @@ function FileRow({
             size="icon-xs"
             className="size-5 text-muted-foreground"
             title="View diff"
-            onClick={(e) => { e.stopPropagation(); onViewDiff(file.path, file.staged); void cwd }}
+            onClick={(e) => {
+              e.stopPropagation()
+              onViewDiff(file.path, file.staged)
+              void cwd
+            }}
           >
             <ChevronRight className="size-3" />
           </Button>
@@ -183,10 +204,18 @@ function DiffPane({ diff }: { diff: string }): JSX.Element {
     <div className="min-h-0 flex-1 overflow-auto font-mono text-[11px] leading-[1.6]">
       {lines.map((line, i) => {
         let cls = 'text-muted-foreground px-3 whitespace-pre'
-        if (line.startsWith('+') && !line.startsWith('+++')) cls = 'bg-green-500/10 text-green-700 dark:text-green-400 px-3 whitespace-pre'
-        else if (line.startsWith('-') && !line.startsWith('---')) cls = 'bg-red-500/10 text-red-700 dark:text-red-400 px-3 whitespace-pre'
+        if (line.startsWith('+') && !line.startsWith('+++'))
+          cls = 'bg-green-500/10 text-green-700 dark:text-green-400 px-3 whitespace-pre'
+        else if (line.startsWith('-') && !line.startsWith('---'))
+          cls = 'bg-red-500/10 text-red-700 dark:text-red-400 px-3 whitespace-pre'
         else if (line.startsWith('@@')) cls = 'text-blue-500 dark:text-blue-400 px-3 whitespace-pre'
-        else if (line.startsWith('diff ') || line.startsWith('index ') || line.startsWith('--- ') || line.startsWith('+++ ')) cls = 'text-foreground font-semibold px-3 whitespace-pre'
+        else if (
+          line.startsWith('diff ') ||
+          line.startsWith('index ') ||
+          line.startsWith('--- ') ||
+          line.startsWith('+++ ')
+        )
+          cls = 'text-foreground font-semibold px-3 whitespace-pre'
         return (
           <div key={i} className={cls}>
             {line || '\u00a0'}
@@ -227,9 +256,8 @@ export function GitSourceControlPanel({ vm }: GitSourceControlPanelProps): JSX.E
     isMacNotelab,
     macTitlebarStyles,
     setGitRemoteDialogOpen,
-    gitSynced,
+    gitSynced
   } = vm
-
 
   const [selectedPath, setSelectedPath] = useState<string | null>(null)
   const [diffContent, setDiffContent] = useState<string | null>(null)
@@ -248,45 +276,60 @@ export function GitSourceControlPanel({ vm }: GitSourceControlPanelProps): JSX.E
 
   const totalChanges = stagedFiles.length + unstagedFiles.length + conflictedFiles.length
 
-  const loadDiff = useCallback(async (path: string, staged: boolean) => {
-    if (!cwd) return
-    setDiffLoading(true)
-    setDiffContent(null)
-    try {
-      const api = window.api
-      const r = await api.workspace.gitDiffFile?.({ cwd, path, staged })
-      if (r?.ok) {
-        setDiffContent(r.diff || '(no diff)')
-      } else {
-        setDiffContent(r?.error ?? 'Failed to load diff')
+  const loadDiff = useCallback(
+    async (path: string, staged: boolean) => {
+      if (!cwd) return
+      setDiffLoading(true)
+      setDiffContent(null)
+      try {
+        const api = window.api
+        const r = await api.workspace.gitDiffFile?.({ cwd, path, staged })
+        if (r?.ok) {
+          setDiffContent(r.diff || '(no diff)')
+        } else {
+          setDiffContent(r?.error ?? 'Failed to load diff')
+        }
+      } finally {
+        setDiffLoading(false)
       }
-    } finally {
-      setDiffLoading(false)
-    }
-  }, [cwd])
+    },
+    [cwd]
+  )
 
-  const handleViewDiff = useCallback((path: string, staged: boolean) => {
-    setSelectedPath(path)
-    void loadDiff(path, staged)
-  }, [loadDiff])
+  const handleViewDiff = useCallback(
+    (path: string, staged: boolean) => {
+      setSelectedPath(path)
+      void loadDiff(path, staged)
+    },
+    [loadDiff]
+  )
 
-  const handleStage = useCallback(async (path: string) => {
-    await handleGitStageFile(path)
-    void refreshGitSourceControl()
-    if (selectedPath === path) setDiffContent(null)
-  }, [handleGitStageFile, refreshGitSourceControl, selectedPath])
+  const handleStage = useCallback(
+    async (path: string) => {
+      await handleGitStageFile(path)
+      void refreshGitSourceControl()
+      if (selectedPath === path) setDiffContent(null)
+    },
+    [handleGitStageFile, refreshGitSourceControl, selectedPath]
+  )
 
-  const handleUnstage = useCallback(async (path: string) => {
-    await handleGitUnstageFile(path)
-    void refreshGitSourceControl()
-    if (selectedPath === path) setDiffContent(null)
-  }, [handleGitUnstageFile, refreshGitSourceControl, selectedPath])
+  const handleUnstage = useCallback(
+    async (path: string) => {
+      await handleGitUnstageFile(path)
+      void refreshGitSourceControl()
+      if (selectedPath === path) setDiffContent(null)
+    },
+    [handleGitUnstageFile, refreshGitSourceControl, selectedPath]
+  )
 
-  const handleDiscard = useCallback(async (path: string) => {
-    await handleGitDiscardFile(path)
-    void refreshGitSourceControl()
-    if (selectedPath === path) setDiffContent(null)
-  }, [handleGitDiscardFile, refreshGitSourceControl, selectedPath])
+  const handleDiscard = useCallback(
+    async (path: string) => {
+      await handleGitDiscardFile(path)
+      void refreshGitSourceControl()
+      if (selectedPath === path) setDiffContent(null)
+    },
+    [handleGitDiscardFile, refreshGitSourceControl, selectedPath]
+  )
 
   const handleStageAll = useCallback(async () => {
     if (!cwd) return
@@ -332,9 +375,14 @@ export function GitSourceControlPanel({ vm }: GitSourceControlPanelProps): JSX.E
   }, [cwd, refreshGitSourceControl])
 
   // Clean tree = no staged, unstaged, or conflicted files
-  const hasChanges = stagedFiles.length > 0 || unstagedFiles.length > 0 || conflictedFiles.length > 0
+  const hasChanges =
+    stagedFiles.length > 0 || unstagedFiles.length > 0 || conflictedFiles.length > 0
   const showSyncButton = !hasChanges && !gitSourceControlLoading
-  const canCommit = stagedFiles.length > 0 && gitCommitMessage.trim().length > 0 && !gitSyncBusy && !gitSourceControlHasConflicts
+  const canCommit =
+    stagedFiles.length > 0 &&
+    gitCommitMessage.trim().length > 0 &&
+    !gitSyncBusy &&
+    !gitSourceControlHasConflicts
   /** "Synced" only when we have origin and last pull/push succeeded — never when there is no remote. */
   const showRemoteSynced = gitSynced && gitHasOriginRemote
 
@@ -357,7 +405,6 @@ export function GitSourceControlPanel({ vm }: GitSourceControlPanelProps): JSX.E
           <p className="text-muted-foreground text-xs leading-relaxed">
             Initialize a git repository in your workspace to track changes and sync to GitHub.
           </p>
-
         </div>
         {gitInitError && (
           <p className="text-destructive text-xs whitespace-pre-wrap">{gitInitError}</p>
@@ -423,10 +470,7 @@ export function GitSourceControlPanel({ vm }: GitSourceControlPanelProps): JSX.E
       </div>
 
       <div
-        className={cn(
-          'min-h-0 flex-1 overflow-y-auto',
-          isMacNotelab && 'pointer-events-auto'
-        )}
+        className={cn('min-h-0 flex-1 overflow-y-auto', isMacNotelab && 'pointer-events-auto')}
         data-sidebar-interactive=""
       >
         {/* Rebase warning */}
@@ -495,7 +539,11 @@ export function GitSourceControlPanel({ vm }: GitSourceControlPanelProps): JSX.E
                 ) : (
                   <ArrowUpDown className="size-3" />
                 )}
-                {showRemoteSynced ? 'Synced' : gitHasOriginRemote ? 'Sync changes' : 'Connect remote'}
+                {showRemoteSynced
+                  ? 'Synced'
+                  : gitHasOriginRemote
+                    ? 'Sync changes'
+                    : 'Connect remote'}
               </Button>
             ) : (
               <>
@@ -519,12 +567,18 @@ export function GitSourceControlPanel({ vm }: GitSourceControlPanelProps): JSX.E
                     onClick={() => void handleGitCommit()}
                     data-sidebar-interactive=""
                   >
-                    {gitSyncBusy ? <Loader2 className="size-3 animate-spin" /> : <GitCommitHorizontal className="size-3" />}
+                    {gitSyncBusy ? (
+                      <Loader2 className="size-3 animate-spin" />
+                    ) : (
+                      <GitCommitHorizontal className="size-3" />
+                    )}
                     Commit
                   </Button>
                 </div>
                 {stagedFiles.length === 0 && unstagedFiles.length > 0 && (
-                  <p className="text-muted-foreground mt-1 text-[10px]">Stage files to enable commit.</p>
+                  <p className="text-muted-foreground mt-1 text-[10px]">
+                    Stage files to enable commit.
+                  </p>
                 )}
               </>
             )}
@@ -600,7 +654,9 @@ export function GitSourceControlPanel({ vm }: GitSourceControlPanelProps): JSX.E
                     <ChevronRight className="size-3 shrink-0" />
                   )}
                   Staged
-                  <span className="text-muted-foreground/60 ml-1 font-normal">{stagedFiles.length}</span>
+                  <span className="text-muted-foreground/60 ml-1 font-normal">
+                    {stagedFiles.length}
+                  </span>
                 </button>
                 {stagedFiles.length > 0 && (
                   <Button
@@ -613,14 +669,20 @@ export function GitSourceControlPanel({ vm }: GitSourceControlPanelProps): JSX.E
                     disabled={bulkActionBusy}
                     data-sidebar-interactive=""
                   >
-                    {bulkActionBusy ? <Loader2 className="size-3 animate-spin" /> : <Minus className="size-3" />}
+                    {bulkActionBusy ? (
+                      <Loader2 className="size-3 animate-spin" />
+                    ) : (
+                      <Minus className="size-3" />
+                    )}
                   </Button>
                 )}
               </div>
               {stagedExpanded && (
                 <div className="px-1">
                   {stagedFiles.length === 0 ? (
-                    <p className="text-muted-foreground/60 px-3 py-1 text-[11px] italic">No staged files</p>
+                    <p className="text-muted-foreground/60 px-3 py-1 text-[11px] italic">
+                      No staged files
+                    </p>
                   ) : (
                     stagedFiles.map((f) => (
                       <FileRow
@@ -656,7 +718,9 @@ export function GitSourceControlPanel({ vm }: GitSourceControlPanelProps): JSX.E
                     <ChevronRight className="size-3 shrink-0" />
                   )}
                   Changes
-                  <span className="text-muted-foreground/60 ml-1 font-normal">{unstagedFiles.length}</span>
+                  <span className="text-muted-foreground/60 ml-1 font-normal">
+                    {unstagedFiles.length}
+                  </span>
                 </button>
                 {unstagedFiles.length > 0 && (
                   <Button
@@ -669,14 +733,20 @@ export function GitSourceControlPanel({ vm }: GitSourceControlPanelProps): JSX.E
                     disabled={bulkActionBusy}
                     data-sidebar-interactive=""
                   >
-                    {bulkActionBusy ? <Loader2 className="size-3 animate-spin" /> : <Plus className="size-3" />}
+                    {bulkActionBusy ? (
+                      <Loader2 className="size-3 animate-spin" />
+                    ) : (
+                      <Plus className="size-3" />
+                    )}
                   </Button>
                 )}
               </div>
               {changesExpanded && (
                 <div className="px-1">
                   {unstagedFiles.length === 0 ? (
-                    <p className="text-muted-foreground/60 px-3 py-1 text-[11px] italic">No unstaged changes</p>
+                    <p className="text-muted-foreground/60 px-3 py-1 text-[11px] italic">
+                      No unstaged changes
+                    </p>
                   ) : (
                     unstagedFiles.map((f) => (
                       <FileRow
@@ -707,7 +777,8 @@ export function GitSourceControlPanel({ vm }: GitSourceControlPanelProps): JSX.E
             {!gitHasOriginRemote && (
               <p className="text-muted-foreground/80 max-w-[220px] text-[11px] leading-relaxed">
                 No <code className="text-foreground/90">origin</code> remote is set. Click{' '}
-                <span className="text-foreground/90">Connect remote</span> above to add a GitHub URL — the repo is already initialized.
+                <span className="text-foreground/90">Connect remote</span> above to add a GitHub URL
+                — the repo is already initialized.
               </p>
             )}
           </div>
@@ -716,7 +787,10 @@ export function GitSourceControlPanel({ vm }: GitSourceControlPanelProps): JSX.E
 
       {/* Diff pane */}
       {selectedPath && (
-        <div className="border-border flex min-h-0 flex-col border-t" style={{ height: '40%', minHeight: 120 }}>
+        <div
+          className="border-border flex min-h-0 flex-col border-t"
+          style={{ height: '40%', minHeight: 120 }}
+        >
           <div className="border-border flex h-7 shrink-0 items-center justify-between border-b px-2">
             <span className="text-muted-foreground truncate text-[11px]">
               {selectedPath.split('/').pop()}
@@ -726,7 +800,10 @@ export function GitSourceControlPanel({ vm }: GitSourceControlPanelProps): JSX.E
               variant="ghost"
               size="icon-xs"
               className="size-5 text-muted-foreground"
-              onClick={() => { setSelectedPath(null); setDiffContent(null) }}
+              onClick={() => {
+                setSelectedPath(null)
+                setDiffContent(null)
+              }}
             >
               <X className="size-3" />
             </Button>

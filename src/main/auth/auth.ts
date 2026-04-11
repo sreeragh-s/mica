@@ -13,7 +13,7 @@ function jsonHeadersWithOrigin(base: string): HeadersInit {
   const origin = new URL(base).origin
   return {
     'Content-Type': 'application/json',
-    Origin: origin,
+    Origin: origin
   }
 }
 
@@ -43,14 +43,14 @@ export function registerAuthIpc(): void {
     const payload = {
       provider: 'github',
       disableRedirect: true,
-      callbackURL: `${base}/`,
+      callbackURL: `${base}/`
     }
     console.info(LOG, 'POST', signInUrl, { callbackURL: payload.callbackURL })
 
     const res = await authSession.fetch(signInUrl, {
       method: 'POST',
       headers: jsonHeadersWithOrigin(base),
-      body: JSON.stringify(payload),
+      body: JSON.stringify(payload)
     })
 
     const rawText = await res.text()
@@ -86,7 +86,7 @@ export function registerAuthIpc(): void {
       state:
         oauthUrl.searchParams.get('state') != null
           ? `${oauthUrl.searchParams.get('state')!.slice(0, 20)}…`
-          : null,
+          : null
     })
 
     const authWin = new BrowserWindow({
@@ -95,8 +95,8 @@ export function registerAuthIpc(): void {
       autoHideMenuBar: true,
       webPreferences: {
         session: authSession,
-        sandbox: false,
-      },
+        sandbox: false
+      }
     })
 
     const wc = authWin.webContents
@@ -156,7 +156,7 @@ export function registerAuthIpc(): void {
       await authSession.fetch(`${base}/api/auth/sign-out`, {
         method: 'POST',
         headers: jsonHeadersWithOrigin(base),
-        body: JSON.stringify({}),
+        body: JSON.stringify({})
       })
       return { ok: true as const }
     } catch {
@@ -197,7 +197,7 @@ export function registerAuthIpc(): void {
           const origin = new URL(base).origin
           const headers: Record<string, string> = {
             Origin: origin,
-            ...(init?.headers ?? {}),
+            ...(init?.headers ?? {})
           }
           if (init?.body && (init.method ?? 'GET').toUpperCase() !== 'GET') {
             headers['Content-Type'] = 'application/json'
@@ -205,13 +205,20 @@ export function registerAuthIpc(): void {
           const res = await authSession.fetch(u, {
             method: init?.method ?? 'GET',
             body: init?.body,
-            headers,
+            headers
           })
 
           if (!res.ok) {
             const errText = await res.text()
-            console.warn(`[notelab-auth] auth:stream HTTP error ${res.status}:`, errText.slice(0, 200))
-            event.sender.send('auth:stream:error', requestId, `HTTP ${res.status}: ${errText.slice(0, 500)}`)
+            console.warn(
+              `[notelab-auth] auth:stream HTTP error ${res.status}:`,
+              errText.slice(0, 200)
+            )
+            event.sender.send(
+              'auth:stream:error',
+              requestId,
+              `HTTP ${res.status}: ${errText.slice(0, 500)}`
+            )
             return
           }
 
@@ -234,7 +241,9 @@ export function registerAuthIpc(): void {
               event.sender.send('auth:stream:chunk', requestId, text)
             }
           }
-          console.info(`[notelab-auth] auth:stream done requestId=${requestId} chunks=${chunkCount}`)
+          console.info(
+            `[notelab-auth] auth:stream done requestId=${requestId} chunks=${chunkCount}`
+          )
           if (!event.sender.isDestroyed()) {
             event.sender.send('auth:stream:end', requestId)
           }
@@ -272,7 +281,7 @@ export function registerAuthIpc(): void {
         const origin = new URL(base).origin
         const headers: Record<string, string> = {
           Origin: origin,
-          ...(init?.headers ?? {}),
+          ...(init?.headers ?? {})
         }
         if (init?.body && (init.method ?? 'GET').toUpperCase() !== 'GET') {
           headers['Content-Type'] = 'application/json'
@@ -280,7 +289,7 @@ export function registerAuthIpc(): void {
         const res = await authSession.fetch(u, {
           method: init?.method ?? 'GET',
           body: init?.body,
-          headers,
+          headers
         })
         const text = await res.text()
         return { ok: res.ok, status: res.status, body: text }

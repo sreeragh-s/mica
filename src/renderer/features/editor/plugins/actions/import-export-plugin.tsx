@@ -1,28 +1,24 @@
-"use client"
+'use client'
 
-import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext"
-import { DownloadIcon } from "lucide-react"
-import { jsPDF } from "jspdf"
-import { convertMarkdownToDocx, downloadDocx } from "@mohtasham/md-to-docx"
+import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext'
+import { DownloadIcon } from 'lucide-react'
+import { jsPDF } from 'jspdf'
+import { convertMarkdownToDocx, downloadDocx } from '@mohtasham/md-to-docx'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import { Button } from "@/components/ui/button"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip"
-import { serializedStateToMarkdown } from "@/lib/editor/lexical-to-markdown"
+  DropdownMenuTrigger
+} from '@/components/ui/dropdown-menu'
+import { Button } from '@/components/ui/button'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { serializedStateToMarkdown } from '@/lib/editor/lexical-to-markdown'
 
 const dateString = () => new Date().toISOString().slice(0, 10)
 
 function downloadBlob(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob)
-  const a = document.createElement("a")
+  const a = document.createElement('a')
   a.href = url
   a.download = filename
   a.click()
@@ -39,7 +35,7 @@ export function ImportExportPlugin() {
 
   const exportMarkdown = () => {
     const md = getMarkdown()
-    const blob = new Blob([md], { type: "text/markdown;charset=utf-8" })
+    const blob = new Blob([md], { type: 'text/markdown;charset=utf-8' })
     downloadBlob(blob, `note-${dateString()}.md`)
   }
 
@@ -63,10 +59,10 @@ export function ImportExportPlugin() {
         <TooltipTrigger asChild>
           <DropdownMenuTrigger asChild>
             <Button
-              variant={"ghost"}
+              variant={'ghost'}
               title="Export note"
               aria-label="Export note"
-              size={"sm"}
+              size={'sm'}
               className="p-2"
             >
               <DownloadIcon className="size-4" />
@@ -74,15 +70,9 @@ export function ImportExportPlugin() {
           </DropdownMenuTrigger>
         </TooltipTrigger>
         <DropdownMenuContent align="end">
-          <DropdownMenuItem onClick={exportMarkdown}>
-            Markdown (.md)
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={exportPdf}>
-            PDF (.pdf)
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={exportDoc}>
-            Word (.docx)
-          </DropdownMenuItem>
+          <DropdownMenuItem onClick={exportMarkdown}>Markdown (.md)</DropdownMenuItem>
+          <DropdownMenuItem onClick={exportPdf}>PDF (.pdf)</DropdownMenuItem>
+          <DropdownMenuItem onClick={exportDoc}>Word (.docx)</DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
       <TooltipContent>Export as</TooltipContent>

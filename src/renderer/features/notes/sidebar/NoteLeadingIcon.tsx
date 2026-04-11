@@ -17,7 +17,7 @@ export type NoteLeadingIconProps = {
 export function NoteLeadingIcon({
   note,
   className,
-  variant = 'default',
+  variant = 'default'
 }: NoteLeadingIconProps): JSX.Element {
   const emoji = note.titleEmoji?.trim()
   if (emoji) {

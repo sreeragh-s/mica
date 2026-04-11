@@ -80,9 +80,7 @@ export function NoteTitleInput({
           className
         )}
       />
-      {error ? (
-        <p className="text-destructive px-8 pb-2 text-sm">{error}</p>
-      ) : null}
+      {error ? <p className="text-destructive px-8 pb-2 text-sm">{error}</p> : null}
     </div>
   )
 }

@@ -1,12 +1,7 @@
 import { useCallback, useState, type JSX } from 'react'
 
 import { Button } from '@/components/ui/button'
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { getApi } from '@/lib/auth/auth-bridge'
 
 type Props = {
@@ -16,12 +11,7 @@ type Props = {
   onConfigured: () => void
 }
 
-export function GitUserConfigDialog({
-  open,
-  onOpenChange,
-  cwd,
-  onConfigured,
-}: Props): JSX.Element {
+export function GitUserConfigDialog({ open, onOpenChange, cwd, onConfigured }: Props): JSX.Element {
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [busy, setBusy] = useState(false)
@@ -32,13 +22,22 @@ export function GitUserConfigDialog({
     if (!api?.workspace?.gitSetConfig) return
     const trimmedName = name.trim()
     const trimmedEmail = email.trim()
-    if (!trimmedName) { setError('Enter your Git user name.'); return }
-    if (!trimmedEmail) { setError('Enter your Git email address.'); return }
+    if (!trimmedName) {
+      setError('Enter your Git user name.')
+      return
+    }
+    if (!trimmedEmail) {
+      setError('Enter your Git email address.')
+      return
+    }
     setBusy(true)
     setError(null)
     try {
       const r = await api.workspace.gitSetConfig({ cwd, name: trimmedName, email: trimmedEmail })
-      if (!r.ok) { setError(r.error); return }
+      if (!r.ok) {
+        setError(r.error)
+        return
+      }
       onConfigured()
       onOpenChange(false)
     } finally {
@@ -92,9 +91,7 @@ export function GitUserConfigDialog({
             />
           </div>
 
-          {error && (
-            <p className="text-destructive text-[11px]">{error}</p>
-          )}
+          {error && <p className="text-destructive text-[11px]">{error}</p>}
 
           <Button
             type="button"

@@ -113,9 +113,7 @@ export function resolveObsidianInternalLinkTarget(
   const resolved = ctx.notes.find((note) => {
     const title = (note.title?.trim() || 'Untitled').toLowerCase()
     const path = normalizeObsidianPathCandidate(note.path)
-    const basename = normalizeObsidianPathCandidate(
-      note.path.split('/').pop() ?? note.path
-    )
+    const basename = normalizeObsidianPathCandidate(note.path.split('/').pop() ?? note.path)
     return normalizedQuery === path || normalizedQuery === basename || normalizedQuery === title
   })
 

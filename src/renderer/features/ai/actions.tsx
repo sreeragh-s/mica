@@ -1,16 +1,16 @@
-"use client"
+'use client'
 
-import { CopyIcon, RefreshCcwIcon, ThumbsDownIcon, ThumbsUpIcon } from "lucide-react"
-import type { ComponentProps } from "react"
-import { Button } from "@/components/ui/button"
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { cn } from "@/lib/utils"
-import { Message, MessageContent } from "@/features/ai/message"
+import { CopyIcon, RefreshCcwIcon, ThumbsDownIcon, ThumbsUpIcon } from 'lucide-react'
+import type { ComponentProps } from 'react'
+import { Button } from '@/components/ui/button'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { cn } from '@/lib/utils'
+import { Message, MessageContent } from '@/features/ai/message'
 
-export type ActionsProps = ComponentProps<"div">
+export type ActionsProps = ComponentProps<'div'>
 
 export const Actions = ({ className, children, ...props }: ActionsProps) => (
-  <div className={cn("flex items-center gap-1", className)} {...props}>
+  <div className={cn('flex items-center gap-1', className)} {...props}>
     {children}
   </div>
 )
@@ -25,13 +25,13 @@ export const Action = ({
   children,
   label,
   className,
-  variant = "ghost",
-  size = "sm",
+  variant = 'ghost',
+  size = 'sm',
   ...props
 }: ActionProps) => {
   const button = (
     <Button
-      className={cn("size-9 p-1.5 text-muted-foreground hover:text-foreground", className)}
+      className={cn('size-9 p-1.5 text-muted-foreground hover:text-foreground', className)}
       size={size}
       type="button"
       variant={variant}
@@ -70,16 +70,16 @@ export default function ActionsDemo() {
         </MessageContent>
 
         <Actions>
-          <Action onClick={() => console.log("Copied!")} tooltip="Copy to clipboard">
+          <Action onClick={() => console.log('Copied!')} tooltip="Copy to clipboard">
             <CopyIcon className="size-4" />
           </Action>
-          <Action onClick={() => console.log("Regenerating...")} tooltip="Regenerate response">
+          <Action onClick={() => console.log('Regenerating...')} tooltip="Regenerate response">
             <RefreshCcwIcon className="size-4" />
           </Action>
-          <Action onClick={() => console.log("Thumbs up!")} tooltip="Good response">
+          <Action onClick={() => console.log('Thumbs up!')} tooltip="Good response">
             <ThumbsUpIcon className="size-4" />
           </Action>
-          <Action onClick={() => console.log("Thumbs down!")} tooltip="Bad response">
+          <Action onClick={() => console.log('Thumbs down!')} tooltip="Bad response">
             <ThumbsDownIcon className="size-4" />
           </Action>
         </Actions>

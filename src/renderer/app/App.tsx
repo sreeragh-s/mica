@@ -11,12 +11,9 @@ import {
   applyUiFontToDocument,
   loadThemeConfig,
   loadThemePresetId,
-  loadUiFont,
+  loadUiFont
 } from '@/lib/theme/appearance-storage'
-import {
-  applyThemeToDocument,
-  getResolvedAppearanceMode,
-} from '@/lib/theme/theme-preset-apply'
+import { applyThemeToDocument, getResolvedAppearanceMode } from '@/lib/theme/theme-preset-apply'
 import { getApi, parseSession } from '@/lib/auth/auth-bridge'
 import { hydrateAppConfig } from '@/lib/config/notelab-app-config'
 import { clearGuestMode, isGuestMode, setGuestMode } from '@/lib/auth/guest-session'
@@ -110,11 +107,7 @@ export default function App(): JSX.Element {
         await hydrateAppConfig(null)
       }
       applyUiFontToDocument(loadUiFont())
-      applyThemeToDocument(
-        loadThemePresetId(),
-        getResolvedAppearanceMode(),
-        loadThemeConfig()
-      )
+      applyThemeToDocument(loadThemePresetId(), getResolvedAppearanceMode(), loadThemeConfig())
       await refreshSession()
     })()
   }, [refreshSession])

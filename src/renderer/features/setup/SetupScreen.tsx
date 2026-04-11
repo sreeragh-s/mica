@@ -28,29 +28,34 @@ export function SetupScreen({ api, initialRoot, onDone }: Props): JSX.Element {
 
   const [rootLoading, setRootLoading] = useState(!initialRoot)
   const [rootPath, setRootPath] = useState<string | null>(initialRoot?.path ?? null)
-  const [gitAvailable, setGitAvailable] = useState<boolean | null>(initialRoot?.gitAvailable ?? null)
+  const [gitAvailable, setGitAvailable] = useState<boolean | null>(
+    initialRoot?.gitAvailable ?? null
+  )
   const [gitInitialized, setGitInitialized] = useState(initialRoot?.gitInitialized ?? false)
   const [rootError, setRootError] = useState<string | null>(null)
   const [pickBusy, setPickBusy] = useState(false)
 
-  const runDataRoot = useCallback(async (path?: string): Promise<void> => {
-    if (!ws?.ensureDataRoot) {
+  const runDataRoot = useCallback(
+    async (path?: string): Promise<void> => {
+      if (!ws?.ensureDataRoot) {
+        setRootLoading(false)
+        return
+      }
+      setRootLoading(true)
+      setRootError(null)
+      const root = await ws.ensureDataRoot(path ? { path } : undefined)
+      if (!root.ok) {
+        setRootError(root.error)
+        setRootLoading(false)
+        return
+      }
+      setRootPath(root.path)
+      setGitAvailable(root.gitAvailable)
+      setGitInitialized(root.gitInitialized)
       setRootLoading(false)
-      return
-    }
-    setRootLoading(true)
-    setRootError(null)
-    const root = await ws.ensureDataRoot(path ? { path } : undefined)
-    if (!root.ok) {
-      setRootError(root.error)
-      setRootLoading(false)
-      return
-    }
-    setRootPath(root.path)
-    setGitAvailable(root.gitAvailable)
-    setGitInitialized(root.gitInitialized)
-    setRootLoading(false)
-  }, [ws])
+    },
+    [ws]
+  )
 
   useEffect(() => {
     // Only call ensureDataRoot if we didn't get an initial result from App.tsx
@@ -73,7 +78,7 @@ export function SetupScreen({ api, initialRoot, onDone }: Props): JSX.Element {
     saveSetupState({
       complete: true,
       syncMode: gitInitialized ? 'git' : 'local',
-      workspaceRoot: rootPath ?? undefined,
+      workspaceRoot: rootPath ?? undefined
     })
     onDone()
   }, [gitInitialized, rootPath, onDone])
@@ -90,17 +95,15 @@ export function SetupScreen({ api, initialRoot, onDone }: Props): JSX.Element {
       >
         <div className="space-y-0.5 text-center">
           <h1 className="text-xl font-semibold tracking-tight">Set up notelab</h1>
-          <p className="text-muted-foreground text-sm">
-            Choose where your notes will be stored.
-          </p>
+          <p className="text-muted-foreground text-sm">Choose where your notes will be stored.</p>
         </div>
 
         {/* Workspace directory */}
         <div className="border-border space-y-2 rounded-lg border px-3 py-2.5">
           <h2 className="text-foreground text-sm font-semibold">Workspace folder</h2>
           <p className="text-muted-foreground text-xs leading-snug">
-            Choose a folder for your notes. A{' '}
-            <code className="text-xs">.notelab.config</code> file will be created inside it. Defaults to{' '}
+            Choose a folder for your notes. A <code className="text-xs">.notelab.config</code> file
+            will be created inside it. Defaults to{' '}
             <code className="text-xs">~/Documents/notelab</code>.
           </p>
           <div className="flex items-center gap-2">
@@ -144,9 +147,7 @@ export function SetupScreen({ api, initialRoot, onDone }: Props): JSX.Element {
               )}
             </Button>
           </div>
-          {rootError && (
-            <p className="text-destructive text-xs">{rootError}</p>
-          )}
+          {rootError && <p className="text-destructive text-xs">{rootError}</p>}
         </div>
 
         {/* Status checklist */}
@@ -168,7 +169,9 @@ export function SetupScreen({ api, initialRoot, onDone }: Props): JSX.Element {
               ) : rootLoading ? (
                 <p className="text-muted-foreground text-xs">Preparing…</p>
               ) : (
-                <p className="text-destructive text-xs">Could not create the folder. Check permissions.</p>
+                <p className="text-destructive text-xs">
+                  Could not create the folder. Check permissions.
+                </p>
               )}
             </div>
           </li>

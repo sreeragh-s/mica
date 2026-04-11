@@ -1,9 +1,9 @@
-import type { JSX } from "react"
+import type { JSX } from 'react'
 // import { Github } from "lucide-react"
 
-import { Button } from "@/components/ui/button"
-import { isMacNotelab } from "@/lib/core/electron-env"
-import { cn } from "@/lib/utils"
+import { Button } from '@/components/ui/button'
+import { isMacNotelab } from '@/lib/core/electron-env'
+import { cn } from '@/lib/utils'
 
 type Props = {
   onGitHub: () => void
@@ -17,26 +17,15 @@ export function LoginScreen({ onGitHub, onGuest, busy, error }: Props): JSX.Elem
 
   return (
     <div className="bg-background text-foreground flex h-screen w-full flex-col items-center justify-center gap-6 p-8">
-      <div
-        className={cn(
-          "flex max-w-sm flex-col items-center gap-2 text-center",
-          mac && "pt-6"
-        )}
-      >
+      <div className={cn('flex max-w-sm flex-col items-center gap-2 text-center', mac && 'pt-6')}>
         <h1 className="text-2xl font-semibold tracking-tight">notelab.io</h1>
         <p className="text-muted-foreground text-sm">
           Sign in with GitHub, or continue locally and add sync later in Settings.
         </p>
       </div>
       <div className="flex w-full max-w-sm flex-col gap-3">
-        <Button
-          type="button"
-          size="lg"
-          className="gap-2 w-full"
-          disabled={busy}
-          onClick={onGitHub}
-        >
-          {busy ? "Opening GitHub…" : "Continue with GitHub"}
+        <Button type="button" size="lg" className="gap-2 w-full" disabled={busy} onClick={onGitHub}>
+          {busy ? 'Opening GitHub…' : 'Continue with GitHub'}
         </Button>
         <Button
           type="button"

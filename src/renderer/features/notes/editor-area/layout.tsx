@@ -9,7 +9,7 @@ import {
   DialogDescription,
   DialogFooter,
   DialogHeader,
-  DialogTitle,
+  DialogTitle
 } from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
 import { enableInfinityCanvas } from '@/lib/core/vite-flags'
@@ -38,7 +38,10 @@ export function countIndexingStates(notes: NotesAppViewModel['indexingStatus']['
   indexedCount: number
   errorCount: number
 } {
-  let pendingCount = 0, indexingCount = 0, indexedCount = 0, errorCount = 0
+  let pendingCount = 0,
+    indexingCount = 0,
+    indexedCount = 0,
+    errorCount = 0
   for (const note of notes) {
     if (note.state === 'pending') pendingCount++
     else if (note.state === 'indexing') indexingCount++
@@ -170,7 +173,7 @@ function NotesMainNotesContent({
     canvasViewOpen,
     closeCanvasView,
     graphViewOpen,
-    closeGraphView,
+    closeGraphView
   } = vm
 
   if (appMode !== 'notes') return null
@@ -196,8 +199,7 @@ function NotesMainNotesContent({
 
   if (showSingleColumnPrimaryPane) {
     // Keep a stable flex tree (spacer + pane) so toggling zen does not remount NotesPrimaryPane / Lexical.
-    const zenActive =
-      zenMode && !!selectedNote && selectedNote.kind !== 'drawing'
+    const zenActive = zenMode && !!selectedNote && selectedNote.kind !== 'drawing'
     return (
       <div
         className={cn(
@@ -408,7 +410,7 @@ export function NotesMainAreaLayout({
     pendingDeleteNote,
     cancelDeleteNoteConfirmation,
     confirmDeleteNote,
-    notesLinkMentionIndex,
+    notesLinkMentionIndex
   } = vm
 
   const showNotes = appMode === 'notes'

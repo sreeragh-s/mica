@@ -1,12 +1,12 @@
-import type { SerializedEditorState } from "lexical"
+import type { SerializedEditorState } from 'lexical'
 
 import type { NotePropertyMap, NotePropertyValue } from '@shared/notes/note-markdown'
 
 /** Stable folder name for migrated notes without a workspace. */
-export const DEFAULT_WORKSPACE_ID = "default"
+export const DEFAULT_WORKSPACE_ID = 'default'
 
 /** Dedicated folder name for journal notes. */
-export const JOURNAL_FOLDER_ID = ".journal"
+export const JOURNAL_FOLDER_ID = '.journal'
 
 export type { NotePropertyMap, NotePropertyValue }
 
@@ -19,7 +19,7 @@ export type Folder = {
   localGitPath?: string
 }
 
-export type NoteKind = "note" | "drawing"
+export type NoteKind = 'note' | 'drawing'
 
 export type SavedNote = {
   path: string
@@ -63,4 +63,4 @@ export type NotesStateV3 = {
 export type NotesState = NotesStateV2 | NotesStateV3
 
 /** Left activity rail + sidebar content: notes tree, Git, or settings navigation. */
-export type AppSidebarView = "explorer" | "source-control" | "settings"
+export type AppSidebarView = 'explorer' | 'source-control' | 'settings'

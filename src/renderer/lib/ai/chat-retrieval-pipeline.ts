@@ -100,7 +100,11 @@ export function expandSeedConnections(
   const addCandidate = (note: string, hops: 1 | 2, weight: number): void => {
     if (!validPaths.has(note) || seeds.has(note)) return
     const existing = bestByNote.get(note)
-    if (!existing || weight > existing.weight || (weight === existing.weight && hops < existing.hops)) {
+    if (
+      !existing ||
+      weight > existing.weight ||
+      (weight === existing.weight && hops < existing.hops)
+    ) {
       bestByNote.set(note, { note, weight, hops })
     }
     if (!discoveryOrder.has(note)) {
@@ -133,4 +137,3 @@ export function expandSeedConnections(
 export function shouldBlendGlobalFallback(topScore: number | null | undefined): boolean {
   return topScore == null || topScore < 0.65
 }
-

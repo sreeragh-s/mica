@@ -1,10 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from 'react'
 
-import {
-  CaptureUpdateAction,
-  Excalidraw,
-  serializeAsJSON
-} from '@excalidraw/excalidraw'
+import { CaptureUpdateAction, Excalidraw, serializeAsJSON } from '@excalidraw/excalidraw'
 import type { ExcalidrawImperativeAPI } from '@excalidraw/excalidraw/types'
 import '@excalidraw/excalidraw/index.css'
 import { useTheme } from 'next-themes'
@@ -25,10 +21,7 @@ const BG_DARK = 'oklch(0.145 0 0)'
 function resolveIsDark(resolvedTheme: string | undefined): boolean {
   if (resolvedTheme === 'dark') return true
   if (resolvedTheme === 'light') return false
-  return (
-    typeof document !== 'undefined' &&
-    document.documentElement.classList.contains('dark')
-  )
+  return typeof document !== 'undefined' && document.documentElement.classList.contains('dark')
 }
 
 function fallbackBackgroundFromClass(): string {
@@ -62,9 +55,7 @@ function cssColorToCanvasColor(css: string): string {
 }
 
 function readDocumentBackgroundCss(): string {
-  const raw = getComputedStyle(document.documentElement)
-    .getPropertyValue('--background')
-    .trim()
+  const raw = getComputedStyle(document.documentElement).getPropertyValue('--background').trim()
   if (raw.length > 0) return raw
   return fallbackBackgroundFromClass()
 }

@@ -39,7 +39,7 @@ export type UseOllamaResult = {
   statusLoading: boolean
   localModels: OllamaLocalModel[]
   modelsLoading: boolean
-  downloadProgress: number | null   // 0–100 while downloading, null otherwise
+  downloadProgress: number | null // 0–100 while downloading, null otherwise
   downloadMessage: string
   refreshStatus: () => Promise<void>
   refreshModels: () => Promise<void>
@@ -122,7 +122,7 @@ export function useOllama(): UseOllamaResult {
         setDownloadMessage('')
         console.error('[useOllama] download error:', msg)
         void refreshStatus()
-      },
+      }
     })
     cleanupRef.current = cleanup
   }, [refreshStatus])
@@ -159,7 +159,7 @@ export function useOllama(): UseOllamaResult {
           void refreshModels()
           callbacks?.onEnd?.()
         },
-        onError: (msg) => callbacks?.onError?.(msg),
+        onError: (msg) => callbacks?.onError?.(msg)
       })
       return cleanup
     },
@@ -195,6 +195,6 @@ export function useOllama(): UseOllamaResult {
     startOllama,
     stopOllama,
     pullModel,
-    deleteModel,
+    deleteModel
   }
 }

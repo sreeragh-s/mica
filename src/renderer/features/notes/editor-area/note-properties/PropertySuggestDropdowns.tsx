@@ -11,9 +11,7 @@ function useScrollActiveSuggestion(
     const root = listRef.current
     if (!root || suggestions.length === 0) return
     const safeIndex = Math.max(0, Math.min(highlightedIndex, suggestions.length - 1))
-    const target = root.querySelector<HTMLElement>(
-      `[data-suggestion-index="${safeIndex}"]`
-    )
+    const target = root.querySelector<HTMLElement>(`[data-suggestion-index="${safeIndex}"]`)
     target?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
   }, [highlightedIndex, suggestions])
 }

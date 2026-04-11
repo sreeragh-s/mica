@@ -2,9 +2,15 @@ import type { NotesAppViewModel } from '@/features/notes/app-state/useNotesApp'
 import type { SavedNote, Folder } from '@/lib/notes/notes-storage'
 import type { WorkspaceLinkMentionIndex } from '@/lib/notes/cache/notes-cache-types'
 
-import type { ChatSidebarLinkMode, ChatSidebarPanel } from '@/features/notes/chat/chat-sidebar-panel-types'
+import type {
+  ChatSidebarLinkMode,
+  ChatSidebarPanel
+} from '@/features/notes/chat/chat-sidebar-panel-types'
 
-export type { ChatSidebarLinkMode, ChatSidebarPanel } from '@/features/notes/chat/chat-sidebar-panel-types'
+export type {
+  ChatSidebarLinkMode,
+  ChatSidebarPanel
+} from '@/features/notes/chat/chat-sidebar-panel-types'
 
 export type NoteLinksData = {
   backlinks: Array<{ note: SavedNote; contexts: string[] }>

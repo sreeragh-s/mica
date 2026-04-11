@@ -21,7 +21,11 @@ function parseConflictHunks(content: string): ConflictHunk[] {
 
   const push = (): void => {
     if (currentLines.length > 0) {
-      hunks.push({ type: currentType, lines: currentLines, startLine: lineNum - currentLines.length })
+      hunks.push({
+        type: currentType,
+        lines: currentLines,
+        startLine: lineNum - currentLines.length
+      })
       currentLines = []
     }
   }
@@ -77,14 +81,13 @@ function HunkBlock({
     return (
       <div>
         {hunk.lines.map((line, i) => (
-          <div
-            key={i}
-            className="flex items-start gap-0 font-mono text-[12px] leading-relaxed"
-          >
+          <div key={i} className="flex items-start gap-0 font-mono text-[12px] leading-relaxed">
             <span className="text-muted-foreground/40 w-10 shrink-0 select-none pr-2 text-right text-[10px]">
               {hunk.startLine + i}
             </span>
-            <span className="text-foreground whitespace-pre-wrap break-all">{line || '\u00a0'}</span>
+            <span className="text-foreground whitespace-pre-wrap break-all">
+              {line || '\u00a0'}
+            </span>
           </div>
         ))}
       </div>
@@ -105,15 +108,15 @@ function HunkBlock({
         ? 'bg-muted/30 border-border/30 opacity-40'
         : 'bg-orange-500/10 border-orange-500/30'
 
-  const labelColor = isOurs ? 'text-blue-600 dark:text-blue-400' : 'text-orange-600 dark:text-orange-400'
+  const labelColor = isOurs
+    ? 'text-blue-600 dark:text-blue-400'
+    : 'text-orange-600 dark:text-orange-400'
   const actionLabel = isOurs ? 'Accept Current Change' : 'Accept Incoming Change'
 
   return (
     <div className={cn('my-0.5 rounded border-l-2 border-r border-b border-t', bgClass)}>
       <div className="flex items-center justify-between px-3 py-1">
-        <span className={cn('text-[11px] font-medium', labelColor)}>
-          {label}
-        </span>
+        <span className={cn('text-[11px] font-medium', labelColor)}>{label}</span>
         {resolved ? (
           <span className="flex items-center gap-1 text-[11px] text-green-600 dark:text-green-400">
             <Check className="size-3" />
@@ -128,7 +131,7 @@ function HunkBlock({
                 ? 'bg-blue-500/20 text-blue-700 hover:bg-blue-500/30 dark:text-blue-400'
                 : 'bg-orange-500/20 text-orange-700 hover:bg-orange-500/30 dark:text-orange-400'
             )}
-            onClick={() => isOurs ? onAcceptOurs(conflictIndex) : onAcceptTheirs(conflictIndex)}
+            onClick={() => (isOurs ? onAcceptOurs(conflictIndex) : onAcceptTheirs(conflictIndex))}
           >
             {actionLabel}
           </button>
@@ -140,7 +143,9 @@ function HunkBlock({
             <span className="text-muted-foreground/40 w-10 shrink-0 select-none pr-2 text-right text-[10px]">
               {hunk.startLine + i}
             </span>
-            <span className="text-foreground whitespace-pre-wrap break-all">{line || '\u00a0'}</span>
+            <span className="text-foreground whitespace-pre-wrap break-all">
+              {line || '\u00a0'}
+            </span>
           </div>
         ))}
       </div>
@@ -156,7 +161,7 @@ export function NotesConflictView({ vm }: { vm: NotesAppViewModel }): JSX.Elemen
     gitToolbarFolder,
     isMacNotelab,
     macTitlebarStyles,
-    gitSyncBusy,
+    gitSyncBusy
   } = vm
 
   const [loading, setLoading] = useState(false)
@@ -268,7 +273,7 @@ export function NotesConflictView({ vm }: { vm: NotesAppViewModel }): JSX.Elemen
         cwd,
         path,
         resolution: 'content',
-        content: resolved,
+        content: resolved
       })
       await refreshGitSourceControl()
       closeConflictView()
@@ -299,7 +304,10 @@ export function NotesConflictView({ vm }: { vm: NotesAppViewModel }): JSX.Elemen
           </span>
         </div>
         <div
-          className={cn('flex shrink-0 items-center gap-1.5', isMacNotelab && 'pointer-events-auto')}
+          className={cn(
+            'flex shrink-0 items-center gap-1.5',
+            isMacNotelab && 'pointer-events-auto'
+          )}
           style={isMacNotelab ? macTitlebarStyles.noDrag : undefined}
         >
           {allResolved && (
@@ -369,13 +377,17 @@ export function NotesConflictView({ vm }: { vm: NotesAppViewModel }): JSX.Elemen
                 onAcceptOurs={handleAcceptOurs}
                 onAcceptTheirs={handleAcceptTheirs}
                 resolved={item.conflictIndex >= 0 && resolutions.has(item.conflictIndex)}
-                resolution={item.conflictIndex >= 0 ? (resolutions.get(item.conflictIndex) ?? null) : null}
+                resolution={
+                  item.conflictIndex >= 0 ? (resolutions.get(item.conflictIndex) ?? null) : null
+                }
               />
             ))}
             {totalConflicts === 0 && (
               <div className="flex items-center gap-2 rounded-md border border-green-500/30 bg-green-500/10 p-3">
                 <Check className="size-4 text-green-500" />
-                <p className="text-sm text-green-700 dark:text-green-400">No conflict markers found in this file.</p>
+                <p className="text-sm text-green-700 dark:text-green-400">
+                  No conflict markers found in this file.
+                </p>
               </div>
             )}
           </div>

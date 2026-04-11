@@ -3,7 +3,12 @@ import { NotebookPen } from 'lucide-react'
 
 import { DEFAULT_WORKSPACE_ID, type SavedNote } from '@/lib/notes/notes-storage'
 import { searchNotes, searchFolders } from '@/lib/notes/notes-search'
-import { FOLDER_DRAG_MIME, NOTE_DRAG_MIME, treeFolderPath, treeNotePath } from '@/features/notes/notes-app-utils'
+import {
+  FOLDER_DRAG_MIME,
+  NOTE_DRAG_MIME,
+  treeFolderPath,
+  treeNotePath
+} from '@/features/notes/notes-app-utils'
 import { AppSidebarRail } from '@/features/notes/sidebar/AppSidebar'
 import { GitSourceControlPanel } from '@/features/notes/git/GitSourceControlPanel'
 import { SidebarExplorerToolbar } from '@/features/notes/sidebar/SidebarExplorerToolbar'
@@ -67,7 +72,7 @@ export function Sidebar({ vm }: SidebarProps): JSX.Element {
     openFolderSettingsPanel,
     workspaceRoot,
     handleWorkspaceRootChange,
-    notesSearchPlainTextByPath,
+    notesSearchPlainTextByPath
   } = vm
 
   const [renamingNodeId, setRenamingNodeId] = useState<string | null>(null)

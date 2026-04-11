@@ -62,7 +62,10 @@ const partitions = path.join(root, 'Partitions')
 if (fs.existsSync(partitions)) {
   for (const name of fs.readdirSync(partitions, { withFileTypes: true })) {
     if (!name.isDirectory()) continue
-    tryRemove(`partition "${name.name}" Local Storage`, path.join(partitions, name.name, 'Local Storage'))
+    tryRemove(
+      `partition "${name.name}" Local Storage`,
+      path.join(partitions, name.name, 'Local Storage')
+    )
   }
 }
 

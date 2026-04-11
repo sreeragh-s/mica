@@ -48,12 +48,12 @@ export function AccountSettingsView({
         <div className="min-w-0 flex-1">
           <div className="flex flex-col gap-1">
             <h2 className="text-foreground text-lg font-semibold tracking-tight">
-              {showGuest ? 'Guest' : user?.name ?? 'Account'}
+              {showGuest ? 'Guest' : (user?.name ?? 'Account')}
             </h2>
             {showGuest ? (
               <p className="text-muted-foreground text-sm leading-relaxed">
-                Notes stay on this device until you connect GitHub. You can finish repo and sync setup under{' '}
-                <span className="text-foreground font-medium">Settings → GitHub</span>.
+                Notes stay on this device until you connect GitHub. You can finish repo and sync
+                setup under <span className="text-foreground font-medium">Settings → GitHub</span>.
               </p>
             ) : user?.email ? (
               <p className="text-muted-foreground truncate text-sm leading-relaxed">{user.email}</p>
@@ -63,7 +63,8 @@ export function AccountSettingsView({
               </p>
             ) : (
               <p className="text-muted-foreground text-sm leading-relaxed">
-                You are not signed in. Use Continue with GitHub on the welcome screen or below to sync.
+                You are not signed in. Use Continue with GitHub on the welcome screen or below to
+                sync.
               </p>
             )}
           </div>

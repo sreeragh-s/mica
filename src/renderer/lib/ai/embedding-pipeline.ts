@@ -89,7 +89,7 @@ export async function indexNote(opts: {
     kind,
     contentHash,
     text: indexableText,
-    docType: kind === 'note' ? 'md' : 'txt',
+    docType: kind === 'note' ? 'md' : 'txt'
   })
 
   if (!result.ok) {
@@ -138,7 +138,9 @@ export async function buildIndexingStatus(
     const r = await api.embeddings.getIndexedHashes({ workspacePath })
     if (r.ok) {
       storedHashes = r.hashes
-      log.info(`buildIndexingStatus: workspacePath=${workspacePath} storedHashes=${Object.keys(storedHashes).length}`)
+      log.info(
+        `buildIndexingStatus: workspacePath=${workspacePath} storedHashes=${Object.keys(storedHashes).length}`
+      )
     } else {
       log.error('buildIndexingStatus: getIndexedHashes failed', r.error)
     }
@@ -148,16 +150,28 @@ export async function buildIndexingStatus(
     allNotes.map(async (n) => {
       const indexableText = buildIndexableText(n.content, n.kind)
       if (!indexableText) {
-        return { folder: n.folder, note: n.note, title: n.title, kind: n.kind, state: 'indexed' as const }
+        return {
+          folder: n.folder,
+          note: n.note,
+          title: n.title,
+          kind: n.kind,
+          state: 'indexed' as const
+        }
       }
 
       const stored = storedHashes[n.note]
       if (!stored) {
-        return { folder: n.folder, note: n.note, title: n.title, kind: n.kind, state: 'pending' as const }
+        return {
+          folder: n.folder,
+          note: n.note,
+          title: n.title,
+          kind: n.kind,
+          state: 'pending' as const
+        }
       }
 
       const currentHash = await computeContentHash(n.content)
-      const state = stored.contentHash === currentHash ? 'indexed' as const : 'pending' as const
+      const state = stored.contentHash === currentHash ? ('indexed' as const) : ('pending' as const)
       if (state === 'pending') {
         log.info(
           `buildIndexingStatus: note=${n.note} hash mismatch stored=${stored.contentHash.slice(0, 8)}… current=${currentHash.slice(0, 8)}…`

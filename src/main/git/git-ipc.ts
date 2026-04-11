@@ -8,12 +8,7 @@
 import { ipcMain } from 'electron'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
-import {
-  runGit,
-  runGitResult,
-  runLoggedGitResult,
-  summarizeGitLogText,
-} from './git-runner'
+import { runGit, runGitResult, runLoggedGitResult, summarizeGitLogText } from './git-runner'
 import {
   parseGitStatusPath,
   pathStillHasGitStatus,
@@ -25,7 +20,7 @@ import {
   isInsideRepoRoot,
   gitRebaseContinueArgs,
   gitRebaseSkipArgs,
-  shouldTryRebaseSkipAfterContinueFailure,
+  shouldTryRebaseSkipAfterContinueFailure
 } from './git-utils'
 
 const LOG = '[notelab-workspace]'
@@ -77,16 +72,13 @@ export function registerGitIpc(): void {
           `user.email=${authorEmail}`,
           'commit',
           '-m',
-          message,
+          message
         ],
         cwd
       )
       if (!commit.ok) {
         const err = commit.error.toLowerCase()
-        if (
-          err.includes('nothing to commit') ||
-          err.includes('nothing added to commit')
-        ) {
+        if (err.includes('nothing to commit') || err.includes('nothing added to commit')) {
           return { ok: false, error: 'nothing_to_commit' }
         }
         const headCheck = runGitResult(['rev-parse', '--verify', 'HEAD'], cwd)
@@ -114,8 +106,7 @@ export function registerGitIpc(): void {
       if (!hasGitOrigin(cwd)) {
         return {
           ok: false,
-          error:
-            'No remote named origin. Connect a GitHub repo first from Source Control.',
+          error: 'No remote named origin. Connect a GitHub repo first from Source Control.'
         }
       }
       if (isRebaseInProgress(cwd)) {
@@ -128,15 +119,16 @@ export function registerGitIpc(): void {
       console.info(LOG, 'pull --rebase requested', {
         cwd,
         branch,
-        hasUpstream: currentBranchHasUpstream(cwd),
+        hasUpstream: currentBranchHasUpstream(cwd)
       })
       let r = runLoggedGitResult(['pull', '--rebase'], cwd, 'pull --rebase')
-      if (
-        !r.ok &&
-        /no tracking information|no upstream|Set the remote/i.test(r.error)
-      ) {
+      if (!r.ok && /no tracking information|no upstream|Set the remote/i.test(r.error)) {
         console.info(LOG, 'pull --rebase retrying with explicit upstream', { cwd, branch })
-        r = runLoggedGitResult(['pull', '--rebase', 'origin', branch], cwd, 'pull --rebase origin/<branch>')
+        r = runLoggedGitResult(
+          ['pull', '--rebase', 'origin', branch],
+          cwd,
+          'pull --rebase origin/<branch>'
+        )
       }
       if (!r.ok && isRebaseInProgress(cwd)) {
         console.warn(LOG, 'pull --rebase left repository in rebase state', { cwd, branch })
@@ -147,7 +139,7 @@ export function registerGitIpc(): void {
       console.info(LOG, 'pull --rebase complete', {
         cwd,
         branch,
-        output: summarizeGitLogText(r.stdout) ?? undefined,
+        output: summarizeGitLogText(r.stdout) ?? undefined
       })
       return { ok: true, stdout: r.stdout }
     }
@@ -167,7 +159,7 @@ export function registerGitIpc(): void {
         return {
           ok: false,
           error:
-            'No remote named origin. Add your GitHub URL in Settings → GitHub & Git and click "Apply remote to ~/.notelab".',
+            'No remote named origin. Add your GitHub URL in Settings → GitHub & Git and click "Apply remote to ~/.notelab".'
         }
       }
       if (isRebaseInProgress(cwd)) {
@@ -222,7 +214,7 @@ export function registerGitIpc(): void {
           isRebasing: rebasing,
           hasConflicts,
           fileCount: files.length,
-          conflictedFiles: files.filter((file) => file.conflicted).map((file) => file.path),
+          conflictedFiles: files.filter((file) => file.conflicted).map((file) => file.path)
         })
       }
       return { ok: true, files, hasConflicts, isRebasing: rebasing }
@@ -279,10 +271,22 @@ export function registerGitIpc(): void {
       const baseLines: string[] = []
       let section: 'ours' | 'base' | 'theirs' | 'outside' = 'outside'
       for (const line of content.split('\n')) {
-        if (line.startsWith('<<<<<<<')) { section = 'ours'; continue }
-        if (line.startsWith('|||||||')) { section = 'base'; continue }
-        if (line.startsWith('=======')) { section = 'theirs'; continue }
-        if (line.startsWith('>>>>>>>')) { section = 'outside'; continue }
+        if (line.startsWith('<<<<<<<')) {
+          section = 'ours'
+          continue
+        }
+        if (line.startsWith('|||||||')) {
+          section = 'base'
+          continue
+        }
+        if (line.startsWith('=======')) {
+          section = 'theirs'
+          continue
+        }
+        if (line.startsWith('>>>>>>>')) {
+          section = 'outside'
+          continue
+        }
         if (section === 'ours') oursLines.push(line)
         else if (section === 'base') baseLines.push(line)
         else if (section === 'theirs') theirsLines.push(line)
@@ -292,7 +296,7 @@ export function registerGitIpc(): void {
         content,
         ours: oursLines.join('\n'),
         theirs: theirsLines.join('\n'),
-        base: baseLines.join('\n'),
+        base: baseLines.join('\n')
       }
     }
   )
@@ -302,7 +306,12 @@ export function registerGitIpc(): void {
     'workspace:git-accept-resolution',
     async (
       _evt,
-      payload: { cwd: string; path: string; resolution: 'ours' | 'theirs' | 'content'; content?: string }
+      payload: {
+        cwd: string
+        path: string
+        resolution: 'ours' | 'theirs' | 'content'
+        content?: string
+      }
     ): Promise<{ ok: true } | { ok: false; error: string }> => {
       const cwd = payload.cwd?.trim() ?? ''
       const filePath = payload.path?.trim() ?? ''
@@ -317,11 +326,15 @@ export function registerGitIpc(): void {
       console.info(LOG, 'git-accept-resolution requested', {
         cwd,
         path: filePath,
-        resolution: payload.resolution,
+        resolution: payload.resolution
       })
       if (payload.resolution === 'ours' || payload.resolution === 'theirs') {
         const checkoutArg = payload.resolution === 'ours' ? '--ours' : '--theirs'
-        const r = runLoggedGitResult(['checkout', checkoutArg, '--', filePath], cwd, `checkout ${checkoutArg}`)
+        const r = runLoggedGitResult(
+          ['checkout', checkoutArg, '--', filePath],
+          cwd,
+          `checkout ${checkoutArg}`
+        )
         if (!r.ok) return { ok: false, error: r.error }
       } else if (payload.resolution === 'content' && payload.content !== undefined) {
         writeFileSync(absPath, payload.content, 'utf8')
@@ -436,19 +449,12 @@ export function registerGitIpc(): void {
       const continueArgs = gitRebaseContinueArgs(authorName, authorEmail)
       let r = runLoggedGitResult(continueArgs, cwd, 'rebase --continue')
       let finishedViaSkip = false
-      if (
-        !r.ok &&
-        shouldTryRebaseSkipAfterContinueFailure(r.error)
-      ) {
+      if (!r.ok && shouldTryRebaseSkipAfterContinueFailure(r.error)) {
         console.info(LOG, 'rebase --continue suggests skip; trying rebase --skip', {
           cwd,
-          priorError: summarizeGitLogText(r.error) ?? r.error,
+          priorError: summarizeGitLogText(r.error) ?? r.error
         })
-        r = runLoggedGitResult(
-          gitRebaseSkipArgs(authorName, authorEmail),
-          cwd,
-          'rebase --skip'
-        )
+        r = runLoggedGitResult(gitRebaseSkipArgs(authorName, authorEmail), cwd, 'rebase --skip')
         finishedViaSkip = r.ok
       }
       if (!r.ok) return { ok: false, error: r.error }
@@ -457,7 +463,7 @@ export function registerGitIpc(): void {
         finishedViaSkip ? 'rebase --skip completed' : 'rebase --continue completed',
         {
           cwd,
-          output: summarizeGitLogText(r.stdout) ?? undefined,
+          output: summarizeGitLogText(r.stdout) ?? undefined
         }
       )
       return { ok: true }

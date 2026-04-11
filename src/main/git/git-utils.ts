@@ -70,9 +70,7 @@ export function parseGitStatusPath(rawPath: string): string {
   const renameSeparator = ' -> '
   const renameIndex = trimmed.lastIndexOf(renameSeparator)
   const pathPart =
-    renameIndex === -1
-      ? trimmed
-      : trimmed.slice(renameIndex + renameSeparator.length).trim()
+    renameIndex === -1 ? trimmed : trimmed.slice(renameIndex + renameSeparator.length).trim()
   return unquoteGitCStylePath(pathPart)
 }
 
@@ -137,15 +135,9 @@ export function currentBranchHasUpstream(cwd: string): boolean {
  */
 export function setUpstreamToOriginIfPossible(cwd: string, branch: string): void {
   if (currentBranchHasUpstream(cwd)) return
-  const remoteRef = runGitResult(
-    ['rev-parse', '--verify', `refs/remotes/origin/${branch}`],
-    cwd
-  )
+  const remoteRef = runGitResult(['rev-parse', '--verify', `refs/remotes/origin/${branch}`], cwd)
   if (!remoteRef.ok) return
-  const r = runGitResult(
-    ['branch', '--set-upstream-to', `origin/${branch}`, branch],
-    cwd
-  )
+  const r = runGitResult(['branch', '--set-upstream-to', `origin/${branch}`, branch], cwd)
   if (!r.ok) {
     console.warn(LOG, 'could not set upstream', r.error)
   } else {
@@ -166,7 +158,7 @@ export function gitRebaseContinueArgs(authorName: string, authorEmail: string): 
     '-c',
     `user.email=${authorEmail}`,
     'rebase',
-    '--continue',
+    '--continue'
   ]
 }
 
@@ -179,7 +171,7 @@ export function gitRebaseSkipArgs(authorName: string, authorEmail: string): stri
     '-c',
     `user.email=${authorEmail}`,
     'rebase',
-    '--skip',
+    '--skip'
   ]
 }
 

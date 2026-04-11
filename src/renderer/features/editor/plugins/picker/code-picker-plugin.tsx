@@ -1,14 +1,14 @@
-import { $createCodeNode } from "@lexical/code"
-import { $setBlocksType } from "@lexical/selection"
-import { $getSelection, $isRangeSelection } from "lexical"
-import { CodeIcon } from "lucide-react"
+import { $createCodeNode } from '@lexical/code'
+import { $setBlocksType } from '@lexical/selection'
+import { $getSelection, $isRangeSelection } from 'lexical'
+import { CodeIcon } from 'lucide-react'
 
-import { ComponentPickerOption } from "@/features/editor/plugins/picker/component-picker-option"
+import { ComponentPickerOption } from '@/features/editor/plugins/picker/component-picker-option'
 
 export function CodePickerPlugin() {
-  return new ComponentPickerOption("Code", {
+  return new ComponentPickerOption('Code', {
     icon: <CodeIcon className="size-4" />,
-    keywords: ["javascript", "python", "js", "codeblock"],
+    keywords: ['javascript', 'python', 'js', 'codeblock'],
     onSelect: (_, editor) =>
       editor.update(() => {
         const selection = $getSelection()
@@ -24,6 +24,6 @@ export function CodePickerPlugin() {
             selection.insertRawText(textContent)
           }
         }
-      }),
+      })
   })
 }

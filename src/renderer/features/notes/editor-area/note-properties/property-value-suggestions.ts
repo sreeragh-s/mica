@@ -13,19 +13,14 @@ export function isUuidLikePropertyKey(propKey: string): boolean {
 /** Shown in the value dropdown; picking it inserts a new random UUID. */
 export const GENERATE_UUID_SUGGESTION_LABEL = 'Generate UUID'
 
-const UUID_DASHED =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+const UUID_DASHED = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
 /** True for common UUID / GUID string shapes (other notes’ catalog values). */
 export function looksLikeUuidValue(value: string): boolean {
   const t = value.trim()
   if (UUID_DASHED.test(t)) return true
   if (/^[0-9a-f]{32}$/i.test(t)) return true
-  if (
-    /^\{[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\}$/i.test(
-      t
-    )
-  ) {
+  if (/^\{[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\}$/i.test(t)) {
     return true
   }
   return false
@@ -168,8 +163,9 @@ export function buildPropertyValueSuggestions(
     push(v)
   }
 
-  const workspaceFiltered =
-    isUuidLikePropertyKey(propKey) ? workspaceValues.filter((v) => !looksLikeUuidValue(v)) : workspaceValues
+  const workspaceFiltered = isUuidLikePropertyKey(propKey)
+    ? workspaceValues.filter((v) => !looksLikeUuidValue(v))
+    : workspaceValues
 
   for (const v of workspaceFiltered) {
     push(v)

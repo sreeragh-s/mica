@@ -108,7 +108,8 @@ export function useNotesAppDisk({
 
   const getLatestNoteSnapshot = useCallback(
     (notePath: string): SavedNote | undefined =>
-      pendingSavedNotesRef.current.get(notePath) ?? notesRef.current.find((n) => n.path === notePath),
+      pendingSavedNotesRef.current.get(notePath) ??
+      notesRef.current.find((n) => n.path === notePath),
     [notesRef, pendingSavedNotesRef]
   )
 
@@ -183,8 +184,7 @@ export function useNotesAppDisk({
           ...(n.coverImageSrc !== undefined ? { coverImageSrc: n.coverImageSrc } : {}),
           ...(n.titleEmoji !== undefined && n.titleEmoji !== ''
             ? { titleEmoji: n.titleEmoji }
-            : {})
-          ,
+            : {}),
           ...(n.properties ? { properties: n.properties } : {}),
           ...(n.hasFrontmatterBlock ? { hasFrontmatterBlock: true } : {})
         }
@@ -208,9 +208,10 @@ export function useNotesAppDisk({
       const mergedNotes = [...localPending, ...mappedNotes]
 
       // Sort once — reused by both setSelectedId and setOpenNoteTabIds
-      const mergedNotesSorted = mergedNotes.length > 0
-        ? [...mergedNotes].sort((a, b) => b.updatedAt - a.updatedAt)
-        : mergedNotes
+      const mergedNotesSorted =
+        mergedNotes.length > 0
+          ? [...mergedNotes].sort((a, b) => b.updatedAt - a.updatedAt)
+          : mergedNotes
       const defaultPath = mergedNotesSorted[0]?.path ?? null
       const mergedPathSet = new Set(mergedNotes.map((n) => n.path))
 
@@ -332,7 +333,7 @@ export function useNotesAppDisk({
       pendingDiskWrites,
       pendingSavedNotesRef,
       scheduleWorkspaceGitStatusRefresh,
-      setNotes,
+      setNotes
     ]
   )
 
@@ -419,7 +420,7 @@ export function useNotesAppDisk({
       pendingDiskWrites,
       pendingSavedNotesRef,
       scheduleWorkspaceGitStatusRefresh,
-      setNotes,
+      setNotes
     ]
   )
 
@@ -450,7 +451,8 @@ export function useNotesAppDisk({
       const urlWorkspace = new URLSearchParams(window.location.search).get('workspace')
 
       // Restore the window session for note/tab/chat state (not workspace — URL param handles that).
-      const windowSession = (await getApi()?.multiWindow?.getSession?.()) as WindowSessionLike | null
+      const windowSession =
+        (await getApi()?.multiWindow?.getSession?.()) as WindowSessionLike | null
 
       const workspacePathOverride = urlWorkspace ?? windowSession?.workspacePath ?? null
       const effectiveRoot = workspacePathOverride ?? savedRoot
@@ -475,7 +477,10 @@ export function useNotesAppDisk({
         const persistedNotesByFolder = new Map<string, typeof persisted.notes>()
         for (const n of persisted.notes) {
           let bucket = persistedNotesByFolder.get(n.folder)
-          if (!bucket) { bucket = []; persistedNotesByFolder.set(n.folder, bucket) }
+          if (!bucket) {
+            bucket = []
+            persistedNotesByFolder.set(n.folder, bucket)
+          }
           bucket.push(n)
         }
         const syncMarkdown = ws.syncMarkdown
@@ -483,7 +488,12 @@ export function useNotesAppDisk({
           persisted.folders.map(async (f) => {
             const wsNotes = persistedNotesByFolder.get(f.folder) ?? []
             const files = buildMarkdownSyncPayload(f, wsNotes)
-            const sync = await syncMarkdown({ cwd, folder: f.folder, files, pruneOrphanNoteFiles: true })
+            const sync = await syncMarkdown({
+              cwd,
+              folder: f.folder,
+              files,
+              pruneOrphanNoteFiles: true
+            })
             if (!sync.ok) console.error('[notelab] migration sync failed', sync.error)
           })
         )
@@ -650,43 +660,40 @@ export function useNotesAppDisk({
     }
   }, [noteFlushTimers])
 
-  const handleWorkspaceRootChange = useCallback(async (newRoot: string): Promise<void> => {
-    const ws = getApi()?.workspace
-    if (!ws?.ensureDataRoot || !ws.readNotelabIndex) return
-    const rootR = await ws.ensureDataRoot({ path: newRoot })
-    if (!rootR.ok) return
-    const cwd = rootR.path
-    dataRootRef.current = cwd
-    setDataRootPath(cwd)
-    setWorkspaceRoot(newRoot)
-    // Config always stays in configRoot (~/.notelab), never the user-chosen notes dir
-    await switchDataRoot(rootR.configRoot)
-    setDiskMode(false)
-    setFolders([])
-    setNotes([])
-    setSelectedId(null)
-    setOpenNoteTabIds([])
-    const idxR = await ws.readNotelabIndex({ cwd })
-    if (!idxR.ok) return
-    setDiskMode(true)
-    applyNotelabIndex(idxR, cwd)
-    const allNoteIds = new Set(idxR.notes.map((n) => n.note))
-    await restoreWorkspaceViewAfterIndex(
-      cwd,
-      allNoteIds,
-      null,
-      false,
-      applyWorkspaceViewFromDisk
-    )
-  }, [
-    applyNotelabIndex,
-    applyWorkspaceViewFromDisk,
-    dataRootRef,
-    setFolders,
-    setNotes,
-    setOpenNoteTabIds,
-    setSelectedId
-  ])
+  const handleWorkspaceRootChange = useCallback(
+    async (newRoot: string): Promise<void> => {
+      const ws = getApi()?.workspace
+      if (!ws?.ensureDataRoot || !ws.readNotelabIndex) return
+      const rootR = await ws.ensureDataRoot({ path: newRoot })
+      if (!rootR.ok) return
+      const cwd = rootR.path
+      dataRootRef.current = cwd
+      setDataRootPath(cwd)
+      setWorkspaceRoot(newRoot)
+      // Config always stays in configRoot (~/.notelab), never the user-chosen notes dir
+      await switchDataRoot(rootR.configRoot)
+      setDiskMode(false)
+      setFolders([])
+      setNotes([])
+      setSelectedId(null)
+      setOpenNoteTabIds([])
+      const idxR = await ws.readNotelabIndex({ cwd })
+      if (!idxR.ok) return
+      setDiskMode(true)
+      applyNotelabIndex(idxR, cwd)
+      const allNoteIds = new Set(idxR.notes.map((n) => n.note))
+      await restoreWorkspaceViewAfterIndex(cwd, allNoteIds, null, false, applyWorkspaceViewFromDisk)
+    },
+    [
+      applyNotelabIndex,
+      applyWorkspaceViewFromDisk,
+      dataRootRef,
+      setFolders,
+      setNotes,
+      setOpenNoteTabIds,
+      setSelectedId
+    ]
+  )
 
   return {
     githubRemoteUrl,

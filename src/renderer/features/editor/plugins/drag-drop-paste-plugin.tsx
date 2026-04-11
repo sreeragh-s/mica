@@ -1,4 +1,4 @@
-"use client"
+'use client'
 
 /**
  * Copyright (c) Meta Platforms, Inc. and affiliates.
@@ -7,21 +7,15 @@
  * LICENSE file in the root directory of this source tree.
  *
  */
-import { useEffect } from "react"
-import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext"
-import { DRAG_DROP_PASTE } from "@lexical/rich-text"
-import { isMimeType, mediaFileReader } from "@lexical/utils"
-import { COMMAND_PRIORITY_LOW } from "lexical"
+import { useEffect } from 'react'
+import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext'
+import { DRAG_DROP_PASTE } from '@lexical/rich-text'
+import { isMimeType, mediaFileReader } from '@lexical/utils'
+import { COMMAND_PRIORITY_LOW } from 'lexical'
 
-import { INSERT_IMAGE_COMMAND } from "@/features/editor/plugins/images-plugin"
+import { INSERT_IMAGE_COMMAND } from '@/features/editor/plugins/images-plugin'
 
-const ACCEPTABLE_IMAGE_TYPES = [
-  "image/",
-  "image/heic",
-  "image/heif",
-  "image/gif",
-  "image/webp",
-]
+const ACCEPTABLE_IMAGE_TYPES = ['image/', 'image/heic', 'image/heif', 'image/gif', 'image/webp']
 
 export function DragDropPastePlugin(): null {
   const [editor] = useLexicalComposerContext()
@@ -38,7 +32,7 @@ export function DragDropPastePlugin(): null {
             if (isMimeType(file, ACCEPTABLE_IMAGE_TYPES)) {
               editor.dispatchCommand(INSERT_IMAGE_COMMAND, {
                 altText: file.name,
-                src: result,
+                src: result
               })
             }
           }

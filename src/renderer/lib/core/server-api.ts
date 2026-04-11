@@ -8,10 +8,7 @@ function baseUrl(): string {
 export async function serverFetchJson<T>(
   path: string,
   init?: { method?: string; body?: unknown }
-): Promise<
-  | { ok: true; data: T }
-  | { ok: false; status: number; message: string }
-> {
+): Promise<{ ok: true; data: T } | { ok: false; status: number; message: string }> {
   const api = getApi()
   const b = baseUrl()
   if (!b) {
@@ -21,7 +18,7 @@ export async function serverFetchJson<T>(
   const body = init?.body != null ? JSON.stringify(init.body) : undefined
   const r = await api?.auth?.fetch?.(url, {
     method: init?.method ?? 'GET',
-    body,
+    body
   })
   if (!r) {
     return { ok: false, status: 0, message: 'Auth API unavailable' }

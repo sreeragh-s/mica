@@ -7,15 +7,12 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
-  DropdownMenuTrigger,
+  DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
 import { getApi } from '@/lib/auth/auth-bridge'
 import { loadSetupState, saveSetupState } from '@/lib/workspace/setup-storage'
-import {
-  loadWorkspaces,
-  upsertWorkspace,
-} from '@/lib/config/notelab-app-config'
+import { loadWorkspaces, upsertWorkspace } from '@/lib/config/notelab-app-config'
 import type { SavedWorkspace } from '@/lib/config/notelab-config-schema'
 
 export function deriveName(path: string): string {
@@ -36,7 +33,7 @@ export function WorkspaceSwitcher({
   workspaceRoot,
   isMacNotelab,
   onWorkspaceRootChange,
-  className,
+  className
 }: WorkspaceSwitcherProps): JSX.Element {
   // Initialise from cache synchronously — cache is already hydrated by App.tsx before this mounts.
   const [workspaces, setWorkspaces] = useState<SavedWorkspace[]>(loadWorkspaces)
@@ -53,21 +50,24 @@ export function WorkspaceSwitcher({
     refresh()
   }, [workspaceRoot, refresh])
 
-  const handleSelect = useCallback(async (ws: SavedWorkspace) => {
-    if (ws.path === workspaceRoot) return
-    const api = getApi()
-    if (!api?.workspace?.ensureDataRoot) return
-    const r = await api.workspace.ensureDataRoot({ path: ws.path })
-    if (!r.ok) return
-    saveSetupState({
-      ...loadSetupState(),
-      workspaceRoot: ws.path,
-      syncMode: r.gitInitialized ? 'git' : 'local',
-    })
-    upsertWorkspace({ path: ws.path, name: ws.name })
-    refresh()
-    await onWorkspaceRootChange(ws.path)
-  }, [workspaceRoot, onWorkspaceRootChange, refresh])
+  const handleSelect = useCallback(
+    async (ws: SavedWorkspace) => {
+      if (ws.path === workspaceRoot) return
+      const api = getApi()
+      if (!api?.workspace?.ensureDataRoot) return
+      const r = await api.workspace.ensureDataRoot({ path: ws.path })
+      if (!r.ok) return
+      saveSetupState({
+        ...loadSetupState(),
+        workspaceRoot: ws.path,
+        syncMode: r.gitInitialized ? 'git' : 'local'
+      })
+      upsertWorkspace({ path: ws.path, name: ws.name })
+      refresh()
+      await onWorkspaceRootChange(ws.path)
+    },
+    [workspaceRoot, onWorkspaceRootChange, refresh]
+  )
 
   const handleAddWorkspace = useCallback(async () => {
     const api = getApi()
@@ -85,7 +85,7 @@ export function WorkspaceSwitcher({
       saveSetupState({
         ...loadSetupState(),
         workspaceRoot: path,
-        syncMode: r.gitInitialized ? 'git' : 'local',
+        syncMode: r.gitInitialized ? 'git' : 'local'
       })
       await onWorkspaceRootChange(path)
     } finally {
@@ -110,7 +110,7 @@ export function WorkspaceSwitcher({
           'pointer-events-auto flex h-8 w-full items-center justify-between gap-1.5 rounded-md px-2 text-left text-sm font-medium hover:bg-accent hover:text-accent-foreground focus:outline-none',
           className
         )}
-        style={isMacNotelab ? { WebkitAppRegion: 'no-drag' } as CSSProperties : undefined}
+        style={isMacNotelab ? ({ WebkitAppRegion: 'no-drag' } as CSSProperties) : undefined}
         data-sidebar-interactive=""
       >
         <span className="min-w-0 truncate">{currentName}</span>

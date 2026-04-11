@@ -53,6 +53,6 @@ export function useBillingStatus(): UseBillingStatusResult {
     isLoading,
     canChat,
     creditsLow,
-    refresh: () => void fetchStatus(),
+    refresh: () => void fetchStatus()
   }
 }

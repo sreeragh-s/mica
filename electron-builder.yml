@@ -20,7 +20,7 @@ nsis:
   createDesktopShortcut: always
 mac:
   # Developer ID signs the app and nested frameworks with one team (avoids dyld Team ID mismatch).
-  identity: "Sreeragh Sugathan (UVVA2Z9ZFH)"
+  identity: 'Sreeragh Sugathan (UVVA2Z9ZFH)'
   entitlementsInherit: build/entitlements.mac.plist
   extendInfo:
     - NSCameraUsageDescription: Application requests access to the device's camera.

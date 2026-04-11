@@ -66,7 +66,8 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
   const selectedJournalNote = useMemo(
     () =>
       notes.find(
-        (note) => note.folder === JOURNAL_FOLDER_ID && getJournalNoteDate(note) === journalTimelineDate
+        (note) =>
+          note.folder === JOURNAL_FOLDER_ID && getJournalNoteDate(note) === journalTimelineDate
       ) ?? null,
     [notes, journalTimelineDate]
   )

@@ -1,6 +1,4 @@
-export type AuthSessionPayload =
-  | { session: unknown; user: unknown }
-  | null
+export type AuthSessionPayload = { session: unknown; user: unknown } | null
 
 export type EmbeddingsFilter = {
   $eq?: number | string | boolean
@@ -39,7 +37,7 @@ export type NotelabWindowApi = {
 }
 
 export function getWindowApi(): NotelabWindowApi | null {
-  if (typeof window === "undefined") return null
+  if (typeof window === 'undefined') return null
   const w = window as Window & { api?: { window?: NotelabWindowApi } }
   return w.api?.window ?? null
 }
@@ -51,8 +49,7 @@ export type NotelabApi = {
   }
   auth: {
     getSession: () => Promise<
-      | { ok: true; data: AuthSessionPayload }
-      | { ok: false; error?: string }
+      { ok: true; data: AuthSessionPayload } | { ok: false; error?: string }
     >
     signInWithGithub: () => Promise<{ user: unknown }>
     signOut: () => Promise<{ ok: boolean }>
@@ -66,10 +63,7 @@ export type NotelabApi = {
     ) => Promise<{ ok: boolean; status: number; body: string }>
   }
   workspace?: {
-    checkGit?: () => Promise<
-      | { ok: true; version: string }
-      | { ok: false; error: string }
-    >
+    checkGit?: () => Promise<{ ok: true; version: string } | { ok: false; error: string }>
     ensureDataRoot?: (payload?: { path?: string }) => Promise<
       | {
           ok: true
@@ -96,7 +90,9 @@ export type NotelabApi = {
       cwd: string
       url: string
     }) => Promise<{ ok: true } | { ok: false; error: string }>
-    gitCheckConfig?: (payload: { cwd: string }) => Promise<
+    gitCheckConfig?: (payload: {
+      cwd: string
+    }) => Promise<
       | { ok: true; hasName: boolean; hasEmail: boolean; name: string | null; email: string | null }
       | { ok: false; error: string }
     >
@@ -111,9 +107,7 @@ export type NotelabApi = {
       files: { relativePath: string; content: string }[]
       pruneOrphanNoteFiles?: boolean
     }) => Promise<{ ok: true } | { ok: false; error: string }>
-    readNotelabIndex: (payload: {
-      cwd: string
-    }) => Promise<
+    readNotelabIndex: (payload: { cwd: string }) => Promise<
       | {
           ok: true
           folders: { folder: string; name: string }[]
@@ -123,7 +117,7 @@ export type NotelabApi = {
             title: string
             updatedAtMs: number
             markdownBody: string
-            kind: "note" | "drawing"
+            kind: 'note' | 'drawing'
             coverImageSrc?: string
             titleEmoji?: string
             properties?: Record<string, string | string[]>
@@ -164,16 +158,10 @@ export type NotelabApi = {
     }) => Promise<{ ok: true } | { ok: false; error: string }>
     gitPull: (payload: {
       cwd: string
-    }) => Promise<
-      | { ok: true; stdout: string }
-      | { ok: false; error: string }
-    >
+    }) => Promise<{ ok: true; stdout: string } | { ok: false; error: string }>
     gitPush: (payload: {
       cwd: string
-    }) => Promise<
-      | { ok: true; stdout: string }
-      | { ok: false; error: string }
-    >
+    }) => Promise<{ ok: true; stdout: string } | { ok: false; error: string }>
     gitFileStatuses?: (payload: { cwd: string }) => Promise<
       | {
           ok: true
@@ -204,7 +192,7 @@ export type NotelabApi = {
     gitAcceptResolution?: (payload: {
       cwd: string
       path: string
-      resolution: "ours" | "theirs" | "content"
+      resolution: 'ours' | 'theirs' | 'content'
       content?: string
     }) => Promise<{ ok: true } | { ok: false; error: string }>
     gitStageFile?: (payload: {
@@ -229,10 +217,7 @@ export type NotelabApi = {
     }) => Promise<{ ok: true } | { ok: false; error: string }>
     readAppConfig?: (payload: {
       cwd: string
-    }) => Promise<
-      | { ok: true; content: string | null }
-      | { ok: false; error: string }
-    >
+    }) => Promise<{ ok: true; content: string | null } | { ok: false; error: string }>
     writeAppConfig?: (payload: {
       cwd: string
       config: unknown
@@ -288,27 +273,18 @@ export type NotelabApi = {
       maxTokens?: number
       filter?: EmbeddingsFilter
       isBm25?: boolean
-    }) => Promise<
-      | { ok: true; rows: EmbeddingsSearchRow[] }
-      | { ok: false; error: string }
-    >
+    }) => Promise<{ ok: true; rows: EmbeddingsSearchRow[] } | { ok: false; error: string }>
     deleteNoteDocument: (payload: {
       workspacePath: string
       note: string
-    }) => Promise<
-      | { ok: true; deleted: boolean }
-      | { ok: false; error: string }
-    >
+    }) => Promise<{ ok: true; deleted: boolean } | { ok: false; error: string }>
     deleteWorkspaceDocuments: (payload: {
       workspacePath: string
       workspaceId: string
     }) => Promise<
-      | { ok: true; deleted: boolean; deletedCount: number }
-      | { ok: false; error: string }
+      { ok: true; deleted: boolean; deletedCount: number } | { ok: false; error: string }
     >
-    dumpIndex?: (payload: {
-      workspacePath: string
-    }) => Promise<
+    dumpIndex?: (payload: { workspacePath: string }) => Promise<
       | {
           ok: true
           indexPath: string
@@ -327,7 +303,7 @@ export type NotelabApi = {
 }
 
 export function getApi(): NotelabApi | null {
-  if (typeof window === "undefined") return null
+  if (typeof window === 'undefined') return null
   const w = window as Window & { api?: NotelabApi }
   if (!w.api?.auth) return null
   return w.api

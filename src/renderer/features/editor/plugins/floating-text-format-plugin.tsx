@@ -1,4 +1,4 @@
-"use client"
+'use client'
 
 /**
  * Copyright (c) Meta Platforms, Inc. and affiliates.
@@ -15,12 +15,12 @@ import {
   useEffect,
   useMemo,
   useRef,
-  useState,
-} from "react"
-import { $isCodeHighlightNode } from "@lexical/code"
-import { $isLinkNode, $toggleLink, TOGGLE_LINK_COMMAND } from "@lexical/link"
-import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext"
-import { mergeRegister } from "@lexical/utils"
+  useState
+} from 'react'
+import { $isCodeHighlightNode } from '@lexical/code'
+import { $isLinkNode, $toggleLink, TOGGLE_LINK_COMMAND } from '@lexical/link'
+import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext'
+import { mergeRegister } from '@lexical/utils'
 import {
   $getSelection,
   $isParagraphNode,
@@ -31,8 +31,8 @@ import {
   COMMAND_PRIORITY_LOW,
   FORMAT_TEXT_COMMAND,
   LexicalEditor,
-  SELECTION_CHANGE_COMMAND,
-} from "lexical"
+  SELECTION_CHANGE_COMMAND
+} from 'lexical'
 import {
   BoldIcon,
   CodeIcon,
@@ -40,28 +40,21 @@ import {
   LinkIcon,
   NotebookText,
   StrikethroughIcon,
-  UnderlineIcon,
-} from "lucide-react"
-import { createPortal } from "react-dom"
+  UnderlineIcon
+} from 'lucide-react'
+import { createPortal } from 'react-dom'
 
-import { useNotelabEditorContext } from "@/features/editor/notelab-editor-context"
-import { NoteLinkPickerList } from "@/features/editor/note-link-picker"
-import { filterLinkableNotes } from "@/features/editor/obsidian-link-utils"
-import { getDOMRangeRect } from "@/features/editor/utils/get-dom-range-rect"
-import { getSelectedNode } from "@/features/editor/utils/get-selected-node"
-import { setFloatingElemPosition } from "@/features/editor/utils/set-floating-elem-position"
-import { Button } from "@/components/ui/button"
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover"
-import { Separator } from "@/components/ui/separator"
-import { buildInternalNoteLinkHref } from "@/lib/notes/internal-note-link"
-import {
-  ToggleGroup,
-  ToggleGroupItem,
-} from "@/components/ui/toggle-group"
+import { useNotelabEditorContext } from '@/features/editor/notelab-editor-context'
+import { NoteLinkPickerList } from '@/features/editor/note-link-picker'
+import { filterLinkableNotes } from '@/features/editor/obsidian-link-utils'
+import { getDOMRangeRect } from '@/features/editor/utils/get-dom-range-rect'
+import { getSelectedNode } from '@/features/editor/utils/get-selected-node'
+import { setFloatingElemPosition } from '@/features/editor/utils/set-floating-elem-position'
+import { Button } from '@/components/ui/button'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Separator } from '@/components/ui/separator'
+import { buildInternalNoteLinkHref } from '@/lib/notes/internal-note-link'
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 
 function FloatingTextFormat({
   editor,
@@ -74,7 +67,7 @@ function FloatingTextFormat({
   isStrikethrough,
   setIsLinkEditMode,
   noteLinkMenuOpen,
-  setNoteLinkMenuOpen,
+  setNoteLinkMenuOpen
 }: {
   editor: LexicalEditor
   anchorElem: HTMLElement
@@ -93,7 +86,7 @@ function FloatingTextFormat({
   const insertLink = useCallback(() => {
     if (!isLink) {
       setIsLinkEditMode(true)
-      editor.dispatchCommand(TOGGLE_LINK_COMMAND, "https://")
+      editor.dispatchCommand(TOGGLE_LINK_COMMAND, 'https://')
     } else {
       setIsLinkEditMode(false)
       editor.dispatchCommand(TOGGLE_LINK_COMMAND, null)
@@ -101,30 +94,25 @@ function FloatingTextFormat({
   }, [editor, isLink, setIsLinkEditMode])
 
   const notelabCtx = useNotelabEditorContext()
-  const [noteSearch, setNoteSearch] = useState("")
+  const [noteSearch, setNoteSearch] = useState('')
   const savedSelectionRef = useRef<BaseSelection | null>(null)
 
   const saveSelectionForNoteLink = useCallback(() => {
     editor.getEditorState().read(() => {
       const s = $getSelection()
-      savedSelectionRef.current =
-        s !== null && $isRangeSelection(s) ? s.clone() : null
+      savedSelectionRef.current = s !== null && $isRangeSelection(s) ? s.clone() : null
     })
   }, [editor])
 
   const linkableNotes = useMemo(() => {
     if (!notelabCtx) return []
-    return filterLinkableNotes(
-      notelabCtx,
-      noteSearch,
-      notelabCtx.currentNoteId
-    )
+    return filterLinkableNotes(notelabCtx, noteSearch, notelabCtx.currentNoteId)
   }, [notelabCtx, noteSearch])
 
   const applyInternalNoteLink = useCallback(
     (notePath: string) => {
       setNoteLinkMenuOpen(false)
-      setNoteSearch("")
+      setNoteSearch('')
       editor.update(() => {
         const saved = savedSelectionRef.current
         if (saved !== null && $isRangeSelection(saved)) {
@@ -139,26 +127,23 @@ function FloatingTextFormat({
   )
 
   function mouseMoveListener(e: MouseEvent) {
-    if (
-      popupCharStylesEditorRef?.current &&
-      (e.buttons === 1 || e.buttons === 3)
-    ) {
-      if (popupCharStylesEditorRef.current.style.pointerEvents !== "none") {
+    if (popupCharStylesEditorRef?.current && (e.buttons === 1 || e.buttons === 3)) {
+      if (popupCharStylesEditorRef.current.style.pointerEvents !== 'none') {
         const x = e.clientX
         const y = e.clientY
         const elementUnderMouse = document.elementFromPoint(x, y)
 
         if (!popupCharStylesEditorRef.current.contains(elementUnderMouse)) {
           // Mouse is not over the target element => not a normal click, but probably a drag
-          popupCharStylesEditorRef.current.style.pointerEvents = "none"
+          popupCharStylesEditorRef.current.style.pointerEvents = 'none'
         }
       }
     }
   }
   function mouseUpListener(_e: MouseEvent) {
     if (popupCharStylesEditorRef?.current) {
-      if (popupCharStylesEditorRef.current.style.pointerEvents !== "auto") {
-        popupCharStylesEditorRef.current.style.pointerEvents = "auto"
+      if (popupCharStylesEditorRef.current.style.pointerEvents !== 'auto') {
+        popupCharStylesEditorRef.current.style.pointerEvents = 'auto'
       }
     }
   }
@@ -167,12 +152,12 @@ function FloatingTextFormat({
     if (!popupCharStylesEditorRef?.current) {
       return undefined
     }
-    document.addEventListener("mousemove", mouseMoveListener)
-    document.addEventListener("mouseup", mouseUpListener)
+    document.addEventListener('mousemove', mouseMoveListener)
+    document.addEventListener('mouseup', mouseUpListener)
 
     return () => {
-      document.removeEventListener("mousemove", mouseMoveListener)
-      document.removeEventListener("mouseup", mouseUpListener)
+      document.removeEventListener('mousemove', mouseMoveListener)
+      document.removeEventListener('mouseup', mouseUpListener)
     }
   }, [popupCharStylesEditorRef])
 
@@ -196,12 +181,7 @@ function FloatingTextFormat({
     ) {
       const rangeRect = getDOMRangeRect(nativeSelection, rootElement)
 
-      setFloatingElemPosition(
-        rangeRect,
-        popupCharStylesEditorElem,
-        anchorElem,
-        isLink
-      )
+      setFloatingElemPosition(rangeRect, popupCharStylesEditorElem, anchorElem, isLink)
     }
   }, [editor, anchorElem, isLink])
 
@@ -214,15 +194,15 @@ function FloatingTextFormat({
       })
     }
 
-    window.addEventListener("resize", update)
+    window.addEventListener('resize', update)
     if (scrollerElem) {
-      scrollerElem.addEventListener("scroll", update)
+      scrollerElem.addEventListener('scroll', update)
     }
 
     return () => {
-      window.removeEventListener("resize", update)
+      window.removeEventListener('resize', update)
       if (scrollerElem) {
-        scrollerElem.removeEventListener("scroll", update)
+        scrollerElem.removeEventListener('scroll', update)
       }
     }
   }, [editor, $updateTextFormatFloatingToolbar, anchorElem])
@@ -259,19 +239,19 @@ function FloatingTextFormat({
           <ToggleGroup
             type="multiple"
             defaultValue={[
-              isBold ? "bold" : "",
-              isItalic ? "italic" : "",
-              isUnderline ? "underline" : "",
-              isStrikethrough ? "strikethrough" : "",
-              isCode ? "code" : "",
-              isLink ? "link" : "",
+              isBold ? 'bold' : '',
+              isItalic ? 'italic' : '',
+              isUnderline ? 'underline' : '',
+              isStrikethrough ? 'strikethrough' : '',
+              isCode ? 'code' : '',
+              isLink ? 'link' : ''
             ]}
           >
             <ToggleGroupItem
               value="bold"
               aria-label="Toggle bold"
               onClick={() => {
-                editor.dispatchCommand(FORMAT_TEXT_COMMAND, "bold")
+                editor.dispatchCommand(FORMAT_TEXT_COMMAND, 'bold')
               }}
               size="sm"
             >
@@ -281,7 +261,7 @@ function FloatingTextFormat({
               value="italic"
               aria-label="Toggle italic"
               onClick={() => {
-                editor.dispatchCommand(FORMAT_TEXT_COMMAND, "italic")
+                editor.dispatchCommand(FORMAT_TEXT_COMMAND, 'italic')
               }}
               size="sm"
             >
@@ -291,7 +271,7 @@ function FloatingTextFormat({
               value="underline"
               aria-label="Toggle underline"
               onClick={() => {
-                editor.dispatchCommand(FORMAT_TEXT_COMMAND, "underline")
+                editor.dispatchCommand(FORMAT_TEXT_COMMAND, 'underline')
               }}
               size="sm"
             >
@@ -301,7 +281,7 @@ function FloatingTextFormat({
               value="strikethrough"
               aria-label="Toggle strikethrough"
               onClick={() => {
-                editor.dispatchCommand(FORMAT_TEXT_COMMAND, "strikethrough")
+                editor.dispatchCommand(FORMAT_TEXT_COMMAND, 'strikethrough')
               }}
               size="sm"
             >
@@ -312,33 +292,25 @@ function FloatingTextFormat({
               value="code"
               aria-label="Toggle code"
               onClick={() => {
-                editor.dispatchCommand(FORMAT_TEXT_COMMAND, "code")
+                editor.dispatchCommand(FORMAT_TEXT_COMMAND, 'code')
               }}
               size="sm"
             >
               <CodeIcon className="h-4 w-4" />
             </ToggleGroupItem>
-            <ToggleGroupItem
-              value="link"
-              aria-label="Toggle link"
-              onClick={insertLink}
-              size="sm"
-            >
+            <ToggleGroupItem value="link" aria-label="Toggle link" onClick={insertLink} size="sm">
               <LinkIcon className="h-4 w-4" />
             </ToggleGroupItem>
           </ToggleGroup>
           {notelabCtx ? (
             <>
-              <Separator
-                orientation="vertical"
-                className="mx-0.5 h-6 self-center"
-              />
+              <Separator orientation="vertical" className="mx-0.5 h-6 self-center" />
               <Popover
                 modal={false}
                 open={noteLinkMenuOpen}
                 onOpenChange={(open) => {
                   setNoteLinkMenuOpen(open)
-                  if (!open) setNoteSearch("")
+                  if (!open) setNoteSearch('')
                 }}
               >
                 <PopoverTrigger asChild>
@@ -420,11 +392,11 @@ function useFloatingTextFormatToolbar(
       const node = getSelectedNode(selection)
 
       // Update text format
-      setIsBold(selection.hasFormat("bold"))
-      setIsItalic(selection.hasFormat("italic"))
-      setIsUnderline(selection.hasFormat("underline"))
-      setIsStrikethrough(selection.hasFormat("strikethrough"))
-      setIsCode(selection.hasFormat("code"))
+      setIsBold(selection.hasFormat('bold'))
+      setIsItalic(selection.hasFormat('italic'))
+      setIsUnderline(selection.hasFormat('underline'))
+      setIsStrikethrough(selection.hasFormat('strikethrough'))
+      setIsCode(selection.hasFormat('code'))
 
       // Update links
       const parent = node.getParent()
@@ -434,17 +406,14 @@ function useFloatingTextFormatToolbar(
         setIsLink(false)
       }
 
-      if (
-        !$isCodeHighlightNode(selection.anchor.getNode()) &&
-        selection.getTextContent() !== ""
-      ) {
+      if (!$isCodeHighlightNode(selection.anchor.getNode()) && selection.getTextContent() !== '') {
         setIsText($isTextNode(node) || $isParagraphNode(node))
       } else {
         setIsText(false)
       }
 
-      const rawTextContent = selection.getTextContent().replace(/\n/g, "")
-      if (!selection.isCollapsed() && rawTextContent === "") {
+      const rawTextContent = selection.getTextContent().replace(/\n/g, '')
+      if (!selection.isCollapsed() && rawTextContent === '') {
         setIsText(false)
         return
       }
@@ -452,9 +421,9 @@ function useFloatingTextFormatToolbar(
   }, [editor])
 
   useEffect(() => {
-    document.addEventListener("selectionchange", updatePopup)
+    document.addEventListener('selectionchange', updatePopup)
     return () => {
-      document.removeEventListener("selectionchange", updatePopup)
+      document.removeEventListener('selectionchange', updatePopup)
     }
   }, [updatePopup])
 
@@ -495,7 +464,7 @@ function useFloatingTextFormatToolbar(
 
 export function FloatingTextFormatToolbarPlugin({
   anchorElem,
-  setIsLinkEditMode,
+  setIsLinkEditMode
 }: {
   anchorElem: HTMLDivElement | null
   setIsLinkEditMode: Dispatch<boolean>

@@ -17,12 +17,7 @@ export default function simpleDiffWithCursor(
   let right = 0 // number of same characters counting from right
   // Iterate left to the right until we find a changed character
   // First iteration considers the current cursor position
-  while (
-    left < aLength &&
-    left < bLength &&
-    a[left] === b[left] &&
-    left < cursor
-  ) {
+  while (left < aLength && left < bLength && a[left] === b[left] && left < cursor) {
     left++
   }
   // Iterate right to the left until we find a changed character
@@ -34,16 +29,12 @@ export default function simpleDiffWithCursor(
     right++
   }
   // Try to iterate left further to the right without caring about the current cursor position
-  while (
-    right + left < aLength &&
-    right + left < bLength &&
-    a[left] === b[left]
-  ) {
+  while (right + left < aLength && right + left < bLength && a[left] === b[left]) {
     left++
   }
   return {
     index: left,
     insert: b.slice(left, bLength - right),
-    remove: aLength - left - right,
+    remove: aLength - left - right
   }
 }

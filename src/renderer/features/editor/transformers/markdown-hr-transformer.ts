@@ -1,15 +1,15 @@
-import { ElementTransformer } from "@lexical/markdown"
+import { ElementTransformer } from '@lexical/markdown'
 import {
   $createHorizontalRuleNode,
   $isHorizontalRuleNode,
-  HorizontalRuleNode,
-} from "@lexical/react/LexicalHorizontalRuleNode"
-import { LexicalNode } from "lexical"
+  HorizontalRuleNode
+} from '@lexical/react/LexicalHorizontalRuleNode'
+import { LexicalNode } from 'lexical'
 
 export const HR: ElementTransformer = {
   dependencies: [HorizontalRuleNode],
   export: (node: LexicalNode) => {
-    return $isHorizontalRuleNode(node) ? "***" : null
+    return $isHorizontalRuleNode(node) ? '***' : null
   },
   regExp: /^(---|\*\*\*|___)\s?$/,
   replace: (parentNode, _1, _2, isImport) => {
@@ -24,5 +24,5 @@ export const HR: ElementTransformer = {
 
     line.selectNext()
   },
-  type: "element",
+  type: 'element'
 }

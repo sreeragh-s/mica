@@ -1,21 +1,21 @@
-import { $createHeadingNode } from "@lexical/rich-text"
-import { $setBlocksType } from "@lexical/selection"
-import { $getSelection, $isRangeSelection } from "lexical"
-import { Heading1Icon, Heading2Icon, Heading3Icon } from "lucide-react"
+import { $createHeadingNode } from '@lexical/rich-text'
+import { $setBlocksType } from '@lexical/selection'
+import { $getSelection, $isRangeSelection } from 'lexical'
+import { Heading1Icon, Heading2Icon, Heading3Icon } from 'lucide-react'
 
-import { ComponentPickerOption } from "@/features/editor/plugins/picker/component-picker-option"
+import { ComponentPickerOption } from '@/features/editor/plugins/picker/component-picker-option'
 
 export function HeadingPickerPlugin({ n }: { n: 1 | 2 | 3 }) {
   return new ComponentPickerOption(`Heading ${n}`, {
     icon: <HeadingIcons n={n} />,
-    keywords: ["heading", "header", `h${n}`],
+    keywords: ['heading', 'header', `h${n}`],
     onSelect: (_, editor) =>
       editor.update(() => {
         const selection = $getSelection()
         if ($isRangeSelection(selection)) {
           $setBlocksType(selection, () => $createHeadingNode(`h${n}`))
         }
-      }),
+      })
   })
 }
 

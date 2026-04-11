@@ -15,9 +15,19 @@ import {
   type TreeRenameConfig
 } from '@/components/ui/tree'
 import { cn } from '@/lib/utils'
-import { DEFAULT_WORKSPACE_ID, formatNoteTime, type Folder, type SavedNote } from '@/lib/notes/notes-storage'
+import {
+  DEFAULT_WORKSPACE_ID,
+  formatNoteTime,
+  type Folder,
+  type SavedNote
+} from '@/lib/notes/notes-storage'
 import { NoteLeadingIcon } from '@/features/notes/sidebar/NoteLeadingIcon'
-import { FOLDER_DRAG_MIME, NOTE_DRAG_MIME, treeFolderPath, treeNotePath } from '@/features/notes/notes-app-utils'
+import {
+  FOLDER_DRAG_MIME,
+  NOTE_DRAG_MIME,
+  treeFolderPath,
+  treeNotePath
+} from '@/features/notes/notes-app-utils'
 import type { NotesAppViewModel } from '@/features/notes/app-state/useNotesApp'
 
 export type SidebarExplorerTreeProps = {
@@ -32,9 +42,7 @@ export type SidebarExplorerTreeProps = {
   notesByFolder: NotesAppViewModel['notesByFolder']
   dropTargetFolderId: string | null
   folderDropAtEnd: boolean
-  onFolderSectionDragOverCapture: (
-    targetFolderId: string
-  ) => (e: DragEvent<HTMLDivElement>) => void
+  onFolderSectionDragOverCapture: (targetFolderId: string) => (e: DragEvent<HTMLDivElement>) => void
   onFolderSectionDropCapture: (targetFolderId: string) => (e: DragEvent<HTMLDivElement>) => void
   onFolderStripDragOver: (e: DragEvent) => void
   onFolderStripDragLeave: () => void
@@ -294,12 +302,7 @@ export function SidebarExplorerTree({
                     const noteTreeId = treeNotePath(note.path)
                     const isRenaming = renamingNodeId === noteTreeId
                     return (
-                      <TreeNode
-                        key={note.path}
-                        nodeId={noteTreeId}
-                        level={1}
-                        isLast={isLastNote}
-                      >
+                      <TreeNode key={note.path} nodeId={noteTreeId} level={1} isLast={isLastNote}>
                         <div
                           ref={(el) => bindSelectedNoteRowRef(el, note.path)}
                           className="min-w-0 w-full"

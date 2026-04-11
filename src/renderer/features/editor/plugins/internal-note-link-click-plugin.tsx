@@ -1,10 +1,13 @@
-"use client"
+'use client'
 
-import { useEffect } from "react"
-import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext"
+import { useEffect } from 'react'
+import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext'
 
-import { useNotelabEditorContext } from "@/features/editor/notelab-editor-context"
-import { parseInternalNotePathFromHref, parseInternalNoteSubpathFromHref } from "@/lib/notes/internal-note-link"
+import { useNotelabEditorContext } from '@/features/editor/notelab-editor-context'
+import {
+  parseInternalNotePathFromHref,
+  parseInternalNoteSubpathFromHref
+} from '@/lib/notes/internal-note-link'
 
 /**
  * Intercepts clicks on internal #notelab/note/… links before Lexical's default
@@ -25,14 +28,12 @@ export function InternalNoteLinkClickPlugin(): null {
         if (e.button !== 0) return
         const t = e.target
         if (!(t instanceof Node)) return
-        const anchor =
-          t instanceof Element ? t.closest("a[href]") : null
+        const anchor = t instanceof Element ? t.closest('a[href]') : null
         if (!anchor) return
-        const raw = anchor.getAttribute("href") ?? ""
+        const raw = anchor.getAttribute('href') ?? ''
         const resolved = (anchor as HTMLAnchorElement).href || raw
         const href = resolved || raw
-        const id =
-          parseInternalNotePathFromHref(resolved) ?? parseInternalNotePathFromHref(raw)
+        const id = parseInternalNotePathFromHref(resolved) ?? parseInternalNotePathFromHref(raw)
         if (!id) return
         e.preventDefault()
         e.stopPropagation()
@@ -40,9 +41,9 @@ export function InternalNoteLinkClickPlugin(): null {
         onOpen(id, subpath || undefined)
       }
 
-      rootElement.addEventListener("click", onClickCapture, true)
+      rootElement.addEventListener('click', onClickCapture, true)
       return () => {
-        rootElement.removeEventListener("click", onClickCapture, true)
+        rootElement.removeEventListener('click', onClickCapture, true)
       }
     })
   }, [editor, ctx?.onOpenInternalNote])

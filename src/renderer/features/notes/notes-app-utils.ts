@@ -36,7 +36,7 @@ export function createEmptyNote(folder: string, notePath: string): SavedNote {
     title: notePath.split('/').pop()?.replace(/\.md$/i, '') ?? 'Untitled',
     kind: 'note',
     properties: {},
-    hasFrontmatterBlock: true,
+    hasFrontmatterBlock: true
   }
 }
 
@@ -70,10 +70,7 @@ export const NOTE_DRAG_MIME = 'application/x-notelab-note-id'
 /** DataTransfer type for reordering workspace folders in the sidebar. */
 export const FOLDER_DRAG_MIME = 'application/x-notelab-folder-id'
 
-export function mergeFolderOrder(
-  diskFolders: Folder[],
-  preferredOrder: string[]
-): Folder[] {
+export function mergeFolderOrder(diskFolders: Folder[], preferredOrder: string[]): Folder[] {
   const byFolder = new Map(diskFolders.map((workspace) => [workspace.folder, workspace]))
   const out: Folder[] = []
   const seenFolders = new Set<string>()

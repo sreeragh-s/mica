@@ -1,13 +1,13 @@
-"use client"
+'use client'
 
 /**
  * When clipboard HTML wraps content in <pre>/<code> (common for copied markdown),
  * Lexical's default rich-text paste imports it as a CodeNode. This plugin detects
  * markdown-shaped plain text and inserts via $convertFromMarkdownString instead.
  */
-import { $generateNodesFromSerializedNodes, $insertGeneratedNodes } from "@lexical/clipboard"
-import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext"
-import { eventFiles } from "@lexical/rich-text"
+import { $generateNodesFromSerializedNodes, $insertGeneratedNodes } from '@lexical/clipboard'
+import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext'
+import { eventFiles } from '@lexical/rich-text'
 import {
   $getSelection,
   $isRangeSelection,
@@ -16,11 +16,11 @@ import {
   isDOMNode,
   isSelectionCapturedInDecoratorInput,
   PASTE_COMMAND,
-  type SerializedLexicalNode,
-} from "lexical"
-import { useEffect } from "react"
+  type SerializedLexicalNode
+} from 'lexical'
+import { useEffect } from 'react'
 
-import { markdownToSerializedState } from "@/lib/editor/markdown-to-serialized"
+import { markdownToSerializedState } from '@/lib/editor/markdown-to-serialized'
 
 /**
  * `PASTE_COMMAND` is fired with a ClipboardEvent from the `paste` listener, but also with an
@@ -42,15 +42,15 @@ function getPasteDataTransfer(event: Event): DataTransfer | null {
 
 /** Plain text: prefer `text/plain`, else strip `text/html` (some stacks omit plain on paste). */
 function getClipboardPlainText(dt: DataTransfer): string {
-  let plain = dt.getData("text/plain").replace(/^\uFEFF/, "")
+  let plain = dt.getData('text/plain').replace(/^\uFEFF/, '')
   if (plain.trim()) return plain
-  const html = dt.getData("text/html")
-  if (!html.trim()) return ""
+  const html = dt.getData('text/html')
+  if (!html.trim()) return ''
   try {
-    const doc = new DOMParser().parseFromString(html, "text/html")
-    return (doc.body?.textContent ?? "").replace(/^\uFEFF/, "")
+    const doc = new DOMParser().parseFromString(html, 'text/html')
+    return (doc.body?.textContent ?? '').replace(/^\uFEFF/, '')
   } catch {
-    return ""
+    return ''
   }
 }
 
@@ -65,7 +65,7 @@ function looksLikeMarkdownDocument(text: string): boolean {
   if (/(^|\n)>\s/.test(text)) return true
   if (/\[[^\]]+\]\([^)]+\)/.test(text)) return true
   if (/\*\*[^*\n]+?\*\*/.test(text)) return true
-  const lines = text.split("\n")
+  const lines = text.split('\n')
   if (lines.filter((l) => /^\s*[-*+]\s+\S/.test(l)).length >= 2) return true
   if (lines.filter((l) => /^\s*\d+\.\s+\S/.test(l)).length >= 2) return true
   return false
@@ -77,19 +77,16 @@ function looksLikeMarkdownDocument(text: string): boolean {
  */
 function isPreformattedHtmlWrapper(html: string): boolean {
   const h = html.toLowerCase()
-  if (h.includes("<pre") || h.includes("<code")) return true
+  if (h.includes('<pre') || h.includes('<code')) return true
   if (/white-space\s*:\s*pre(?:-wrap|-line)?\b/.test(html)) return true
   return false
 }
 
-function shouldPasteMarkdownAsRichText(
-  html: string | undefined,
-  plain: string
-): boolean {
+function shouldPasteMarkdownAsRichText(html: string | undefined, plain: string): boolean {
   const text = plain.trim()
   if (!text) return false
 
-  const htmlTrim = html?.trim() ?? ""
+  const htmlTrim = html?.trim() ?? ''
   if (CODE_LANG_BLOCKLIST.test(htmlTrim)) return false
 
   // Prefer rendered markdown whenever the plain text looks like Markdown.
@@ -111,17 +108,14 @@ export function MarkdownPastePlugin(): null {
       (event: Event) => {
         const [, files, hasTextContent] = eventFiles(event as PasteCommandType)
         if (files.length > 0 && !hasTextContent) return false
-        if (
-          isDOMNode(event.target) &&
-          isSelectionCapturedInDecoratorInput(event.target)
-        ) {
+        if (isDOMNode(event.target) && isSelectionCapturedInDecoratorInput(event.target)) {
           return false
         }
 
         const data = getPasteDataTransfer(event)
         if (!data) return false
 
-        const lexicalPaste = data.getData("application/x-lexical-editor")
+        const lexicalPaste = data.getData('application/x-lexical-editor')
         if (lexicalPaste) {
           try {
             const payload = JSON.parse(lexicalPaste) as { namespace?: string }
@@ -131,7 +125,7 @@ export function MarkdownPastePlugin(): null {
           }
         }
 
-        const html = data.getData("text/html")
+        const html = data.getData('text/html')
         const plain = getClipboardPlainText(data)
         if (!shouldPasteMarkdownAsRichText(html, plain)) {
           return false

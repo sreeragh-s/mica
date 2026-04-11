@@ -40,7 +40,7 @@ export function GitSyncToolbar({
   onPullThenPush,
   onCommit,
   onPush,
-  onCommitAndPush,
+  onCommitAndPush
 }: GitSyncToolbarProps): JSX.Element | null {
   const api = getApi()
   const canPull = typeof onPull === 'function' && Boolean(api?.workspace?.gitPull)
@@ -73,8 +73,8 @@ export function GitSyncToolbar({
       {fetchFirstRejection && canPullThenPush ? (
         <div className="bg-muted/80 border-border mt-3 rounded-md border px-3 py-2.5">
           <p className="text-foreground text-xs leading-relaxed">
-            The remote has commits you do not have yet (for example a README created on GitHub). Pull
-            those in, then push again, using the button below.
+            The remote has commits you do not have yet (for example a README created on GitHub).
+            Pull those in, then push again, using the button below.
           </p>
           <Button
             type="button"

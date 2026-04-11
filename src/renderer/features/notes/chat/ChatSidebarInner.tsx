@@ -1,30 +1,18 @@
 import {
   AlertCircleIcon,
+  ArrowUpIcon,
   BotIcon,
-  BookOpenIcon,
-  CheckIcon,
   CopyIcon,
+  FileTextIcon,
   History,
   Link2Icon,
   Loader2Icon,
-  ArrowUpIcon,
   PaperclipIcon,
   PlusIcon,
   ScanTextIcon
 } from 'lucide-react'
-import {
-  type JSX,
-  type KeyboardEvent,
-  type MouseEvent,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState
-} from 'react'
+import { type JSX, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
-import { classifyQueryComplexity, type Mode } from '@/lib/ai/chat-retrieval-pipeline'
-import { cn } from '@/lib/utils'
 import {
   PromptInputChatMentionTextarea,
   type PromptInputChatMentionTextareaHandle,
@@ -34,6 +22,7 @@ import {
 import {
   NoteLabModelPicker,
   DEFAULT_NOTELAB_MODEL_ID,
+  NOTELAB_MODELS,
   LOCAL_MODEL_PREFIX
 } from '@/features/ai/model-selector'
 import {
@@ -42,7 +31,13 @@ import {
   isLocalEmbeddingOnlyModel,
   LOCAL_EMBEDDING_MODEL
 } from '@/features/ai/LocalModelSetupDialog'
-import { Action, Actions } from '@/features/ai/actions'
+import {
+  Context,
+  ContextContent,
+  ContextContentBody,
+  ContextContentHeader,
+  ContextTrigger
+} from '@/features/ai/context'
 import {
   Conversation,
   ConversationContent,
@@ -52,6 +47,7 @@ import {
 import { Message, MessageActions, MessageContent, MessageResponse } from '@/features/ai/message'
 import { Source, Sources, SourcesContent, SourcesTrigger } from '@/features/ai/sources'
 import { Suggestion, Suggestions } from '@/features/ai/suggestion'
+import { Action, Actions } from '@/features/ai/actions'
 import { Command, CommandGroup, CommandItem, CommandList } from '@/components/ui/command'
 import {
   DropdownMenu,
@@ -59,7 +55,6 @@ import {
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu'
 import { InputGroup, InputGroupAddon, InputGroupButton } from '@/components/ui/input-group'
-import { Collapsible } from '@/components/ui/collapsible'
 import { Separator } from '@/components/ui/separator'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { copyPlainTextToClipboard } from '@/lib/core/copy-to-clipboard'
@@ -83,9 +78,62 @@ import type { ChatHistoryMeta, ChatPipelineStatus } from '@/hooks/useNotesChat'
 import { useNotesChat } from '@/hooks/useNotesChat'
 import { useBillingStatus } from '@/hooks/useBillingStatus'
 import { useOllama } from '@/hooks/useOllama'
+import { classifyQueryComplexity, type Mode } from '@/lib/ai/chat-retrieval-pipeline'
+
+const DEV_UI_PREVIEW = import.meta.env.VITE_ENV === 'development'
 
 function formatModeLabel(mode: Mode): string {
   return mode === 'efficiency' ? 'Efficiency' : mode === 'medium' ? 'Medium' : 'High'
+}
+
+const seedNoteDescriptions = [
+  'Finding relevant notes from your workspace',
+  'Locating notes with matching keywords',
+  'Searching your note collection',
+  'Discovering related notes',
+  'Fetching potential matches'
+]
+
+const connectedNoteDescriptions = [
+  'Expanding through bidirectional links',
+  'Following connections between notes',
+  'Mapping linked references',
+  'Finding connected properties',
+  'Traversing note relationships'
+]
+
+const finalContextDescriptions = [
+  'Curating final context for response',
+  'Preparing notes for the model',
+  'Compiling context window',
+  'Building response context',
+  'Assembling relevant notes'
+]
+
+function getRandomDescription(descriptions: string[]): string {
+  return descriptions[Math.floor(Math.random() * descriptions.length)]
+}
+
+function estimateTokenCount(text: string): number {
+  const trimmed = text.trim()
+  if (!trimmed) return 0
+  return Math.ceil(trimmed.length / 4)
+}
+
+function estimateContextUsage(args: {
+  input: string
+  references: PromptInputChatReference[]
+  messages: Array<{ role: 'user' | 'assistant'; content: string }>
+}): number {
+  const messageBudget = args.messages
+    .slice(-10)
+    .reduce((total, message) => total + estimateTokenCount(message.content), 0)
+  const inputBudget = estimateTokenCount(args.input)
+  const referenceBudget = args.references.reduce((total, reference) => {
+    const label = `${reference.label ?? ''} ${reference.refId ?? ''}`.trim()
+    return total + estimateTokenCount(label)
+  }, 0)
+  return messageBudget + inputBudget + referenceBudget + 256
 }
 
 function pipelineHeadline(status: ChatPipelineStatus): string {
@@ -105,35 +153,6 @@ function pipelineHeadline(status: ChatPipelineStatus): string {
     case 'context-ready':
       return `Context ready (${status.finalNotes.length} notes)`
   }
-}
-
-function PipelineNoteChips({
-  notes,
-  onOpenNote
-}: {
-  notes: ChatPipelineStatus['seedNotes']
-  onOpenNote: (notePath: string) => void
-}): JSX.Element | null {
-  if (notes.length === 0) return null
-  return (
-    <div className="mt-2 flex flex-wrap gap-1.5">
-      {notes.map((note) => (
-        <button
-          key={`${note.source}-${note.note}`}
-          className="bg-background hover:bg-accent/60 inline-flex items-center gap-1.5 rounded-full border border-border px-2.5 py-1 text-[11px] font-medium transition-colors"
-          onClick={() => onOpenNote(note.note)}
-          type="button"
-        >
-          <span className="truncate max-w-[10rem]">{note.title}</span>
-          {note.source === 'global_fallback' ? (
-            <span className="bg-amber-100 text-amber-700 rounded-full px-1.5 py-0.5 text-[10px] font-semibold dark:bg-amber-500/15 dark:text-amber-300">
-              global
-            </span>
-          ) : null}
-        </button>
-      ))}
-    </div>
-  )
 }
 
 function PipelineProgressSources({
@@ -157,62 +176,274 @@ function PipelineProgressSources({
 
   const showFinalNotes = status.stage === 'context-ready'
 
+  const seedDescription = useMemo(() => getRandomDescription(seedNoteDescriptions), [])
+  const connectedDescription = useMemo(() => getRandomDescription(connectedNoteDescriptions), [])
+  const finalDescription = useMemo(() => getRandomDescription(finalContextDescriptions), [])
+
   return (
-    <Collapsible className="not-prose mb-0 mt-2 text-xs text-muted-foreground/90" defaultOpen>
-      <SourcesTrigger
-        className="items-center gap-2 rounded-full bg-muted/45 px-2.5 py-1.5 text-xs text-foreground/85"
-        count={Math.max(status.finalNotes.length, status.connectedNotes.length, status.seedNotes.length, 1)}
-      >
-        <>
-          <Loader2Icon className="size-3.5 animate-spin" />
+    <div className="mb-0 mt-2">
+      <div className="flex items-center gap-2 text-xs text-foreground/90">
+        <div className="flex min-w-0 flex-1 flex-col">
           <p className="font-medium">{pipelineHeadline(status)}</p>
-        </>
-      </SourcesTrigger>
-      <SourcesContent className="mt-2 gap-3 rounded-2xl bg-muted/20 p-3">
-        <p className="text-[11px] text-muted-foreground">
-          {formatModeLabel(status.mode)} mode
-          {status.mode !== status.suggestedMode
-            ? `, overriding ${formatModeLabel(status.suggestedMode)}`
-            : ''}
-        </p>
-        {showSeedNotes ? (
+          <p className="text-[11px] text-muted-foreground">
+            {formatModeLabel(status.mode)} mode
+            {status.mode !== status.suggestedMode
+              ? `, overriding ${formatModeLabel(status.suggestedMode)}`
+              : ''}
+          </p>
+        </div>
+      </div>
+      <div className="mt-3 space-y-3">
+        {showSeedNotes && status.seedNotes.length > 0 && (
           <div>
-            <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-              Seed notes
-            </p>
-            <div className="mt-2 flex flex-col gap-1.5">
+            <p className="text-[11px] text-muted-foreground">{seedDescription}</p>
+            <p className="text-xs font-medium">Found {status.seedNotes.length} seed notes</p>
+            <div className="mt-1.5 flex flex-col gap-1.5">
               {status.seedNotes.map((note) => (
                 <button
                   key={`seed-${note.note}`}
-                  className="flex items-center gap-2 text-left text-xs text-foreground/85 transition-colors hover:text-foreground"
+                  className="flex items-center gap-2 text-left text-xs hover:text-foreground"
                   onClick={() => onOpenNote(note.note)}
                   type="button"
                 >
-                  <BookOpenIcon className="size-3.5 shrink-0" />
+                  <FileTextIcon className="size-3.5 shrink-0 text-muted-foreground" />
                   <span className="truncate">{note.title}</span>
                 </button>
               ))}
             </div>
           </div>
-        ) : null}
-        {showConnectedNotes ? (
+        )}
+        {showConnectedNotes && status.connectedNotes.length > 0 && (
           <div>
-            <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-              Connected notes
-            </p>
-            <PipelineNoteChips notes={status.connectedNotes} onOpenNote={onOpenNote} />
+            <p className="text-[11px] text-muted-foreground">{connectedDescription}</p>
+            <p className="text-xs font-medium">{status.connectedNotes.length} connected notes</p>
+            <div className="mt-1.5 flex flex-col gap-1.5">
+              {status.connectedNotes.map((note) => (
+                <button
+                  key={`connected-${note.note}`}
+                  className="flex items-center gap-2 text-left text-xs hover:text-foreground"
+                  onClick={() => onOpenNote(note.note)}
+                  type="button"
+                >
+                  <FileTextIcon className="size-3.5 shrink-0 text-muted-foreground" />
+                  <span className="truncate">{note.title}</span>
+                </button>
+              ))}
+            </div>
           </div>
-        ) : null}
-        {showFinalNotes ? (
+        )}
+        {showFinalNotes && status.finalNotes.length > 0 && (
           <div>
-            <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-              Final context
-            </p>
-            <PipelineNoteChips notes={status.finalNotes} onOpenNote={onOpenNote} />
+            <p className="text-[11px] text-muted-foreground">{finalDescription}</p>
+            <p className="text-xs font-medium">{status.finalNotes.length} notes in context</p>
+            <div className="mt-1.5 flex flex-col gap-1.5">
+              {status.finalNotes.map((note) => (
+                <button
+                  key={`final-${note.note}`}
+                  className="flex items-center gap-2 text-left text-xs hover:text-foreground"
+                  onClick={() => onOpenNote(note.note)}
+                  type="button"
+                >
+                  <FileTextIcon className="size-3.5 shrink-0 text-muted-foreground" />
+                  <span className="truncate">{note.title}</span>
+                  {note.source === 'global_fallback' && (
+                    <span className="shrink-0 rounded bg-amber-100 px-1 py-0.5 text-[10px] text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+                      global
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
           </div>
-        ) : null}
-      </SourcesContent>
-    </Collapsible>
+        )}
+      </div>
+    </div>
+  )
+}
+
+const DEV_PREVIEW_STATUS: ChatPipelineStatus = {
+  stage: 'context-ready',
+  mode: 'high',
+  suggestedMode: 'high',
+  seedNotes: [
+    { note: 'preview-roadmap', title: '2026 Product Roadmap', source: 'seed' },
+    { note: 'preview-architecture', title: 'RAG Architecture Notes', source: 'seed' }
+  ],
+  connectedNotes: [
+    { note: 'preview-links', title: 'Bidirectional Linking Experiments', source: 'connected' },
+    { note: 'preview-context', title: 'Context Packing Ideas', source: 'connected' }
+  ],
+  finalNotes: [
+    { note: 'preview-roadmap', title: '2026 Product Roadmap', source: 'connected' },
+    { note: 'preview-context', title: 'Context Packing Ideas', source: 'connected' },
+    { note: 'preview-global', title: 'Cross-workspace Synthesis', source: 'global_fallback' }
+  ]
+}
+
+const DEV_PREVIEW_PROCESSING_STATUS: ChatPipelineStatus = {
+  stage: 'reranking',
+  mode: 'medium',
+  suggestedMode: 'medium',
+  seedNotes: [{ note: 'preview-seed', title: 'Meeting Notes - Search Tuning', source: 'seed' }],
+  connectedNotes: [
+    { note: 'preview-neighbor', title: 'Connected Notes UI Sketches', source: 'connected' }
+  ],
+  finalNotes: []
+}
+
+const DEV_PREVIEW_MARKDOWN = `### Retrieval Preview
+
+- Compare roadmap themes across linked notes
+- Blend graph neighbors with global fallback
+- Keep the pipeline state visible after completion
+
+> This mock response only appears in development so the chat UI can be styled quickly.`
+
+function ModePicker({
+  activeMode,
+  suggestedMode,
+  disabled,
+  onModeChange
+}: {
+  activeMode: Mode
+  suggestedMode: Mode
+  disabled: boolean
+  onModeChange: (mode: Mode | null) => void
+}): JSX.Element {
+  const [open, setOpen] = useState(false)
+  const modeDescriptions: Record<Mode, string> = {
+    efficiency: 'Fastest path with the smallest seed and context set.',
+    medium: 'Balanced retrieval depth for most note questions.',
+    high: 'Broadest graph expansion and reranked context set.'
+  }
+  const options: Mode[] = ['efficiency', 'medium', 'high']
+
+  return (
+    <DropdownMenu modal={false} onOpenChange={setOpen} open={open}>
+      <DropdownMenuTrigger asChild>
+        <InputGroupButton
+          aria-label="Select retrieval mode"
+          className="pointer-events-auto min-w-0 max-w-[120px] shrink-0 px-2 text-xs font-normal text-muted-foreground hover:text-foreground"
+          disabled={disabled}
+          size="sm"
+          type="button"
+          variant="ghost"
+        >
+          <span className="truncate">{formatModeLabel(activeMode)}</span>
+        </InputGroupButton>
+      </DropdownMenuTrigger>
+
+      <DropdownMenuContent
+        align="end"
+        className="w-[250px] p-0"
+        onCloseAutoFocus={(e) => e.preventDefault()}
+        side="top"
+        sideOffset={6}
+      >
+        <Command>
+          <CommandList className="max-h-[260px]">
+            <CommandGroup heading={`Suggested: ${formatModeLabel(suggestedMode)}`}>
+              {options.map((mode) => {
+                const isSelected = activeMode === mode
+                const isSuggested = suggestedMode === mode
+                return (
+                  <CommandItem
+                    key={mode}
+                    onSelect={() => {
+                      onModeChange(mode === suggestedMode ? null : mode)
+                      setOpen(false)
+                    }}
+                    value={mode}
+                    className="gap-2 text-xs"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="truncate">{formatModeLabel(mode)}</span>
+                        {isSuggested && (
+                          <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] text-primary">
+                            auto
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-muted-foreground mt-0.5 text-[11px] leading-relaxed">
+                        {modeDescriptions[mode]}
+                      </p>
+                    </div>
+                    {isSelected && <span className="size-3 shrink-0" />}
+                  </CommandItem>
+                )
+              })}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
+function PaywallBanner({
+  billing,
+  creditsLow,
+  isLocalModelSelected,
+  ollamaRunning,
+  onOpenLocalSetup
+}: {
+  billing: { status: string; overageEnabled?: boolean } | null
+  creditsLow: boolean
+  isLocalModelSelected: boolean
+  ollamaRunning: boolean
+  onOpenLocalSetup: () => void
+}): JSX.Element | null {
+  if (isLocalModelSelected && ollamaRunning) return null
+
+  if (!billing || billing.status === 'active') {
+    if (creditsLow && billing) {
+      return (
+        <div className="border-border border-t bg-yellow-50 px-3 py-2 dark:bg-yellow-950/20">
+          <p className="text-xs text-yellow-700 dark:text-yellow-400 flex items-center gap-1.5">
+            <AlertCircleIcon className="size-3 shrink-0" />
+            {billing.overageEnabled
+              ? 'Credits low — overage billing active.'
+              : 'Credits running low. Enable overage in account settings to avoid interruption.'}
+          </p>
+        </div>
+      )
+    }
+    return null
+  }
+
+  const messages: Record<string, string> = {
+    on_hold: 'Payment issue — please update your payment method at notelab.io.',
+    cancelled: 'Your subscription has been cancelled.',
+    expired: 'Your subscription has expired.',
+    none: 'A Notelab subscription is required to use AI chat.'
+  }
+
+  return (
+    <div className="border-border border-t bg-destructive/5 px-3 py-2.5">
+      <p className="text-destructive flex items-center gap-1.5 text-xs">
+        <AlertCircleIcon className="size-3 shrink-0" />
+        {messages[billing.status] ?? 'Subscription required.'}
+      </p>
+      <div className="mt-1 flex items-center gap-3">
+        <a
+          className="text-primary block text-xs underline underline-offset-2"
+          href={`${import.meta.env.VITE_AUTH_BASE}`}
+          rel="noreferrer"
+          target="_blank"
+        >
+          Subscribe at notelab.io →
+        </a>
+        <span className="text-muted-foreground text-xs">or</span>
+        <button
+          className="text-primary text-xs underline underline-offset-2"
+          onClick={onOpenLocalSetup}
+          type="button"
+        >
+          Use local models →
+        </button>
+      </div>
+    </div>
   )
 }
 
@@ -233,14 +464,12 @@ export function ChatSidebarInner({
   isMacNotelab,
   linkMentionIndex
 }: ChatSidebarProps): JSX.Element {
-  const MODE_OPTIONS: Mode[] = ['efficiency', 'medium', 'high']
   const [selectedModelId, setSelectedModelId] = useState<string>(DEFAULT_NOTELAB_MODEL_ID)
   const [localSetupOpen, setLocalSetupOpen] = useState(false)
   const [modeOverride, setModeOverride] = useState<Mode | null>(null)
 
   const ollama = useOllama()
 
-  /* eslint-disable react-hooks/set-state-in-effect -- correct invalid local model pick when Ollama model list updates */
   useEffect(() => {
     if (!selectedModelId.startsWith(LOCAL_MODEL_PREFIX)) return
     const name = selectedModelId.slice(LOCAL_MODEL_PREFIX.length)
@@ -250,7 +479,6 @@ export function ChatSidebarInner({
       firstChat ? `${LOCAL_MODEL_PREFIX}${firstChat.name}` : DEFAULT_NOTELAB_MODEL_ID
     )
   }, [selectedModelId, ollama.localModels])
-  /* eslint-enable react-hooks/set-state-in-effect */
 
   const {
     session,
@@ -281,6 +509,7 @@ export function ChatSidebarInner({
 
   const [input, setInput] = useState('')
   const [chatReferences, setChatReferences] = useState<PromptInputChatReference[]>([])
+  const [currentRequestRefs, setCurrentRequestRefs] = useState<PromptInputChatReference[]>([])
   const [historySearch, setHistorySearch] = useState('')
   const [chatTab, setChatTab] = useState<'chat' | 'history'>('chat')
   const [openSessionTabs, setOpenSessionTabs] = useState<
@@ -299,6 +528,14 @@ export function ChatSidebarInner({
 
   const suggestedMode = useMemo(() => classifyQueryComplexity(input), [input])
   const activeMode = modeOverride ?? suggestedMode
+  const selectedCloudModel = useMemo(
+    () =>
+      selectedModelId.startsWith(LOCAL_MODEL_PREFIX)
+        ? null
+        : (NOTELAB_MODELS.find((model) => model.id === selectedModelId) ?? null),
+    [selectedModelId]
+  )
+  const contextLimitTokens = selectedCloudModel?.contextWindowTokens ?? 128_000
 
   const visibleSessionTabs = useMemo(() => {
     if (openSessionTabs.length === 0) {
@@ -309,14 +546,12 @@ export function ChatSidebarInner({
     )
   }, [openSessionTabs, session.id, session.title])
 
-  /* eslint-disable react-hooks/set-state-in-effect -- reset chat chrome when parent switches to links panel */
   useEffect(() => {
     if (panel !== 'links') return
     setChatTab('chat')
     setShowHistory(false)
     setLocalSetupOpen(false)
   }, [panel, setShowHistory])
-  /* eslint-enable react-hooks/set-state-in-effect */
 
   useEffect(() => {
     setShowHistory(chatTab === 'history')
@@ -431,6 +666,7 @@ export function ChatSidebarInner({
       ) {
         return
       }
+      setCurrentRequestRefs(chatReferences)
       setInput('')
       setChatReferences([])
       const modeForRequest = activeMode
@@ -441,7 +677,7 @@ export function ChatSidebarInner({
   )
 
   const handleKeyDown = useCallback(
-    (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault()
         void handleSubmit()
@@ -508,7 +744,7 @@ export function ChatSidebarInner({
   )
 
   const closeOpenSessionTab = useCallback(
-    async (e: MouseEvent, sessionId: string) => {
+    async (e: React.MouseEvent, sessionId: string) => {
       e.stopPropagation()
       const sourceTabs = openSessionTabs.length > 0 ? openSessionTabs : visibleSessionTabs
       if (sourceTabs.length <= 1) return
@@ -538,60 +774,6 @@ export function ChatSidebarInner({
       loadHistorySession
     ]
   )
-
-  const paywallBanner = (() => {
-    if (isLocalModelSelected && ollama.status?.running) return null
-
-    if (!billing || billing.status === 'active') {
-      if (creditsLow && billing) {
-        return (
-          <div className="border-border border-t bg-yellow-50 px-3 py-2 dark:bg-yellow-950/20">
-            <p className="text-xs text-yellow-700 dark:text-yellow-400 flex items-center gap-1.5">
-              <AlertCircleIcon className="size-3 shrink-0" />
-              {billing.overageEnabled
-                ? 'Credits low — overage billing active.'
-                : 'Credits running low. Enable overage in account settings to avoid interruption.'}
-            </p>
-          </div>
-        )
-      }
-      return null
-    }
-
-    const messages: Record<string, string> = {
-      on_hold: 'Payment issue — please update your payment method at notelab.io.',
-      cancelled: 'Your subscription has been cancelled.',
-      expired: 'Your subscription has expired.',
-      none: 'A Notelab subscription is required to use AI chat.'
-    }
-
-    return (
-      <div className="border-border border-t bg-destructive/5 px-3 py-2.5">
-        <p className="text-destructive flex items-center gap-1.5 text-xs">
-          <AlertCircleIcon className="size-3 shrink-0" />
-          {messages[billing.status] ?? 'Subscription required.'}
-        </p>
-        <div className="mt-1 flex items-center gap-3">
-          <a
-            className="text-primary block text-xs underline underline-offset-2"
-            href={`${import.meta.env.VITE_AUTH_BASE}`}
-            rel="noreferrer"
-            target="_blank"
-          >
-            Subscribe at notelab.io →
-          </a>
-          <span className="text-muted-foreground text-xs">or</span>
-          <button
-            className="text-primary text-xs underline underline-offset-2"
-            onClick={() => setLocalSetupOpen(true)}
-            type="button"
-          >
-            Use local models →
-          </button>
-        </div>
-      </div>
-    )
-  })()
 
   const chatTabStrip = (
     <ChatSidebarPanelTabs
@@ -674,7 +856,7 @@ export function ChatSidebarInner({
         tabsFill={panel === 'links'}
         trailing={null}
       />
-      {panel === 'chat' ? (
+      {panel === 'chat' && (
         <ChatSidebarOpenSessionTabs
           activeSessionId={session.id}
           isMacNotelab={isMacNotelab}
@@ -682,7 +864,7 @@ export function ChatSidebarInner({
           onSelect={selectOpenSessionTab}
           tabs={visibleSessionTabs}
         />
-      ) : null}
+      )}
       {panel === 'links' ? (
         <BidirectionalLinksPanel
           foldersById={workspacesById}
@@ -744,17 +926,59 @@ export function ChatSidebarInner({
           <Conversation className="flex-1">
             <ConversationContent>
               {session.messages.length === 0 ? (
-                <ConversationEmptyState
-                  description="Ask anything about your notes"
-                  icon={<BotIcon className="size-8" />}
-                  title="Chat with your notes"
-                />
+                DEV_UI_PREVIEW ? (
+                  <>
+                    <Message from="user">
+                      <MessageContent>
+                        <p>How do the roadmap notes connect to the search architecture docs?</p>
+                      </MessageContent>
+                      <PipelineProgressSources
+                        onOpenNote={selectNote}
+                        status={DEV_PREVIEW_PROCESSING_STATUS}
+                      />
+                    </Message>
+                    <Message from="assistant">
+                      <MessageContent>
+                        <MessageResponse>{DEV_PREVIEW_MARKDOWN}</MessageResponse>
+                      </MessageContent>
+                      <PipelineProgressSources
+                        onOpenNote={selectNote}
+                        status={DEV_PREVIEW_STATUS}
+                      />
+                      <Sources className="mt-1">
+                        <SourcesTrigger count={3} />
+                        <SourcesContent>
+                          {DEV_PREVIEW_STATUS.finalNotes.map((src) => (
+                            <Source
+                              key={src.note}
+                              href="#"
+                              onClick={(e) => {
+                                e.preventDefault()
+                              }}
+                              title={src.title}
+                            />
+                          ))}
+                        </SourcesContent>
+                      </Sources>
+                    </Message>
+                  </>
+                ) : (
+                  <ConversationEmptyState
+                    description="Ask anything about your notes"
+                    icon={<BotIcon className="size-8" />}
+                    title="Chat with your notes"
+                  />
+                )
               ) : (
-                session.messages.map((msg) => {
+                session.messages.map((msg, index) => {
                   const visibleSources =
                     msg.role === 'assistant' && msg.sources
                       ? msg.sources.filter((s) => validNoteIds.has(s.note))
                       : []
+                  const prevMsg = session.messages[index - 1]
+                  const isFirstAssistantMsg =
+                    isLoading && msg.role === 'assistant' && index === session.messages.length - 1
+
                   return (
                     <div key={msg.id}>
                       <Message from={msg.role}>
@@ -765,16 +989,6 @@ export function ChatSidebarInner({
                             <p>{msg.content}</p>
                           )}
                         </MessageContent>
-
-                        {pipelineStatus &&
-                          isLoading &&
-                          msg.role === 'user' &&
-                          msg.id === session.messages.at(-2)?.id && (
-                            <PipelineProgressSources
-                              onOpenNote={selectNote}
-                              status={pipelineStatus}
-                            />
-                          )}
 
                         {msg.role === 'assistant' && visibleSources.length > 0 && (
                           <Sources className="mt-1">
@@ -809,15 +1023,33 @@ export function ChatSidebarInner({
                         )}
                       </Message>
 
-                      {isLoading &&
-                        msg.role === 'user' &&
-                        msg.id === session.messages.at(-2)?.id && (
-                          <Message from="assistant">
-                            <MessageContent>
-                              <Loader2Icon className="size-4 animate-spin text-muted-foreground" />
-                            </MessageContent>
-                          </Message>
-                        )}
+                      {prevMsg?.role === 'user' &&
+                        (isFirstAssistantMsg && pipelineStatus ? (
+                          <PipelineProgressSources
+                            onOpenNote={selectNote}
+                            status={pipelineStatus}
+                          />
+                        ) : msg.pipelineStatus ? (
+                          <PipelineProgressSources
+                            onOpenNote={selectNote}
+                            status={msg.pipelineStatus}
+                          />
+                        ) : currentRequestRefs.length > 0 && msg.content ? (
+                          <div className="mb-0 mt-2">
+                            <div className="flex items-center gap-2 text-xs text-foreground/90">
+                              <div className="flex min-w-0 flex-1 flex-col">
+                                <p className="font-medium">References ready</p>
+                                <p className="text-[11px] text-muted-foreground">
+                                  {currentRequestRefs.filter((r) => r.kind === 'note').length} note
+                                  {currentRequestRefs.filter((r) => r.kind === 'note').length !== 1
+                                    ? 's'
+                                    : ''}{' '}
+                                  in context
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        ) : null)}
                     </div>
                   )
                 })
@@ -836,7 +1068,13 @@ export function ChatSidebarInner({
             </div>
           )}
 
-          {paywallBanner}
+          <PaywallBanner
+            billing={billing}
+            creditsLow={creditsLow}
+            isLocalModelSelected={isLocalModelSelected}
+            ollamaRunning={ollama.status?.running ?? false}
+            onOpenLocalSetup={() => setLocalSetupOpen(true)}
+          />
 
           <form className="border-border border-t p-2" onSubmit={(e) => void handleSubmit(e)}>
             <PromptInputChatReferenceChips
@@ -891,34 +1129,12 @@ export function ChatSidebarInner({
                   </Tooltip>
                 </TooltipProvider>
                 <div className="ml-auto flex min-w-0 items-center gap-1.5">
-                  <div className="bg-muted/50 inline-flex shrink-0 rounded-lg border border-border p-0.5">
-                    {MODE_OPTIONS.map((mode) => {
-                      const isSelected = activeMode === mode
-                      const isSuggested = suggestedMode === mode
-                      return (
-                        <button
-                          key={mode}
-                          className={cn(
-                            'relative rounded-md px-2 py-1 text-[10px] font-medium transition-colors',
-                            isSelected
-                              ? 'bg-background text-foreground shadow-sm'
-                              : 'text-muted-foreground hover:text-foreground',
-                            isSuggested && !isSelected && 'ring-1 ring-primary/30'
-                          )}
-                          disabled={isLoading || !canChatEffective}
-                          onClick={() => setModeOverride(mode === suggestedMode ? null : mode)}
-                          title={
-                            isSuggested
-                              ? `${formatModeLabel(mode)} (auto suggested)`
-                              : formatModeLabel(mode)
-                          }
-                          type="button"
-                        >
-                          {formatModeLabel(mode).slice(0, mode === 'efficiency' ? 3 : 1)}
-                        </button>
-                      )
-                    })}
-                  </div>
+                  <ModePicker
+                    activeMode={activeMode}
+                    disabled={isLoading || !canChatEffective}
+                    onModeChange={setModeOverride}
+                    suggestedMode={suggestedMode}
+                  />
                   <NoteLabModelPicker
                     selectedModelId={selectedModelId}
                     onModelChange={setSelectedModelId}
@@ -928,6 +1144,51 @@ export function ChatSidebarInner({
                     localOnly={isUnpaidUser && !canChat}
                   />
                   <Separator className="!h-4" orientation="vertical" />
+                  <Context
+                    maxTokens={contextLimitTokens}
+                    modelId={
+                      selectedCloudModel
+                        ? `${selectedCloudModel.providerSlug}/${selectedCloudModel.id}`
+                        : undefined
+                    }
+                    usedTokens={Math.min(
+                      estimateContextUsage({
+                        input,
+                        references: chatReferences,
+                        messages: session.messages.map((message) => ({
+                          role: message.role,
+                          content: message.content
+                        }))
+                      }),
+                      contextLimitTokens
+                    )}
+                  >
+                    <ContextTrigger
+                      className="h-7 gap-1.5 rounded-md px-2 text-[11px] text-muted-foreground hover:text-foreground"
+                      size="sm"
+                    />
+                    <ContextContent align="end" className="w-[240px]" side="top" sideOffset={8}>
+                      <ContextContentHeader />
+                      <ContextContentBody className="space-y-2 text-xs">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-muted-foreground">Model</span>
+                          <span className="text-right">
+                            {selectedCloudModel?.name ??
+                              (selectedModelId.startsWith(LOCAL_MODEL_PREFIX)
+                                ? 'Local model'
+                                : 'Unknown')}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-muted-foreground">Window</span>
+                          <span>{selectedCloudModel?.contextWindow ?? '128K'}</span>
+                        </div>
+                        <p className="text-[11px] leading-relaxed text-muted-foreground">
+                          Estimated from the current draft, recent chat turns, and referenced notes.
+                        </p>
+                      </ContextContentBody>
+                    </ContextContent>
+                  </Context>
                   <InputGroupButton
                     className="rounded-md"
                     disabled={

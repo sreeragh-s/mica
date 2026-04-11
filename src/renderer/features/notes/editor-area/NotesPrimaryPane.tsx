@@ -97,8 +97,11 @@ function NoteEditorView({
   onDrop,
   bottomChromePortal,
   hiddenPropertyKeys,
-  consumePendingSubpath,
-}: Omit<NotesPrimaryPaneProps, 'focusedFolder' | 'notesByFolder' | 'canCreateNote' | 'onNewNote' | 'onExcalidrawSceneChange'> & { selectedNote: SavedNote }): JSX.Element {
+  consumePendingSubpath
+}: Omit<
+  NotesPrimaryPaneProps,
+  'focusedFolder' | 'notesByFolder' | 'canCreateNote' | 'onNewNote' | 'onExcalidrawSceneChange'
+> & { selectedNote: SavedNote }): JSX.Element {
   const editorWrapperRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -117,7 +120,7 @@ function NoteEditorView({
       if (++attempts < MAX_ATTEMPTS) requestAnimationFrame(tryScroll)
     }
     requestAnimationFrame(tryScroll)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedNote.path])
 
   const allowCoverProperty =
@@ -154,7 +157,7 @@ function NoteEditorView({
             } else {
               onSelectNote(notePath, subpath)
             }
-          },
+          }
         }}
         header={
           <>
@@ -173,9 +176,13 @@ function NoteEditorView({
           </>
         }
         coverImageSrc={selectedNote.kind === 'note' ? selectedNote.coverImageSrc : undefined}
-        onCoverChange={allowCoverProperty ? (src) => onSetNoteCover(selectedNote.path, src) : undefined}
+        onCoverChange={
+          allowCoverProperty ? (src) => onSetNoteCover(selectedNote.path, src) : undefined
+        }
         titleEmoji={selectedNote.kind === 'note' ? selectedNote.titleEmoji : undefined}
-        onTitleEmojiChange={allowEmojiProperty ? (emoji) => onSetNoteTitleEmoji(selectedNote.path, emoji) : undefined}
+        onTitleEmojiChange={
+          allowEmojiProperty ? (emoji) => onSetNoteTitleEmoji(selectedNote.path, emoji) : undefined
+        }
         bottomChromePortal={bottomChromePortal}
       />
     </div>
@@ -201,7 +208,7 @@ export function NotesPrimaryPane({
   onDrop,
   bottomChromePortal,
   hiddenPropertyKeys,
-  consumePendingSubpath,
+  consumePendingSubpath
 }: NotesPrimaryPaneProps): JSX.Element {
   if (selectedNote) {
     if (selectedNote.kind === 'drawing') {

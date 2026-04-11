@@ -13,7 +13,7 @@ import {
   readFileSync,
   readdirSync,
   rmSync,
-  writeFileSync,
+  writeFileSync
 } from 'node:fs'
 import { homedir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
@@ -23,7 +23,7 @@ import {
   readNotelabIndexImpl,
   renameWorkspacePath,
   syncMarkdownFilesToDisk,
-  writeNotelabFile,
+  writeNotelabFile
 } from './workspace-fs'
 import { checkGitBinary, runGit } from '../git/git-runner'
 
@@ -63,10 +63,7 @@ function allowWorkspaceFs(cwd: string): boolean {
 export function registerWorkspaceIpc(): void {
   ipcMain.handle(
     'workspace:check-git',
-    async (): Promise<
-      | { ok: true; version: string }
-      | { ok: false; error: string }
-    > => {
+    async (): Promise<{ ok: true; version: string } | { ok: false; error: string }> => {
       return checkGitBinary()
     }
   )
@@ -92,7 +89,9 @@ export function registerWorkspaceIpc(): void {
         const documentsDir = join(homedir(), 'Documents')
         const defaultRoot = join(documentsDir, 'notelab')
 
-        const notesRoot = resolve(requestedPath && requestedPath.length > 0 ? requestedPath : defaultRoot)
+        const notesRoot = resolve(
+          requestedPath && requestedPath.length > 0 ? requestedPath : defaultRoot
+        )
         mkdirSync(notesRoot, { recursive: true })
         mkdirSync(SYSTEM_CONFIG_DIR, { recursive: true })
 
@@ -101,8 +100,19 @@ export function registerWorkspaceIpc(): void {
         const gitInitialized = existsSync(join(notesRoot, '.git'))
         const filesystemOnly = !gitInitialized
 
-        console.info(LOG, 'workspace root', notesRoot, 'config root', SYSTEM_CONFIG_DIR, { gitAvailable, gitInitialized, filesystemOnly })
-        return { ok: true, path: notesRoot, configRoot: SYSTEM_CONFIG_DIR, gitAvailable, filesystemOnly, gitInitialized }
+        console.info(LOG, 'workspace root', notesRoot, 'config root', SYSTEM_CONFIG_DIR, {
+          gitAvailable,
+          gitInitialized,
+          filesystemOnly
+        })
+        return {
+          ok: true,
+          path: notesRoot,
+          configRoot: SYSTEM_CONFIG_DIR,
+          gitAvailable,
+          filesystemOnly,
+          gitInitialized
+        }
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e)
         console.error(LOG, 'ensure-data-root failed', msg)
@@ -111,7 +121,7 @@ export function registerWorkspaceIpc(): void {
           error:
             msg.includes('ENOENT') || msg.includes('not found')
               ? 'Could not create the data folder. Check permissions.'
-              : msg,
+              : msg
         }
       }
     }
@@ -123,7 +133,7 @@ export function registerWorkspaceIpc(): void {
       const result = await dialog.showOpenDialog({
         properties: ['openDirectory', 'createDirectory'],
         title: 'Choose workspace',
-        buttonLabel: 'Select Folder',
+        buttonLabel: 'Select Folder'
       })
       if (result.canceled || result.filePaths.length === 0) {
         return { ok: false, cancelled: true }
@@ -145,7 +155,9 @@ export function registerWorkspaceIpc(): void {
         runGit(['init'], cwd)
         runGit(['branch', '-M', 'main'], cwd)
         const gitignorePath = join(cwd, '.gitignore')
-        const existingGitignore = existsSync(gitignorePath) ? readFileSync(gitignorePath, 'utf8') : ''
+        const existingGitignore = existsSync(gitignorePath)
+          ? readFileSync(gitignorePath, 'utf8')
+          : ''
         const normalizedGitignore = existingGitignore.replace(/\r\n/g, '\n')
         const gitignoreEntries = new Set(
           normalizedGitignore
@@ -154,10 +166,14 @@ export function registerWorkspaceIpc(): void {
             .filter((line) => line.length > 0)
         )
         const requiredGitignoreEntries = ['.notelab', '.DS_Store', 'Thumbs.db', '*.swp']
-        const missingGitignoreEntries = requiredGitignoreEntries.filter((entry) => !gitignoreEntries.has(entry))
+        const missingGitignoreEntries = requiredGitignoreEntries.filter(
+          (entry) => !gitignoreEntries.has(entry)
+        )
         if (missingGitignoreEntries.length > 0) {
           const prefix =
-            normalizedGitignore.length === 0 || normalizedGitignore.endsWith('\n') ? normalizedGitignore : `${normalizedGitignore}\n`
+            normalizedGitignore.length === 0 || normalizedGitignore.endsWith('\n')
+              ? normalizedGitignore
+              : `${normalizedGitignore}\n`
           writeFileSync(gitignorePath, `${prefix}${missingGitignoreEntries.join('\n')}\n`, 'utf8')
         }
         console.info(LOG, 'git init', cwd)
@@ -220,9 +236,7 @@ export function registerWorkspaceIpc(): void {
     async (
       _evt,
       payload: { cwd: string }
-    ): Promise<
-      { ok: true; content: string | null } | { ok: false; error: string }
-    > => {
+    ): Promise<{ ok: true; content: string | null } | { ok: false; error: string }> => {
       const cwd = payload.cwd?.trim() ?? ''
       if (!cwd || !assertNotelabDataRoot(cwd)) {
         return { ok: false, error: 'invalid_data_root' }

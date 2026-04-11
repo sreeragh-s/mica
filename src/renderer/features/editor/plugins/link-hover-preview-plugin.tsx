@@ -1,31 +1,31 @@
-"use client"
+'use client'
 
-import type { JSX } from "react"
-import { useCallback, useEffect, useRef, useState } from "react"
-import { createPortal } from "react-dom"
-import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext"
+import type { JSX } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
+import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext'
 
-import { useNotelabEditorContext } from "@/features/editor/notelab-editor-context"
+import { useNotelabEditorContext } from '@/features/editor/notelab-editor-context'
 import {
   InternalNoteLinkIcon,
   InternalNoteLinkPreviewBody,
   LinkPreviewCardShell,
   UrlFavicon,
-  ExternalUrlPreviewBody,
-} from "@/features/editor/link-preview-card"
-import { parseInternalNotePathFromHref } from "@/lib/notes/internal-note-link"
-import { createElectronLogger } from "@/lib/core/electron-log"
+  ExternalUrlPreviewBody
+} from '@/features/editor/link-preview-card'
+import { parseInternalNotePathFromHref } from '@/lib/notes/internal-note-link'
+import { createElectronLogger } from '@/lib/core/electron-log'
 
-const log = createElectronLogger("[LinkHoverPreview]")
+const log = createElectronLogger('[LinkHoverPreview]')
 
 type HoverPayload =
   | {
-      kind: "internal"
+      kind: 'internal'
       notePath: string
       rect: DOMRect
     }
   | {
-      kind: "external"
+      kind: 'external'
       href: string
       rect: DOMRect
     }
@@ -38,7 +38,7 @@ function clamp(n: number, min: number, max: number): number {
 }
 
 export function LinkHoverPreviewPlugin({
-  disabled = false,
+  disabled = false
 }: {
   disabled?: boolean
 }): JSX.Element | null {
@@ -81,7 +81,7 @@ export function LinkHoverPreviewPlugin({
       if (!rootEl) return
 
       const onPointerMove = (e: PointerEvent) => {
-        if (e.pointerType === "touch") return
+        if (e.pointerType === 'touch') return
         if (disabled) {
           clearTimers()
           setHover(null)
@@ -98,14 +98,12 @@ export function LinkHoverPreviewPlugin({
         }
 
         const under = document.elementFromPoint(e.clientX, e.clientY)
-        if (under instanceof Element && under.closest("[data-link-hover-ignore]")) {
+        if (under instanceof Element && under.closest('[data-link-hover-ignore]')) {
           if (lastAnchorRef.current) scheduleHide()
           return
         }
         const anchor =
-          under instanceof Element
-            ? (under.closest("a[href]") as HTMLAnchorElement | null)
-            : null
+          under instanceof Element ? (under.closest('a[href]') as HTMLAnchorElement | null) : null
 
         if (!anchor || !rootEl.contains(anchor)) {
           if (lastAnchorRef.current) {
@@ -125,23 +123,24 @@ export function LinkHoverPreviewPlugin({
         lastAnchorRef.current = anchor
         clearTimers()
 
-        const raw = anchor.getAttribute("href") ?? ""
+        const raw = anchor.getAttribute('href') ?? ''
         const resolvedHref = anchor.href || raw
         const rect = anchor.getBoundingClientRect()
-        const notePath = parseInternalNotePathFromHref(resolvedHref) ?? parseInternalNotePathFromHref(raw)
+        const notePath =
+          parseInternalNotePathFromHref(resolvedHref) ?? parseInternalNotePathFromHref(raw)
 
-        log.info("hover anchor:", { raw, resolvedHref, notePath })
+        log.info('hover anchor:', { raw, resolvedHref, notePath })
 
         showTimerRef.current = setTimeout(() => {
           if (notePath) {
-            log.info("showing internal preview for:", notePath)
-            setHover({ kind: "internal", notePath, rect })
+            log.info('showing internal preview for:', notePath)
+            setHover({ kind: 'internal', notePath, rect })
           } else {
-            log.info("showing external preview for:", resolvedHref)
+            log.info('showing external preview for:', resolvedHref)
             setHover({
-              kind: "external",
+              kind: 'external',
               href: resolvedHref,
-              rect,
+              rect
             })
           }
         }, SHOW_DELAY_MS)
@@ -157,15 +156,15 @@ export function LinkHoverPreviewPlugin({
         scheduleHide()
       }
 
-      rootEl.addEventListener("pointermove", onPointerMove, { passive: true })
-      rootEl.addEventListener("pointerleave", onPointerLeaveRoot, true)
-      rootEl.addEventListener("scroll", onScroll, { capture: true })
+      rootEl.addEventListener('pointermove', onPointerMove, { passive: true })
+      rootEl.addEventListener('pointerleave', onPointerLeaveRoot, true)
+      rootEl.addEventListener('scroll', onScroll, { capture: true })
 
       return () => {
         clearTimers()
-        rootEl.removeEventListener("pointermove", onPointerMove)
-        rootEl.removeEventListener("pointerleave", onPointerLeaveRoot, true)
-        rootEl.removeEventListener("scroll", onScroll, { capture: true })
+        rootEl.removeEventListener('pointermove', onPointerMove)
+        rootEl.removeEventListener('pointerleave', onPointerLeaveRoot, true)
+        rootEl.removeEventListener('scroll', onScroll, { capture: true })
       }
     })
   }, [disabled, editor, notelabCtx, clearTimers, scheduleHide])
@@ -173,7 +172,7 @@ export function LinkHoverPreviewPlugin({
   if (!hover) return null
 
   const resolvedNote =
-    hover.kind === "internal" && notelabCtx
+    hover.kind === 'internal' && notelabCtx
       ? notelabCtx.notes.find((n) => n.path === hover.notePath)
       : undefined
 
@@ -182,8 +181,8 @@ export function LinkHoverPreviewPlugin({
 
   const cardWidth = 320
   const estHeight = 120
-  const vw = typeof window !== "undefined" ? window.innerWidth : 800
-  const vh = typeof window !== "undefined" ? window.innerHeight : 600
+  const vw = typeof window !== 'undefined' ? window.innerWidth : 800
+  const vh = typeof window !== 'undefined' ? window.innerHeight : 600
 
   left = clamp(left, 8, vw - cardWidth - 8)
   if (top + estHeight > vh - 8) {
@@ -198,13 +197,10 @@ export function LinkHoverPreviewPlugin({
       data-link-hover-ignore
       aria-hidden
     >
-      {hover.kind === "internal" ? (
+      {hover.kind === 'internal' ? (
         <LinkPreviewCardShell className="gap-3">
           <InternalNoteLinkIcon />
-          <InternalNoteLinkPreviewBody
-            resolvedNote={resolvedNote}
-            notelabCtx={notelabCtx}
-          />
+          <InternalNoteLinkPreviewBody resolvedNote={resolvedNote} notelabCtx={notelabCtx} />
         </LinkPreviewCardShell>
       ) : (
         <LinkPreviewCardShell>
@@ -215,7 +211,5 @@ export function LinkHoverPreviewPlugin({
     </div>
   )
 
-  return typeof document !== "undefined"
-    ? createPortal(portal, document.body)
-    : null
+  return typeof document !== 'undefined' ? createPortal(portal, document.body) : null
 }

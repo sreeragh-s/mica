@@ -1,32 +1,26 @@
-import { getApi } from "../auth/auth-bridge"
+import { getApi } from '../auth/auth-bridge'
 import type {
   NotelabConfigFileV1,
   NotelabThemeConfigV1,
   NotelabSetupState,
   SavedWorkspace,
   NotelabEditorSettingsV1,
-  NotelabAppearanceSettingsV1,
-} from "./notelab-config-schema"
-import { normalizeNotesStateFromStorage } from "../notes/notes-state-normalize"
-import { NotesState } from "../notes/notes-types"
-import {
-  SHORTCUT_DEFINITIONS,
-  type ShortcutBindingsMap,
-} from "./shortcuts-definitions"
-import { defaultPresets } from "@/features/appearance/theme-presets"
+  NotelabAppearanceSettingsV1
+} from './notelab-config-schema'
+import { normalizeNotesStateFromStorage } from '../notes/notes-state-normalize'
+import { NotesState } from '../notes/notes-types'
+import { SHORTCUT_DEFINITIONS, type ShortcutBindingsMap } from './shortcuts-definitions'
+import { defaultPresets } from '@/features/appearance/theme-presets'
 import {
   buildThemeConfigFromPresetId,
   isNonEmptyThemeConfig,
-  sanitizeThemeConfig,
-} from "../theme/theme-config-utils"     
-import {
-  CUSTOM_THEME_PRESET_ID,
-  DEFAULT_THEME_PRESET_ID,
-} from "../theme/theme-preset-apply"
-import { UI_FONT_IDS } from "../theme/ui-font-types"
-import type { UiFontId } from "../theme/ui-font-types"
+  sanitizeThemeConfig
+} from '../theme/theme-config-utils'
+import { CUSTOM_THEME_PRESET_ID, DEFAULT_THEME_PRESET_ID } from '../theme/theme-preset-apply'
+import { UI_FONT_IDS } from '../theme/ui-font-types'
+import type { UiFontId } from '../theme/ui-font-types'
 
-const BROWSER_CONFIG_KEY = "notelab-config-v1"
+const BROWSER_CONFIG_KEY = 'notelab-config-v1'
 
 let dataRootPath: string | null = null
 /** True when using <workspaceRoot>/.notelab.config (Notelab). */
@@ -42,14 +36,14 @@ function defaultSetup(): NotelabSetupState {
 function defaultCache(): NotelabConfigFileV1 {
   return {
     version: 1,
-    setup: defaultSetup(),
+    setup: defaultSetup()
   }
 }
 
 function parseConfigJson(raw: string): NotelabConfigFileV1 | null {
   try {
     const p = JSON.parse(raw) as unknown
-    if (typeof p !== "object" || p === null) return null
+    if (typeof p !== 'object' || p === null) return null
     const o = p as Record<string, unknown>
     if (o.version !== 1) return null
     return p as NotelabConfigFileV1
@@ -72,7 +66,7 @@ function writeBrowserBlob(c: NotelabConfigFileV1): void {
   try {
     localStorage.setItem(BROWSER_CONFIG_KEY, JSON.stringify(c))
   } catch (e) {
-    console.error("[notelab] Failed to persist config blob", e)
+    console.error('[notelab] Failed to persist config blob', e)
   }
 }
 
@@ -83,10 +77,10 @@ async function flushToDisk(): Promise<void> {
     if (!api?.workspace?.writeAppConfig) return
     const r = await api.workspace.writeAppConfig({
       cwd: dataRootPath,
-      config: cache,
+      config: cache
     })
     if (!r.ok) {
-      console.error("[notelab] writeAppConfig failed", r.error)
+      console.error('[notelab] writeAppConfig failed', r.error)
     }
     return
   }
@@ -128,9 +122,7 @@ function normalizeThemeCacheAfterLoad(): void {
 
   /** Denormalized snapshot so notelab.config lists full light/dark tokens for presets. */
   if (pid !== CUSTOM_THEME_PRESET_ID) {
-    const sc = next.themeConfig
-      ? sanitizeThemeConfig(next.themeConfig)
-      : undefined
+    const sc = next.themeConfig ? sanitizeThemeConfig(next.themeConfig) : undefined
     if (!isNonEmptyThemeConfig(sc)) {
       const snap = buildThemeConfigFromPresetId(pid)
       if (isNonEmptyThemeConfig(snap)) {
@@ -232,11 +224,11 @@ export function loadShortcutBindings(): ShortcutBindingsMap {
   const base = defaultShortcutMap()
   for (const d of SHORTCUT_DEFINITIONS) {
     const b = raw[d.id]
-    if (b && typeof b === "object" && typeof b.mod === "boolean") {
+    if (b && typeof b === 'object' && typeof b.mod === 'boolean') {
       base[d.id] = {
         mod: b.mod,
-        ...(typeof b.key === "string" ? { key: b.key } : {}),
-        ...(typeof b.code === "string" ? { code: b.code } : {}),
+        ...(typeof b.key === 'string' ? { key: b.key } : {}),
+        ...(typeof b.code === 'string' ? { code: b.code } : {})
       }
     }
   }
@@ -247,14 +239,14 @@ export function saveShortcutBindings(map: ShortcutBindingsMap): void {
   setCache({
     ...cache,
     version: 1,
-    shortcuts: map as NotelabConfigFileV1["shortcuts"],
+    shortcuts: map as NotelabConfigFileV1['shortcuts']
   })
 }
 
 export function loadUiFont(): UiFontId {
   const raw = cache.uiFont
   if (raw && UI_FONT_IDS.has(raw)) return raw as UiFontId
-  return "system"
+  return 'system'
 }
 
 export function saveUiFont(id: UiFontId): void {
@@ -264,7 +256,7 @@ export function saveUiFont(id: UiFontId): void {
 const VALID_THEME_PRESET_IDS = new Set<string>([
   DEFAULT_THEME_PRESET_ID,
   CUSTOM_THEME_PRESET_ID,
-  ...Object.keys(defaultPresets),
+  ...Object.keys(defaultPresets)
 ])
 
 export function loadThemePresetId(): string {
@@ -286,15 +278,14 @@ export function saveThemeConfig(config: NotelabThemeConfigV1): void {
       ...cache,
       version: 1,
       themePresetId: CUSTOM_THEME_PRESET_ID,
-      themeConfig: sanitized ?? { light: {}, dark: {} },
+      themeConfig: sanitized ?? { light: {}, dark: {} }
     },
     true
   )
 }
 
 export function saveThemePresetId(id: string): void {
-  const next =
-    id && VALID_THEME_PRESET_IDS.has(id) ? id : DEFAULT_THEME_PRESET_ID
+  const next = id && VALID_THEME_PRESET_IDS.has(id) ? id : DEFAULT_THEME_PRESET_ID
   if (next === CUSTOM_THEME_PRESET_ID) {
     setCache({ ...cache, version: 1, themePresetId: next }, true)
     return
@@ -305,7 +296,7 @@ export function saveThemePresetId(id: string): void {
       ...cache,
       version: 1,
       themePresetId: next,
-      themeConfig: snapshot,
+      themeConfig: snapshot
     },
     true
   )
@@ -313,10 +304,10 @@ export function saveThemePresetId(id: string): void {
 
 export function loadGithubContentShas(): Record<string, string> {
   const raw = cache.githubContentShas
-  if (!raw || typeof raw !== "object") return {}
+  if (!raw || typeof raw !== 'object') return {}
   const out: Record<string, string> = {}
   for (const [k, v] of Object.entries(raw)) {
-    if (typeof v === "string" && v.length > 0) out[k] = v
+    if (typeof v === 'string' && v.length > 0) out[k] = v
   }
   return out
 }
@@ -326,37 +317,37 @@ function defaultEditorSettings(): Required<NotelabEditorSettingsV1> {
     enableEmojiProperty: true,
     enableCoverProperty: true,
     newNotesStartWithFrontmatter: true,
-    confirmNoteDeletion: true,
+    confirmNoteDeletion: true
   }
 }
 
 function defaultAppearanceSettings(): Required<NotelabAppearanceSettingsV1> {
   return {
-    animationsEnabled: true,
+    animationsEnabled: true
   }
 }
 
 export function loadEditorSettings(): Required<NotelabEditorSettingsV1> {
   const defaults = defaultEditorSettings()
   const raw = cache.editorSettings
-  if (!raw || typeof raw !== "object") return defaults
+  if (!raw || typeof raw !== 'object') return defaults
   return {
     enableEmojiProperty:
-      typeof raw.enableEmojiProperty === "boolean"
+      typeof raw.enableEmojiProperty === 'boolean'
         ? raw.enableEmojiProperty
         : defaults.enableEmojiProperty,
     enableCoverProperty:
-      typeof raw.enableCoverProperty === "boolean"
+      typeof raw.enableCoverProperty === 'boolean'
         ? raw.enableCoverProperty
         : defaults.enableCoverProperty,
     newNotesStartWithFrontmatter:
-      typeof raw.newNotesStartWithFrontmatter === "boolean"
+      typeof raw.newNotesStartWithFrontmatter === 'boolean'
         ? raw.newNotesStartWithFrontmatter
         : defaults.newNotesStartWithFrontmatter,
     confirmNoteDeletion:
-      typeof raw.confirmNoteDeletion === "boolean"
+      typeof raw.confirmNoteDeletion === 'boolean'
         ? raw.confirmNoteDeletion
-        : defaults.confirmNoteDeletion,
+        : defaults.confirmNoteDeletion
   }
 }
 
@@ -366,33 +357,31 @@ export function saveEditorSettings(settings: NotelabEditorSettingsV1): void {
     version: 1,
     editorSettings: {
       ...loadEditorSettings(),
-      ...settings,
-    },
+      ...settings
+    }
   })
 }
 
 export function loadAppearanceSettings(): Required<NotelabAppearanceSettingsV1> {
   const defaults = defaultAppearanceSettings()
   const raw = cache.appearanceSettings
-  if (!raw || typeof raw !== "object") return defaults
+  if (!raw || typeof raw !== 'object') return defaults
   return {
     animationsEnabled:
-      typeof raw.animationsEnabled === "boolean"
+      typeof raw.animationsEnabled === 'boolean'
         ? raw.animationsEnabled
-        : defaults.animationsEnabled,
+        : defaults.animationsEnabled
   }
 }
 
-export function saveAppearanceSettings(
-  settings: NotelabAppearanceSettingsV1
-): void {
+export function saveAppearanceSettings(settings: NotelabAppearanceSettingsV1): void {
   setCache({
     ...cache,
     version: 1,
     appearanceSettings: {
       ...loadAppearanceSettings(),
-      ...settings,
-    },
+      ...settings
+    }
   })
 }
 
@@ -405,7 +394,10 @@ export function loadWorkspaces(): SavedWorkspace[] {
   if (!Array.isArray(raw)) return []
   return raw.filter(
     (w): w is SavedWorkspace =>
-      typeof w === 'object' && w !== null && typeof w.path === 'string' && typeof w.name === 'string'
+      typeof w === 'object' &&
+      w !== null &&
+      typeof w.path === 'string' &&
+      typeof w.name === 'string'
   )
 }
 
@@ -417,16 +409,13 @@ export function saveWorkspaces(workspaces: SavedWorkspace[]): void {
 export function upsertWorkspace(ws: SavedWorkspace): SavedWorkspace[] {
   const existing = loadWorkspaces()
   const idx = existing.findIndex((w) => w.path === ws.path)
-  const next = idx >= 0
-    ? existing.map((w, i) => (i === idx ? { ...w, ...ws } : w))
-    : [ws, ...existing]
+  const next =
+    idx >= 0 ? existing.map((w, i) => (i === idx ? { ...w, ...ws } : w)) : [ws, ...existing]
   saveWorkspaces(next)
   return next
 }
 
-export function mergeGithubContentShas(
-  patch: Record<string, string | undefined>
-): void {
+export function mergeGithubContentShas(patch: Record<string, string | undefined>): void {
   const cur = loadGithubContentShas()
   for (const [k, v] of Object.entries(patch)) {
     if (v) cur[k] = v

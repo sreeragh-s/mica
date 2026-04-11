@@ -1,4 +1,4 @@
-"use client"
+'use client'
 
 /**
  * Copyright (c) Meta Platforms, Inc. and affiliates.
@@ -7,9 +7,9 @@
  * LICENSE file in the root directory of this source tree.
  *
  */
-import { JSX, useEffect, useState } from "react"
-import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext"
-import { $wrapNodeInElement, mergeRegister } from "@lexical/utils"
+import { JSX, useEffect, useState } from 'react'
+import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext'
+import { $wrapNodeInElement, mergeRegister } from '@lexical/utils'
 import {
   $createParagraphNode,
   $createRangeSelection,
@@ -26,26 +26,21 @@ import {
   DRAGSTART_COMMAND,
   DROP_COMMAND,
   LexicalCommand,
-  LexicalEditor,
-} from "lexical"
+  LexicalEditor
+} from 'lexical'
 
 import {
   $createImageNode,
   $isImageNode,
   ImageNode,
-  ImagePayload,
-} from "@/features/editor/nodes/image-node"
-import { CAN_USE_DOM } from "@/features/editor/shared/can-use-dom"
-import { Button } from "@/components/ui/button"
-import { DialogFooter } from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/ui/tabs"
+  ImagePayload
+} from '@/features/editor/nodes/image-node'
+import { CAN_USE_DOM } from '@/features/editor/shared/can-use-dom'
+import { Button } from '@/components/ui/button'
+import { DialogFooter } from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 export type InsertImagePayload = Readonly<ImagePayload>
 
@@ -53,17 +48,17 @@ const getDOMSelection = (targetWindow: Window | null): Selection | null =>
   CAN_USE_DOM ? (targetWindow || window).getSelection() : null
 
 export const INSERT_IMAGE_COMMAND: LexicalCommand<InsertImagePayload> =
-  createCommand("INSERT_IMAGE_COMMAND")
+  createCommand('INSERT_IMAGE_COMMAND')
 
 export function InsertImageUriDialogBody({
-  onClick,
+  onClick
 }: {
   onClick: (payload: InsertImagePayload) => void
 }) {
-  const [src, setSrc] = useState("")
-  const [altText, setAltText] = useState("")
+  const [src, setSrc] = useState('')
+  const [altText, setAltText] = useState('')
 
-  const isDisabled = src === ""
+  const isDisabled = src === ''
 
   return (
     <div className="grid gap-4 py-4">
@@ -102,22 +97,22 @@ export function InsertImageUriDialogBody({
 }
 
 export function InsertImageUploadedDialogBody({
-  onClick,
+  onClick
 }: {
   onClick: (payload: InsertImagePayload) => void
 }) {
-  const [src, setSrc] = useState("")
-  const [altText, setAltText] = useState("")
+  const [src, setSrc] = useState('')
+  const [altText, setAltText] = useState('')
 
-  const isDisabled = src === ""
+  const isDisabled = src === ''
 
   const loadImage = (files: FileList | null) => {
     const reader = new FileReader()
     reader.onload = function () {
-      if (typeof reader.result === "string") {
+      if (typeof reader.result === 'string') {
         setSrc(reader.result)
       }
-      return ""
+      return ''
     }
     if (files !== null) {
       reader.readAsDataURL(files[0])
@@ -160,7 +155,7 @@ export function InsertImageUploadedDialogBody({
 
 /** URL / file tabs shared by “Insert image” and “Add cover” (confirm only; no Lexical insert). */
 export function ImageSourceTabs({
-  onConfirm,
+  onConfirm
 }: {
   onConfirm: (payload: InsertImagePayload) => void
 }): JSX.Element {
@@ -186,7 +181,7 @@ export function ImageSourceTabs({
 
 export function InsertImageDialog({
   activeEditor,
-  onClose,
+  onClose
 }: {
   activeEditor: LexicalEditor
   onClose: () => void
@@ -200,7 +195,7 @@ export function InsertImageDialog({
 }
 
 export function ImagesPlugin({
-  captionsEnabled,
+  captionsEnabled
 }: {
   captionsEnabled?: boolean
 }): JSX.Element | null {
@@ -208,7 +203,7 @@ export function ImagesPlugin({
 
   useEffect(() => {
     if (!editor.hasNodes([ImageNode])) {
-      throw new Error("ImagesPlugin: ImageNode not registered on editor")
+      throw new Error('ImagesPlugin: ImageNode not registered on editor')
     }
 
     return mergeRegister(
@@ -262,13 +257,13 @@ function $onDragStart(event: DragEvent): boolean {
     return false
   }
   const TRANSPARENT_IMAGE =
-    "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"
-  const img = document.createElement("img")
+    'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'
+  const img = document.createElement('img')
   img.src = TRANSPARENT_IMAGE
-  dataTransfer.setData("text/plain", "_")
+  dataTransfer.setData('text/plain', '_')
   dataTransfer.setDragImage(img, 0, 0)
   dataTransfer.setData(
-    "application/x-lexical-drag",
+    'application/x-lexical-drag',
     JSON.stringify({
       data: {
         altText: node.__altText,
@@ -278,9 +273,9 @@ function $onDragStart(event: DragEvent): boolean {
         maxWidth: node.__maxWidth,
         showCaption: node.__showCaption,
         src: node.__src,
-        width: node.__width,
+        width: node.__width
       },
-      type: "image",
+      type: 'image'
     })
   )
 
@@ -332,12 +327,12 @@ function $getImageNodeInSelection(): ImageNode | null {
 }
 
 function getDragImageData(event: DragEvent): null | InsertImagePayload {
-  const dragData = event.dataTransfer?.getData("application/x-lexical-drag")
+  const dragData = event.dataTransfer?.getData('application/x-lexical-drag')
   if (!dragData) {
     return null
   }
   const { type, data } = JSON.parse(dragData)
-  if (type !== "image") {
+  if (type !== 'image') {
     return null
   }
 
@@ -356,9 +351,9 @@ function canDropImage(event: DragEvent): boolean {
   return !!(
     target &&
     target instanceof HTMLElement &&
-    !target.closest("code, span.editor-image") &&
+    !target.closest('code, span.editor-image') &&
     target.parentElement &&
-    target.parentElement.closest("div.ContentEditable__root")
+    target.parentElement.closest('div.ContentEditable__root')
   )
 }
 

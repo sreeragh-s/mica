@@ -110,9 +110,7 @@ export function ChatSidebarPanelTabs({
       <div
         className={cn(
           toolbarShellClass,
-          segmented
-            ? 'h-8 min-h-8 w-full min-w-0 flex-1 shrink gap-0.5'
-            : 'h-8 shrink-0'
+          segmented ? 'h-8 min-h-8 w-full min-w-0 flex-1 shrink gap-0.5' : 'h-8 shrink-0'
         )}
         role="tablist"
       >

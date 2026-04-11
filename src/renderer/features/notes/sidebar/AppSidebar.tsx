@@ -23,7 +23,7 @@ export function AppSidebarRail({ vm }: AppSidebarRailProps): JSX.Element {
     isMacNotelab,
     macTitlebarStyles,
     gitDirtyGlobal,
-    gitSourceControlHasConflicts,
+    gitSourceControlHasConflicts
   } = vm
 
   const railBtn = (
@@ -81,12 +81,7 @@ export function AppSidebarRail({ vm }: AppSidebarRailProps): JSX.Element {
         aria-label="Sidebar views"
       >
         <div className="flex flex-1 flex-col items-center gap-0.5 py-2">
-          {railBtn(
-            'explorer',
-            'Notes',
-            <Folder className="size-[18px]" aria-hidden />,
-            false
-          )}
+          {railBtn('explorer', 'Notes', <Folder className="size-[18px]" aria-hidden />, false)}
           {railBtn(
             'source-control',
             'Source control',

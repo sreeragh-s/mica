@@ -11,14 +11,8 @@ import { join } from 'path'
 import { is } from '@electron-toolkit/utils'
 import icon from '../../../resources/icon.png?asset'
 import { macTrafficLightPosition } from '@shared/windowing/mac-window-chrome'
-import {
-  type WindowSession,
-  windowSessionData,
-} from './session'
-import {
-  zenShortcutBindings,
-  bindingMatchesBeforeInput,
-} from './shortcuts'
+import { type WindowSession, windowSessionData } from './session'
+import { zenShortcutBindings, bindingMatchesBeforeInput } from './shortcuts'
 
 // ---------------------------------------------------------------------------
 // Window creation
@@ -48,7 +42,7 @@ export function createWindow(session?: WindowSession): BrowserWindow {
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false,
-      spellcheck: false,
+      spellcheck: false
     }
   })
 

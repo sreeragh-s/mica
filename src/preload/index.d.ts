@@ -56,8 +56,7 @@ type EmbeddingsSearchRow = {
 type NotelabApi = {
   auth: {
     getSession: () => Promise<
-      | { ok: true; data: { session: unknown; user: unknown } | null }
-      | { ok: false; error?: string }
+      { ok: true; data: { session: unknown; user: unknown } | null } | { ok: false; error?: string }
     >
     signInWithGithub: () => Promise<{ user: unknown }>
     signOut: () => Promise<{ ok: boolean }>
@@ -86,14 +85,10 @@ type NotelabApi = {
       createdAt: number
       messages: ChatHistoryMessage[]
     }) => Promise<{ ok: true } | { ok: false; error: string }>
-    list: () => Promise<
-      | { ok: true; sessions: ChatHistoryMeta[] }
-      | { ok: false; error: string }
-    >
-    read: (sessionId: string) => Promise<
-      | { ok: true; content: string }
-      | { ok: false; error: string }
-    >
+    list: () => Promise<{ ok: true; sessions: ChatHistoryMeta[] } | { ok: false; error: string }>
+    read: (
+      sessionId: string
+    ) => Promise<{ ok: true; content: string } | { ok: false; error: string }>
     readSession: (sessionId: string) => Promise<
       | {
           ok: true
@@ -108,10 +103,7 @@ type NotelabApi = {
     >
   }
   workspace: {
-    checkGit: () => Promise<
-      | { ok: true; version: string }
-      | { ok: false; error: string }
-    >
+    checkGit: () => Promise<{ ok: true; version: string } | { ok: false; error: string }>
     ensureDataRoot: (payload?: { path?: string }) => Promise<
       | {
           ok: true
@@ -142,22 +134,24 @@ type NotelabApi = {
       cwd: string
       url: string
     }) => Promise<{ ok: true } | { ok: false; error: string }>
-    gitCheckConfig: (payload: { cwd: string }) => Promise<
+    gitCheckConfig: (payload: {
+      cwd: string
+    }) => Promise<
       | { ok: true; hasName: boolean; hasEmail: boolean; name: string | null; email: string | null }
       | { ok: false; error: string }
     >
-    gitSetConfig: (payload: { cwd: string; name: string; email: string }) => Promise<
-      { ok: true } | { ok: false; error: string }
-    >
+    gitSetConfig: (payload: {
+      cwd: string
+      name: string
+      email: string
+    }) => Promise<{ ok: true } | { ok: false; error: string }>
     syncMarkdown: (payload: {
       cwd: string
       folder: string
       files: { relativePath: string; content: string }[]
       pruneOrphanNoteFiles?: boolean
     }) => Promise<{ ok: true } | { ok: false; error: string }>
-    readNotelabIndex: (payload: {
-      cwd: string
-    }) => Promise<
+    readNotelabIndex: (payload: { cwd: string }) => Promise<
       | {
           ok: true
           folders: { folder: string; name: string }[]
@@ -208,16 +202,10 @@ type NotelabApi = {
     }) => Promise<{ ok: true } | { ok: false; error: string }>
     gitPull: (payload: {
       cwd: string
-    }) => Promise<
-      | { ok: true; stdout: string }
-      | { ok: false; error: string }
-    >
+    }) => Promise<{ ok: true; stdout: string } | { ok: false; error: string }>
     gitPush: (payload: {
       cwd: string
-    }) => Promise<
-      | { ok: true; stdout: string }
-      | { ok: false; error: string }
-    >
+    }) => Promise<{ ok: true; stdout: string } | { ok: false; error: string }>
     gitFileStatuses?: (payload: { cwd: string }) => Promise<
       | {
           ok: true
@@ -267,10 +255,7 @@ type NotelabApi = {
     }) => Promise<{ ok: true } | { ok: false; error: string }>
     readAppConfig: (payload: {
       cwd: string
-    }) => Promise<
-      | { ok: true; content: string | null }
-      | { ok: false; error: string }
-    >
+    }) => Promise<{ ok: true; content: string | null } | { ok: false; error: string }>
     writeAppConfig: (payload: {
       cwd: string
       config: unknown
@@ -286,14 +271,10 @@ type NotelabApi = {
       onEnd: (version: string) => void
       onError: (message: string) => void
     }) => () => void
-    start: () => Promise<
-      | { ok: true; alreadyRunning: boolean }
-      | { ok: false; error: string }
-    >
+    start: () => Promise<{ ok: true; alreadyRunning: boolean } | { ok: false; error: string }>
     stop: () => Promise<{ ok: true } | { ok: false; error: string }>
     listModels: () => Promise<
-      | { ok: true; models: OllamaLocalModel[] }
-      | { ok: false; error: string }
+      { ok: true; models: OllamaLocalModel[] } | { ok: false; error: string }
     >
     pullModel: (
       modelName: string,
@@ -308,17 +289,11 @@ type NotelabApi = {
     embed: (payload: {
       model: string
       input: string
-    }) => Promise<
-      | { ok: true; embedding: number[] }
-      | { ok: false; error: string }
-    >
+    }) => Promise<{ ok: true; embedding: number[] } | { ok: false; error: string }>
     embedBatch: (payload: {
       model: string
       inputs: string[]
-    }) => Promise<
-      | { ok: true; embeddings: number[][] }
-      | { ok: false; error: string }
-    >
+    }) => Promise<{ ok: true; embeddings: number[][] } | { ok: false; error: string }>
     /** Stream Ollama /api/chat via main (avoids CORS from the dev server origin). */
     chatStream: (
       bodyJson: string,
@@ -369,27 +344,18 @@ type NotelabApi = {
       maxTokens?: number
       filter?: EmbeddingsFilter
       isBm25?: boolean
-    }) => Promise<
-      | { ok: true; rows: EmbeddingsSearchRow[] }
-      | { ok: false; error: string }
-    >
+    }) => Promise<{ ok: true; rows: EmbeddingsSearchRow[] } | { ok: false; error: string }>
     deleteNoteDocument: (payload: {
       workspacePath: string
       note: string
-    }) => Promise<
-      | { ok: true; deleted: boolean }
-      | { ok: false; error: string }
-    >
+    }) => Promise<{ ok: true; deleted: boolean } | { ok: false; error: string }>
     deleteWorkspaceDocuments: (payload: {
       workspacePath: string
       workspaceId: string
     }) => Promise<
-      | { ok: true; deleted: boolean; deletedCount: number }
-      | { ok: false; error: string }
+      { ok: true; deleted: boolean; deletedCount: number } | { ok: false; error: string }
     >
-    dumpIndex: (payload: {
-      workspacePath: string
-    }) => Promise<
+    dumpIndex: (payload: { workspacePath: string }) => Promise<
       | {
           ok: true
           indexPath: string
@@ -417,7 +383,12 @@ type NotelabApi = {
     >
     openDownload: (downloadUrl: string) => Promise<{ ok: true } | { ok: false; error: string }>
     onStateChange: (
-      callback: (state: { status: string; version?: string; downloadUrl?: string; message?: string }) => void
+      callback: (state: {
+        status: string
+        version?: string
+        downloadUrl?: string
+        message?: string
+      }) => void
     ) => () => void
   }
   multiWindow: {

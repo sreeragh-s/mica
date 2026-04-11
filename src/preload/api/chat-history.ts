@@ -9,14 +9,19 @@ export const chatHistoryApi = {
   }): Promise<{ ok: true } | { ok: false; error: string }> =>
     ipcRenderer.invoke('chat-history:write', payload),
   list: (): Promise<
-    | { ok: true; sessions: { sessionId: string; title: string; createdAt: number; messageCount: number }[] }
+    | {
+        ok: true
+        sessions: { sessionId: string; title: string; createdAt: number; messageCount: number }[]
+      }
     | { ok: false; error: string }
   > => ipcRenderer.invoke('chat-history:list'),
-  read: (sessionId: string): Promise<
-    | { ok: true; content: string }
-    | { ok: false; error: string }
-  > => ipcRenderer.invoke('chat-history:read', sessionId),
-  readSession: (sessionId: string): Promise<
+  read: (
+    sessionId: string
+  ): Promise<{ ok: true; content: string } | { ok: false; error: string }> =>
+    ipcRenderer.invoke('chat-history:read', sessionId),
+  readSession: (
+    sessionId: string
+  ): Promise<
     | {
         ok: true
         session: {
@@ -27,5 +32,5 @@ export const chatHistoryApi = {
         }
       }
     | { ok: false; error: string }
-  > => ipcRenderer.invoke('chat-history:read-session', sessionId),
+  > => ipcRenderer.invoke('chat-history:read-session', sessionId)
 }

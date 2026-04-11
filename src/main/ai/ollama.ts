@@ -30,7 +30,7 @@ async function getEO(): Promise<import('electron-ollama').ElectronOllama> {
   if (!eoInstance) {
     const { ElectronOllama } = await import('electron-ollama')
     eoInstance = new ElectronOllama({
-      basePath: join(app.getPath('userData'), 'ollama'),
+      basePath: join(app.getPath('userData'), 'ollama')
     })
   }
   return eoInstance
@@ -84,7 +84,7 @@ export function registerOllamaIpc(): void {
       await eo.download('latest', undefined, {
         log: (percent, message) => {
           send('ollama:download:progress', percent, message)
-        },
+        }
       })
       send('ollama:download:progress', 100, 'Download complete')
       send('ollama:download:end', metadata.version)
@@ -103,7 +103,7 @@ export function registerOllamaIpc(): void {
       const versions = await eo.downloadedVersions()
       if (versions.length === 0) return { ok: false as const, error: 'Ollama not downloaded yet' }
       await eo.serve(versions[0] as `v${number}.${number}.${number}`, {
-        serverLog: (msg) => console.log('[Ollama]', msg),
+        serverLog: (msg) => console.log('[Ollama]', msg)
       })
       return { ok: true as const, alreadyRunning: false }
     } catch (err) {
@@ -144,48 +144,61 @@ export function registerOllamaIpc(): void {
   // ------------------------------------------------------------------
   // ollama:pull-model  (streams progress)
   // ------------------------------------------------------------------
-  ipcMain.on('ollama:pull-model', async (event: IpcMainEvent, requestId: string, modelName: string) => {
-    const send = (channel: string, ...args: unknown[]): void => {
-      if (!event.sender.isDestroyed()) event.sender.send(channel, requestId, ...args)
-    }
-    try {
-      const res = await ollamaFetch('/api/pull', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: modelName, stream: true }),
-      })
-      if (!res.ok || !res.body) {
-        send('ollama:pull-model:error', `HTTP ${res.status}`)
-        return
+  ipcMain.on(
+    'ollama:pull-model',
+    async (event: IpcMainEvent, requestId: string, modelName: string) => {
+      const send = (channel: string, ...args: unknown[]): void => {
+        if (!event.sender.isDestroyed()) event.sender.send(channel, requestId, ...args)
       }
-      const reader = res.body.getReader()
-      const decoder = new TextDecoder()
-      let buf = ''
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-        buf += decoder.decode(value, { stream: true })
-        const lines = buf.split('\n')
-        buf = lines.pop() ?? ''
-        for (const line of lines) {
-          if (!line.trim()) continue
-          try {
-            const obj = JSON.parse(line) as { status?: string; completed?: number; total?: number; error?: string }
-            if (obj.error) {
-              send('ollama:pull-model:error', obj.error)
-              return
+      try {
+        const res = await ollamaFetch('/api/pull', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: modelName, stream: true })
+        })
+        if (!res.ok || !res.body) {
+          send('ollama:pull-model:error', `HTTP ${res.status}`)
+          return
+        }
+        const reader = res.body.getReader()
+        const decoder = new TextDecoder()
+        let buf = ''
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+          buf += decoder.decode(value, { stream: true })
+          const lines = buf.split('\n')
+          buf = lines.pop() ?? ''
+          for (const line of lines) {
+            if (!line.trim()) continue
+            try {
+              const obj = JSON.parse(line) as {
+                status?: string
+                completed?: number
+                total?: number
+                error?: string
+              }
+              if (obj.error) {
+                send('ollama:pull-model:error', obj.error)
+                return
+              }
+              send(
+                'ollama:pull-model:progress',
+                obj.status ?? '',
+                obj.completed ?? 0,
+                obj.total ?? 0
+              )
+            } catch {
+              /* skip malformed line */
             }
-            send('ollama:pull-model:progress', obj.status ?? '', obj.completed ?? 0, obj.total ?? 0)
-          } catch {
-            /* skip malformed line */
           }
         }
+        send('ollama:pull-model:end')
+      } catch (err) {
+        send('ollama:pull-model:error', String(err))
       }
-      send('ollama:pull-model:end')
-    } catch (err) {
-      send('ollama:pull-model:error', String(err))
     }
-  })
+  )
 
   // ------------------------------------------------------------------
   // ollama:delete-model
@@ -195,7 +208,7 @@ export function registerOllamaIpc(): void {
       const res = await ollamaFetch('/api/delete', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: modelName }),
+        body: JSON.stringify({ name: modelName })
       })
       if (!res.ok) return { ok: false as const, error: `HTTP ${res.status}` }
       return { ok: true as const }
@@ -207,37 +220,34 @@ export function registerOllamaIpc(): void {
   // ------------------------------------------------------------------
   // ollama:embed — POST /api/embed (avoids cloud /api/embeddings when using local chat)
   // ------------------------------------------------------------------
-  ipcMain.handle(
-    'ollama:embed',
-    async (_event, payload: { model: string; input: string }) => {
-      try {
-        const res = await ollamaFetch('/api/embed', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ model: payload.model, input: payload.input }),
-        })
-        const text = await res.text()
-        if (!res.ok) {
-          let msg = text
-          try {
-            const j = JSON.parse(text) as { error?: string }
-            if (typeof j.error === 'string') msg = j.error
-          } catch {
-            /* raw */
-          }
-          return { ok: false as const, error: msg || `HTTP ${res.status}` }
+  ipcMain.handle('ollama:embed', async (_event, payload: { model: string; input: string }) => {
+    try {
+      const res = await ollamaFetch('/api/embed', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: payload.model, input: payload.input })
+      })
+      const text = await res.text()
+      if (!res.ok) {
+        let msg = text
+        try {
+          const j = JSON.parse(text) as { error?: string }
+          if (typeof j.error === 'string') msg = j.error
+        } catch {
+          /* raw */
         }
-        const data = JSON.parse(text) as { embeddings?: number[][] }
-        const vec = data.embeddings?.[0]
-        if (!Array.isArray(vec) || vec.length === 0) {
-          return { ok: false as const, error: 'Ollama returned no embedding vector' }
-        }
-        return { ok: true as const, embedding: vec }
-      } catch (err) {
-        return { ok: false as const, error: String(err) }
+        return { ok: false as const, error: msg || `HTTP ${res.status}` }
       }
+      const data = JSON.parse(text) as { embeddings?: number[][] }
+      const vec = data.embeddings?.[0]
+      if (!Array.isArray(vec) || vec.length === 0) {
+        return { ok: false as const, error: 'Ollama returned no embedding vector' }
+      }
+      return { ok: true as const, embedding: vec }
+    } catch (err) {
+      return { ok: false as const, error: String(err) }
     }
-  )
+  })
 
   // ------------------------------------------------------------------
   // ollama:embed-batch — POST /api/embed with input: string[] (note indexing batches)
@@ -252,7 +262,7 @@ export function registerOllamaIpc(): void {
         const res = await ollamaFetch('/api/embed', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ model: payload.model, input: payload.inputs }),
+          body: JSON.stringify({ model: payload.model, input: payload.inputs })
         })
         const text = await res.text()
         if (!res.ok) {
@@ -270,7 +280,7 @@ export function registerOllamaIpc(): void {
         if (!Array.isArray(embs) || embs.length !== payload.inputs.length) {
           return {
             ok: false as const,
-            error: `Ollama returned ${embs?.length ?? 0} embeddings for ${payload.inputs.length} input(s)`,
+            error: `Ollama returned ${embs?.length ?? 0} embeddings for ${payload.inputs.length} input(s)`
           }
         }
         for (let i = 0; i < embs.length; i++) {
@@ -313,7 +323,7 @@ export function registerOllamaIpc(): void {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: typeof bodyJson === 'string' ? bodyJson : JSON.stringify(bodyJson),
-          signal: ac.signal,
+          signal: ac.signal
         })
         if (!res.ok || !res.body) {
           sendError(`Ollama returned HTTP ${res.status}`)

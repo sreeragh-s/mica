@@ -52,7 +52,7 @@ export function defaultWorkspaceViewSnapshot(): NotelabWorkspaceViewSnapshotV1 {
     settingsSection: 'account',
     focusedFolderId: null,
     newNoteDestinationFolderId: DEFAULT_WORKSPACE_ID,
-    workspaceSettingsFolderId: null,
+    workspaceSettingsFolderId: null
   }
 }
 
@@ -181,14 +181,12 @@ function scheduleWorkspaceViewPersist(): void {
 }
 
 /** Persist full snapshot; merges into the on-disk envelope for this workspace. */
-export function schedulePersistWorkspaceViewSnapshot(
-  snap: NotelabWorkspaceViewSnapshotV1
-): void {
+export function schedulePersistWorkspaceViewSnapshot(snap: NotelabWorkspaceViewSnapshotV1): void {
   if (!notesWorkspaceCwd || !getApi()?.workspace?.writeAppConfig) return
   fileEnvelope = {
     ...fileEnvelope,
     version: 1,
-    workspaceView: snap,
+    workspaceView: snap
   }
   scheduleWorkspaceViewPersist()
 }

@@ -1,9 +1,4 @@
-import {
-  app,
-  clipboard,
-  BrowserWindow,
-  ipcMain,
-} from 'electron'
+import { app, clipboard, BrowserWindow, ipcMain } from 'electron'
 import log from 'electron-log/main'
 
 import { macTrafficLightPosition } from '@shared/windowing/mac-window-chrome'

@@ -69,9 +69,7 @@ export function ShortcutsSettingsView({
       style={isMacNotelab ? macTitlebarStyles.noDrag : undefined}
     >
       <div className="flex flex-col gap-1">
-        <h2 className="text-foreground text-lg font-semibold tracking-tight">
-          Keyboard shortcuts
-        </h2>
+        <h2 className="text-foreground text-lg font-semibold tracking-tight">Keyboard shortcuts</h2>
         <p className="text-muted-foreground text-sm leading-relaxed">
           Shortcuts use {isMacNotelab ? '⌘' : 'Ctrl'} as the main modifier. Click “Change” and press
           a new combination. Escape cancels recording.
@@ -181,16 +179,12 @@ export function ShortcutsSettingsView({
             — Next / previous tab
           </li>
           <li>
-            <span className="text-foreground font-mono">
-              {isMacNotelab ? '⌘' : 'Ctrl+'}1–8
-            </span>{' '}
-            — Switch to tab by position (1 = first, 8 = eighth)
+            <span className="text-foreground font-mono">{isMacNotelab ? '⌘' : 'Ctrl+'}1–8</span> —
+            Switch to tab by position (1 = first, 8 = eighth)
           </li>
           <li>
-            <span className="text-foreground font-mono">
-              {isMacNotelab ? '⌘' : 'Ctrl+'}9
-            </span>{' '}
-            — Switch to last tab
+            <span className="text-foreground font-mono">{isMacNotelab ? '⌘' : 'Ctrl+'}9</span> —
+            Switch to last tab
           </li>
           <li>
             <span className="text-foreground font-mono">

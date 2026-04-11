@@ -1,15 +1,15 @@
-import { ImageIcon } from "lucide-react"
+import { ImageIcon } from 'lucide-react'
 
-import { InsertImageDialog } from "@/features/editor/plugins/images-plugin"
-import { ComponentPickerOption } from "@/features/editor/plugins/picker/component-picker-option"
+import { InsertImageDialog } from '@/features/editor/plugins/images-plugin'
+import { ComponentPickerOption } from '@/features/editor/plugins/picker/component-picker-option'
 
 export function ImagePickerPlugin() {
-  return new ComponentPickerOption("Image", {
+  return new ComponentPickerOption('Image', {
     icon: <ImageIcon className="size-4" />,
-    keywords: ["image", "photo", "picture", "file"],
+    keywords: ['image', 'photo', 'picture', 'file'],
     onSelect: (_, editor, showModal) =>
-      showModal("Insert Image", (onClose) => (
+      showModal('Insert Image', (onClose) => (
         <InsertImageDialog activeEditor={editor} onClose={onClose} />
-      )),
+      ))
   })
 }

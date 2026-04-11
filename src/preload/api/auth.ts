@@ -35,10 +35,10 @@ export const authApi = {
       'auth:stream:error': (message) => {
         cleanup()
         callbacks.onError(String(message))
-      },
+      }
     })
 
     ipcRenderer.send('auth:stream', requestId, url, init)
     return cleanup
-  },
+  }
 }

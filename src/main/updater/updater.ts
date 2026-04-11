@@ -25,7 +25,6 @@ import log from 'electron-log/main'
 
 declare const __APP_SERVER_URL__: string
 
-    
 type UpdateState =
   | { status: 'idle' }
   | { status: 'available'; version: string; downloadUrl: string }
@@ -47,7 +46,10 @@ function broadcastState(state: UpdateState): void {
 
 function semverGt(a: string, b: string): boolean {
   const parse = (v: string): number[] =>
-    v.replace(/^v/, '').split('.').map((n) => parseInt(n, 10) || 0)
+    v
+      .replace(/^v/, '')
+      .split('.')
+      .map((n) => parseInt(n, 10) || 0)
   const [aMaj, aMin, aPatch] = parse(a)
   const [bMaj, bMin, bPatch] = parse(b)
   if (aMaj !== bMaj) return aMaj > bMaj
@@ -64,7 +66,7 @@ async function checkForUpdates(): Promise<void> {
   try {
     log.info('[updater] Checking for updates at', endpoint)
     const request = net.fetch(endpoint, {
-      headers: { 'User-Agent': `notelab/${app.getVersion()}` },
+      headers: { 'User-Agent': `notelab/${app.getVersion()}` }
     })
     const res = await request
     if (!res.ok) {

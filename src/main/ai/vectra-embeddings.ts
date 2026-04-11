@@ -3,12 +3,7 @@ import { ipcMain, session } from 'electron'
 import log from 'electron-log/main'
 import { join, resolve } from 'path'
 import { LocalDocumentIndex } from 'vectra'
-import type {
-  EmbeddingsModel,
-  EmbeddingsResponse,
-  MetadataFilter,
-  MetadataTypes,
-} from 'vectra'
+import type { EmbeddingsModel, EmbeddingsResponse, MetadataFilter, MetadataTypes } from 'vectra'
 
 const LOG = '[vectra]'
 const AUTH_PARTITION = 'persist:notelab-auth'
@@ -25,7 +20,7 @@ const REQUIRED_INDEXED_FIELDS = [
   // Keep title inline so Vectra doesn't create one external metadata file per chunk.
   'title',
   'kind',
-  'contentHash',
+  'contentHash'
 ]
 
 type NoteKind = 'note' | 'drawing'
@@ -159,12 +154,14 @@ async function readStoredDocuments(indexPath: string): Promise<StoredDocumentRow
     try {
       const [rawMetadata, text] = await Promise.all([
         readFileFromFs(join(indexPath, `${documentId}.json`), 'utf8'),
-        readFileFromFs(join(indexPath, `${documentId}.txt`), 'utf8'),
+        readFileFromFs(join(indexPath, `${documentId}.txt`), 'utf8')
       ])
       const parsedMetadata = JSON.parse(rawMetadata) as Record<string, MetadataTypes>
       const metadata = parseMetadata(parsedMetadata)
       if (!metadata) {
-        logWarn(`skipping stored document with invalid metadata path=${indexPath} documentId=${documentId}`)
+        logWarn(
+          `skipping stored document with invalid metadata path=${indexPath} documentId=${documentId}`
+        )
         continue
       }
       rows.push({ documentId, uri, text, metadata })
@@ -185,7 +182,9 @@ async function listOllamaModels(): Promise<{ name: string; model?: string }[]> {
   }
   const data = (await response.json()) as { models?: { name?: string; model?: string }[] }
   return Array.isArray(data.models)
-    ? data.models.filter((model): model is { name: string; model?: string } => typeof model.name === 'string')
+    ? data.models.filter(
+        (model): model is { name: string; model?: string } => typeof model.name === 'string'
+      )
     : []
 }
 
@@ -199,7 +198,7 @@ async function createLocalEmbeddings(texts: string[]): Promise<number[][]> {
     const response = await fetch('http://127.0.0.1:11434/api/embed', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: LOCAL_EMBEDDING_MODEL, input: batch }),
+      body: JSON.stringify({ model: LOCAL_EMBEDDING_MODEL, input: batch })
     })
     const body = await response.text()
     if (!response.ok) {
@@ -240,9 +239,9 @@ async function createServerEmbeddings(texts: string[]): Promise<number[][]> {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Origin: origin,
+        Origin: origin
       },
-      body: JSON.stringify({ texts: batch }),
+      body: JSON.stringify({ texts: batch })
     })
     const body = await response.text()
     if (!response.ok) {
@@ -277,7 +276,11 @@ class NotelabEmbeddingsModel implements EmbeddingsModel {
 
     try {
       const models = await listOllamaModels()
-      if (models.some((model) => typeof model.name === 'string' && isLocalEmbeddingModelName(model.name))) {
+      if (
+        models.some(
+          (model) => typeof model.name === 'string' && isLocalEmbeddingModelName(model.name)
+        )
+      ) {
         try {
           logInfo(`using local Ollama embeddings provider texts=${texts.length}`)
           const output = await createLocalEmbeddings(texts)
@@ -297,7 +300,7 @@ class NotelabEmbeddingsModel implements EmbeddingsModel {
     } catch (error) {
       return {
         status: 'error',
-        message: error instanceof Error ? error.message : String(error),
+        message: error instanceof Error ? error.message : String(error)
       }
     }
   }
@@ -306,7 +309,7 @@ class NotelabEmbeddingsModel implements EmbeddingsModel {
 function createIndexInstance(workspacePath: string): LocalDocumentIndex {
   return new LocalDocumentIndex({
     folderPath: getVectraDirectory(workspacePath),
-    embeddings: new NotelabEmbeddingsModel(),
+    embeddings: new NotelabEmbeddingsModel()
   })
 }
 
@@ -327,7 +330,7 @@ async function ensureIndexReady(
     await freshIndex.createIndex({
       version: INDEX_VERSION,
       deleteIfExists: true,
-      metadata_config: { indexed: REQUIRED_INDEXED_FIELDS },
+      metadata_config: { indexed: REQUIRED_INDEXED_FIELDS }
     })
     return freshIndex
   }
@@ -403,7 +406,9 @@ async function getWorkspaceIndex(workspacePath: string): Promise<LocalDocumentIn
   const normalizedPath = normalizeWorkspacePath(workspacePath)
   let indexPromise = indexPromiseByWorkspacePath.get(normalizedPath)
   if (!indexPromise) {
-    logInfo(`opening workspace Vectra index workspacePath=${normalizedPath} indexPath=${getVectraDirectory(normalizedPath)}`)
+    logInfo(
+      `opening workspace Vectra index workspacePath=${normalizedPath} indexPath=${getVectraDirectory(normalizedPath)}`
+    )
     indexPromise = (async () => {
       const index = createIndexInstance(normalizedPath)
       return await ensureIndexReady(normalizedPath, index)
@@ -423,47 +428,43 @@ async function listDocumentsWithMetadata(
   return documents.map((document) => ({
     documentId: document.documentId,
     uri: document.uri,
-    metadata: document.metadata,
+    metadata: document.metadata
   }))
 }
 
 export function registerVectraEmbeddingsIpc(): void {
-  ipcMain.handle(
-    'embeddings:get-status',
-    async (_event, payload: { workspacePath: string }) => {
-      try {
-        const index = await getWorkspaceIndex(payload.workspacePath)
-        const stats = await index.getCatalogStats()
-        logInfo(
-          `get-status workspacePath=${payload.workspacePath} indexPath=${getVectraDirectory(payload.workspacePath)} documents=${stats.documents} chunks=${stats.chunks}`
-        )
-        return {
-          ok: true as const,
-          indexPath: getVectraDirectory(payload.workspacePath),
-          indexExists: true,
-          documents: stats.documents,
-          chunks: stats.chunks,
-        }
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error)
-        return { ok: false as const, error: message }
+  ipcMain.handle('embeddings:get-status', async (_event, payload: { workspacePath: string }) => {
+    try {
+      const index = await getWorkspaceIndex(payload.workspacePath)
+      const stats = await index.getCatalogStats()
+      logInfo(
+        `get-status workspacePath=${payload.workspacePath} indexPath=${getVectraDirectory(payload.workspacePath)} documents=${stats.documents} chunks=${stats.chunks}`
+      )
+      return {
+        ok: true as const,
+        indexPath: getVectraDirectory(payload.workspacePath),
+        indexExists: true,
+        documents: stats.documents,
+        chunks: stats.chunks
       }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      return { ok: false as const, error: message }
     }
-  )
+  })
 
-  ipcMain.handle(
-    'embeddings:ensure-index',
-    async (_event, payload: { workspacePath: string }) => {
-      try {
-        await getWorkspaceIndex(payload.workspacePath)
-        logInfo(`ensure-index workspacePath=${payload.workspacePath} indexPath=${getVectraDirectory(payload.workspacePath)}`)
-        return { ok: true as const }
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error)
-        return { ok: false as const, error: message }
-      }
+  ipcMain.handle('embeddings:ensure-index', async (_event, payload: { workspacePath: string }) => {
+    try {
+      await getWorkspaceIndex(payload.workspacePath)
+      logInfo(
+        `ensure-index workspacePath=${payload.workspacePath} indexPath=${getVectraDirectory(payload.workspacePath)}`
+      )
+      return { ok: true as const }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      return { ok: false as const, error: message }
     }
-  )
+  })
 
   ipcMain.handle(
     'embeddings:get-indexed-hashes',
@@ -475,10 +476,12 @@ export function registerVectraEmbeddingsIpc(): void {
         for (const row of rows) {
           hashes[row.metadata.note] = {
             contentHash: row.metadata.contentHash,
-            folder: row.metadata.folder,
+            folder: row.metadata.folder
           }
         }
-        logInfo(`get-indexed-hashes workspacePath=${payload.workspacePath} count=${Object.keys(hashes).length}`)
+        logInfo(
+          `get-indexed-hashes workspacePath=${payload.workspacePath} count=${Object.keys(hashes).length}`
+        )
         return { ok: true as const, hashes }
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error)
@@ -524,11 +527,11 @@ export function registerVectraEmbeddingsIpc(): void {
             note,
             title,
             kind,
-            contentHash,
+            contentHash
           }
         )
         const chunks = await index.listItemsByMetadata({
-          note: { $eq: note },
+          note: { $eq: note }
         })
         logInfo(`upsert-note-document stored folder=${folder} note=${note} chunks=${chunks.length}`)
         return { ok: true as const, indexed: chunks.length }
@@ -565,7 +568,7 @@ export function registerVectraEmbeddingsIpc(): void {
           maxDocuments,
           maxChunks,
           filter: payload.filter,
-          isBm25: payload.isBm25 ?? false,
+          isBm25: payload.isBm25 ?? false
         })
         logInfo(
           `search-documents workspacePath=${payload.workspacePath} query="${previewText(payload.query, 160)}" maxDocuments=${maxDocuments} maxChunks=${maxChunks} maxSections=${maxSections} maxTokens=${maxTokens} isBm25=${payload.isBm25 ?? false} filter=${stringifyFilter(payload.filter)} documentsReturned=${results.length}`
@@ -587,13 +590,16 @@ export function registerVectraEmbeddingsIpc(): void {
               score: section.score,
               uri: result.uri,
               section_index: indexInDocument,
-              is_bm25: section.isBm25,
+              is_bm25: section.isBm25
             })
           })
         }
         rows.sort((left, right) => right.score - left.score)
         logInfo(
-          `search-documents renderedRows=${rows.length} topResults=${rows.slice(0, 5).map((row) => `${row.note}:${row.score.toFixed(4)}`).join(', ')}`
+          `search-documents renderedRows=${rows.length} topResults=${rows
+            .slice(0, 5)
+            .map((row) => `${row.note}:${row.score.toFixed(4)}`)
+            .join(', ')}`
         )
         return { ok: true as const, rows }
       } catch (error) {
@@ -617,7 +623,9 @@ export function registerVectraEmbeddingsIpc(): void {
         if (existed) {
           await index.deleteDocument(noteDocumentUri(note))
         }
-        logInfo(`delete-note-document workspacePath=${workspacePath} note=${note} deleted=${existed}`)
+        logInfo(
+          `delete-note-document workspacePath=${workspacePath} note=${note} deleted=${existed}`
+        )
         return { ok: true as const, deleted: existed }
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error)
@@ -643,7 +651,9 @@ export function registerVectraEmbeddingsIpc(): void {
           await index.deleteDocument(row.uri)
           deletedCount++
         }
-        logInfo(`delete-workspace-documents workspacePath=${workspacePath} workspaceId=${workspaceId} deletedCount=${deletedCount}`)
+        logInfo(
+          `delete-workspace-documents workspacePath=${workspacePath} workspaceId=${workspaceId} deletedCount=${deletedCount}`
+        )
         return { ok: true as const, deleted: deletedCount > 0, deletedCount }
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error)
@@ -653,32 +663,29 @@ export function registerVectraEmbeddingsIpc(): void {
     }
   )
 
-  ipcMain.handle(
-    'embeddings:dump-index',
-    async (_event, payload: { workspacePath: string }) => {
-      try {
-        const index = await getWorkspaceIndex(payload.workspacePath)
-        const stats = await index.getCatalogStats()
-        const rows = await listDocumentsWithMetadata(index)
-        const documents = rows.map((row) => ({
-          uri: row.uri,
-          ...row.metadata,
-        }))
-        logInfo(
-          `dump-index workspacePath=${payload.workspacePath} indexPath=${getVectraDirectory(payload.workspacePath)} documents=${stats.documents} chunks=${stats.chunks}`
-        )
-        return {
-          ok: true as const,
-          indexPath: getVectraDirectory(payload.workspacePath),
-          documents,
-          totalDocuments: stats.documents,
-          totalChunks: stats.chunks,
-        }
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error)
-        logError('dump-index failed', message)
-        return { ok: false as const, error: message }
+  ipcMain.handle('embeddings:dump-index', async (_event, payload: { workspacePath: string }) => {
+    try {
+      const index = await getWorkspaceIndex(payload.workspacePath)
+      const stats = await index.getCatalogStats()
+      const rows = await listDocumentsWithMetadata(index)
+      const documents = rows.map((row) => ({
+        uri: row.uri,
+        ...row.metadata
+      }))
+      logInfo(
+        `dump-index workspacePath=${payload.workspacePath} indexPath=${getVectraDirectory(payload.workspacePath)} documents=${stats.documents} chunks=${stats.chunks}`
+      )
+      return {
+        ok: true as const,
+        indexPath: getVectraDirectory(payload.workspacePath),
+        documents,
+        totalDocuments: stats.documents,
+        totalChunks: stats.chunks
       }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      logError('dump-index failed', message)
+      return { ok: false as const, error: message }
     }
-  )
+  })
 }

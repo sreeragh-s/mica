@@ -26,9 +26,7 @@ export function NotesApp(props: NotesAppProps): JSX.Element {
 
   return (
     <div
-      style={
-        isMacNotelab ? { borderRadius: `${MAC_WINDOW_OUTER_CORNER_RADIUS_PX}px` } : undefined
-      }
+      style={isMacNotelab ? { borderRadius: `${MAC_WINDOW_OUTER_CORNER_RADIUS_PX}px` } : undefined}
       className={cn(
         'bg-background text-foreground relative flex h-screen w-full flex-row overflow-hidden'
       )}

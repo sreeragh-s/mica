@@ -22,4 +22,12 @@ export type NotesAppProps = {
 }
 
 export type AppMode = 'notes' | 'settings'
-export type SettingsSection = 'account' | 'workspace' | 'github' | 'appearance' | 'editor' | 'shortcuts' | 'debug' | 'indexing'
+export type SettingsSection =
+  | 'account'
+  | 'workspace'
+  | 'github'
+  | 'appearance'
+  | 'editor'
+  | 'shortcuts'
+  | 'debug'
+  | 'indexing'

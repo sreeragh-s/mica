@@ -9,14 +9,7 @@
  *   4. Pull & manage chat models
  */
 
-import {
-  type JSX,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react'
+import { type JSX, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   CheckIcon,
   ChevronDownIcon,
@@ -27,7 +20,7 @@ import {
   SquareIcon,
   ScanTextIcon,
   TrashIcon,
-  XIcon,
+  XIcon
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -48,7 +41,7 @@ const SUGGESTED_MODELS = [
   { name: 'mistral:7b', label: 'Mistral 7B', size: '~4.1 GB' },
   { name: 'phi4-mini:3.8b', label: 'Phi-4 Mini 3.8B', size: '~2.5 GB' },
   { name: 'gemma3:4b', label: 'Gemma 3 4B', size: '~3.3 GB' },
-  { name: LOCAL_EMBEDDING_MODEL, label: 'BGE-M3 (embeddings)', size: '~1.2 GB' },
+  { name: LOCAL_EMBEDDING_MODEL, label: 'BGE-M3 (embeddings)', size: '~1.2 GB' }
 ]
 
 export function hasLocalEmbeddingModel(models: OllamaLocalModel[]): boolean {
@@ -83,7 +76,7 @@ export function LocalModelSetupPanel({
   onClose,
   ollama,
   onSelectModel,
-  selectedModelId,
+  selectedModelId
 }: LocalModelSetupPanelProps): JSX.Element {
   const {
     status,
@@ -97,7 +90,7 @@ export function LocalModelSetupPanel({
     stopOllama,
     refreshModels,
     pullModel,
-    deleteModel,
+    deleteModel
   } = ollama
 
   const [startingServer, setStartingServer] = useState(false)
@@ -106,7 +99,11 @@ export function LocalModelSetupPanel({
 
   const [pullInput, setPullInput] = useState('')
   const [pullingModel, setPullingModel] = useState<string | null>(null)
-  const [pullProgress, setPullProgress] = useState<{ status: string; completed: number; total: number } | null>(null)
+  const [pullProgress, setPullProgress] = useState<{
+    status: string
+    completed: number
+    total: number
+  } | null>(null)
   const [pullError, setPullError] = useState('')
   const [pullErrorForModel, setPullErrorForModel] = useState<string | null>(null)
   const [showSuggestions, setShowSuggestions] = useState(false)
@@ -147,36 +144,42 @@ export function LocalModelSetupPanel({
     setStoppingServer(false)
   }, [stopOllama])
 
-  const handlePull = useCallback((modelName: string) => {
-    const name = modelName.trim()
-    if (!name || pullingModel) return
-    setPullError('')
-    setPullErrorForModel(null)
-    setPullingModel(name)
-    setPullProgress(null)
-    setShowSuggestions(false)
-    if (pullCleanupRef.current) pullCleanupRef.current()
-    pullCleanupRef.current = pullModel(name, {
-      onProgress: (s, c, t) => setPullProgress({ status: s, completed: c, total: t }),
-      onEnd: () => {
-        setPullingModel(null)
-        setPullProgress(null)
-        setPullInput('')
-        setPullError('')
-        setPullErrorForModel(null)
-      },
-      onError: (msg) => {
-        setPullingModel(null)
-        setPullProgress(null)
-        setPullError(msg)
-        setPullErrorForModel(name)
-      },
-    })
-  }, [pullingModel, pullModel])
+  const handlePull = useCallback(
+    (modelName: string) => {
+      const name = modelName.trim()
+      if (!name || pullingModel) return
+      setPullError('')
+      setPullErrorForModel(null)
+      setPullingModel(name)
+      setPullProgress(null)
+      setShowSuggestions(false)
+      if (pullCleanupRef.current) pullCleanupRef.current()
+      pullCleanupRef.current = pullModel(name, {
+        onProgress: (s, c, t) => setPullProgress({ status: s, completed: c, total: t }),
+        onEnd: () => {
+          setPullingModel(null)
+          setPullProgress(null)
+          setPullInput('')
+          setPullError('')
+          setPullErrorForModel(null)
+        },
+        onError: (msg) => {
+          setPullingModel(null)
+          setPullProgress(null)
+          setPullError(msg)
+          setPullErrorForModel(name)
+        }
+      })
+    },
+    [pullingModel, pullModel]
+  )
 
-  const handleDelete = useCallback(async (modelName: string) => {
-    await deleteModel(modelName)
-  }, [deleteModel])
+  const handleDelete = useCallback(
+    async (modelName: string) => {
+      await deleteModel(modelName)
+    },
+    [deleteModel]
+  )
 
   return (
     <div className="flex min-h-0 flex-1 flex-col bg-background">
@@ -200,7 +203,6 @@ export function LocalModelSetupPanel({
       </div>
 
       <div className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
-
         {/* ── Step 1: Download ── */}
         <Step title="Download Ollama" done={status?.downloaded ?? false}>
           {status?.downloaded ? (
@@ -236,9 +238,7 @@ export function LocalModelSetupPanel({
 
         {/* ── Step 2: Server ── */}
         <Step title="Server" done={status?.running ?? false} disabled={!status?.downloaded}>
-          {serverError && (
-            <p className="text-xs text-destructive mb-1">{serverError}</p>
-          )}
+          {serverError && <p className="text-xs text-destructive mb-1">{serverError}</p>}
           {status?.running ? (
             <div className="flex flex-wrap items-center gap-2">
               <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 text-xs font-medium text-emerald-700 dark:text-emerald-400">
@@ -252,9 +252,11 @@ export function LocalModelSetupPanel({
                 disabled={stoppingServer}
                 onClick={handleStop}
               >
-                {stoppingServer
-                  ? <Loader2Icon className="size-3.5 animate-spin" />
-                  : <SquareIcon className="size-3.5" />}
+                {stoppingServer ? (
+                  <Loader2Icon className="size-3.5 animate-spin" />
+                ) : (
+                  <SquareIcon className="size-3.5" />
+                )}
                 Stop
               </Button>
             </div>
@@ -265,27 +267,29 @@ export function LocalModelSetupPanel({
               disabled={!status?.downloaded || startingServer}
               onClick={handleStart}
             >
-              {startingServer
-                ? <Loader2Icon className="size-3.5 animate-spin" />
-                : <PlayIcon className="size-3.5" />}
+              {startingServer ? (
+                <Loader2Icon className="size-3.5 animate-spin" />
+              ) : (
+                <PlayIcon className="size-3.5" />
+              )}
               Start server
             </Button>
           )}
         </Step>
 
         {/* ── Embedding model (offline RAG) ── */}
-        <Step
-          title="Embedding model"
-          done={embeddingInstalled}
-          disabled={!status?.running}
-        >
+        <Step title="Embedding model" done={embeddingInstalled} disabled={!status?.running}>
           <div className="space-y-2">
             <div className="flex gap-2">
-              <ScanTextIcon className="size-3.5 shrink-0 text-muted-foreground mt-0.5" aria-hidden />
+              <ScanTextIcon
+                className="size-3.5 shrink-0 text-muted-foreground mt-0.5"
+                aria-hidden
+              />
               <p className="text-xs leading-relaxed text-muted-foreground">
                 Chat models answer prompts; semantic search over your notes needs a separate
-                embedding model. Pull <span className="font-mono text-foreground">{LOCAL_EMBEDDING_MODEL}</span>{' '}
-                (~1.2 GB) so lookups match your indexed notes and work fully offline.
+                embedding model. Pull{' '}
+                <span className="font-mono text-foreground">{LOCAL_EMBEDDING_MODEL}</span> (~1.2 GB)
+                so lookups match your indexed notes and work fully offline.
               </p>
             </div>
             {embeddingInstalled ? (
@@ -329,16 +333,24 @@ export function LocalModelSetupPanel({
                     className="h-9 pr-8 text-xs"
                     placeholder="e.g. llama3.2:3b"
                     value={pullInput}
-                    onChange={(e) => { setPullInput(e.target.value); setShowSuggestions(true) }}
+                    onChange={(e) => {
+                      setPullInput(e.target.value)
+                      setShowSuggestions(true)
+                    }}
                     onFocus={() => setShowSuggestions(true)}
-                    onKeyDown={(e) => { if (e.key === 'Enter') handlePull(pullInput) }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handlePull(pullInput)
+                    }}
                     disabled={!status?.running || !!pullingModel}
                   />
                   <button
                     className="absolute right-2 top-1/2 -translate-y-1/2 rounded text-muted-foreground hover:text-foreground"
                     type="button"
                     tabIndex={-1}
-                    onClick={(e) => { e.stopPropagation(); setShowSuggestions(!showSuggestions) }}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setShowSuggestions(!showSuggestions)
+                    }}
                   >
                     <ChevronDownIcon className="size-4" />
                   </button>
@@ -360,7 +372,11 @@ export function LocalModelSetupPanel({
                       key={m.name}
                       className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs transition-colors hover:bg-accent"
                       type="button"
-                      onClick={(e) => { e.stopPropagation(); setPullInput(m.name); setShowSuggestions(false) }}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setPullInput(m.name)
+                        setShowSuggestions(false)
+                      }}
                     >
                       <span className="min-w-0 flex-1 font-medium">{m.label}</span>
                       <span className="shrink-0 text-muted-foreground">{m.size}</span>
@@ -422,7 +438,7 @@ export function LocalModelSetupPanel({
 function PullProgressBlock({
   active,
   labelModel,
-  pullProgress,
+  pullProgress
 }: {
   active: boolean
   labelModel: string
@@ -433,19 +449,21 @@ function PullProgressBlock({
     <div className="space-y-2 rounded-lg border border-border/80 bg-muted/40 p-3">
       <div className="flex items-center gap-2 text-xs text-muted-foreground">
         <Loader2Icon className="size-3.5 shrink-0 animate-spin text-primary" />
-        <span className="min-w-0 truncate font-medium text-foreground">
-          Pulling {labelModel}
-        </span>
+        <span className="min-w-0 truncate font-medium text-foreground">Pulling {labelModel}</span>
       </div>
       {pullProgress && pullProgress.total > 0 ? (
         <div className="space-y-1.5">
           <div className="h-2 overflow-hidden rounded-full bg-muted">
             <div
               className="h-full rounded-full bg-primary transition-[width] duration-300 ease-out"
-              style={{ width: `${Math.round((pullProgress.completed / pullProgress.total) * 100)}%` }}
+              style={{
+                width: `${Math.round((pullProgress.completed / pullProgress.total) * 100)}%`
+              }}
             />
           </div>
-          <p className="truncate font-mono text-[11px] text-muted-foreground">{pullProgress.status}</p>
+          <p className="truncate font-mono text-[11px] text-muted-foreground">
+            {pullProgress.status}
+          </p>
         </div>
       ) : (
         <div className="space-y-1.5">
@@ -453,7 +471,9 @@ function PullProgressBlock({
             <div className="h-full w-full animate-pulse rounded-full bg-primary/35" />
           </div>
           {pullProgress?.status && (
-            <p className="truncate font-mono text-[11px] text-muted-foreground">{pullProgress.status}</p>
+            <p className="truncate font-mono text-[11px] text-muted-foreground">
+              {pullProgress.status}
+            </p>
           )}
         </div>
       )}
@@ -472,7 +492,7 @@ function Step({
   title,
   done,
   disabled,
-  children,
+  children
 }: {
   title: string
   done?: boolean
@@ -489,7 +509,10 @@ function Step({
       <div className="mb-2.5 flex items-center gap-2">
         <h3 className="text-xs font-semibold text-foreground">{title}</h3>
         {done && (
-          <CheckIcon className="size-3.5 shrink-0 text-emerald-600 dark:text-emerald-400" aria-hidden />
+          <CheckIcon
+            className="size-3.5 shrink-0 text-emerald-600 dark:text-emerald-400"
+            aria-hidden
+          />
         )}
       </div>
       <div className="space-y-2">{children}</div>
@@ -502,7 +525,7 @@ function ModelRow({
   embeddingOnly,
   selected,
   onSelect,
-  onDelete,
+  onDelete
 }: {
   model: OllamaLocalModel
   embeddingOnly?: boolean

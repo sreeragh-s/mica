@@ -1,29 +1,26 @@
-"use client"
+'use client'
 
-import {
-  InitialConfigType,
-  LexicalComposer,
-} from "@lexical/react/LexicalComposer"
-import { OnChangePlugin } from "@lexical/react/LexicalOnChangePlugin"
-import { EditorState, SerializedEditorState } from "lexical"
-import { useCallback, useEffect, useRef, type ReactNode } from "react"
+import { InitialConfigType, LexicalComposer } from '@lexical/react/LexicalComposer'
+import { OnChangePlugin } from '@lexical/react/LexicalOnChangePlugin'
+import { EditorState, SerializedEditorState } from 'lexical'
+import { useCallback, useEffect, useRef, type ReactNode } from 'react'
 
-import { editorTheme } from "@/features/editor/themes/editor-theme"
-import { TooltipProvider } from "@/components/ui/tooltip"
-import { cn } from "@/lib/utils"
+import { editorTheme } from '@/features/editor/themes/editor-theme'
+import { TooltipProvider } from '@/components/ui/tooltip'
+import { cn } from '@/lib/utils'
 
-import { NotelabEditorProvider } from "@/features/editor/notelab-editor-context"
-import { nodes } from "@/features/editor/nodes/nodes"
-import { Plugins } from "@/features/editor/plugins/plugins"
-import type { SavedNote, Folder } from "@/lib/notes/notes-storage"
+import { NotelabEditorProvider } from '@/features/editor/notelab-editor-context'
+import { nodes } from '@/features/editor/nodes/nodes'
+import { Plugins } from '@/features/editor/plugins/plugins'
+import type { SavedNote, Folder } from '@/lib/notes/notes-storage'
 
 const editorConfig: InitialConfigType = {
-  namespace: "Editor",
+  namespace: 'Editor',
   theme: editorTheme,
   nodes,
   onError: (error: Error) => {
     console.error(error)
-  },
+  }
 }
 
 const SERIALIZE_IDLE_MS = 450
@@ -40,7 +37,7 @@ export function Editor({
   onCoverChange,
   titleEmoji,
   onTitleEmojiChange,
-  bottomChromePortal,
+  bottomChromePortal
 }: {
   editorState?: EditorState
   editorSerializedState?: SerializedEditorState
@@ -80,19 +77,12 @@ export function Editor({
   }, [flushSerializedChange])
 
   return (
-    <div
-      className={cn(
-        "bg-background flex min-h-0 flex-1 flex-col overflow-hidden ",
-        className
-      )}
-    >
+    <div className={cn('bg-background flex min-h-0 flex-1 flex-col overflow-hidden ', className)}>
       <LexicalComposer
         initialConfig={{
           ...editorConfig,
           ...(editorState ? { editorState } : {}),
-          ...(editorSerializedState
-            ? { editorState: JSON.stringify(editorSerializedState) }
-            : {}),
+          ...(editorSerializedState ? { editorState: JSON.stringify(editorSerializedState) } : {})
         }}
       >
         <NotelabEditorProvider value={notelabEditor ?? null}>

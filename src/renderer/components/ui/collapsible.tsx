@@ -1,16 +1,14 @@
-import * as React from "react"
+import * as React from 'react'
 import {
   Collapsible as CollapsiblePrimitive,
   CollapsibleContent,
-  CollapsibleTrigger,
-} from "@radix-ui/react-collapsible"
-import { ChevronDownIcon } from "lucide-react"
+  CollapsibleTrigger
+} from '@radix-ui/react-collapsible'
+import { ChevronDownIcon } from 'lucide-react'
 
-import { cn } from "@/lib/utils"
+import { cn } from '@/lib/utils'
 
-function Collapsible({
-  ...props
-}: React.ComponentProps<typeof CollapsiblePrimitive>) {
+function Collapsible({ ...props }: React.ComponentProps<typeof CollapsiblePrimitive>) {
   return <CollapsiblePrimitive data-slot="collapsible" {...props} />
 }
 
@@ -25,8 +23,8 @@ export function CollapsibleSectionTrigger({
     <CollapsibleTrigger
       data-slot="collapsible-section-trigger"
       className={cn(
-        "flex w-full items-center justify-between gap-2 rounded-md py-2 pr-1 pl-1 text-left text-xs font-semibold tracking-wide text-foreground uppercase",
-        "hover:bg-accent/50 [&[data-state=open]>svg]:rotate-180",
+        'flex w-full items-center justify-between gap-2 rounded-md py-2 pr-1 pl-1 text-left text-xs font-semibold tracking-wide text-foreground uppercase',
+        'hover:bg-accent/50 [&[data-state=open]>svg]:rotate-180',
         className
       )}
       {...props}

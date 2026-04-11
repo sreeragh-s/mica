@@ -129,9 +129,7 @@ export function NotePropertiesPanel({
             autoFocusValue={focusKey === key}
             allWorkspaceKeys={allWorkspaceKeys}
             allValuesForKey={allValuesForKey[key] ?? []}
-            valuePlaceholder={
-              isMultiValuePropertyKey(key) ? 'Comma-separated values' : 'Empty'
-            }
+            valuePlaceholder={isMultiValuePropertyKey(key) ? 'Comma-separated values' : 'Empty'}
             onCommitValue={(val: string) => {
               if (focusKey === key) setFocusKey(null)
               onSetProperty(key, parsePropertyInput(key, val))

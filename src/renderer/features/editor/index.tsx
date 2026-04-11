@@ -1,31 +1,28 @@
-"use client"
+'use client'
 
-import {
-  InitialConfigType,
-  LexicalComposer,
-} from "@lexical/react/LexicalComposer"
-import { OnChangePlugin } from "@lexical/react/LexicalOnChangePlugin"
-import { EditorState, SerializedEditorState } from "lexical"
+import { InitialConfigType, LexicalComposer } from '@lexical/react/LexicalComposer'
+import { OnChangePlugin } from '@lexical/react/LexicalOnChangePlugin'
+import { EditorState, SerializedEditorState } from 'lexical'
 
-import { nodes } from "@/features/editor/nodes/nodes"
-import { Plugins } from "@/features/editor/plugins/plugins"
-import { editorTheme } from "@/features/editor/themes/editor-theme"
-import { TooltipProvider } from "@/components/ui/tooltip"
+import { nodes } from '@/features/editor/nodes/nodes'
+import { Plugins } from '@/features/editor/plugins/plugins'
+import { editorTheme } from '@/features/editor/themes/editor-theme'
+import { TooltipProvider } from '@/components/ui/tooltip'
 
 const editorConfig: InitialConfigType = {
-  namespace: "Editor",
+  namespace: 'Editor',
   theme: editorTheme,
   nodes,
   onError: (error: Error) => {
     console.error(error)
-  },
+  }
 }
 
 export function Editor({
   editorState,
   editorSerializedState,
   onChange,
-  onSerializedChange,
+  onSerializedChange
 }: {
   editorState?: EditorState
   editorSerializedState?: SerializedEditorState
@@ -38,9 +35,7 @@ export function Editor({
         initialConfig={{
           ...editorConfig,
           ...(editorState ? { editorState } : {}),
-          ...(editorSerializedState
-            ? { editorState: JSON.stringify(editorSerializedState) }
-            : {}),
+          ...(editorSerializedState ? { editorState: JSON.stringify(editorSerializedState) } : {})
         }}
       >
         <TooltipProvider>

@@ -1,26 +1,19 @@
-"use client"
+'use client'
 
-import { useEffect } from "react"
+import { useEffect } from 'react'
 import {
   editorStateFromSerializedDocument,
   SerializedDocument,
-  serializedDocumentFromEditorState,
-} from "@lexical/file"
-import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext"
-import { CLEAR_HISTORY_COMMAND } from "lexical"
-import { SendIcon } from "lucide-react"
-import { toast } from "sonner"
+  serializedDocumentFromEditorState
+} from '@lexical/file'
+import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext'
+import { CLEAR_HISTORY_COMMAND } from 'lexical'
+import { SendIcon } from 'lucide-react'
+import { toast } from 'sonner'
 
-import {
-  docFromHash,
-  docToHash,
-} from "@/features/editor/utils/doc-serialization"
-import { Button } from "@/components/ui/button"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip"
+import { docFromHash, docToHash } from '@/features/editor/utils/doc-serialization'
+import { Button } from '@/components/ui/button'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 
 export function ShareContentPlugin() {
   const [editor] = useLexicalComposerContext()
@@ -28,12 +21,12 @@ export function ShareContentPlugin() {
     const url = new URL(window.location.toString())
     url.hash = await docToHash(doc)
     const newUrl = url.toString()
-    window.history.replaceState({}, "", newUrl)
+    window.history.replaceState({}, '', newUrl)
     await window.navigator.clipboard.writeText(newUrl)
   }
   useEffect(() => {
     docFromHash(window.location.hash).then((doc) => {
-      if (doc && doc.source === "editor") {
+      if (doc && doc.source === 'editor') {
         editor.setEditorState(editorStateFromSerializedDocument(editor, doc))
         editor.dispatchCommand(CLEAR_HISTORY_COMMAND, undefined)
       }
@@ -44,20 +37,20 @@ export function ShareContentPlugin() {
     <Tooltip>
       <TooltipTrigger asChild>
         <Button
-          variant={"ghost"}
+          variant={'ghost'}
           onClick={() =>
             shareDoc(
               serializedDocumentFromEditorState(editor.getEditorState(), {
-                source: "editor",
+                source: 'editor'
               })
             ).then(
-              () => toast.success("URL copied to clipboard"),
-              () => toast.error("URL could not be copied to clipboard")
+              () => toast.success('URL copied to clipboard'),
+              () => toast.error('URL could not be copied to clipboard')
             )
           }
           title="Share"
           aria-label="Share Playground link to current editor state"
-          size={"sm"}
+          size={'sm'}
           className="p-2"
         >
           <SendIcon className="size-4" />

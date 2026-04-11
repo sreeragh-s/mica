@@ -41,7 +41,7 @@ export function EditorSettingsView({
   isMacNotelab,
   macTitlebarStyles,
   settings,
-  onChange,
+  onChange
 }: EditorSettingsViewProps): JSX.Element {
   return (
     <div
@@ -51,8 +51,8 @@ export function EditorSettingsView({
       <div className="flex flex-col gap-1">
         <h2 className="text-foreground text-lg font-semibold tracking-tight">Editor</h2>
         <p className="text-muted-foreground text-sm leading-relaxed">
-          Control which properties are available for newly created markdown notes.
-          Existing files still render from whatever frontmatter is already on disk.
+          Control which properties are available for newly created markdown notes. Existing files
+          still render from whatever frontmatter is already on disk.
         </p>
       </div>
 

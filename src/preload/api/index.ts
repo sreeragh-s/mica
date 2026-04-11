@@ -14,5 +14,5 @@ export const api = {
   log: logApi,
   embeddings: embeddingsApi,
   updater: updaterApi,
-  multiWindow: multiWindowApi,
+  multiWindow: multiWindowApi
 }

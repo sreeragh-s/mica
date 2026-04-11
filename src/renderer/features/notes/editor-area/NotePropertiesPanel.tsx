@@ -1,1 +1,4 @@
-export { NotePropertiesPanel, type NotePropertiesPanelProps } from './note-properties/NotePropertiesPanel'
+export {
+  NotePropertiesPanel,
+  type NotePropertiesPanelProps
+} from './note-properties/NotePropertiesPanel'
