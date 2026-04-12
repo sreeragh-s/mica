@@ -12,6 +12,7 @@ import { Editor } from '@/features/blocks/editor-00/editor'
 import { Button } from '@/components/ui/button'
 import type { NotePropertyValue, SavedNote, Folder } from '@/lib/notes/notes-storage'
 import { ExcalidrawView } from '@/features/notes/views/ExcalidrawView'
+import { PdfView } from '@/features/notes/views/PdfView'
 import { NoteTitleInput } from '@/features/notes/editor-area/NoteTitleInput'
 import { NotePropertiesPanel } from '@/features/notes/editor-area/NotePropertiesPanel'
 import { NOTE_DRAG_MIME } from '@/features/notes/notes-app-utils'
@@ -20,6 +21,7 @@ import type { NotesPropertyCatalog } from '@/lib/notes/graph-types'
 
 export type NotesPrimaryPaneProps = {
   selectedNote: SavedNote | null
+  workspaceRoot: string | null
   focusedFolder: Folder | null
   notes: SavedNote[]
   folders: Folder[]
@@ -190,6 +192,7 @@ function NoteEditorView({
 
 export function NotesPrimaryPane({
   selectedNote,
+  workspaceRoot,
   notes,
   folders,
   canCreateNote,
@@ -219,9 +222,19 @@ export function NotesPrimaryPane({
         />
       )
     }
+    if (selectedNote.kind === 'pdf') {
+      return (
+        <PdfView
+          cwd={workspaceRoot}
+          notePath={selectedNote.pdfPath ?? selectedNote.path}
+          title={selectedNote.title}
+        />
+      )
+    }
     return (
       <NoteEditorView
         selectedNote={selectedNote}
+        workspaceRoot={workspaceRoot}
         notes={notes}
         folders={folders}
         onSelectNote={onSelectNote}

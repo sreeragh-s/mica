@@ -185,7 +185,7 @@ export function SidebarExplorerTree({
                         'hover:bg-sidebar-accent/50',
                         selectedNotePath === note.path &&
                           !focusedFolderId &&
-                          '!bg-sidebar-accent !text-sidebar-accent-foreground'
+                          '!bg-sidebar-accent !text-foreground'
                       )}
                     >
                       <TreeExpander hasChildren={false} />
@@ -272,7 +272,7 @@ export function SidebarExplorerTree({
                   className={cn(
                     'hover:bg-sidebar-accent/50',
                     focusedFolderId === folder.folder &&
-                      '!bg-sidebar-accent !text-sidebar-accent-foreground'
+                      '!bg-sidebar-accent !text-foreground'
                   )}
                 >
                   <TreeExpander hasChildren />
@@ -320,7 +320,7 @@ export function SidebarExplorerTree({
                               'hover:bg-sidebar-accent/50',
                               selectedNotePath === note.path &&
                                 !focusedFolderId &&
-                                '!bg-sidebar-accent !text-sidebar-accent-foreground'
+                                '!bg-sidebar-accent !text-foreground'
                             )}
                           >
                             <TreeExpander hasChildren={false} />

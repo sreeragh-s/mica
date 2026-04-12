@@ -61,9 +61,6 @@ export function Sidebar({ vm }: SidebarProps): JSX.Element {
     graphViewOpen,
     openGraphView,
     closeGraphView,
-    canvasViewOpen,
-    openCanvasView,
-    closeCanvasView,
     journalViewOpen,
     openJournalView,
     toggleSidebar,
@@ -293,8 +290,6 @@ export function Sidebar({ vm }: SidebarProps): JSX.Element {
           {appMode === 'notes' && appSidebarView === 'explorer' ? (
             <SidebarExplorerToolbar
               animationsEnabled={animationsEnabled}
-              canvasViewOpen={canvasViewOpen}
-              closeCanvasView={closeCanvasView}
               closeGraphView={closeGraphView}
               closeSearch={closeSearch}
               graphViewOpen={graphViewOpen}
@@ -302,7 +297,6 @@ export function Sidebar({ vm }: SidebarProps): JSX.Element {
               handleNewNote={handleNewNote}
               isMacNotelab={isMacNotelab}
               macTitlebarStyles={macTitlebarStyles}
-              openCanvasView={openCanvasView}
               openGraphView={openGraphView}
               openSearch={openSearch}
               searchInputRef={searchInputRef}

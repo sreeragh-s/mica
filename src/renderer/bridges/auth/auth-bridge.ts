@@ -18,7 +18,7 @@ export type EmbeddingsSearchRow = {
   note: string
   folder: string
   title: string
-  kind: 'note' | 'drawing'
+  kind: 'note' | 'drawing' | 'pdf'
   text: string
   score: number
   uri: string
@@ -133,7 +133,7 @@ export type NotelabApi = {
             title: string
             updatedAtMs: number
             markdownBody: string
-            kind: 'note' | 'drawing'
+            kind: 'note' | 'drawing' | 'pdf'
             coverImageSrc?: string
             titleEmoji?: string
             properties?: Record<string, string | string[]>
@@ -142,6 +142,10 @@ export type NotelabApi = {
         }
       | { ok: false; error: string }
     >
+    readBinaryFile?: (payload: {
+      cwd: string
+      relativePath: string
+    }) => Promise<{ ok: true; base64: string } | { ok: false; error: string }>
     writeNoteFile: (payload: {
       cwd: string
       relativePath: string

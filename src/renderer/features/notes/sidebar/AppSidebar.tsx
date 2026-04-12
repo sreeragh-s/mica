@@ -39,13 +39,15 @@ export function AppSidebarRail({ vm }: AppSidebarRailProps): JSX.Element {
         <TooltipTrigger asChild>
           <Button
             type="button"
-            variant={active ? 'secondary' : 'ghost'}
+            variant="ghost"
             size="icon"
             aria-label={label}
             aria-pressed={active}
             className={cn(
               'relative size-9 shrink-0 rounded-md',
-              active ? 'text-foreground' : 'text-muted-foreground'
+              active
+                ? '!bg-sidebar-accent !text-foreground hover:!bg-sidebar-accent hover:!text-foreground'
+                : 'text-muted-foreground'
             )}
             style={isMacNotelab ? macTitlebarStyles.noDrag : undefined}
             data-sidebar-interactive=""

@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils'
 import { DEFAULT_WORKSPACE_ID, extractPreviewText, formatNoteTime } from '@/lib/notes/notes-storage'
 import type { SavedNote, Folder } from '@/lib/notes/notes-storage'
 
-import { isDrawingNote } from '@/features/notes/notes-app-utils'
+import { isDrawingNote, isPdfNote } from '@/features/notes/notes-app-utils'
 import type { MacTitlebarStyles } from '@/features/notes/notes-app-types'
 import { SidebarEdgeToolbarPill } from '@/features/notes/editor-area/NotesToolbarPill'
 
@@ -181,8 +181,11 @@ export function NotesTabOverview({
             const title = note.title.trim() || 'Untitled'
             const active = note.path === selectedNotePath
             const drawing = isDrawingNote(note)
+            const pdf = isPdfNote(note)
             const preview =
-              !drawing && note.content
+              pdf
+                ? 'PDF document'
+                : !drawing && note.content
                 ? extractPreviewText(note.content, OVERVIEW_PREVIEW_CHARS)
                 : drawing
                   ? 'Whiteboard canvas'
@@ -251,6 +254,11 @@ export function NotesTabOverview({
                           className="text-muted-foreground/35 size-10 shrink-0 stroke-[1]"
                           aria-hidden
                         />
+                      </div>
+                    ) : pdf ? (
+                      <div className="text-muted-foreground/85 relative flex h-full min-h-[5.25rem] items-center justify-center gap-2 p-4 text-sm font-medium">
+                        <FileText className="size-5 shrink-0" aria-hidden />
+                        <span>PDF preview</span>
                       </div>
                     ) : (
                       <p

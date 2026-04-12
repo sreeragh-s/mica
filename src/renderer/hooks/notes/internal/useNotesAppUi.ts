@@ -16,7 +16,6 @@ import {
   type ShortcutBinding,
   type ShortcutBindingsMap
 } from '@/lib/config/shortcuts-storage'
-import { enableInfinityCanvas } from '@/lib/core/vite-flags'
 import type { SavedNote } from '@/lib/notes/notes-storage'
 
 import type { AppMode, SettingsSection } from '@/features/notes/notes-app-types'
@@ -33,8 +32,6 @@ type UseNotesAppUiArgs = {
   setSidebarCollapsed: Setter<boolean>
   graphViewOpen: boolean
   setGraphViewOpen: Setter<boolean>
-  canvasViewOpen: boolean
-  setCanvasViewOpen: Setter<boolean>
   journalViewOpen: boolean
   setJournalViewOpen: Setter<boolean>
   setTabOverviewOpen: Setter<boolean>
@@ -73,8 +70,6 @@ export function useNotesAppUi({
   setSidebarCollapsed,
   graphViewOpen,
   setGraphViewOpen,
-  canvasViewOpen,
-  setCanvasViewOpen,
   journalViewOpen,
   setJournalViewOpen,
   setTabOverviewOpen,
@@ -103,10 +98,9 @@ export function useNotesAppUi({
 }: UseNotesAppUiArgs) {
   const closeMainViews = useCallback(() => {
     setGraphViewOpen(false)
-    setCanvasViewOpen(false)
     setJournalViewOpen(false)
     setTabOverviewOpen(false)
-  }, [setCanvasViewOpen, setGraphViewOpen, setJournalViewOpen, setTabOverviewOpen])
+  }, [setGraphViewOpen, setJournalViewOpen, setTabOverviewOpen])
 
   const openExplorerNotesView = useCallback(() => {
     setWorkspaceSettingsFolderId(null)
@@ -139,7 +133,7 @@ export function useNotesAppUi({
 
   const enterZenMode = useCallback(() => {
     if (appMode !== 'notes' || workspaceSettingsFolderId) return
-    if (!selectedNote || selectedNote.kind === 'drawing') return
+    if (!selectedNote || selectedNote.kind !== 'note') return
     if (zenModeRef.current) return
     lastZenEscPressRef.current = 0
     sidebarCollapsedBeforeZenRef.current = sidebarCollapsed
@@ -147,21 +141,16 @@ export function useNotesAppUi({
     if (graphViewOpen) {
       setGraphViewOpen(false)
     }
-    if (canvasViewOpen) {
-      setCanvasViewOpen(false)
-    }
     if (journalViewOpen) {
       setJournalViewOpen(false)
     }
     setZenMode(true)
   }, [
     appMode,
-    canvasViewOpen,
     graphViewOpen,
     journalViewOpen,
     lastZenEscPressRef,
     selectedNote,
-    setCanvasViewOpen,
     setGraphViewOpen,
     setJournalViewOpen,
     setSidebarCollapsed,
@@ -194,23 +183,6 @@ export function useNotesAppUi({
     closeMainViews()
     setTabOverviewOpen(true)
   }, [closeMainViews, setTabOverviewOpen])
-
-  useEffect(() => {
-    if (!enableInfinityCanvas && canvasViewOpen) {
-      setCanvasViewOpen(false)
-    }
-  }, [canvasViewOpen, setCanvasViewOpen])
-
-  const openCanvasView = useCallback(() => {
-    if (!enableInfinityCanvas) return
-    openExplorerNotesView()
-    closeMainViews()
-    setCanvasViewOpen(true)
-  }, [closeMainViews, openExplorerNotesView, setCanvasViewOpen])
-
-  const closeCanvasView = useCallback(() => {
-    setCanvasViewOpen(false)
-  }, [setCanvasViewOpen])
 
   const closeJournalView = useCallback(() => {
     setJournalViewOpen(false)
@@ -255,7 +227,7 @@ export function useNotesAppUi({
       appMode !== 'notes' ||
       workspaceSettingsFolderId ||
       !selectedNote ||
-      selectedNote.kind === 'drawing'
+      selectedNote.kind !== 'note'
     ) {
       exitZenMode()
     }
@@ -469,8 +441,6 @@ export function useNotesAppUi({
     closeGraphView,
     openGraphView,
     openTabOverview,
-    openCanvasView,
-    closeCanvasView,
     openJournalView,
     closeJournalView,
     closeTabOverview,

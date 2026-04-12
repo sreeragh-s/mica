@@ -56,6 +56,10 @@ export function isDrawingNote(note: SavedNote): boolean {
   return note.kind === 'drawing'
 }
 
+export function isPdfNote(note: SavedNote): boolean {
+  return note.kind === 'pdf'
+}
+
 export function treeFolderPath(folder: string): string {
   return `folder:${folder}`
 }

@@ -21,6 +21,7 @@ import {
   DEFAULT_WORKSPACE_ID,
   deleteNoteFile,
   readNotelabIndexImpl,
+  readWorkspaceBinaryFile,
   renameWorkspacePath,
   syncMarkdownFilesToDisk,
   writeNotelabFile
@@ -278,6 +279,27 @@ export function registerWorkspaceIpc(): void {
   )
 
   ipcMain.handle(
+    'workspace:read-binary-file',
+    async (
+      _evt,
+      payload: { cwd: string; relativePath: string }
+    ): Promise<{ ok: true; base64: string } | { ok: false; error: string }> => {
+      const cwd = payload.cwd?.trim() ?? ''
+      const relativePath = payload.relativePath?.trim() ?? ''
+      if (!cwd || !relativePath || !allowWorkspaceFs(cwd)) {
+        return { ok: false, error: 'invalid_workspace_path' }
+      }
+      try {
+        const buffer = await readWorkspaceBinaryFile(cwd, relativePath)
+        return { ok: true, base64: buffer.toString('base64') }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
+        return { ok: false, error: message }
+      }
+    }
+  )
+
+  ipcMain.handle(
     'workspace:write-app-config',
     async (
       _evt,
@@ -386,7 +408,7 @@ export function registerWorkspaceIpc(): void {
             title: string
             updatedAtMs: number
             markdownBody: string
-            kind: 'note' | 'drawing'
+            kind: 'note' | 'drawing' | 'pdf'
             coverImageSrc?: string
             titleEmoji?: string
             properties?: Record<string, string | string[]>

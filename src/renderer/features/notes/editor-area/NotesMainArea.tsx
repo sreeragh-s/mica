@@ -214,6 +214,7 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
 
   const primaryPaneProps = {
     selectedNote,
+    workspaceRoot: vm.dataRootPath,
     focusedFolder,
     notes,
     folders,

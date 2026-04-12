@@ -19,7 +19,7 @@ export type Folder = {
   localGitPath?: string
 }
 
-export type NoteKind = 'note' | 'drawing'
+export type NoteKind = 'note' | 'drawing' | 'pdf'
 
 export type SavedNote = {
   path: string
@@ -42,6 +42,8 @@ export type SavedNote = {
   kind?: NoteKind
   /** Serialized Excalidraw document (serializeAsJSON) when kind is drawing. */
   excalidrawScene?: string | null
+  /** Relative workspace path to the PDF asset when kind is pdf. */
+  pdfPath?: string | null
   /** Local-only draft note not yet persisted to disk. */
   isTransient?: boolean
 }

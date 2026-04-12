@@ -54,7 +54,6 @@ type NotesStoreState = {
   chatSidebarPanel: RightSidebarPanel
   chatSidebarLinkMode: RightSidebarLinkMode
   graphViewOpen: boolean
-  canvasViewOpen: boolean
   journalViewOpen: boolean
   tabOverviewOpen: boolean
   appSidebarView: AppSidebarView
@@ -108,7 +107,6 @@ type NotesStoreActions = {
   setChatSidebarPanel: Dispatch<SetStateAction<RightSidebarPanel>>
   setChatSidebarLinkMode: Dispatch<SetStateAction<RightSidebarLinkMode>>
   setGraphViewOpen: Dispatch<SetStateAction<boolean>>
-  setCanvasViewOpen: Dispatch<SetStateAction<boolean>>
   setJournalViewOpen: Dispatch<SetStateAction<boolean>>
   setTabOverviewOpen: Dispatch<SetStateAction<boolean>>
   setAppSidebarView: Dispatch<SetStateAction<AppSidebarView>>
@@ -160,7 +158,6 @@ const initialState: NotesStoreState = {
   chatSidebarPanel: 'chat',
   chatSidebarLinkMode: 'linked',
   graphViewOpen: false,
-  canvasViewOpen: false,
   journalViewOpen: false,
   tabOverviewOpen: false,
   appSidebarView: 'explorer',
@@ -225,7 +222,6 @@ export const useNotesStore = create<NotesStore>((set) => ({
   setChatSidebarPanel: withSetter('chatSidebarPanel', set),
   setChatSidebarLinkMode: withSetter('chatSidebarLinkMode', set),
   setGraphViewOpen: withSetter('graphViewOpen', set),
-  setCanvasViewOpen: withSetter('canvasViewOpen', set),
   setJournalViewOpen: withSetter('journalViewOpen', set),
   setTabOverviewOpen: withSetter('tabOverviewOpen', set),
   setAppSidebarView: withSetter('appSidebarView', set),

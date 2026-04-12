@@ -10,7 +10,7 @@ import { extractExcalidrawText } from '@/lib/ai/markdown-chunker'
 const LOG = '[embedding-pipeline]'
 const log = createElectronLogger(LOG)
 
-type NoteKind = 'note' | 'drawing'
+type NoteKind = 'note' | 'drawing' | 'pdf'
 
 /** Compute SHA-256 hex hash of a string using the Web Crypto API. */
 export async function computeContentHash(content: string): Promise<string> {
@@ -28,6 +28,9 @@ function buildIndexableText(content: string, kind: NoteKind): string {
       .map((chunk) => chunk.text.trim())
       .filter(Boolean)
       .join('\n\n')
+  }
+  if (kind === 'pdf') {
+    return ''
   }
   return content.trim()
 }
@@ -65,6 +68,12 @@ export async function indexNote(opts: {
   log.info(
     `indexNote(${note}): workspacePath=${workspacePath} folder=${folder} kind=${kind} title="${title.slice(0, 80)}" hash=${contentHash.slice(0, 8)}… storedHash=${storedHash?.slice(0, 8) ?? 'none'}`
   )
+
+  if (kind === 'pdf') {
+    log.info(`indexNote(${note}): skipping PDF because there is no text extraction pipeline yet`)
+    await api.embeddings.deleteNoteDocument({ workspacePath, note })
+    return { ok: true, indexed: 0, skipped: true, reason: 'no indexable content' }
+  }
 
   // Skip if content hasn't changed.
   if (storedHash && storedHash === contentHash) {

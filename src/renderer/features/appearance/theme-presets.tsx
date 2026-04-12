@@ -2178,6 +2178,85 @@ export const defaultPresets: Record<string, ThemePreset> = {
       }
     }
   },
+  obsidian: {
+    label: 'Obsidian',
+    styles: {
+      light: {
+        background: '#ffffff',
+        foreground: '#2e3338',
+        card: '#ffffff',
+        'card-foreground': '#2e3338',
+        popover: '#ffffff',
+        'popover-foreground': '#2e3338',
+        primary: '#7c3aed',
+        'primary-foreground': '#ffffff',
+        secondary: '#f2f3f5',
+        'secondary-foreground': '#2e3338',
+        muted: '#f2f3f5',
+        'muted-foreground': '#5c6b73',
+        accent: '#7c3aed',
+        'accent-foreground': '#ffffff',
+        destructive: '#e94a47',
+        'destructive-foreground': '#ffffff',
+        border: '#e0e0e0',
+        input: '#f2f3f5',
+        ring: '#7c3aed',
+        sidebar: '#f2f3f5',
+        'sidebar-foreground': '#2e3338',
+        'sidebar-primary': '#7c3aed',
+        'sidebar-primary-foreground': '#ffffff',
+        'sidebar-accent': '#e3e5e8',
+        'sidebar-accent-foreground': '#7c3aed',
+        'sidebar-border': '#e0e0e0',
+        'sidebar-ring': '#7c3aed',
+        radius: '0.5rem',
+        'shadow-color': '#000000',
+        'shadow-opacity': '0.05',
+        'shadow-blur': '10px',
+        'shadow-spread': '0px',
+        'shadow-offset-x': '0px',
+        'shadow-offset-y': '2px',
+     
+      },
+      dark: {
+        background: '#1e1e1e',
+        foreground: '#dcddde',
+        card: '#242424',
+        'card-foreground': '#dcddde',
+        popover: '#242424',
+        'popover-foreground': '#dcddde',
+        primary: '#997dfd',
+        'primary-foreground': '#ffffff',
+        secondary: '#2a2a2a',
+        'secondary-foreground': '#dcddde',
+        muted: '#2f2f2f',
+        'muted-foreground': '#8e8e8e',
+        accent: '#7c3aed',
+        'accent-foreground': '#ffffff',
+        destructive: '#e94a47',
+        'destructive-foreground': '#ffffff',
+        border: '#303030',
+        input: '#2a2a2a',
+        ring: '#997dfd',
+        sidebar: '#171717',
+        'sidebar-foreground': '#b3b3b3',
+        'sidebar-primary': '#997dfd',
+        'sidebar-primary-foreground': '#ffffff',
+        'sidebar-accent': '#2f2f2f',
+        'sidebar-accent-foreground': '#dcddde',
+        'sidebar-border': '#303030',
+        'sidebar-ring': '#997dfd',
+        radius: '0.5rem',
+        'shadow-color': '#000000',
+        'shadow-opacity': '0.4',
+        'shadow-blur': '15px',
+        'shadow-spread': '-2px',
+        'shadow-offset-x': '0px',
+        'shadow-offset-y': '8px',
+    
+      }
+    }
+  },
   'retro-arcade': {
     label: 'Retro Arcade',
     styles: {
@@ -3027,6 +3106,7 @@ export const defaultPresets: Record<string, ThemePreset> = {
       }
     }
   },
+  
   'sage-garden': {
     label: 'Sage Garden',
     createdAt: '2025-11-08',

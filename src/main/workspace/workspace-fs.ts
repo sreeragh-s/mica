@@ -45,7 +45,7 @@ function parseNotelabNoteFile(
   title: string
   updatedAtMs: number
   body: string
-  kind: 'note' | 'drawing'
+  kind: 'note' | 'drawing' | 'pdf'
   coverImageSrc?: string
   titleEmoji?: string
   properties: NotePropertyMap
@@ -53,8 +53,9 @@ function parseNotelabNoteFile(
 } | null {
   const parsed = parseOptionalFrontmatter(content)
   const title = basename(filePath, extname(filePath))
-  const kind: 'note' | 'drawing' =
-    extname(filePath).toLowerCase() === '.excalidraw' ? 'drawing' : 'note'
+  const extension = extname(filePath).toLowerCase()
+  const kind: 'note' | 'drawing' | 'pdf' =
+    extension === '.excalidraw' ? 'drawing' : extension === '.pdf' ? 'pdf' : 'note'
   const normalizedPath = filePath.replace(/\\/g, '/')
   const coverImageSrc = firstScalarPropertyValue(parsed.properties.cover_image)
   const titleEmoji = firstScalarPropertyValue(parsed.properties.title_emoji)
@@ -107,6 +108,14 @@ export function writeNotelabFile(cwd: string, relativePath: string, content: str
   writeFileSync(abs, content, 'utf8')
 }
 
+export async function readWorkspaceBinaryFile(
+  cwd: string,
+  relativePath: string
+): Promise<Buffer> {
+  const abs = assertSafeRelativePath(cwd, relativePath)
+  return readFile(abs)
+}
+
 export function deleteNoteFile(cwd: string, relativePath: string): void {
   const abs = assertSafeRelativePath(cwd, relativePath)
   if (!existsSync(abs)) return
@@ -141,7 +150,7 @@ export async function readNotelabIndexImpl(cwd: string): Promise<{
     title: string
     updatedAtMs: number
     markdownBody: string
-    kind: 'note' | 'drawing'
+    kind: 'note' | 'drawing' | 'pdf'
     coverImageSrc?: string
     titleEmoji?: string
     properties?: NotePropertyMap
@@ -156,7 +165,10 @@ export async function readNotelabIndexImpl(cwd: string): Promise<{
   // Collect note file tasks: [folder, relativeFilePath]
   const noteTasks: [string, string][] = []
   for (const ent of topEnts) {
-    if (ent.isFile() && (ent.name.endsWith('.md') || ent.name.endsWith('.excalidraw'))) {
+    if (
+      ent.isFile() &&
+      (ent.name.endsWith('.md') || ent.name.endsWith('.excalidraw') || ent.name.endsWith('.pdf'))
+    ) {
       noteTasks.push([DEFAULT_WORKSPACE_ID, ent.name])
     } else if (ent.isDirectory()) {
       const folder = ent.name
@@ -166,7 +178,12 @@ export async function readNotelabIndexImpl(cwd: string): Promise<{
       }
       const subEnts = await readdir(join(cwd, folder), { withFileTypes: true })
       for (const file of subEnts) {
-        if (!file.isFile() || (!file.name.endsWith('.md') && !file.name.endsWith('.excalidraw')))
+        if (
+          !file.isFile() ||
+          (!file.name.endsWith('.md') &&
+            !file.name.endsWith('.excalidraw') &&
+            !file.name.endsWith('.pdf'))
+        )
           continue
         noteTasks.push([folder, `${folder}/${file.name}`])
       }
@@ -178,7 +195,19 @@ export async function readNotelabIndexImpl(cwd: string): Promise<{
     await Promise.all(
       noteTasks.map(async ([folder, relativeFilePath]) => {
         const filePath = join(cwd, relativeFilePath)
-        const [content, fileStat] = await Promise.all([readFile(filePath, 'utf8'), stat(filePath)])
+        const fileStat = await stat(filePath)
+        const extension = extname(relativeFilePath).toLowerCase()
+        if (extension === '.pdf') {
+          return {
+            folder,
+            note: relativeFilePath.replace(/\\/g, '/'),
+            title: basename(relativeFilePath, extension),
+            updatedAtMs: fileStat.mtimeMs,
+            markdownBody: '',
+            kind: 'pdf' as const
+          }
+        }
+        const content = await readFile(filePath, 'utf8')
         const parsed = parseNotelabNoteFile(content, relativeFilePath, fileStat.mtimeMs)
         if (!parsed) return null
         return {

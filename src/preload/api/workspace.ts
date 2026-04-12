@@ -80,7 +80,7 @@ export const workspaceApi = {
           title: string
           updatedAtMs: number
           markdownBody: string
-          kind: 'note' | 'drawing'
+          kind: 'note' | 'drawing' | 'pdf'
           coverImageSrc?: string
           titleEmoji?: string
           properties?: Record<string, string | string[]>
@@ -89,6 +89,11 @@ export const workspaceApi = {
       }
     | { ok: false; error: string }
   > => ipcRenderer.invoke('workspace:read-notelab-index', payload),
+  readBinaryFile: (payload: {
+    cwd: string
+    relativePath: string
+  }): Promise<{ ok: true; base64: string } | { ok: false; error: string }> =>
+    ipcRenderer.invoke('workspace:read-binary-file', payload),
   writeNoteFile: (payload: {
     cwd: string
     relativePath: string

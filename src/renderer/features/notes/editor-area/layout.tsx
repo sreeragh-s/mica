@@ -12,7 +12,6 @@ import {
   DialogTitle
 } from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
-import { enableInfinityCanvas } from '@/lib/core/vite-flags'
 import { AppSidebar } from '@/features/notes/right-sidebar/AppSidebar'
 import { NotesPrimaryPane } from '@/features/notes/editor-area/NotesPrimaryPane'
 import type { NotesPrimaryPaneProps } from '@/features/notes/editor-area/NotesPrimaryPane'
@@ -43,9 +42,6 @@ const GitHubSettingsView = lazy(async () => ({
 }))
 const JournalView = lazy(async () => ({
   default: (await import('@/features/notes/views/JournalView')).JournalView
-}))
-const NotesCanvasView = lazy(async () => ({
-  default: (await import('@/features/notes/views/NotesCanvasView')).NotesCanvasView
 }))
 const NotesConflictView = lazy(async () => ({
   default: (await import('@/features/notes/views/NotesConflictView')).NotesConflictView
@@ -177,14 +173,7 @@ function NotesMainNotesContent({
     notes,
     folders,
     selectNote,
-    handleNoteSerializedChange,
-    handleExcalidrawSceneChange,
-    renameNote,
-    setNoteCover,
-    setNoteTitleEmoji,
     journalViewOpen,
-    canvasViewOpen,
-    closeCanvasView,
     graphViewOpen,
     closeGraphView
   } = vm
@@ -201,7 +190,7 @@ function NotesMainNotesContent({
     )
   }
 
-  if (zenMode && (!selectedNote || selectedNote.kind === 'drawing')) {
+  if (zenMode && (!selectedNote || selectedNote.kind !== 'note')) {
     return (
       <div className="text-muted-foreground flex min-h-0 flex-1 flex-col items-center justify-center px-6 text-center text-sm">
         Exiting zen mode…
@@ -209,12 +198,11 @@ function NotesMainNotesContent({
     )
   }
 
-  const showSingleColumnPrimaryPane =
-    !journalViewOpen && !(enableInfinityCanvas && canvasViewOpen) && !graphViewOpen
+  const showSingleColumnPrimaryPane = !journalViewOpen && !graphViewOpen
 
   if (showSingleColumnPrimaryPane) {
     // Keep a stable flex tree (spacer + pane) so toggling zen does not remount NotesPrimaryPane / Lexical.
-    const zenActive = zenMode && !!selectedNote && selectedNote.kind !== 'drawing'
+    const zenActive = zenMode && !!selectedNote && selectedNote.kind === 'note'
     return (
       <div
         className={cn(
@@ -258,28 +246,6 @@ function NotesMainNotesContent({
           onDrop={onDropPrimaryPane}
         />
       </Suspense>
-    )
-  }
-
-  if (enableInfinityCanvas && canvasViewOpen) {
-    return (
-      <div className="flex min-h-0 flex-1 flex-col">
-        <Suspense fallback={<LazyPaneFallback />}>
-          <NotesCanvasView
-            notes={notes}
-            folders={folders}
-            isMacNotelab={isMacNotelab}
-            macTitlebarStyles={macTitlebarStyles}
-            onSelectNote={selectNote}
-            onClose={closeCanvasView}
-            onNoteSerializedChange={handleNoteSerializedChange}
-            onExcalidrawSceneChange={handleExcalidrawSceneChange}
-            onRenameNote={renameNote}
-            onSetNoteCover={setNoteCover}
-            onSetNoteTitleEmoji={setNoteTitleEmoji}
-          />
-        </Suspense>
-      </div>
     )
   }
 

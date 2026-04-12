@@ -44,6 +44,7 @@ export function JournalView({
     <div className="flex min-h-0 flex-1 flex-col" onDragOver={onDragOver} onDrop={onDrop}>
       <NotesPrimaryPane
         selectedNote={selectedJournalNote}
+        workspaceRoot={vm.dataRootPath}
         focusedFolder={focusedFolder}
         notes={notes}
         folders={folders}

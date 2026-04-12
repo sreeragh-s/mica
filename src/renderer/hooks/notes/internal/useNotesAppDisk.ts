@@ -134,6 +134,17 @@ export function useNotesAppDisk({
             excalidrawScene: n.markdownBody.trim() || null
           }
         }
+        if (kind === 'pdf') {
+          return {
+            path: n.note,
+            folder: n.folder,
+            title: n.title,
+            updatedAt: n.updatedAtMs,
+            content: null,
+            kind: 'pdf' as const,
+            pdfPath: n.note
+          }
+        }
         return {
           path: n.note,
           folder: n.folder,

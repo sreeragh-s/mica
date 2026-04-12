@@ -1,7 +1,6 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import {
   FolderPlus,
-  LayoutDashboard,
   Network,
   PencilRuler,
   Search,
@@ -13,7 +12,6 @@ import { type JSX, type RefObject } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
-import { enableInfinityCanvas } from '@/lib/core/vite-flags'
 import type { NotesAppViewModel } from '@/hooks/notes/useNotesApp'
 
 export type SidebarExplorerToolbarProps = {
@@ -33,9 +31,6 @@ export type SidebarExplorerToolbarProps = {
   graphViewOpen: boolean
   openGraphView: NotesAppViewModel['openGraphView']
   closeGraphView: NotesAppViewModel['closeGraphView']
-  canvasViewOpen: boolean
-  openCanvasView: NotesAppViewModel['openCanvasView']
-  closeCanvasView: NotesAppViewModel['closeCanvasView']
 }
 
 export function SidebarExplorerToolbar({
@@ -54,10 +49,7 @@ export function SidebarExplorerToolbar({
   handleNewDrawing,
   graphViewOpen,
   openGraphView,
-  closeGraphView,
-  canvasViewOpen,
-  openCanvasView,
-  closeCanvasView
+  closeGraphView
 }: SidebarExplorerToolbarProps): JSX.Element {
   const rowClass = (extra: string) =>
     cn(
@@ -151,26 +143,6 @@ export function SidebarExplorerToolbar({
       >
         <Network className="size-4" aria-hidden />
       </Button>
-      {enableInfinityCanvas ? (
-        <Button
-          type="button"
-          size="sm"
-          variant={canvasViewOpen ? 'secondary' : 'ghost'}
-          className={cn(
-            'size-8 shrink-0 p-0',
-            canvasViewOpen ? 'text-foreground' : 'text-muted-foreground'
-          )}
-          title="Infinity canvas"
-          aria-label="Infinity canvas"
-          aria-pressed={canvasViewOpen}
-          disabled={!canCreateNote}
-          onClick={() => (canvasViewOpen ? closeCanvasView() : openCanvasView())}
-          data-sidebar-interactive=""
-          style={isMacNotelab ? macTitlebarStyles.noDrag : undefined}
-        >
-          <LayoutDashboard className="size-4" aria-hidden />
-        </Button>
-      ) : null}
     </div>
   )
 
