@@ -19,6 +19,8 @@ export type SavedWorkspace = {
   path: string
   /** Display name (defaults to the last path segment). */
   name: string
+  /** Git remote URL when known (from `.git`, not persisted unless enriched). */
+  remoteUrl?: string
 }
 
 export type NotelabEditorSettingsV1 = {
@@ -64,14 +66,7 @@ export type NotelabWorkspaceViewSnapshotV1 = {
   workspaceSettingsFolderId: string | null
 }
 
-/** Global app config: ~/.notelab/notelab.json (configRoot) - workspace list only */
-export type NotelabConfigFileV1 = {
-  version: 1
-  /** All known workspaces (path, name). */
-  workspaces?: SavedWorkspace[]
-}
-
-/** Per-workspace settings: <workspace>/notelab.json */
+/** Per-workspace settings shape (also embedded in the data-root app config file). */
 export type NotelabWorkspaceConfigV1 = {
   version: 1
   setup?: NotelabSetupState
@@ -83,6 +78,14 @@ export type NotelabWorkspaceConfigV1 = {
   githubContentShas?: Record<string, string>
   editorSettings?: NotelabEditorSettingsV1
   appearanceSettings?: NotelabAppearanceSettingsV1
+}
+
+/**
+ * App config persisted under the data root (read/write via `readAppConfig` / `writeAppConfig`):
+ * workspace list plus the same persisted fields as `NotelabWorkspaceConfigV1` (local storage / disk).
+ */
+export type NotelabConfigFileV1 = NotelabWorkspaceConfigV1 & {
+  workspaces?: SavedWorkspace[]
 }
 
 export type NotelabThemeConfigV1 = {

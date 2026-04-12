@@ -227,8 +227,8 @@ export function loadThemeConfig(): NotelabThemeConfigV1 | null {
   return s ?? null
 }
 
-export function saveThemeConfig(config: NotelabThemeConfigV1): void {
-  const sanitized = sanitizeThemeConfig(config)
+export function saveThemeConfig(nextTheme: NotelabThemeConfigV1): void {
+  const sanitized = sanitizeThemeConfig(nextTheme)
   setConfig(
     {
       ...config,
