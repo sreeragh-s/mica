@@ -58,6 +58,12 @@ export function EditorSettingsView({
 
       <div className="flex flex-col gap-3">
         <ToggleRow
+          label="Open files in new tab"
+          description="When on, picking a file from the sidebar opens it in an additional tab. When off, sidebar file picks reuse the current tab instead."
+          value={settings.openFilesInNewTab}
+          onChange={(next) => onChange({ openFilesInNewTab: next })}
+        />
+        <ToggleRow
           label="New notes start with frontmatter"
           description="Shows the properties panel for new markdown notes. The frontmatter block is only written to the file if a property is added."
           value={settings.newNotesStartWithFrontmatter}

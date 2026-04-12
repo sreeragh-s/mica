@@ -595,9 +595,27 @@ export function useNotesApp() {
     }
   }, [])
 
-  const pushOpenNoteTab = useCallback((notePath: string) => {
-    setOpenNoteTabIds((prev) => (prev.includes(notePath) ? prev : [...prev, notePath]))
-  }, [])
+  const syncOpenTabsForSelection = useCallback(
+    (notePath: string, options: { replaceCurrentTab?: boolean } = {}) => {
+      setOpenNoteTabIds((prev) => {
+        if (prev.includes(notePath)) {
+          if (!options.replaceCurrentTab || !selectedNotePath || selectedNotePath === notePath) {
+            return prev
+          }
+          return prev.filter((path) => path !== selectedNotePath)
+        }
+        if (!options.replaceCurrentTab || !selectedNotePath) {
+          return prev.includes(notePath) ? prev : [...prev, notePath]
+        }
+        const selectedIdx = prev.indexOf(selectedNotePath)
+        if (selectedIdx === -1) return [...prev, notePath]
+        const next = [...prev]
+        next[selectedIdx] = notePath
+        return next
+      })
+    },
+    [selectedNotePath]
+  )
 
   const focusFolderWorkspace = useCallback(
     (folder: string, options: { openSettings?: boolean } = {}) => {
@@ -614,7 +632,10 @@ export function useNotesApp() {
   )
 
   const openNoteInEditor = useCallback(
-    (note: SavedNote, options: { openTab?: boolean } = {}) => {
+    (
+      note: SavedNote,
+      options: { openTab?: boolean; replaceCurrentTab?: boolean } = {}
+    ) => {
       enterNotesExplorer()
       closeGraphAndTabOverview()
       setWorkspaceSettingsFolderId(null)
@@ -625,24 +646,28 @@ export function useNotesApp() {
       setTreeExpandIds(treeExpandIdsForFolderId(note.folder))
       setTreeExpandNonce((n) => n + 1)
       if (options.openTab !== false && note.folder !== JOURNAL_FOLDER_ID) {
-        pushOpenNoteTab(note.path)
+        syncOpenTabsForSelection(note.path, { replaceCurrentTab: options.replaceCurrentTab })
       }
     },
-    [closeGraphAndTabOverview, enterNotesExplorer, pushOpenNoteTab]
+    [closeGraphAndTabOverview, enterNotesExplorer, syncOpenTabsForSelection]
   )
 
   /** Stores a pending subpath (e.g. `#my-heading`) to scroll to after note navigation. */
   const pendingSubpathRef = useRef<string | null>(null)
 
   const selectNote = useCallback(
-    (notePath: string, subpath?: string) => {
+    (
+      notePath: string,
+      subpath?: string,
+      options: { replaceCurrentTab?: boolean } = {}
+    ) => {
       if (selectedNotePath && selectedNotePath !== notePath) {
         commitPendingNoteToState(selectedNotePath)
       }
       const note = findLatestNote(notePath)
       if (!note) return
       pendingSubpathRef.current = subpath ?? null
-      openNoteInEditor(note)
+      openNoteInEditor(note, { replaceCurrentTab: options.replaceCurrentTab })
     },
     [commitPendingNoteToState, findLatestNote, openNoteInEditor, selectedNotePath]
   )
@@ -718,7 +743,9 @@ export function useNotesApp() {
         return
       }
       if (id.startsWith('note:')) {
-        selectNote(id.slice(5))
+        selectNote(id.slice(5), undefined, {
+          replaceCurrentTab: !editorSettings.openFilesInNewTab
+        })
         return
       }
       if (id.startsWith('folder:')) {
@@ -728,7 +755,7 @@ export function useNotesApp() {
         setNewNoteDestinationFolderId(fid)
       }
     },
-    [commitPendingNoteToState, selectNote, selectedNotePath]
+    [commitPendingNoteToState, editorSettings.openFilesInNewTab, selectNote, selectedNotePath]
   )
 
   const handleNewNote = useCallback(() => {

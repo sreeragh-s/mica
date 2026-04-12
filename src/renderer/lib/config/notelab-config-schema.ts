@@ -28,6 +28,7 @@ export type NotelabEditorSettingsV1 = {
   enableCoverProperty?: boolean
   newNotesStartWithFrontmatter?: boolean
   confirmNoteDeletion?: boolean
+  openFilesInNewTab?: boolean
 }
 
 export type NotelabAppearanceSettingsV1 = {

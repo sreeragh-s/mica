@@ -282,7 +282,8 @@ function defaultEditorSettings(): Required<NotelabEditorSettingsV1> {
     enableEmojiProperty: true,
     enableCoverProperty: true,
     newNotesStartWithFrontmatter: true,
-    confirmNoteDeletion: true
+    confirmNoteDeletion: true,
+    openFilesInNewTab: true
   }
 }
 
@@ -312,7 +313,11 @@ export function loadEditorSettings(): Required<NotelabEditorSettingsV1> {
     confirmNoteDeletion:
       typeof raw.confirmNoteDeletion === 'boolean'
         ? raw.confirmNoteDeletion
-        : defaults.confirmNoteDeletion
+        : defaults.confirmNoteDeletion,
+    openFilesInNewTab:
+      typeof raw.openFilesInNewTab === 'boolean'
+        ? raw.openFilesInNewTab
+        : defaults.openFilesInNewTab
   }
 }
 
