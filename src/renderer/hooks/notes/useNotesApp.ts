@@ -37,6 +37,7 @@ import {
 } from '@/features/notes/notes-app-utils'
 import { treeExpandIdsForFolderId } from './internal/shared'
 import { useNotesAppDisk } from './internal/useNotesAppDisk'
+import { useNotesAppGit } from './internal/useNotesAppGit'
 import { useNotesAppIndexing } from './internal/useNotesAppIndexing'
 import { useNotesAppUi } from './internal/useNotesAppUi'
 import { useNotesGitSourceControl } from '@/hooks/notes/useNotesGitSourceControl'
@@ -112,7 +113,24 @@ export function useNotesApp({
     tabOverviewOpen,
     setTabOverviewOpen,
     appSidebarView,
-    setAppSidebarView
+    setAppSidebarView,
+    diskMode,
+    dataRootPath,
+    workspaceRoot,
+    setGithubRemoteUrl,
+    setGitCommitMessage,
+    setGitSyncBusy,
+    setGitSyncError,
+    setGitSynced,
+    setGitHubBusy,
+    setGitHubMessage,
+    setGitRemoteDialogOpen,
+    setGitUserConfigDialogOpen,
+    setGitPendingRetry,
+    setGitRepoReady,
+    setGitHasOriginRemote,
+    setGitInitBusy,
+    setGitInitError
   } = useNotesStore()
   const setSelectedId = setSelectedNotePath
   const setOpenNoteTabIds = setOpenNoteTabPaths
@@ -172,44 +190,33 @@ export function useNotesApp({
 
   const {
     githubRemoteUrl,
-    setGithubRemoteUrl,
-    diskMode,
-    dataRootPath,
-    workspaceRoot,
     dirtyByWorkspaceId,
     gitCommitMessage,
-    setGitCommitMessage,
     gitSyncBusy,
-    setGitSyncBusy,
     gitSyncError,
-    setGitSyncError,
     gitSynced,
-    setGitSynced,
     gitHubBusy,
-    setGitHubBusy,
     gitHubMessage,
-    setGitHubMessage,
     gitRemoteDialogOpen,
-    setGitRemoteDialogOpen,
     gitUserConfigDialogOpen,
-    setGitUserConfigDialogOpen,
     gitPendingRetry,
-    setGitPendingRetry,
     gitRepoReady,
-    setGitRepoReady,
     gitHasOriginRemote,
-    setGitHasOriginRemote,
     gitInitBusy,
-    setGitInitBusy,
     gitInitError,
-    setGitInitError,
     gitDirtyGlobal,
     refreshWorkspaceGitStatuses,
-    reloadNotesFromDisk,
-    scheduleNoteFlush,
-    flushNoteMoveToDisk,
-    handleWorkspaceRootChange
-  } = useNotesAppDisk({
+    scheduleWorkspaceGitStatusRefresh
+  } = useNotesAppGit({
+    folders,
+    foldersRef,
+    dataRootRef,
+    dataRootPath,
+    diskMode
+  })
+
+  const { reloadNotesFromDisk, scheduleNoteFlush, flushNoteMoveToDisk, handleWorkspaceRootChange } =
+    useNotesAppDisk({
     folders,
     notes,
     setFolders,
@@ -224,6 +231,9 @@ export function useNotesApp({
     pendingSavedNotesRef,
     noteFlushTimers,
     pendingDiskWrites,
+    githubRemoteUrl,
+    refreshWorkspaceGitStatuses,
+    scheduleWorkspaceGitStatusRefresh,
     applyWorkspaceViewFromDisk
   })
 

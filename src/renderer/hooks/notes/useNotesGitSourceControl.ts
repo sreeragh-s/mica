@@ -6,26 +6,13 @@ import type { AppSidebarView } from '@/lib/notes/notes-types'
 import type { Folder } from '@/lib/notes/notes-storage'
 
 import type { AppMode, NotesUser } from '@/features/notes/notes-app-types'
+import type { GitSourceControlFile, GitSourceControlSnapshot } from './internal/shared'
 
 const LOG = '[useNotesGitSourceControl]'
 const log = createElectronLogger(LOG)
 
 function elapsedMs(start: number): number {
   return Math.round(performance.now() - start)
-}
-
-export type GitSourceControlFile = {
-  path: string
-  x: string
-  y: string
-  staged: boolean
-  conflicted: boolean
-}
-
-export type GitSourceControlSnapshot = {
-  files: GitSourceControlFile[]
-  hasConflicts: boolean
-  isRebasing: boolean
 }
 
 type UseNotesGitSourceControlArgs = {

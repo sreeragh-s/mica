@@ -1,8 +1,6 @@
 import {
   useCallback,
   useEffect,
-  useMemo,
-  useRef,
   type Dispatch,
   type MutableRefObject,
   type SetStateAction
@@ -55,6 +53,9 @@ type UseNotesAppDiskArgs = {
   pendingSavedNotesRef: MutableRefObject<Map<string, SavedNote>>
   noteFlushTimers: MutableRefObject<Map<string, number>>
   pendingDiskWrites: MutableRefObject<Set<string>>
+  githubRemoteUrl: string
+  refreshWorkspaceGitStatuses: () => Promise<void>
+  scheduleWorkspaceGitStatusRefresh: (delayMs?: number) => void
   applyWorkspaceViewFromDisk: (snap: NotelabWorkspaceViewSnapshotV1) => void
 }
 
@@ -74,92 +75,19 @@ export function useNotesAppDisk({
   pendingSavedNotesRef,
   noteFlushTimers,
   pendingDiskWrites,
+  githubRemoteUrl,
+  refreshWorkspaceGitStatuses,
+  scheduleWorkspaceGitStatusRefresh,
   applyWorkspaceViewFromDisk
 }: UseNotesAppDiskArgs) {
-  const {
-    githubRemoteUrl,
-    setGithubRemoteUrl,
-    diskMode,
-    setDiskMode,
-    dataRootPath,
-    setDataRootPath,
-    dirtyByWorkspaceId,
-    setDirtyByWorkspaceId,
-    gitCommitMessage,
-    setGitCommitMessage,
-    gitSyncBusy,
-    setGitSyncBusy,
-    gitSyncError,
-    setGitSyncError,
-    gitSynced,
-    setGitSynced,
-    gitHubBusy,
-    setGitHubBusy,
-    gitHubMessage,
-    setGitHubMessage,
-    gitRemoteDialogOpen,
-    setGitRemoteDialogOpen,
-    gitUserConfigDialogOpen,
-    setGitUserConfigDialogOpen,
-    gitPendingRetry,
-    setGitPendingRetry,
-    gitRepoReady,
-    setGitRepoReady,
-    gitHasOriginRemote,
-    setGitHasOriginRemote,
-    gitInitBusy,
-    setGitInitBusy,
-    gitInitError,
-    setGitInitError,
-    workspaceRoot,
-    setWorkspaceRoot
-  } = useNotesStore()
-  const markdownSyncGen = useRef(0)
-  const gitStatusRefreshTimerRef = useRef<number | null>(null)
+  const { diskMode, setDiskMode, dataRootPath, setDataRootPath, workspaceRoot, setWorkspaceRoot } =
+    useNotesStore()
 
   const getLatestNoteSnapshot = useCallback(
     (notePath: string): SavedNote | undefined =>
       pendingSavedNotesRef.current.get(notePath) ??
       notesRef.current.find((n) => n.path === notePath),
     [notesRef, pendingSavedNotesRef]
-  )
-
-  const refreshWorkspaceGitStatuses = useCallback(async () => {
-    const api = getApi()
-    if (!api?.workspace?.gitStatus) return
-    const gitStatus = api.workspace.gitStatus
-    const foldersWithGit = foldersRef.current.filter((f) => f.localGitPath)
-    const rootCwd = dataRootRef.current
-    const tasks: Promise<[string, boolean] | null>[] = foldersWithGit.map(async (f) => {
-      const s = await gitStatus({ cwd: f.localGitPath! })
-      return s.ok ? ([f.folder, s.dirty] as [string, boolean]) : null
-    })
-    if (foldersRef.current.length === 0 && rootCwd) {
-      tasks.push(
-        gitStatus({ cwd: rootCwd }).then((s) =>
-          s.ok ? ([DEFAULT_WORKSPACE_ID, s.dirty] as [string, boolean]) : null
-        )
-      )
-    }
-    const results = await Promise.all(tasks)
-    const next: Record<string, boolean> = {}
-    for (const r of results) {
-      if (r) next[r[0]] = r[1]
-    }
-    setDirtyByWorkspaceId(next)
-  }, [dataRootRef, foldersRef])
-
-  const scheduleWorkspaceGitStatusRefresh = useCallback(
-    (delayMs = 2500): void => {
-      if (gitStatusRefreshTimerRef.current !== null) {
-        window.clearTimeout(gitStatusRefreshTimerRef.current)
-      }
-      gitStatusRefreshTimerRef.current = window.setTimeout(() => {
-        gitStatusRefreshTimerRef.current = null
-        void refreshWorkspaceGitStatuses()
-      }, delayMs)
-    },
-    [refreshWorkspaceGitStatuses]
   )
 
   const resolveNoteWriteCwd = useCallback(
@@ -607,22 +535,17 @@ export function useNotesAppDisk({
     return () => window.clearTimeout(t)
   }, [diskMode, folders, githubRemoteUrl, notes])
 
-  const gitDirtyGlobal = useMemo(
-    () => Object.values(dirtyByWorkspaceId).some(Boolean),
-    [dirtyByWorkspaceId]
-  )
-
   useEffect(() => {
     if (diskMode) return
     const api = getApi()
     if (!api?.workspace?.syncMarkdown) return
     const targets = folders.filter((f) => f.localGitPath)
     if (targets.length === 0) return
-    const gen = ++markdownSyncGen.current
+    let cancelled = false
     const t = window.setTimeout(() => {
       void (async () => {
         for (const f of targets) {
-          if (gen !== markdownSyncGen.current) return
+          if (cancelled) return
           const wsNotes = notes.filter((n) => n.folder === f.folder)
           const files = buildMarkdownSyncPayload(f, wsNotes)
           const r = await api.workspace!.syncMarkdown!({
@@ -635,26 +558,16 @@ export function useNotesAppDisk({
             console.error('[notelab] markdown sync failed', r.error)
           }
         }
-        if (gen === markdownSyncGen.current) {
+        if (!cancelled) {
           await refreshWorkspaceGitStatuses()
         }
       })()
     }, 550)
-    return () => window.clearTimeout(t)
+    return () => {
+      cancelled = true
+      window.clearTimeout(t)
+    }
   }, [diskMode, folders, notes, refreshWorkspaceGitStatuses])
-
-  useEffect(() => {
-    if (!folders.some((f) => f.localGitPath) && !(diskMode && dataRootPath)) return
-    void refreshWorkspaceGitStatuses()
-  }, [dataRootPath, diskMode, folders, refreshWorkspaceGitStatuses])
-
-  useEffect(() => {
-    if (!folders.some((f) => f.localGitPath) && !(diskMode && dataRootPath)) return
-    const id = window.setInterval(() => {
-      void refreshWorkspaceGitStatuses()
-    }, 12_000)
-    return () => window.clearInterval(id)
-  }, [dataRootPath, diskMode, folders, refreshWorkspaceGitStatuses])
 
   useEffect(() => {
     const onFocus = (): void => {
@@ -670,10 +583,6 @@ export function useNotesAppDisk({
   useEffect(() => {
     const flushTimers = noteFlushTimers.current
     return () => {
-      if (gitStatusRefreshTimerRef.current !== null) {
-        window.clearTimeout(gitStatusRefreshTimerRef.current)
-        gitStatusRefreshTimerRef.current = null
-      }
       for (const tid of flushTimers.values()) {
         window.clearTimeout(tid)
       }
@@ -717,39 +626,9 @@ export function useNotesAppDisk({
   )
 
   return {
-    githubRemoteUrl,
-    setGithubRemoteUrl,
     diskMode,
     dataRootPath,
     workspaceRoot,
-    dirtyByWorkspaceId,
-    gitCommitMessage,
-    setGitCommitMessage,
-    gitSyncBusy,
-    setGitSyncBusy,
-    gitSyncError,
-    setGitSyncError,
-    gitSynced,
-    setGitSynced,
-    gitHubBusy,
-    setGitHubBusy,
-    gitHubMessage,
-    setGitHubMessage,
-    gitRemoteDialogOpen,
-    setGitRemoteDialogOpen,
-    gitUserConfigDialogOpen,
-    setGitUserConfigDialogOpen,
-    gitPendingRetry,
-    setGitPendingRetry,
-    gitRepoReady,
-    setGitRepoReady,
-    gitHasOriginRemote,
-    setGitHasOriginRemote,
-    gitInitBusy,
-    setGitInitBusy,
-    gitInitError,
-    setGitInitError,
-    gitDirtyGlobal,
     refreshWorkspaceGitStatuses,
     reloadNotesFromDisk,
     scheduleNoteFlush,

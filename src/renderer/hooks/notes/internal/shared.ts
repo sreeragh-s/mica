@@ -15,6 +15,20 @@ export function summarizeIndexingCounts(
   }
 }
 
+export type GitSourceControlFile = {
+  path: string
+  x: string
+  y: string
+  staged: boolean
+  conflicted: boolean
+}
+
+export type GitSourceControlSnapshot = {
+  files: GitSourceControlFile[]
+  hasConflicts: boolean
+  isRebasing: boolean
+}
+
 export type NotelabIndexOk = {
   ok: true
   folders: { folder: string; name: string }[]

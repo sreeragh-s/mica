@@ -6,7 +6,7 @@ import type { Folder } from '@/lib/notes/notes-storage'
 
 import { friendlyGitSyncError } from '@/features/notes/git/git-sync-errors'
 import type { NotesUser } from '@/features/notes/notes-app-types'
-import type { GitSourceControlSnapshot } from '@/hooks/notes/useNotesGitSourceControl'
+import type { GitSourceControlSnapshot } from './internal/shared'
 
 const LOG = '[useNotesGitSync]'
 const log = createElectronLogger(LOG)
