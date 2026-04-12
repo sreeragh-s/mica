@@ -31,6 +31,7 @@ const LOG = '[notelab-workspace]'
 
 /** Unified app config stored in the system config directory. */
 const APP_CONFIG_FILENAME = 'notelab.json'
+const WORKSPACE_CONFIG_DIRNAME = '.notelab'
 /** System-level config directory, independent of the user's notes workspace. */
 const SYSTEM_CONFIG_DIR = join(homedir(), '.notelab')
 
@@ -47,6 +48,20 @@ function assertNotelabDataRoot(cwd: string): boolean {
 }
 
 function appConfigFilePath(cwd: string): string {
+  const resolvedCwd = resolve(cwd)
+  const resolvedSystemConfigDir = resolve(SYSTEM_CONFIG_DIR)
+  if (resolvedCwd === resolvedSystemConfigDir) {
+    return join(cwd, APP_CONFIG_FILENAME)
+  }
+  return join(cwd, WORKSPACE_CONFIG_DIRNAME, APP_CONFIG_FILENAME)
+}
+
+function legacyAppConfigFilePath(cwd: string): string {
+  const resolvedCwd = resolve(cwd)
+  const resolvedSystemConfigDir = resolve(SYSTEM_CONFIG_DIR)
+  if (resolvedCwd === resolvedSystemConfigDir) {
+    return join(cwd, WORKSPACE_CONFIG_DIRNAME, APP_CONFIG_FILENAME)
+  }
   return join(cwd, APP_CONFIG_FILENAME)
 }
 
@@ -247,6 +262,11 @@ export function registerWorkspaceIpc(): void {
           const content = readFileSync(primary, 'utf8')
           return { ok: true, content: content.trim() ? content : null }
         }
+        const legacy = legacyAppConfigFilePath(cwd)
+        if (existsSync(legacy)) {
+          const content = readFileSync(legacy, 'utf8')
+          return { ok: true, content: content.trim() ? content : null }
+        }
         return { ok: true, content: null }
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e)
@@ -268,6 +288,7 @@ export function registerWorkspaceIpc(): void {
       }
       try {
         const path = appConfigFilePath(cwd)
+        mkdirSync(dirname(path), { recursive: true })
         const body = `${JSON.stringify(payload.config, null, 2)}\n`
         writeFileSync(path, body, 'utf8')
         console.debug(LOG, 'write-app-config', path)

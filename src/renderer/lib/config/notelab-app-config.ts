@@ -5,7 +5,8 @@ import type {
   NotelabSetupState,
   SavedWorkspace,
   NotelabEditorSettingsV1,
-  NotelabAppearanceSettingsV1
+  NotelabAppearanceSettingsV1,
+  NotelabWorkspaceViewSnapshotV1
 } from './notelab-config-schema'
 import { normalizeNotesStateFromStorage } from '../notes/notes-state-normalize'
 import { NotesState } from '../notes/notes-types'
@@ -33,6 +34,14 @@ function defaultConfig(): NotelabConfigFileV1 {
   return {
     version: 1,
     setup: defaultSetup()
+  }
+}
+
+function defaultWorkspaceViewSnapshot(): NotelabWorkspaceViewSnapshotV1 {
+  return {
+    selectedNotePath: null,
+    openNoteTabPaths: [],
+    chatSidebarOpen: false
   }
 }
 
@@ -378,4 +387,35 @@ export function mergeGithubContentShas(patch: Record<string, string | undefined>
     else delete cur[k]
   }
   saveGithubContentShas(cur)
+}
+
+export function loadWorkspaceViewSnapshot(workspacePath: string): NotelabWorkspaceViewSnapshotV1 | null {
+  const raw = config.workspaceViews?.[workspacePath]
+  if (!raw || typeof raw !== 'object') return null
+  return {
+    selectedNotePath:
+      typeof raw.selectedNotePath === 'string' ? raw.selectedNotePath : raw.selectedNotePath === null ? null : null,
+    openNoteTabPaths: Array.isArray(raw.openNoteTabPaths)
+      ? raw.openNoteTabPaths.filter((entry): entry is string => typeof entry === 'string')
+      : [],
+    chatSidebarOpen: typeof raw.chatSidebarOpen === 'boolean' ? raw.chatSidebarOpen : false
+  }
+}
+
+export function saveWorkspaceViewSnapshot(
+  workspacePath: string,
+  snapshot: NotelabWorkspaceViewSnapshotV1
+): void {
+  const current = config.workspaceViews ?? {}
+  setConfig({
+    ...config,
+    version: 1,
+    workspaceViews: {
+      ...current,
+      [workspacePath]: {
+        ...defaultWorkspaceViewSnapshot(),
+        ...snapshot
+      }
+    }
+  })
 }

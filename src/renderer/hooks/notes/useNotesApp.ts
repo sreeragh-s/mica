@@ -18,7 +18,10 @@ import {
 } from '@/lib/notes/notes-storage'
 import { saveEditorSettings, saveAppearanceSettings } from '@/lib/config/notelab-app-config'
 import type { NotelabWorkspaceViewSnapshotV1 } from '@/lib/config/notelab-config-schema'
-import { schedulePersistWorkspaceViewSnapshot } from '@/lib/config/workspace-view-storage'
+import {
+  loadWorkspaceChatSidebarOpen,
+  schedulePersistWorkspaceViewSnapshot
+} from '@/lib/config/workspace-view-storage'
 import {
   buildFolderPath,
   buildUniqueNoteRelativePath,
@@ -167,24 +170,15 @@ export function useNotesApp({
     openNoteTabIdsRef.current = openNoteTabPaths
   }, [folders, notes, openNoteTabPaths])
 
+  useEffect(() => {
+    if (!diskMode || !dataRootPath) return
+    setChatSidebarOpen(loadWorkspaceChatSidebarOpen(dataRootPath))
+  }, [dataRootPath, diskMode, setChatSidebarOpen])
+
   const applyWorkspaceViewFromDisk = useCallback((snap: NotelabWorkspaceViewSnapshotV1) => {
     setSelectedId(snap.selectedNotePath)
     setOpenNoteTabIds(snap.openNoteTabPaths)
     setChatSidebarOpen(snap.chatSidebarOpen)
-    setChatSidebarPanel(snap.chatSidebarPanel)
-    setChatSidebarLinkMode(snap.chatSidebarLinkMode)
-    setSidebarCollapsed(snap.sidebarCollapsed)
-    setZenMode(snap.zenMode)
-    setGraphViewOpen(snap.graphViewOpen)
-    setCanvasViewOpen(snap.canvasViewOpen)
-    setJournalViewOpen(snap.journalViewOpen)
-    setTabOverviewOpen(snap.tabOverviewOpen)
-    setAppSidebarView(snap.appSidebarView)
-    setAppMode(snap.appMode)
-    setSettingsSection(snap.settingsSection)
-    setFocusedFolderId(snap.focusedFolderId)
-    setNewNoteDestinationFolderId(snap.newNoteDestinationFolderId)
-    setWorkspaceSettingsFolderId(snap.workspaceSettingsFolderId)
     workspaceViewRestoredRef.current = true
   }, [])
 
@@ -247,45 +241,17 @@ export function useNotesApp({
 
   useEffect(() => {
     if (!diskMode || !dataRootPath || !workspaceViewRestoredRef.current) return
-    schedulePersistWorkspaceViewSnapshot({
+    schedulePersistWorkspaceViewSnapshot(dataRootPath, {
       selectedNotePath,
       openNoteTabPaths,
-      chatSidebarOpen,
-      chatSidebarPanel,
-      chatSidebarLinkMode,
-      sidebarCollapsed,
-      zenMode,
-      graphViewOpen,
-      canvasViewOpen,
-      journalViewOpen,
-      tabOverviewOpen,
-      appSidebarView,
-      appMode,
-      settingsSection,
-      focusedFolderId,
-      newNoteDestinationFolderId,
-      workspaceSettingsFolderId
+      chatSidebarOpen
     })
   }, [
     diskMode,
     dataRootPath,
     selectedNotePath,
     openNoteTabPaths,
-    chatSidebarOpen,
-    chatSidebarPanel,
-    chatSidebarLinkMode,
-    sidebarCollapsed,
-    zenMode,
-    graphViewOpen,
-    canvasViewOpen,
-    journalViewOpen,
-    tabOverviewOpen,
-    appSidebarView,
-    appMode,
-    settingsSection,
-    focusedFolderId,
-    newNoteDestinationFolderId,
-    workspaceSettingsFolderId
+    chatSidebarOpen
   ])
 
   const { indexingStatus, refreshIndexingStatus, runIndexPending, runReindexAll } =

@@ -35,35 +35,12 @@ export type NotelabAppearanceSettingsV1 = {
 }
 
 /**
- * UI snapshot stored under `workspaceView` in `<notesWorkspace>/notelab.json`
- * (not the global ~/.notelab config file).
+ * UI snapshot stored in localStorage per workspace.
  */
 export type NotelabWorkspaceViewSnapshotV1 = {
   selectedNotePath: string | null
   openNoteTabPaths: string[]
   chatSidebarOpen: boolean
-  chatSidebarPanel: 'chat' | 'links'
-  chatSidebarLinkMode: 'linked' | 'linking'
-  sidebarCollapsed: boolean
-  zenMode: boolean
-  graphViewOpen: boolean
-  canvasViewOpen: boolean
-  journalViewOpen: boolean
-  tabOverviewOpen: boolean
-  appSidebarView: 'explorer' | 'source-control' | 'settings'
-  appMode: 'notes' | 'settings'
-  settingsSection:
-    | 'account'
-    | 'workspace'
-    | 'github'
-    | 'appearance'
-    | 'editor'
-    | 'shortcuts'
-    | 'debug'
-    | 'indexing'
-  focusedFolderId: string | null
-  newNoteDestinationFolderId: string
-  workspaceSettingsFolderId: string | null
 }
 
 /** Per-workspace settings shape (also embedded in the data-root app config file). */
@@ -86,6 +63,7 @@ export type NotelabWorkspaceConfigV1 = {
  */
 export type NotelabConfigFileV1 = NotelabWorkspaceConfigV1 & {
   workspaces?: SavedWorkspace[]
+  workspaceViews?: Record<string, NotelabWorkspaceViewSnapshotV1>
 }
 
 export type NotelabThemeConfigV1 = {

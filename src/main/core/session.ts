@@ -1,6 +1,6 @@
 /**
  * Multi-window session state (in-memory only). Used as a fallback when the workspace
- * has no `workspaceView` in `<notesWorkspace>/notelab.json` yet.
+ * has no local workspace-view snapshot yet.
  */
 
 import type { WebContents } from 'electron'
