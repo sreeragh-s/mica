@@ -54,7 +54,7 @@ export type NotesStateV2 = {
   githubRemoteUrl?: string
 }
 
-/** Electron: note bodies live on disk under ~/.notelab; only remote URL is cached here. */
+/** Electron: note bodies live on disk under ~/.notelab; remote URL stored in config. */
 export type NotesStateV3 = {
   version: 3
   githubRemoteUrl?: string

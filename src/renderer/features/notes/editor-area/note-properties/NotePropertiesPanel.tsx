@@ -8,7 +8,6 @@ import {
   parsePropertyInput
 } from '@/lib/notes/note-properties/property-values'
 import type { NotelabEditorSettingsV1 } from '@/lib/config/notelab-config-schema'
-import type { NotesPropertyCatalog } from '@/lib/notes/cache/notes-cache-types'
 
 import { useWorkspacePropertyCatalog } from '@/hooks/notes/useWorkspacePropertyCatalog'
 import { KeySuggestDropdown } from './PropertySuggestDropdowns'
@@ -21,11 +20,6 @@ export type NotePropertiesPanelProps = {
   editorSettings: Required<NotelabEditorSettingsV1>
   onSetProperty: (key: string, value: NotePropertyValue | null) => void
   /**
-   * After the first Dexie reindex, pass the cached catalog so suggestions skip scanning every note.
-   * Omit or leave undefined while the cache has not run yet.
-   */
-  propertyCatalog?: NotesPropertyCatalog | null
-  /**
    * Property keys to hide from the UI (but kept internally on the note).
    * Used by JournalView to hide internal properties like `date` and `last_updated_at`.
    */
@@ -37,7 +31,6 @@ export function NotePropertiesPanel({
   notes,
   editorSettings,
   onSetProperty,
-  propertyCatalog: propertyCatalogProp,
   hiddenPropertyKeys
 }: NotePropertiesPanelProps): JSX.Element | null {
   const [newKey, setNewKey] = useState('')
@@ -51,10 +44,7 @@ export function NotePropertiesPanel({
   const specialKeys = new Set(['cover_image', 'title_emoji'])
   const currentKeys = new Set(Object.keys(note.properties ?? {}))
 
-  const { allWorkspaceKeys, allValuesForKey } = useWorkspacePropertyCatalog(
-    notes,
-    propertyCatalogProp
-  )
+  const { allWorkspaceKeys, allValuesForKey } = useWorkspacePropertyCatalog(notes)
 
   const genericProperties = Object.entries(note.properties ?? {}).filter(
     ([k]) => !specialKeys.has(k) && !(hiddenPropertyKeys?.has(k) ?? false)

@@ -71,8 +71,7 @@ export function Sidebar({ vm }: SidebarProps): JSX.Element {
     triggerRenameSelectedRef,
     openFolderSettingsPanel,
     workspaceRoot,
-    handleWorkspaceRootChange,
-    notesSearchPlainTextByPath
+    handleWorkspaceRootChange
   } = vm
 
   const [renamingNodeId, setRenamingNodeId] = useState<string | null>(null)
@@ -103,15 +102,14 @@ export function Sidebar({ vm }: SidebarProps): JSX.Element {
   const noteByPath = useMemo(() => {
     return new Map(allNotes.map((note) => [note.path, note]))
   }, [allNotes])
-  const folderById = useMemo(() => new Map(folders.map((folder) => [folder.folder, folder])), [folders])
+  const folderById = useMemo(
+    () => new Map(folders.map((folder) => [folder.folder, folder])),
+    [folders]
+  )
 
   const searchResults = useMemo(
-    () =>
-      searchNotes(allNotes, folders, searchQuery, {
-        limit: 20,
-        plainTextByPath: notesSearchPlainTextByPath
-      }),
-    [allNotes, folders, searchQuery, notesSearchPlainTextByPath]
+    () => searchNotes(allNotes, folders, searchQuery, { limit: 20 }),
+    [allNotes, folders, searchQuery]
   )
 
   const folderSearchResults = useMemo(

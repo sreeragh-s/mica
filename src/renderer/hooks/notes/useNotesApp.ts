@@ -1,11 +1,4 @@
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  type KeyboardEvent,
-  type MouseEvent
-} from 'react'
+import { useCallback, useEffect, useMemo, useRef, type KeyboardEvent, type MouseEvent } from 'react'
 import type { SerializedEditorState } from 'lexical'
 import { toast } from 'sonner'
 
@@ -23,10 +16,7 @@ import {
   type SavedNote,
   type Folder
 } from '@/lib/notes/notes-storage'
-import {
-  saveEditorSettings,
-  saveAppearanceSettings
-} from '@/lib/config/notelab-app-config'
+import { saveEditorSettings, saveAppearanceSettings } from '@/lib/config/notelab-app-config'
 import type { NotelabWorkspaceViewSnapshotV1 } from '@/lib/config/notelab-config-schema'
 import { schedulePersistWorkspaceViewSnapshot } from '@/lib/config/workspace-view-storage'
 import {
@@ -51,7 +41,7 @@ import { useNotesAppIndexing } from './internal/useNotesAppIndexing'
 import { useNotesAppUi } from './internal/useNotesAppUi'
 import { useNotesGitSourceControl } from '@/hooks/notes/useNotesGitSourceControl'
 import { useNotesGitSync } from '@/hooks/notes/useNotesGitSync'
-import { useWorkspaceNotesCache } from '@/hooks/notes/useWorkspaceNotesCache'
+
 import { useNotesStore } from '@/stores/notes/useNotesStore'
 
 const LOG = '[useNotesApp]'
@@ -293,27 +283,15 @@ export function useNotesApp({
       dataRootRef
     })
 
-  const {
-    notesSearchPlainTextByPath,
-    notesPropertyCatalog,
-    notesLinkMentionIndex,
-    notesCacheIndexedAt,
-    reindexNotesWorkspaceCacheNow,
-    clearWorkspaceCache
-  } = useWorkspaceNotesCache(dataRootPath, notes)
-
-  const rebuildNotesSearchCacheFromFilesystem = useCallback(async () => {
-    await reloadNotesFromDisk()
-    await new Promise((r) => setTimeout(r, 150))
-    await reindexNotesWorkspaceCacheNow()
-  }, [reloadNotesFromDisk, reindexNotesWorkspaceCacheNow])
-
   const notesByPath = useMemo(() => new Map(notes.map((note) => [note.path, note])), [notes])
-  const folderById = useMemo(() => new Map(folders.map((folder) => [folder.folder, folder])), [folders])
+  const folderById = useMemo(
+    () => new Map(folders.map((folder) => [folder.folder, folder])),
+    [folders]
+  )
   const folderIdSet = useMemo(() => new Set(folders.map((folder) => folder.folder)), [folders])
 
   const selectedNote = useMemo(
-    () => (selectedNotePath ? notesByPath.get(selectedNotePath) ?? null : null),
+    () => (selectedNotePath ? (notesByPath.get(selectedNotePath) ?? null) : null),
     [notesByPath, selectedNotePath]
   )
 
@@ -1615,14 +1593,7 @@ export function useNotesApp({
     setChatSidebarLinkMode,
     openLinkedNotesSidebar,
     triggerRenameSelectedRef,
-    openShortcuts,
-    notesSearchPlainTextByPath,
-    notesPropertyCatalog,
-    notesLinkMentionIndex,
-    notesCacheIndexedAt,
-    reindexNotesWorkspaceCacheNow,
-    clearWorkspaceCache,
-    rebuildNotesSearchCacheFromFilesystem
+    openShortcuts
   }
 }
 

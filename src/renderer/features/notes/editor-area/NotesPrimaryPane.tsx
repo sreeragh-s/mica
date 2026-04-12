@@ -16,7 +16,7 @@ import { NoteTitleInput } from '@/features/notes/editor-area/NoteTitleInput'
 import { NotePropertiesPanel } from '@/features/notes/editor-area/NotePropertiesPanel'
 import { NOTE_DRAG_MIME } from '@/features/notes/notes-app-utils'
 import type { NotelabEditorSettingsV1 } from '@/lib/config/notelab-config-schema'
-import type { NotesPropertyCatalog } from '@/lib/notes/cache/notes-cache-types'
+import type { NotesPropertyCatalog } from '@/lib/notes/graph-types'
 
 export type NotesPrimaryPaneProps = {
   selectedNote: SavedNote | null
@@ -34,7 +34,7 @@ export type NotesPrimaryPaneProps = {
   onSetNoteTitleEmoji: (id: string, emoji: string | null) => void
   onSetNoteProperty: (id: string, key: string, value: NotePropertyValue | null) => void
   editorSettings: Required<NotelabEditorSettingsV1>
-  /** Dexie-backed property catalog when the workspace notes cache has indexed. */
+  /** Property catalog computed from notes. */
   propertyCatalog?: NotesPropertyCatalog | null
   onDragOver?: (e: DragEvent) => void
   onDrop?: (e: DragEvent) => void
@@ -92,7 +92,7 @@ function NoteEditorView({
   onSetNoteTitleEmoji,
   onSetNoteProperty,
   editorSettings,
-  propertyCatalog,
+
   onDragOver,
   onDrop,
   bottomChromePortal,
@@ -169,7 +169,6 @@ function NoteEditorView({
               note={selectedNote}
               notes={notes}
               editorSettings={editorSettings}
-              propertyCatalog={propertyCatalog}
               onSetProperty={(key, value) => onSetNoteProperty(selectedNote.path, key, value)}
               hiddenPropertyKeys={hiddenPropertyKeys}
             />
@@ -203,7 +202,7 @@ export function NotesPrimaryPane({
   onSetNoteTitleEmoji,
   onSetNoteProperty,
   editorSettings,
-  propertyCatalog,
+
   onDragOver,
   onDrop,
   bottomChromePortal,
@@ -232,7 +231,6 @@ export function NotesPrimaryPane({
         onSetNoteTitleEmoji={onSetNoteTitleEmoji}
         onSetNoteProperty={onSetNoteProperty}
         editorSettings={editorSettings}
-        propertyCatalog={propertyCatalog}
         onDragOver={onDragOver}
         onDrop={onDrop}
         bottomChromePortal={bottomChromePortal}

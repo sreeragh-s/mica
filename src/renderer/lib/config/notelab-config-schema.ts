@@ -19,8 +19,6 @@ export type SavedWorkspace = {
   path: string
   /** Display name (defaults to the last path segment). */
   name: string
-  /** Git remote URL for this workspace, if configured. */
-  remoteUrl?: string
 }
 
 export type NotelabEditorSettingsV1 = {
@@ -66,24 +64,25 @@ export type NotelabWorkspaceViewSnapshotV1 = {
   workspaceSettingsFolderId: string | null
 }
 
-/** Global app config: ~/.notelab/notelab.json (configRoot), not the notes workspace folder. */
+/** Global app config: ~/.notelab/notelab.json (configRoot) - workspace list only */
 export type NotelabConfigFileV1 = {
+  version: 1
+  /** All known workspaces (path, name). */
+  workspaces?: SavedWorkspace[]
+}
+
+/** Per-workspace settings: <workspace>/notelab.json */
+export type NotelabWorkspaceConfigV1 = {
   version: 1
   setup?: NotelabSetupState
   shortcuts?: Record<string, { mod: boolean; key?: string; code?: string }>
-  /** @see appearance-storage UiFontId */
   uiFont?: string
-  /** Built-in color theme preset id, `"default"`, or `"custom"` when `themeConfig` is used. */
   themePresetId?: string
-  /** Full editable light/dark design tokens; used when `themePresetId` is `"custom"`. */
   themeConfig?: NotelabThemeConfigV1
-  /** Serialized notes index / remote cache (see notes-types NotesState). */
   notes?: unknown
   githubContentShas?: Record<string, string>
   editorSettings?: NotelabEditorSettingsV1
   appearanceSettings?: NotelabAppearanceSettingsV1
-  /** All known workspaces (path, name, optional remoteUrl). */
-  workspaces?: SavedWorkspace[]
 }
 
 export type NotelabThemeConfigV1 = {

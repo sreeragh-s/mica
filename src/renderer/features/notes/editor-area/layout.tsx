@@ -20,6 +20,7 @@ import type { OpenNoteTab } from '@/features/notes/editor-area/NoteTabStrip'
 import { GraphPaneTopBar } from '@/features/notes/layout/GraphPaneTopBar'
 import { NotesMainTopBar } from '@/features/notes/layout/NotesMainTopBar'
 import type { NotesAppViewModel } from '@/hooks/notes/useNotesApp'
+import { buildLinkIndexFromNotes } from '@/lib/ai/chat-retrieval-pipeline'
 import { countIndexingStates } from '@/features/notes/editor-area/indexing-status'
 
 const AccountSettingsView = lazy(async () => ({
@@ -426,14 +427,12 @@ export function NotesMainAreaLayout({
     toggleChatSidebar,
     chatSidebarPanel,
     openLinkedNotesSidebar,
-    rebuildNotesSearchCacheFromFilesystem,
-    notesCacheIndexedAt,
-    clearWorkspaceCache,
     pendingDeleteNote,
     cancelDeleteNoteConfirmation,
-    confirmDeleteNote,
-    notesLinkMentionIndex
+    confirmDeleteNote
   } = vm
+
+  const linkMentionIndex = useMemo(() => buildLinkIndexFromNotes(notes), [notes])
 
   const showNotes = appMode === 'notes'
   const showJournalTimeline = showNotes && journalViewOpen
@@ -630,11 +629,6 @@ export function NotesMainAreaLayout({
                             notesCount={notesCount}
                             dirtyByWorkspaceId={dirtyByWorkspaceId}
                             onRefreshGitStatus={() => void refreshWorkspaceGitStatuses()}
-                            notesCacheIndexedAt={notesCacheIndexedAt}
-                            onRebuildNotesSearchCacheFromFilesystem={
-                              rebuildNotesSearchCacheFromFilesystem
-                            }
-                            onClearNotesSearchCache={clearWorkspaceCache}
                           />
                         </Suspense>
                       ) : appMode === 'settings' && settingsSection === 'indexing' ? (
@@ -682,7 +676,7 @@ export function NotesMainAreaLayout({
                   linkMode={vm.chatSidebarLinkMode}
                   onLinkModeChange={vm.setChatSidebarLinkMode}
                   isMacNotelab={isMacNotelab}
-                  linkMentionIndex={notesLinkMentionIndex}
+                  linkMentionIndex={linkMentionIndex}
                 />
               )}
             </div>

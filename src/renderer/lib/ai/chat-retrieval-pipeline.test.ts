@@ -6,7 +6,7 @@ import {
   expandSeedConnections,
   shouldBlendGlobalFallback
 } from '@/lib/ai/chat-retrieval-pipeline'
-import type { WorkspaceLinkMentionIndex } from '@/lib/notes/cache/notes-cache-types'
+import type { WorkspaceLinkMentionIndex } from '@/lib/notes/graph-types'
 
 test('classifyQueryComplexity returns efficiency for short factual queries', () => {
   assert.equal(classifyQueryComplexity('What is Redux?'), 'efficiency')

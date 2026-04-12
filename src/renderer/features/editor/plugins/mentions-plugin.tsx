@@ -84,9 +84,7 @@ const AtSignMentionsRegexAliasRegex = new RegExp(
 // At most, 5 suggestions are shown in the popup.
 const SUGGESTION_LIST_LENGTH_LIMIT = 5
 
-const mentionsCache = new Map()
-
-const dummyMentionsData = [
+const allMentions = [
   'Aayla Secura',
   'Adi Gallia',
   'Admiral Dodd Rancit',
@@ -492,40 +490,19 @@ const dummyMentionsData = [
   'Zuckuss'
 ]
 
-const dummyLookupService = {
-  search(string: string, callback: (results: Array<string>) => void): void {
-    setTimeout(() => {
-      const results = dummyMentionsData.filter((mention) =>
-        mention.toLowerCase().includes(string.toLowerCase())
-      )
-      callback(results)
-    }, 500)
-  }
-}
-
 function useMentionLookupService(mentionString: string | null) {
   const [results, setResults] = useState<Array<string>>([])
 
   useEffect(() => {
-    const cachedResults = mentionsCache.get(mentionString)
-
     if (mentionString == null) {
       setResults([])
       return
     }
-
-    if (cachedResults === null) {
-      return
-    } else if (cachedResults !== undefined) {
-      setResults(cachedResults)
-      return
-    }
-
-    mentionsCache.set(mentionString, null)
-    dummyLookupService.search(mentionString, (newResults) => {
-      mentionsCache.set(mentionString, newResults)
-      setResults(newResults)
-    })
+    const match = mentionString.toLowerCase()
+    const filtered = allMentions
+      .filter((mention) => mention.toLowerCase().includes(match))
+      .slice(0, SUGGESTION_LIST_LENGTH_LIMIT)
+    setResults(filtered)
   }, [mentionString])
 
   return results

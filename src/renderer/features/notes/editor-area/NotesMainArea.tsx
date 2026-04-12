@@ -6,6 +6,7 @@ import type { NotesAppViewModel } from '@/hooks/notes/useNotesApp'
 import { getNoteDragId, isNoteDragEvent } from '@/features/notes/editor-area/NotesPrimaryPane'
 import { countIndexingStates } from '@/features/notes/editor-area/indexing-status'
 import { NotesMainAreaLayout } from '@/features/notes/editor-area/layout'
+import { buildPropertyCatalogFromNotes } from '@/lib/notes/note-properties/property-catalog'
 import { JOURNAL_FOLDER_ID } from '@/lib/notes/notes-types'
 
 export type NotesMainAreaProps = {
@@ -49,9 +50,10 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
     indexingStatus,
     chatSidebarOpen,
     toggleChatSidebar,
-    pendingDeleteNote,
-    notesPropertyCatalog
+    pendingDeleteNote
   } = vm
+
+  const propertyCatalog = useMemo(() => buildPropertyCatalogFromNotes(notes), [notes])
 
   const canAutoIndex = Boolean(user?.email || user?.name) && !guestMode
 
@@ -230,7 +232,7 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
     onDragOver: onDragOverMain,
     onDrop: onDropPrimaryPane,
     bottomChromePortal: showEditorBottomChrome ? editorBottomBarEl : undefined,
-    propertyCatalog: notesPropertyCatalog,
+    propertyCatalog: propertyCatalog,
     consumePendingSubpath
   }
 

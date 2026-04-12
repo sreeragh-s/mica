@@ -19,12 +19,6 @@ export type DebugSettingsViewProps = {
   notesCount: number
   dirtyByWorkspaceId: Record<string, boolean>
   onRefreshGitStatus: () => void
-  /** ISO-ish timestamp from last Dexie notes cache build, or null if not indexed yet. */
-  notesCacheIndexedAt: number | null
-  /** Reread workspace from disk, then rebuild IndexedDB rows (tags, links, properties, search text). */
-  onRebuildNotesSearchCacheFromFilesystem: () => Promise<void>
-  /** Drop Dexie rows for the current workspace (next edit/focus will repopulate). */
-  onClearNotesSearchCache: () => Promise<void>
 }
 
 function Row({ label, value }: { label: string; value: string }): JSX.Element {
@@ -45,10 +39,7 @@ export function DebugSettingsView({
   foldersCount,
   notesCount,
   dirtyByWorkspaceId,
-  onRefreshGitStatus,
-  notesCacheIndexedAt,
-  onRebuildNotesSearchCacheFromFilesystem,
-  onClearNotesSearchCache
+  onRefreshGitStatus
 }: DebugSettingsViewProps): JSX.Element {
   const api = getApi()
   const macDarwinUi = detectIsMacNotelab()
@@ -57,8 +48,6 @@ export function DebugSettingsView({
   const [storePingText, setStorePingText] = useState<string | null>(null)
   const [storeStatusBusy, setStoreStatusBusy] = useState(false)
   const [storePingBusy, setStorePingBusy] = useState(false)
-  const [notesCacheBusy, setNotesCacheBusy] = useState(false)
-  const [notesCacheMessage, setNotesCacheMessage] = useState<string | null>(null)
 
   const w = api?.workspace
   const workspaceFlags = w
@@ -235,81 +224,6 @@ export function DebugSettingsView({
       ) : (
         <p className="text-muted-foreground text-sm">No workspace API (e.g. web build).</p>
       )}
-
-      <div className="space-y-2">
-        <div className="flex items-center gap-2">
-          <Database className="text-muted-foreground size-4 shrink-0" aria-hidden />
-          <h3 className="text-foreground text-sm font-medium">Local notes cache (Dexie)</h3>
-        </div>
-        <p className="text-muted-foreground text-xs leading-relaxed">
-          IndexedDB mirror of plain text, frontmatter properties, tags, and internal links per
-          workspace. Rebuild after external file moves or if results look stale. Window focus
-          already reloads notes from disk when safe; this also refreshes the cache.
-        </p>
-        <dl className="border-border flex flex-col gap-2 rounded-lg border p-4">
-          <Row
-            label="Last indexed"
-            value={
-              notesCacheIndexedAt != null
-                ? new Date(notesCacheIndexedAt).toISOString()
-                : '(not yet)'
-            }
-          />
-        </dl>
-        <div className="flex flex-wrap gap-2">
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            disabled={notesCacheBusy || !workspacePath}
-            onClick={() => {
-              setNotesCacheMessage(null)
-              setNotesCacheBusy(true)
-              void onRebuildNotesSearchCacheFromFilesystem()
-                .then(() => {
-                  setNotesCacheMessage('Reloaded from disk and rebuilt cache.')
-                })
-                .catch((e: unknown) => {
-                  setNotesCacheMessage(`Error: ${e instanceof Error ? e.message : String(e)}`)
-                })
-                .finally(() => {
-                  setNotesCacheBusy(false)
-                })
-            }}
-          >
-            <RefreshCw
-              className={`mr-1 size-3.5 ${notesCacheBusy ? 'animate-spin' : ''}`}
-              aria-hidden
-            />
-            Rebuild from filesystem
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant="ghost"
-            disabled={notesCacheBusy || !workspacePath}
-            onClick={() => {
-              setNotesCacheMessage(null)
-              setNotesCacheBusy(true)
-              void onClearNotesSearchCache()
-                .then(() => {
-                  setNotesCacheMessage('Cleared and rebuilt workspace cache from current notes.')
-                })
-                .catch((e: unknown) => {
-                  setNotesCacheMessage(`Error: ${e instanceof Error ? e.message : String(e)}`)
-                })
-                .finally(() => {
-                  setNotesCacheBusy(false)
-                })
-            }}
-          >
-            Clear cache
-          </Button>
-        </div>
-        {notesCacheMessage ? (
-          <p className="text-muted-foreground text-xs">{notesCacheMessage}</p>
-        ) : null}
-      </div>
 
       <div className="space-y-2">
         <div className="flex items-center gap-2">

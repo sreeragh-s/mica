@@ -307,9 +307,9 @@ export const ContextReasoningUsage = ({
   )
 }
 
-export type ContextCacheUsageProps = ComponentProps<'div'>
+export type ContextTokenUsageProps = ComponentProps<'div'>
 
-export const ContextCacheUsage = ({ className, children, ...props }: ContextCacheUsageProps) => {
+export const ContextTokenUsage = ({ className, children, ...props }: ContextTokenUsageProps) => {
   const { usage, modelId } = useContextValue()
   const cacheTokens = usage?.cachedInputTokens ?? 0
 
@@ -380,7 +380,7 @@ export default function ContextDemo() {
             <ContextInputUsage />
             <ContextOutputUsage />
             <ContextReasoningUsage />
-            <ContextCacheUsage />
+            <ContextTokenUsage />
           </ContextContentBody>
           <ContextContentFooter />
         </ContextContent>

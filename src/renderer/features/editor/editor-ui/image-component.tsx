@@ -31,26 +31,17 @@ import {
 import { ImageResizer } from '@/features/editor/editor-ui/image-resizer'
 import { $isImageNode } from '@/features/editor/nodes/image-node'
 
-const imageCache = new Set()
-
 export const RIGHT_CLICK_IMAGE_COMMAND: LexicalCommand<MouseEvent> = createCommand(
   'RIGHT_CLICK_IMAGE_COMMAND'
 )
 
 function useSuspenseImage(src: string) {
-  if (!imageCache.has(src)) {
-    throw new Promise((resolve) => {
-      const img = new Image()
-      img.src = src
-      img.onload = () => {
-        imageCache.add(src)
-        resolve(null)
-      }
-      img.onerror = () => {
-        imageCache.add(src)
-      }
-    })
-  }
+  return new Promise<void>((resolve, reject) => {
+    const img = new Image()
+    img.src = src
+    img.onload = () => resolve()
+    img.onerror = () => reject()
+  })
 }
 
 function LazyImage({

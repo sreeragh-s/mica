@@ -195,13 +195,15 @@ function buildFilterCondition(filter: Record<string, unknown> | undefined): Filt
     params.push(...values)
   }
 
-  return clauses.length > 0 ? { sql: ` AND ${clauses.join(' AND ')}`, params } : { sql: '', params: [] }
+  return clauses.length > 0
+    ? { sql: ` AND ${clauses.join(' AND ')}`, params }
+    : { sql: '', params: [] }
 }
 
 function getEmbeddingDimensions(db: DatabaseSync): number | null {
-  const row = db
-    .prepare("SELECT value FROM metadata WHERE key = 'embedding_dimensions'")
-    .get() as { value?: string } | undefined
+  const row = db.prepare("SELECT value FROM metadata WHERE key = 'embedding_dimensions'").get() as
+    | { value?: string }
+    | undefined
   if (!row?.value) return null
   const value = Number(row.value)
   return Number.isFinite(value) && value > 0 ? value : null
@@ -275,15 +277,15 @@ function ensureVectorReady(db: DatabaseSync, dimensions: number): void {
     `
   ).run(String(dimensions))
 
-  db.prepare(
-    "SELECT vector_init('chunks', 'embedding', ?) AS initialized"
-  ).get(`type=FLOAT32,dimension=${dimensions},distance=${SEMANTIC_DISTANCE}`)
+  db.prepare("SELECT vector_init('chunks', 'embedding', ?) AS initialized").get(
+    `type=FLOAT32,dimension=${dimensions},distance=${SEMANTIC_DISTANCE}`
+  )
 }
 
 function openWorkspaceDb(workspacePath: string): DatabaseSync {
   const normalizedPath = normalizeWorkspacePath(workspacePath)
-  const cached = dbByWorkspacePath.get(normalizedPath)
-  if (cached) return cached
+  const existingDb = dbByWorkspacePath.get(normalizedPath)
+  if (existingDb) return existingDb
 
   const dbPath = getSQLiteVectorDbPath(normalizedPath)
   mkdirSync(getSQLiteVectorDirectory(normalizedPath), { recursive: true })
@@ -394,7 +396,9 @@ async function createEmbeddings(texts: string[]): Promise<number[][]> {
   try {
     const models = await listOllamaModels()
     if (
-      models.some((model) => typeof model.name === 'string' && isLocalEmbeddingModelName(model.name))
+      models.some(
+        (model) => typeof model.name === 'string' && isLocalEmbeddingModelName(model.name)
+      )
     ) {
       try {
         logInfo(`using local Ollama embeddings provider texts=${texts.length}`)
@@ -424,16 +428,14 @@ async function runSemanticSearch(
 
   const filterCondition = buildFilterCondition(filter)
   const totalMatchingChunks = filterCondition.sql
-    ? ((db
-        .prepare(`SELECT COUNT(*) AS count FROM chunks WHERE 1=1${filterCondition.sql}`)
-        .get(...filterCondition.params) as { count: number }).count ?? 0)
+    ? ((
+        db
+          .prepare(`SELECT COUNT(*) AS count FROM chunks WHERE 1=1${filterCondition.sql}`)
+          .get(...filterCondition.params) as { count: number }
+      ).count ?? 0)
     : null
 
-  const scanLimit = Math.max(
-    maxChunks * 4,
-    totalMatchingChunks ?? 0,
-    20
-  )
+  const scanLimit = Math.max(maxChunks * 4, totalMatchingChunks ?? 0, 20)
   const scanLimitInteger = Math.trunc(scanLimit)
   const resultLimitInteger = Math.trunc(maxChunks * 4)
 
@@ -616,7 +618,10 @@ export function registerSQLiteVectorEmbeddingsIpc(): void {
 
         const embeddings = await createEmbeddings(chunks)
         if (embeddings.length !== chunks.length) {
-          return { ok: false as const, error: 'Embedding provider returned an unexpected chunk count' }
+          return {
+            ok: false as const,
+            error: 'Embedding provider returned an unexpected chunk count'
+          }
         }
 
         const db = openWorkspaceDb(workspacePath)
@@ -725,7 +730,9 @@ export function registerSQLiteVectorEmbeddingsIpc(): void {
         const db = openWorkspaceDb(workspacePath)
         const result = db.prepare('DELETE FROM documents WHERE note = ?').run(note)
         const deleted = (result.changes ?? 0) > 0
-        logInfo(`delete-note-document workspacePath=${workspacePath} note=${note} deleted=${deleted}`)
+        logInfo(
+          `delete-note-document workspacePath=${workspacePath} note=${note} deleted=${deleted}`
+        )
         return { ok: true as const, deleted }
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error)

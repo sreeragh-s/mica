@@ -20,12 +20,8 @@ import { CUSTOM_THEME_PRESET_ID, DEFAULT_THEME_PRESET_ID } from '../theme/theme-
 import { UI_FONT_IDS } from '../theme/ui-font-types'
 import type { UiFontId } from '../theme/ui-font-types'
 
-const BROWSER_CONFIG_KEY = 'notelab-config-v1'
-
-let dataRootPath: string | null = null
-/** True when using <workspaceRoot>/.notelab.config (Notelab). */
-let persistToFile = false
-let cache: NotelabConfigFileV1 = { version: 1 }
+let dataRootPath: string
+let config: NotelabConfigFileV1 = { version: 1 }
 let persistTimer: ReturnType<typeof setTimeout> | null = null
 const DEBOUNCE_MS = 300
 
@@ -33,7 +29,7 @@ function defaultSetup(): NotelabSetupState {
   return { complete: false }
 }
 
-function defaultCache(): NotelabConfigFileV1 {
+function defaultConfig(): NotelabConfigFileV1 {
   return {
     version: 1,
     setup: defaultSetup()
@@ -52,39 +48,17 @@ function parseConfigJson(raw: string): NotelabConfigFileV1 | null {
   }
 }
 
-function readBrowserBlob(): NotelabConfigFileV1 | null {
-  try {
-    const raw = localStorage.getItem(BROWSER_CONFIG_KEY)
-    if (!raw) return null
-    return parseConfigJson(raw)
-  } catch {
-    return null
-  }
-}
-
-function writeBrowserBlob(c: NotelabConfigFileV1): void {
-  try {
-    localStorage.setItem(BROWSER_CONFIG_KEY, JSON.stringify(c))
-  } catch (e) {
-    console.error('[notelab] Failed to persist config blob', e)
-  }
-}
-
 async function flushToDisk(): Promise<void> {
   persistTimer = null
-  if (persistToFile && dataRootPath) {
-    const api = getApi()
-    if (!api?.workspace?.writeAppConfig) return
-    const r = await api.workspace.writeAppConfig({
-      cwd: dataRootPath,
-      config: cache
-    })
-    if (!r.ok) {
-      console.error('[notelab] writeAppConfig failed', r.error)
-    }
-    return
+  const api = getApi()
+  if (!api?.workspace?.writeAppConfig) return
+  const r = await api.workspace.writeAppConfig({
+    cwd: dataRootPath,
+    config: config
+  })
+  if (!r.ok) {
+    console.error('[notelab] writeAppConfig failed', r.error)
   }
-  writeBrowserBlob(cache)
 }
 
 function schedulePersist(): void {
@@ -92,8 +66,8 @@ function schedulePersist(): void {
   persistTimer = setTimeout(() => void flushToDisk(), DEBOUNCE_MS)
 }
 
-function setCache(next: NotelabConfigFileV1, immediatePersist = false): void {
-  cache = { ...next, version: 1 }
+function setConfig(next: NotelabConfigFileV1, immediatePersist = false): void {
+  config = { ...next, version: 1 }
   if (immediatePersist) {
     if (persistTimer != null) {
       clearTimeout(persistTimer)
@@ -105,8 +79,8 @@ function setCache(next: NotelabConfigFileV1, immediatePersist = false): void {
   }
 }
 
-function normalizeThemeCacheAfterLoad(): void {
-  let next: NotelabConfigFileV1 = { ...cache, version: 1 }
+function normalizeThemeConfigAfterLoad(): void {
+  let next: NotelabConfigFileV1 = { ...config, version: 1 }
   if (next.themeConfig) {
     const s = sanitizeThemeConfig(next.themeConfig)
     if (s) {
@@ -132,7 +106,7 @@ function normalizeThemeCacheAfterLoad(): void {
     }
   }
 
-  cache = next
+  config = next
   if (shouldFlush) {
     void flushToDisk()
   }
@@ -140,74 +114,56 @@ function normalizeThemeCacheAfterLoad(): void {
 
 /**
  * Load persisted settings from <workspaceRoot>/.notelab.config (Notelab)
- * or from a single localStorage blob (browser).
  */
-export async function hydrateAppConfig(dataRoot: string | null): Promise<void> {
+export async function hydrateAppConfig(dataRoot: string): Promise<void> {
   dataRootPath = dataRoot
-  persistToFile = Boolean(dataRoot && getApi()?.workspace?.readAppConfig)
 
-  if (persistToFile && dataRoot) {
-    const api = getApi()
-    const r = await api!.workspace!.readAppConfig!({ cwd: dataRoot })
-    if (r.ok) {
-      if (r.content) {
-        const parsed = parseConfigJson(r.content)
-        if (parsed) {
-          cache = { ...defaultCache(), ...parsed, version: 1 }
-          normalizeThemeCacheAfterLoad()
-        } else {
-          cache = defaultCache()
-          await flushToDisk()
-          normalizeThemeCacheAfterLoad()
-        }
+  const api = getApi()
+  const r = await api!.workspace!.readAppConfig!({ cwd: dataRoot })
+  if (r.ok) {
+    if (r.content) {
+      const parsed = parseConfigJson(r.content)
+      if (parsed) {
+        config = { ...defaultConfig(), ...parsed, version: 1 }
+        normalizeThemeConfigAfterLoad()
       } else {
-        const browser = readBrowserBlob()
-        cache = { ...defaultCache(), ...(browser ?? {}), version: 1 }
+        config = defaultConfig()
         await flushToDisk()
-        normalizeThemeCacheAfterLoad()
+        normalizeThemeConfigAfterLoad()
       }
     } else {
-      const browser = readBrowserBlob()
-      cache = { ...defaultCache(), ...(browser ?? {}), version: 1 }
+      config = defaultConfig()
       await flushToDisk()
-      normalizeThemeCacheAfterLoad()
+      normalizeThemeConfigAfterLoad()
     }
-    return
+  } else {
+    config = defaultConfig()
+    await flushToDisk()
+    normalizeThemeConfigAfterLoad()
   }
-
-  const blob = readBrowserBlob()
-  if (blob) {
-    cache = { ...defaultCache(), ...blob, version: 1 }
-    normalizeThemeCacheAfterLoad()
-    return
-  }
-  cache = defaultCache()
-  writeBrowserBlob(cache)
-  normalizeThemeCacheAfterLoad()
 }
 
 /**
  * Switch the config persistence target to a new workspace root mid-session.
- * Loads the config from the new root (or migrates from browser blob).
  */
 export async function switchDataRoot(newRoot: string): Promise<void> {
   await hydrateAppConfig(newRoot)
 }
 
 export function getSetupState(): NotelabSetupState {
-  return cache.setup ?? defaultSetup()
+  return config.setup ?? defaultSetup()
 }
 
 export function setSetupState(state: NotelabSetupState): void {
-  setCache({ ...cache, version: 1, setup: { ...state } })
+  setConfig({ ...config, version: 1, setup: { ...state } })
 }
 
 export function loadNotesState(): NotesState {
-  return normalizeNotesStateFromStorage(cache.notes)
+  return normalizeNotesStateFromStorage(config.notes)
 }
 
 export function saveNotesState(state: NotesState): void {
-  setCache({ ...cache, version: 1, notes: state as unknown })
+  setConfig({ ...config, version: 1, notes: state as unknown })
 }
 
 function defaultShortcutMap(): ShortcutBindingsMap {
@@ -219,7 +175,7 @@ function defaultShortcutMap(): ShortcutBindingsMap {
 }
 
 export function loadShortcutBindings(): ShortcutBindingsMap {
-  const raw = cache.shortcuts
+  const raw = config.shortcuts
   if (!raw) return defaultShortcutMap()
   const base = defaultShortcutMap()
   for (const d of SHORTCUT_DEFINITIONS) {
@@ -236,21 +192,21 @@ export function loadShortcutBindings(): ShortcutBindingsMap {
 }
 
 export function saveShortcutBindings(map: ShortcutBindingsMap): void {
-  setCache({
-    ...cache,
+  setConfig({
+    ...config,
     version: 1,
     shortcuts: map as NotelabConfigFileV1['shortcuts']
   })
 }
 
 export function loadUiFont(): UiFontId {
-  const raw = cache.uiFont
+  const raw = config.uiFont
   if (raw && UI_FONT_IDS.has(raw)) return raw as UiFontId
   return 'system'
 }
 
 export function saveUiFont(id: UiFontId): void {
-  setCache({ ...cache, version: 1, uiFont: id })
+  setConfig({ ...config, version: 1, uiFont: id })
 }
 
 const VALID_THEME_PRESET_IDS = new Set<string>([
@@ -260,22 +216,22 @@ const VALID_THEME_PRESET_IDS = new Set<string>([
 ])
 
 export function loadThemePresetId(): string {
-  const raw = cache.themePresetId
+  const raw = config.themePresetId
   if (raw && VALID_THEME_PRESET_IDS.has(raw)) return raw
   return DEFAULT_THEME_PRESET_ID
 }
 
 export function loadThemeConfig(): NotelabThemeConfigV1 | null {
-  if (!cache.themeConfig) return null
-  const s = sanitizeThemeConfig(cache.themeConfig)
+  if (!config.themeConfig) return null
+  const s = sanitizeThemeConfig(config.themeConfig)
   return s ?? null
 }
 
 export function saveThemeConfig(config: NotelabThemeConfigV1): void {
   const sanitized = sanitizeThemeConfig(config)
-  setCache(
+  setConfig(
     {
-      ...cache,
+      ...config,
       version: 1,
       themePresetId: CUSTOM_THEME_PRESET_ID,
       themeConfig: sanitized ?? { light: {}, dark: {} }
@@ -287,13 +243,13 @@ export function saveThemeConfig(config: NotelabThemeConfigV1): void {
 export function saveThemePresetId(id: string): void {
   const next = id && VALID_THEME_PRESET_IDS.has(id) ? id : DEFAULT_THEME_PRESET_ID
   if (next === CUSTOM_THEME_PRESET_ID) {
-    setCache({ ...cache, version: 1, themePresetId: next }, true)
+    setConfig({ ...config, version: 1, themePresetId: next }, true)
     return
   }
   const snapshot = buildThemeConfigFromPresetId(next)
-  setCache(
+  setConfig(
     {
-      ...cache,
+      ...config,
       version: 1,
       themePresetId: next,
       themeConfig: snapshot
@@ -303,7 +259,7 @@ export function saveThemePresetId(id: string): void {
 }
 
 export function loadGithubContentShas(): Record<string, string> {
-  const raw = cache.githubContentShas
+  const raw = config.githubContentShas
   if (!raw || typeof raw !== 'object') return {}
   const out: Record<string, string> = {}
   for (const [k, v] of Object.entries(raw)) {
@@ -329,7 +285,7 @@ function defaultAppearanceSettings(): Required<NotelabAppearanceSettingsV1> {
 
 export function loadEditorSettings(): Required<NotelabEditorSettingsV1> {
   const defaults = defaultEditorSettings()
-  const raw = cache.editorSettings
+  const raw = config.editorSettings
   if (!raw || typeof raw !== 'object') return defaults
   return {
     enableEmojiProperty:
@@ -352,8 +308,8 @@ export function loadEditorSettings(): Required<NotelabEditorSettingsV1> {
 }
 
 export function saveEditorSettings(settings: NotelabEditorSettingsV1): void {
-  setCache({
-    ...cache,
+  setConfig({
+    ...config,
     version: 1,
     editorSettings: {
       ...loadEditorSettings(),
@@ -364,7 +320,7 @@ export function saveEditorSettings(settings: NotelabEditorSettingsV1): void {
 
 export function loadAppearanceSettings(): Required<NotelabAppearanceSettingsV1> {
   const defaults = defaultAppearanceSettings()
-  const raw = cache.appearanceSettings
+  const raw = config.appearanceSettings
   if (!raw || typeof raw !== 'object') return defaults
   return {
     animationsEnabled:
@@ -375,8 +331,8 @@ export function loadAppearanceSettings(): Required<NotelabAppearanceSettingsV1> 
 }
 
 export function saveAppearanceSettings(settings: NotelabAppearanceSettingsV1): void {
-  setCache({
-    ...cache,
+  setConfig({
+    ...config,
     version: 1,
     appearanceSettings: {
       ...loadAppearanceSettings(),
@@ -386,11 +342,11 @@ export function saveAppearanceSettings(settings: NotelabAppearanceSettingsV1): v
 }
 
 export function saveGithubContentShas(map: Record<string, string>): void {
-  setCache({ ...cache, version: 1, githubContentShas: { ...map } })
+  setConfig({ ...config, version: 1, githubContentShas: { ...map } })
 }
 
 export function loadWorkspaces(): SavedWorkspace[] {
-  const raw = cache.workspaces
+  const raw = config.workspaces
   if (!Array.isArray(raw)) return []
   return raw.filter(
     (w): w is SavedWorkspace =>
@@ -402,7 +358,7 @@ export function loadWorkspaces(): SavedWorkspace[] {
 }
 
 export function saveWorkspaces(workspaces: SavedWorkspace[]): void {
-  setCache({ ...cache, version: 1, workspaces }, true)
+  setConfig({ ...config, version: 1, workspaces }, true)
 }
 
 /** Upsert a workspace entry by path. Returns the updated list. */

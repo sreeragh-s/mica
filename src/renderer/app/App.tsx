@@ -101,7 +101,8 @@ export default function App(): JSX.Element {
         setInitialRoot(configRootResult)
         await hydrateAppConfig(configRootResult.configRoot)
       } else {
-        await hydrateAppConfig(null)
+        setPhase('setup')
+        return
       }
       applyUiFontToDocument(loadUiFont())
       applyThemeToDocument(loadThemePresetId(), getResolvedAppearanceMode(), loadThemeConfig())

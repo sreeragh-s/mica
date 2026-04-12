@@ -1,6 +1,6 @@
 import type { NotesAppViewModel } from '@/hooks/notes/useNotesApp'
 import type { SavedNote, Folder } from '@/lib/notes/notes-storage'
-import type { WorkspaceLinkMentionIndex } from '@/lib/notes/cache/notes-cache-types'
+import type { WorkspaceLinkMentionIndex } from '@/lib/notes/graph-types'
 
 import type {
   ChatSidebarLinkMode,
@@ -32,6 +32,6 @@ export type ChatSidebarProps = {
   onLinkModeChange: (mode: ChatSidebarLinkMode) => void
   /** macOS: pointer-events / no-drag on chat chrome controls. */
   isMacNotelab?: boolean
-  /** Precomputed internal links (Dexie cache); omit to scan Lexical in-memory. */
+  /** Internal links computed from notes for graph expansion. */
   linkMentionIndex?: WorkspaceLinkMentionIndex | null
 }

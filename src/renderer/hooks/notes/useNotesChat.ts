@@ -12,7 +12,7 @@ import { getOllamaApi } from '@/bridges/ai/ollama-bridge'
 import { getApi } from '@/bridges/auth/auth-bridge'
 import { getChatHistoryApi } from '@/bridges/chat/chat-history-bridge'
 import { createElectronLogger } from '@/lib/core/electron-log'
-import type { WorkspaceLinkMentionIndex } from '@/lib/notes/cache/notes-cache-types'
+import type { WorkspaceLinkMentionIndex } from '@/lib/notes/graph-types'
 import type { SavedNote, Folder } from '@/lib/notes/notes-storage'
 
 const LOG = '[useNotesChat]'
@@ -90,12 +90,12 @@ function emptySession(): ChatSession {
   return { id: newSessionId(), title: 'New chat', createdAt: Date.now(), messages: [] }
 }
 
-const currentSessionCache = {
+const currentSession = {
   session: null as ChatSession | null
 }
 
 async function saveCurrentSession(s: ChatSession): Promise<{ ok: boolean; error?: string }> {
-  currentSessionCache.session = s
+  currentSession.session = s
   const chatHistoryApi = getChatHistoryApi()
   if (!chatHistoryApi) return { ok: false, error: 'API unavailable' }
   const res = await chatHistoryApi.write({

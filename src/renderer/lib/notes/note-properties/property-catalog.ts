@@ -1,12 +1,12 @@
 import type { SavedNote } from '@/lib/notes/notes-storage'
 
-import type { NotesPropertyCatalog } from '@/lib/notes/cache/notes-cache-types'
+import type { NotesPropertyCatalog } from '@/lib/notes/graph-types'
 
 import { addPropertyValueTokens } from '@/lib/notes/note-properties/property-values'
 
 export const NOTE_PROPERTY_UI_KEYS = new Set(['cover_image', 'title_emoji'])
 
-/** Build property key/value suggestions from in-memory notes (fallback when cache is empty). */
+/** Build property key/value suggestions from in-memory notes. */
 export function buildPropertyCatalogFromNotes(notes: SavedNote[]): NotesPropertyCatalog {
   const keys = new Set<string>()
   const valueMap = new Map<string, Set<string>>()

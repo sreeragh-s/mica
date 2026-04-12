@@ -35,7 +35,7 @@ export function WorkspaceSwitcher({
   onWorkspaceRootChange,
   className
 }: WorkspaceSwitcherProps): JSX.Element {
-  // Initialise from cache synchronously — cache is already hydrated by App.tsx before this mounts.
+  // Load workspaces from config synchronously - config is hydrated by App.tsx before this mounts.
   const [workspaces, setWorkspaces] = useState<SavedWorkspace[]>(loadWorkspaces)
   const [pickBusy, setPickBusy] = useState(false)
 

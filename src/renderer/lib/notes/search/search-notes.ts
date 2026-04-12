@@ -6,7 +6,7 @@ import {
 } from '@/lib/notes/notes-storage'
 
 import { isDrawingNote } from '@/features/notes/notes-app-utils'
-import { extractAliasStrings, extractTagStrings } from '@/lib/notes/cache/extract-note-cache-fields'
+import { extractAliasStrings, extractTagStrings } from '@/lib/notes/note-fields'
 
 import { buildHighlightSegments, scoreMatch } from './query-match'
 import { highlightInBodySlice, snippetSlice } from './snippet'
@@ -20,8 +20,6 @@ export function searchNotes(
   query: string,
   options?: {
     limit?: number
-    /** Pre-extracted plain text per path (Dexie cache); falls back to Lexical walk when missing. */
-    plainTextByPath?: ReadonlyMap<string, string> | null
   }
 ): NoteSearchResult[] {
   const q = query.trim()
@@ -33,7 +31,6 @@ export function searchNotes(
       : (folders.find((f) => f.folder === id)?.name ?? 'Workspace')
 
   const limit = options?.limit ?? 50
-  const cache = options?.plainTextByPath ?? null
   const scored: NoteSearchResult[] = []
 
   for (const note of notes) {
@@ -45,10 +42,7 @@ export function searchNotes(
       .join(' ')
       .trim()
     const titleHaystack = titleExtras ? `${title} ${titleExtras}` : title
-    const cachedBody = cache?.get(note.path)
-    const body = isDrawingNote(note)
-      ? ''
-      : (cachedBody ?? extractPlainTextFromSerialized(note.content))
+    const body = isDrawingNote(note) ? '' : extractPlainTextFromSerialized(note.content)
     const st = scoreMatch(q, titleHaystack)
     const sb = body ? scoreMatch(q, body) : null
     if (st === null && sb === null) continue

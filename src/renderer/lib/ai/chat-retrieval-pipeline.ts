@@ -1,4 +1,6 @@
-import type { WorkspaceLinkMentionIndex } from '@/lib/notes/cache/notes-cache-types'
+import type { SavedNote } from '@/lib/notes/notes-storage'
+import type { WorkspaceLinkMentionIndex } from '@/lib/notes/graph-types'
+import { collectInternalNoteLinkMentions } from '@/lib/notes/note-link-graph'
 
 export type Mode = 'efficiency' | 'medium' | 'high'
 
@@ -66,6 +68,34 @@ export function classifyQueryComplexity(query: string): Mode {
 
 export function getModeConfig(mode: Mode): ModeConfig {
   return MODE_CONFIG[mode]
+}
+
+export function buildLinkIndexFromNotes(notes: SavedNote[]): WorkspaceLinkMentionIndex {
+  const backlinksByTarget = new Map<string, import('@/lib/notes/graph-types').LinkMention[]>()
+  const outgoingBySource = new Map<string, import('@/lib/notes/graph-types').LinkMention[]>()
+  const validPaths = new Set<string>()
+
+  for (const note of notes) {
+    validPaths.add(note.path)
+    const mentions = collectInternalNoteLinkMentions(note.content)
+    for (const m of mentions) {
+      const out: import('@/lib/notes/graph-types').LinkMention = {
+        source: note.path,
+        target: m.target,
+        linkText: m.linkText,
+        contextText: m.contextText
+      }
+      const existingOut = outgoingBySource.get(note.path) ?? []
+      existingOut.push(out)
+      outgoingBySource.set(note.path, existingOut)
+
+      const existingBack = backlinksByTarget.get(m.target) ?? []
+      existingBack.push(out)
+      backlinksByTarget.set(m.target, existingBack)
+    }
+  }
+
+  return { backlinksByTarget, outgoingBySource, validPaths }
 }
 
 function collectNeighborPaths(
