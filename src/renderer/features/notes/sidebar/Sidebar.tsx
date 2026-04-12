@@ -1,4 +1,12 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent, type JSX } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type DragEvent,
+  type JSX
+} from 'react'
 import { NotebookPen } from 'lucide-react'
 
 import { DEFAULT_WORKSPACE_ID, type SavedNote } from '@/lib/notes/notes-storage'
@@ -79,6 +87,7 @@ export function Sidebar({ vm }: SidebarProps): JSX.Element {
   const [searchOpen, setSearchOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const searchInputRef = useRef<HTMLInputElement | null>(null)
+  const explorerScrollRef = useRef<HTMLDivElement | null>(null)
 
   const openSearch = (): void => {
     setSearchOpen(true)
@@ -315,6 +324,7 @@ export function Sidebar({ vm }: SidebarProps): JSX.Element {
             />
           ) : null}
           <div
+            ref={appMode === 'notes' && appSidebarView === 'explorer' ? explorerScrollRef : null}
             className={cn(
               'min-h-0 flex-1',
               isMacNotelab && 'pointer-events-auto',
@@ -383,6 +393,7 @@ export function Sidebar({ vm }: SidebarProps): JSX.Element {
                 openFolderSettings={openFolderSettings}
                 renamingNodeId={renamingNodeId}
                 selectedNotePath={selectedNotePath}
+                scrollContainerRef={explorerScrollRef}
                 treeExpandIds={treeExpandIds}
                 treeExpandNonce={treeExpandNonce}
                 treeRename={treeRename}

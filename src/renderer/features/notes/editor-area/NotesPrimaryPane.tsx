@@ -213,7 +213,24 @@ export function NotesPrimaryPane({
   consumePendingSubpath
 }: NotesPrimaryPaneProps): JSX.Element {
   if (selectedNote) {
+    if (
+      (selectedNote.kind === 'note' || selectedNote.kind == null) &&
+      selectedNote.documentState === 'cold'
+    ) {
+      return (
+        <div className="text-muted-foreground flex flex-1 items-center justify-center p-8 text-sm">
+          Loading note…
+        </div>
+      )
+    }
     if (selectedNote.kind === 'drawing') {
+      if (selectedNote.documentState === 'cold') {
+        return (
+          <div className="text-muted-foreground flex flex-1 items-center justify-center p-8 text-sm">
+            Loading drawing…
+          </div>
+        )
+      }
       return (
         <ExcalidrawView
           notePath={selectedNote.path}

@@ -24,13 +24,13 @@ export function useNotesAppIndexing({ dataRootRef }: UseNotesAppIndexingArgs) {
     const api = getApi()
     const cwd = dataRootRef.current
     if (!cwd || !api?.workspace?.readNotelabIndex) return
-    const idx = await api.workspace.readNotelabIndex({ cwd })
+    const idx = await api.workspace.readNotelabIndex({ cwd, includeBody: true })
     if (!idx.ok) return
     const allNotes = idx.notes.map((n) => ({
       folder: n.folder,
       note: n.note,
       title: n.title,
-      content: n.markdownBody,
+      content: n.markdownBody ?? '',
       kind: n.kind
     }))
     const status = await buildIndexingStatus(cwd, allNotes)
@@ -44,7 +44,7 @@ export function useNotesAppIndexing({ dataRootRef }: UseNotesAppIndexingArgs) {
     if (!cwd || !api?.workspace?.readNotelabIndex) return
     indexingAbortRef.current = false
 
-    const idx = await api.workspace.readNotelabIndex({ cwd })
+    const idx = await api.workspace.readNotelabIndex({ cwd, includeBody: true })
     if (!idx.ok) {
       return
     }
@@ -53,7 +53,7 @@ export function useNotesAppIndexing({ dataRootRef }: UseNotesAppIndexingArgs) {
       folder: note.folder,
       note: note.note,
       title: note.title,
-      content: note.markdownBody,
+      content: note.markdownBody ?? '',
       kind: note.kind
     }))
     const nextStatus = await buildIndexingStatus(cwd, allNotes)
@@ -93,7 +93,7 @@ export function useNotesAppIndexing({ dataRootRef }: UseNotesAppIndexingArgs) {
         folder: n.folder,
         note: n.note,
         title: n.title,
-        content: n.markdownBody,
+        content: n.markdownBody ?? '',
         kind: n.kind,
         storedHash: storedHashes[n.note]?.contentHash
       })
@@ -129,7 +129,7 @@ export function useNotesAppIndexing({ dataRootRef }: UseNotesAppIndexingArgs) {
     indexingAbortRef.current = false
     setIndexingStatus((prev) => ({ ...prev, running: true }))
 
-    const idx = await api.workspace.readNotelabIndex({ cwd })
+    const idx = await api.workspace.readNotelabIndex({ cwd, includeBody: true })
     if (!idx.ok) {
       setIndexingStatus((prev) => ({ ...prev, running: false }))
       return
@@ -151,7 +151,7 @@ export function useNotesAppIndexing({ dataRootRef }: UseNotesAppIndexingArgs) {
         folder: n.folder,
         note: n.note,
         title: n.title,
-        content: n.markdownBody,
+        content: n.markdownBody ?? '',
         kind: n.kind
       })
       updated[n.note] = result.ok ? 'indexed' : 'error'

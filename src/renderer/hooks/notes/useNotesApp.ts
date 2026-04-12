@@ -206,8 +206,13 @@ export function useNotesApp() {
     diskMode
   })
 
-  const { reloadNotesFromDisk, scheduleNoteFlush, flushNoteMoveToDisk, handleWorkspaceRootChange } =
-    useNotesAppDisk({
+  const {
+    reloadNotesFromDisk,
+    hydrateNotesFromDisk,
+    scheduleNoteFlush,
+    flushNoteMoveToDisk,
+    handleWorkspaceRootChange
+  } = useNotesAppDisk({
     folders,
     notes,
     setFolders,
@@ -250,6 +255,15 @@ export function useNotesApp() {
     openNoteTabPaths,
     chatSidebarOpen
   ])
+
+  useEffect(() => {
+    if (!diskMode) return
+    const notePathsToHydrate = [
+      ...(selectedNotePath ? [selectedNotePath] : []),
+      ...openNoteTabPaths
+    ]
+    void hydrateNotesFromDisk(notePathsToHydrate)
+  }, [diskMode, hydrateNotesFromDisk, openNoteTabPaths, selectedNotePath])
 
   const { indexingStatus, refreshIndexingStatus, runIndexPending, runReindexAll } =
     useNotesAppIndexing({
@@ -795,6 +809,7 @@ export function useNotesApp() {
         {
           ...current,
           content: normalized,
+          documentState: 'ready',
           properties: touchJournalProperties(current, current.properties),
           ...(current.isTransient ? { isTransient: undefined } : {})
         },
@@ -832,7 +847,12 @@ export function useNotesApp() {
     (notePath: string, json: string) => {
       const current = findLatestNote(notePath)
       if (!current || current.kind !== 'drawing') return
-      queueNoteSave(notePath, { ...current, excalidrawScene: json, updatedAt: Date.now() })
+      queueNoteSave(notePath, {
+        ...current,
+        documentState: 'ready',
+        excalidrawScene: json,
+        updatedAt: Date.now()
+      })
     },
     [findLatestNote, queueNoteSave]
   )

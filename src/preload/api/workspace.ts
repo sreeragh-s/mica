@@ -70,6 +70,7 @@ export const workspaceApi = {
   > => ipcRenderer.invoke('workspace:search-notes', payload),
   readNotelabIndex: (payload: {
     cwd: string
+    includeBody?: boolean
   }): Promise<
     | {
         ok: true
@@ -79,7 +80,7 @@ export const workspaceApi = {
           note: string
           title: string
           updatedAtMs: number
-          markdownBody: string
+          markdownBody?: string
           kind: 'note' | 'drawing' | 'pdf'
           coverImageSrc?: string
           titleEmoji?: string
@@ -89,6 +90,13 @@ export const workspaceApi = {
       }
     | { ok: false; error: string }
   > => ipcRenderer.invoke('workspace:read-notelab-index', payload),
+  readNoteText: (payload: {
+    cwd: string
+    relativePath: string
+  }): Promise<
+    | { ok: true; content: string; updatedAtMs: number }
+    | { ok: false; error: string }
+  > => ipcRenderer.invoke('workspace:read-note-text', payload),
   readBinaryFile: (payload: {
     cwd: string
     relativePath: string

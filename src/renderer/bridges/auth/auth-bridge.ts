@@ -123,7 +123,7 @@ export type NotelabApi = {
         }
       | { ok: false; error: string }
     >
-    readNotelabIndex: (payload: { cwd: string }) => Promise<
+    readNotelabIndex: (payload: { cwd: string; includeBody?: boolean }) => Promise<
       | {
           ok: true
           folders: { folder: string; name: string }[]
@@ -132,7 +132,7 @@ export type NotelabApi = {
             note: string
             title: string
             updatedAtMs: number
-            markdownBody: string
+            markdownBody?: string
             kind: 'note' | 'drawing' | 'pdf'
             coverImageSrc?: string
             titleEmoji?: string
@@ -140,6 +140,13 @@ export type NotelabApi = {
             hasFrontmatterBlock?: boolean
           }[]
         }
+      | { ok: false; error: string }
+    >
+    readNoteText?: (payload: {
+      cwd: string
+      relativePath: string
+    }) => Promise<
+      | { ok: true; content: string; updatedAtMs: number }
       | { ok: false; error: string }
     >
     readBinaryFile?: (payload: {

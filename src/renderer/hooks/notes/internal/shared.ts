@@ -37,7 +37,7 @@ export type NotelabIndexOk = {
     note: string
     title: string
     updatedAtMs: number
-    markdownBody: string
+    markdownBody?: string
     kind?: 'note' | 'drawing' | 'pdf'
     coverImageSrc?: string
     titleEmoji?: string

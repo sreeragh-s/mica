@@ -21,6 +21,8 @@ import {
   DEFAULT_WORKSPACE_ID,
   deleteNoteFile,
   readNotelabIndexImpl,
+  readWorkspaceMtimeMs,
+  readWorkspaceTextFile,
   readWorkspaceBinaryFile,
   renameWorkspacePath,
   syncMarkdownFilesToDisk,
@@ -397,7 +399,7 @@ export function registerWorkspaceIpc(): void {
     'workspace:read-notelab-index',
     async (
       _evt,
-      payload: { cwd: string }
+      payload: { cwd: string; includeBody?: boolean }
     ): Promise<
       | {
           ok: true
@@ -407,7 +409,7 @@ export function registerWorkspaceIpc(): void {
             note: string
             title: string
             updatedAtMs: number
-            markdownBody: string
+            markdownBody?: string
             kind: 'note' | 'drawing' | 'pdf'
             coverImageSrc?: string
             titleEmoji?: string
@@ -422,11 +424,46 @@ export function registerWorkspaceIpc(): void {
         return { ok: false, error: 'not_a_workspace' }
       }
       try {
-        const { folders, notes } = await readNotelabIndexImpl(cwd)
+        const { folders, notes } = await readNotelabIndexImpl(cwd, {
+          includeBody: payload.includeBody
+        })
         return { ok: true, folders, notes }
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e)
         console.error(LOG, 'read-notelab-index', msg)
+        return { ok: false, error: msg }
+      }
+    }
+  )
+
+  ipcMain.handle(
+    'workspace:read-note-text',
+    async (
+      _evt,
+      payload: { cwd: string; relativePath: string }
+    ): Promise<
+      | { ok: true; content: string; updatedAtMs: number }
+      | { ok: false; error: string }
+    > => {
+      const cwd = payload.cwd?.trim() ?? ''
+      const relativePath = payload.relativePath?.trim() ?? ''
+      if (!cwd || !allowWorkspaceFs(cwd)) {
+        return { ok: false, error: 'not_a_workspace' }
+      }
+      if (!relativePath) {
+        return { ok: false, error: 'missing_path' }
+      }
+      try {
+        const content = await readWorkspaceTextFile(cwd, relativePath)
+        const updatedAtMs = await readWorkspaceMtimeMs(cwd, relativePath)
+        return {
+          ok: true,
+          content,
+          updatedAtMs
+        }
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e)
+        console.error(LOG, 'read-note-text', msg)
         return { ok: false, error: msg }
       }
     }

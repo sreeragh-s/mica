@@ -1,5 +1,14 @@
 import { Folder as FolderIcon, Pencil, Settings2, Trash2 } from 'lucide-react'
-import { useCallback, useEffect, useRef, type DragEvent, type JSX, type RefObject } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type DragEvent,
+  type JSX,
+  type RefObject
+} from 'react'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -50,6 +59,7 @@ export type SidebarExplorerTreeProps = {
   selectedNotePath: string | null
   focusedFolderId: string | null
   renamingNodeId: string | null
+  scrollContainerRef: RefObject<HTMLDivElement | null>
   beginRename: (treeId: string, initial: string) => void
   handleDeleteNote: NotesAppViewModel['handleDeleteNote']
   openFolderSettings: NotesAppViewModel['openFolderSettings']
@@ -83,6 +93,7 @@ export function SidebarExplorerTree({
   selectedNotePath,
   focusedFolderId,
   renamingNodeId,
+  scrollContainerRef,
   beginRename,
   handleDeleteNote,
   openFolderSettings,
@@ -96,6 +107,49 @@ export function SidebarExplorerTree({
   onFolderNameBlur
 }: SidebarExplorerTreeProps): JSX.Element {
   const selectedNoteRowRef = useRef<HTMLDivElement | null>(null)
+  const [scrollTop, setScrollTop] = useState(0)
+  const [viewportHeight, setViewportHeight] = useState(0)
+
+  const ROOT_ROW_HEIGHT = 36
+  const ROOT_OVERSCAN = 10
+  const shouldVirtualizeRootNotes = folders.length === 0 && inboxNotes.length > 200
+
+  useEffect(() => {
+    const container = scrollContainerRef.current
+    if (!container) return
+
+    const syncMetrics = (): void => {
+      setScrollTop(container.scrollTop)
+      setViewportHeight(container.clientHeight)
+    }
+
+    syncMetrics()
+    container.addEventListener('scroll', syncMetrics, { passive: true })
+    window.addEventListener('resize', syncMetrics)
+    return () => {
+      container.removeEventListener('scroll', syncMetrics)
+      window.removeEventListener('resize', syncMetrics)
+    }
+  }, [scrollContainerRef])
+
+  const virtualRootRange = useMemo(() => {
+    if (!shouldVirtualizeRootNotes) {
+      return { start: 0, end: inboxNotes.length, topSpacer: 0, bottomSpacer: 0 }
+    }
+    const visibleCount = Math.max(1, Math.ceil(viewportHeight / ROOT_ROW_HEIGHT))
+    const start = Math.max(0, Math.floor(scrollTop / ROOT_ROW_HEIGHT) - ROOT_OVERSCAN)
+    const end = Math.min(inboxNotes.length, start + visibleCount + ROOT_OVERSCAN * 2)
+    return {
+      start,
+      end,
+      topSpacer: start * ROOT_ROW_HEIGHT,
+      bottomSpacer: Math.max(0, (inboxNotes.length - end) * ROOT_ROW_HEIGHT)
+    }
+  }, [inboxNotes.length, scrollTop, shouldVirtualizeRootNotes, viewportHeight])
+
+  const visibleInboxNotes = shouldVirtualizeRootNotes
+    ? inboxNotes.slice(virtualRootRange.start, virtualRootRange.end)
+    : inboxNotes
 
   const bindSelectedNoteRowRef = useCallback(
     (el: HTMLDivElement | null, notePath: string) => {
@@ -110,6 +164,21 @@ export function SidebarExplorerTree({
 
   useEffect(() => {
     if (!selectedNotePath) return
+    if (shouldVirtualizeRootNotes && folders.length === 0) {
+      const container = scrollContainerRef.current
+      const selectedIndex = inboxNotes.findIndex((note) => note.path === selectedNotePath)
+      if (container && selectedIndex >= 0) {
+        const rowTop = selectedIndex * ROOT_ROW_HEIGHT
+        const rowBottom = rowTop + ROOT_ROW_HEIGHT
+        const viewTop = container.scrollTop
+        const viewBottom = viewTop + container.clientHeight
+        if (rowTop < viewTop) {
+          container.scrollTop = rowTop
+        } else if (rowBottom > viewBottom) {
+          container.scrollTop = Math.max(0, rowBottom - container.clientHeight)
+        }
+      }
+    }
     let cancelled = false
     let rafId = 0
     let attempts = 0
@@ -134,7 +203,15 @@ export function SidebarExplorerTree({
       cancelled = true
       cancelAnimationFrame(rafId)
     }
-  }, [selectedNotePath, treeExpandNonce])
+  }, [
+    ROOT_ROW_HEIGHT,
+    folders.length,
+    inboxNotes,
+    scrollContainerRef,
+    selectedNotePath,
+    shouldVirtualizeRootNotes,
+    treeExpandNonce
+  ])
 
   return (
     <TreeProvider
@@ -161,9 +238,103 @@ export function SidebarExplorerTree({
             onDragOverCapture={onFolderSectionDragOverCapture(DEFAULT_WORKSPACE_ID)}
             onDropCapture={onFolderSectionDropCapture(DEFAULT_WORKSPACE_ID)}
           >
-            {inboxNotes.map((note, ni) => {
-              const isLastRootNote =
-                ni === inboxNotes.length - 1 && folders.length === 0 && !folderCreateOpen
+            {shouldVirtualizeRootNotes ? (
+              <div>
+                {virtualRootRange.topSpacer > 0 ? (
+                  <div style={{ height: virtualRootRange.topSpacer }} aria-hidden />
+                ) : null}
+                {visibleInboxNotes.map((note, visibleIndex) => {
+                  const noteIndex = virtualRootRange.start + visibleIndex
+                  const isLastRootNote =
+                    noteIndex === inboxNotes.length - 1 && folders.length === 0 && !folderCreateOpen
+                  const noteTreeId = treeNotePath(note.path)
+                  const isRenaming = renamingNodeId === noteTreeId
+                  return (
+                    <TreeNode key={note.path} nodeId={noteTreeId} isLast={isLastRootNote}>
+                      <div
+                        ref={(el) => bindSelectedNoteRowRef(el, note.path)}
+                        className="min-w-0 w-full"
+                        style={{ height: ROOT_ROW_HEIGHT }}
+                      >
+                        <TreeNodeTrigger
+                          draggable={!isRenaming}
+                          data-sidebar-interactive=""
+                          onDragStart={(e) => {
+                            const drag = e as unknown as globalThis.DragEvent
+                            if (!drag.dataTransfer) return
+                            drag.dataTransfer.setData(NOTE_DRAG_MIME, note.path)
+                            drag.dataTransfer.effectAllowed = 'copyMove'
+                          }}
+                          className={cn(
+                            'hover:bg-sidebar-accent/50 h-full',
+                            selectedNotePath === note.path &&
+                              !focusedFolderId &&
+                              '!bg-sidebar-accent !text-foreground'
+                          )}
+                        >
+                          <TreeExpander hasChildren={false} />
+                          <TreeIcon
+                            hasChildren={false}
+                            icon={<NoteLeadingIcon note={note} variant="sidebar" />}
+                          />
+                          <TreeLabel
+                            className="flex min-w-0 flex-1 items-center"
+                            renameInitialValue={note.title}
+                          >
+                            <span className="truncate text-left font-medium leading-snug">
+                              {note.title || 'Untitled'}
+                            </span>
+                          </TreeLabel>
+                          <div className="flex h-6 shrink-0 items-center justify-end gap-0.5 pl-2">
+                            <span
+                              className="text-muted-foreground whitespace-nowrap text-[11px] tabular-nums group-hover:hidden"
+                              title={formatNoteTime(note.updatedAt)}
+                            >
+                              {formatNoteTime(note.updatedAt)}
+                            </span>
+                            <span
+                              role="presentation"
+                              className="hidden shrink-0 gap-0.5 group-hover:flex"
+                              style={isMacNotelab ? macTitlebarStyles.noDrag : undefined}
+                            >
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon-xs"
+                                className="text-muted-foreground size-6"
+                                aria-label={`Rename ${note.title}`}
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  beginRename(noteTreeId, note.title)
+                                }}
+                              >
+                                <Pencil className="size-3.5" />
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon-xs"
+                                className="text-muted-foreground hover:text-destructive size-6"
+                                aria-label="Delete note"
+                                onClick={(e) => handleDeleteNote(note.path, e)}
+                              >
+                                <Trash2 className="size-3.5" />
+                              </Button>
+                            </span>
+                          </div>
+                        </TreeNodeTrigger>
+                      </div>
+                    </TreeNode>
+                  )
+                })}
+                {virtualRootRange.bottomSpacer > 0 ? (
+                  <div style={{ height: virtualRootRange.bottomSpacer }} aria-hidden />
+                ) : null}
+              </div>
+            ) : (
+              inboxNotes.map((note, ni) => {
+                const isLastRootNote =
+                  ni === inboxNotes.length - 1 && folders.length === 0 && !folderCreateOpen
               const noteTreeId = treeNotePath(note.path)
               const isRenaming = renamingNodeId === noteTreeId
               return (
@@ -242,7 +413,8 @@ export function SidebarExplorerTree({
                   </div>
                 </TreeNode>
               )
-            })}
+              })
+            )}
           </div>
         ) : null}
         {folders.map((folder, fi) => {

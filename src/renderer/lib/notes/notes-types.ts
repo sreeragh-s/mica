@@ -26,6 +26,8 @@ export type SavedNote = {
   updatedAt: number
   /** Lexical document; null until the user types (new note). Unused when kind is drawing. */
   content: SerializedEditorState | null
+  /** Existing on-disk notes may stay cold until opened to avoid eager parsing on large workspaces. */
+  documentState?: 'cold' | 'ready'
   /** Workspace folder containing this note. */
   folder: string
   /** Sidebar label and base name for the synced Markdown file. */

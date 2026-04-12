@@ -116,6 +116,17 @@ export async function readWorkspaceBinaryFile(
   return readFile(abs)
 }
 
+export async function readWorkspaceTextFile(cwd: string, relativePath: string): Promise<string> {
+  const abs = assertSafeRelativePath(cwd, relativePath)
+  return readFile(abs, 'utf8')
+}
+
+export async function readWorkspaceMtimeMs(cwd: string, relativePath: string): Promise<number> {
+  const abs = assertSafeRelativePath(cwd, relativePath)
+  const fileStat = await stat(abs)
+  return fileStat.mtimeMs
+}
+
 export function deleteNoteFile(cwd: string, relativePath: string): void {
   const abs = assertSafeRelativePath(cwd, relativePath)
   if (!existsSync(abs)) return
@@ -142,14 +153,17 @@ export function renameWorkspacePath(
   renameSync(fromAbs, toAbs)
 }
 
-export async function readNotelabIndexImpl(cwd: string): Promise<{
+export async function readNotelabIndexImpl(
+  cwd: string,
+  options: { includeBody?: boolean } = {}
+): Promise<{
   folders: { folder: string; name: string }[]
   notes: {
     folder: string
     note: string
     title: string
     updatedAtMs: number
-    markdownBody: string
+    markdownBody?: string
     kind: 'note' | 'drawing' | 'pdf'
     coverImageSrc?: string
     titleEmoji?: string
@@ -157,6 +171,7 @@ export async function readNotelabIndexImpl(cwd: string): Promise<{
     hasFrontmatterBlock?: boolean
   }[]
 }> {
+  const includeBody = options.includeBody ?? true
   const folders: { folder: string; name: string }[] = []
   if (!existsSync(cwd)) return { folders, notes: [] }
 
@@ -203,7 +218,6 @@ export async function readNotelabIndexImpl(cwd: string): Promise<{
             note: relativeFilePath.replace(/\\/g, '/'),
             title: basename(relativeFilePath, extension),
             updatedAtMs: fileStat.mtimeMs,
-            markdownBody: '',
             kind: 'pdf' as const
           }
         }
@@ -215,8 +229,8 @@ export async function readNotelabIndexImpl(cwd: string): Promise<{
           note: parsed.note,
           title: parsed.title,
           updatedAtMs: parsed.updatedAtMs,
-          markdownBody: parsed.body,
           kind: parsed.kind,
+          ...(includeBody ? { markdownBody: parsed.body } : {}),
           ...(parsed.coverImageSrc !== undefined ? { coverImageSrc: parsed.coverImageSrc } : {}),
           ...(parsed.titleEmoji !== undefined && parsed.titleEmoji !== ''
             ? { titleEmoji: parsed.titleEmoji }

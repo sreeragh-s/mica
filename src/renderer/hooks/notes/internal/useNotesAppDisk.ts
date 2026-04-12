@@ -130,27 +130,30 @@ export function useNotesAppDisk({
             title: n.title,
             updatedAt: n.updatedAtMs,
             content: null,
+            documentState: n.markdownBody != null ? 'ready' : 'cold',
             kind: 'drawing' as const,
-            excalidrawScene: n.markdownBody.trim() || null
+            excalidrawScene: n.markdownBody?.trim() || null
           }
         }
         if (kind === 'pdf') {
           return {
-            path: n.note,
-            folder: n.folder,
-            title: n.title,
-            updatedAt: n.updatedAtMs,
-            content: null,
-            kind: 'pdf' as const,
-            pdfPath: n.note
-          }
+          path: n.note,
+          folder: n.folder,
+          title: n.title,
+          updatedAt: n.updatedAtMs,
+          content: null,
+          documentState: 'ready',
+          kind: 'pdf' as const,
+          pdfPath: n.note
+        }
         }
         return {
           path: n.note,
           folder: n.folder,
           title: n.title,
           updatedAt: n.updatedAtMs,
-          content: diskBodyToContent(n.markdownBody, n.title),
+          content: n.markdownBody != null ? diskBodyToContent(n.markdownBody, n.title) : null,
+          documentState: n.markdownBody != null ? 'ready' : 'cold',
           kind: 'note' as const,
           ...(n.coverImageSrc !== undefined ? { coverImageSrc: n.coverImageSrc } : {}),
           ...(n.titleEmoji !== undefined && n.titleEmoji !== ''
@@ -215,10 +218,79 @@ export function useNotesAppDisk({
     const api = getApi()
     const cwd = dataRootRef.current
     if (!cwd || !api?.workspace?.readNotelabIndex) return
-    const r = await api.workspace.readNotelabIndex({ cwd })
+    const r = await api.workspace.readNotelabIndex({ cwd, includeBody: false })
     if (!r.ok) return
     applyNotelabIndex(r, cwd)
   }, [applyNotelabIndex, dataRootRef])
+
+  const hydrateNotesFromDisk = useCallback(
+    async (notePaths: readonly string[]) => {
+      const api = getApi()
+      const cwd = dataRootRef.current
+      if (!cwd || !api?.workspace?.readNoteText) return
+
+      const uniqueNotePaths = Array.from(new Set(notePaths)).filter(Boolean)
+      if (uniqueNotePaths.length === 0) return
+
+      const pending = uniqueNotePaths.filter((notePath) => {
+        const note =
+          pendingSavedNotesRef.current.get(notePath) ??
+          notesRef.current.find((candidate) => candidate.path === notePath)
+        if (!note) return false
+        if (note.kind === 'pdf') return false
+        if (note.kind === 'drawing') return note.excalidrawScene == null
+        return note.content == null
+      })
+      if (pending.length === 0) return
+
+      const hydratedEntries = await Promise.all(
+        pending.map(async (notePath) => {
+          const note =
+            pendingSavedNotesRef.current.get(notePath) ??
+            notesRef.current.find((candidate) => candidate.path === notePath)
+          if (!note) return null
+
+          const result = await api.workspace!.readNoteText!({ cwd, relativePath: notePath })
+          if (!result.ok) {
+            log.warn('hydrateNotesFromDisk failed', { notePath, error: result.error })
+            return null
+          }
+
+          if (note.kind === 'drawing') {
+            return [
+              notePath,
+              {
+                ...note,
+                updatedAt: result.updatedAtMs,
+                documentState: 'ready',
+                excalidrawScene: result.content.trim() || null
+              } satisfies SavedNote
+            ] as const
+          }
+
+          return [
+            notePath,
+              {
+                ...note,
+                updatedAt: result.updatedAtMs,
+                documentState: 'ready',
+                content: diskBodyToContent(result.content, note.title)
+              } satisfies SavedNote
+          ] as const
+        })
+      )
+
+      const hydrated = new Map<string, SavedNote>()
+      for (const entry of hydratedEntries) {
+        if (!entry) continue
+        hydrated.set(entry[0], entry[1])
+      }
+      if (hydrated.size === 0) return
+
+      setNotes((prev) => prev.map((note) => hydrated.get(note.path) ?? note))
+    },
+    [dataRootRef, notesRef, pendingSavedNotesRef, setNotes]
+  )
 
   const flushNoteToDisk = useCallback(
     async (notePath: string) => {
@@ -423,7 +495,7 @@ export function useNotesAppDisk({
       setDataRootPath(cwd)
       setWorkspaceRoot(effectiveRoot ?? cwd)
 
-      const idxR = await readNotelabIndex({ cwd })
+      const idxR = await readNotelabIndex({ cwd, includeBody: false })
       if (!idxR.ok || cancelled) return
 
       const persisted = loadNotesState()
@@ -501,7 +573,7 @@ export function useNotesAppDisk({
         }
       }
 
-      const fresh = await readNotelabIndex({ cwd })
+      const fresh = await readNotelabIndex({ cwd, includeBody: false })
       if (!fresh.ok || cancelled) return
       setDiskMode(true)
       applyNotelabIndex(fresh, cwd)
@@ -618,7 +690,7 @@ export function useNotesAppDisk({
       setNotes([])
       setSelectedId(null)
       setOpenNoteTabIds([])
-      const idxR = await ws.readNotelabIndex({ cwd })
+      const idxR = await ws.readNotelabIndex({ cwd, includeBody: false })
       if (!idxR.ok) return
       setDiskMode(true)
       applyNotelabIndex(idxR, cwd)
@@ -642,6 +714,7 @@ export function useNotesAppDisk({
     workspaceRoot,
     refreshWorkspaceGitStatuses,
     reloadNotesFromDisk,
+    hydrateNotesFromDisk,
     scheduleNoteFlush,
     flushNoteMoveToDisk,
     handleWorkspaceRootChange
