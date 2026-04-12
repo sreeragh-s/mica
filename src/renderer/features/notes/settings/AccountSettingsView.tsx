@@ -3,30 +3,23 @@ import type { JSX } from 'react'
 import { GitBranch, LogOut, User } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
-import type { MacTitlebarStyles, NotesUser } from '@/features/notes/notes-app-types'
+import type { MacTitlebarStyles } from '@/features/notes/notes-app-types'
+import { useAuth } from '@/hooks/app/useAuth'
 
 export type AccountSettingsViewProps = {
-  user?: NotesUser | null
-  guestMode?: boolean
-  onSignOut?: () => void
-  onConnectGitHub?: () => void | Promise<void>
   isMacNotelab: boolean
   macTitlebarStyles: MacTitlebarStyles
 }
 
 export function AccountSettingsView({
-  user,
-  guestMode = false,
-  onSignOut,
-  onConnectGitHub,
   isMacNotelab,
   macTitlebarStyles
 }: AccountSettingsViewProps): JSX.Element {
+  const { user, signInWithGitHub, signOut } = useAuth()
   /** Session user with something to show (avoids treating `{}` or null as “signed in with GitHub”). */
   const hasAccountIdentity = Boolean(
     user && (user.email?.trim() || user.name?.trim() || user.image)
   )
-  const showGuest = Boolean(guestMode && !hasAccountIdentity)
 
   return (
     <div
@@ -48,14 +41,9 @@ export function AccountSettingsView({
         <div className="min-w-0 flex-1">
           <div className="flex flex-col gap-1">
             <h2 className="text-foreground text-lg font-semibold tracking-tight">
-              {showGuest ? 'Guest' : (user?.name ?? 'Account')}
+              {user?.name ?? 'Account'}
             </h2>
-            {showGuest ? (
-              <p className="text-muted-foreground text-sm leading-relaxed">
-                Notes stay on this device until you connect GitHub. You can finish repo and sync
-                setup under <span className="text-foreground font-medium">Settings → GitHub</span>.
-              </p>
-            ) : user?.email ? (
+            {user?.email ? (
               <p className="text-muted-foreground truncate text-sm leading-relaxed">{user.email}</p>
             ) : hasAccountIdentity ? (
               <p className="text-muted-foreground text-sm leading-relaxed">
@@ -63,32 +51,31 @@ export function AccountSettingsView({
               </p>
             ) : (
               <p className="text-muted-foreground text-sm leading-relaxed">
-                You are not signed in. Use Continue with GitHub on the welcome screen or below to
-                sync.
+                You are not signed in. Connect GitHub below whenever you want to enable sync.
               </p>
             )}
           </div>
         </div>
       </div>
-      {showGuest && onConnectGitHub ? (
+      {!hasAccountIdentity ? (
         <Button
           type="button"
           className="w-full gap-2 sm:w-auto"
-          onClick={() => void onConnectGitHub()}
+          onClick={() => void signInWithGitHub()}
         >
           <GitBranch className="size-4" aria-hidden />
           Continue with GitHub
         </Button>
       ) : null}
-      {onSignOut ? (
+      {hasAccountIdentity ? (
         <Button
           type="button"
           variant="destructive"
           className="w-full gap-2 sm:w-auto"
-          onClick={() => void onSignOut()}
+          onClick={() => void signOut()}
         >
           <LogOut className="size-4" aria-hidden />
-          {showGuest ? 'Back to welcome' : 'Log out'}
+          Log out
         </Button>
       ) : null}
     </div>

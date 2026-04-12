@@ -1,9 +1,7 @@
 import type { SerializedEditorState } from 'lexical'
 
-import {
-  loadNotesState as loadNotesStateFromConfig,
-  saveNotesState as saveNotesStateToConfig
-} from '../config/notelab-app-config'
+import { loadNotesState as loadNotesStateFromConfig } from '../config/notelab-app-config-read'
+import { saveNotesState as persistNotesStateToConfig } from '../config/notelab-app-config-write'
 import { extractPreviewText as extractPreviewTextImpl } from './notes-state-normalize'
 import type { NotesState, SavedNote } from './notes-types'
 
@@ -24,7 +22,7 @@ export function loadNotesState(): NotesState {
 }
 
 export function saveNotesState(state: NotesState): void {
-  saveNotesStateToConfig(state)
+  persistNotesStateToConfig(state)
 }
 
 /** @deprecated Use loadNotesState; kept for narrow imports. */

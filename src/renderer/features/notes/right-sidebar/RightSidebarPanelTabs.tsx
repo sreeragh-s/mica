@@ -7,19 +7,19 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { toolbarShellClass } from '@/lib/platform/toolbar-chrome'
 import { cn } from '@/lib/utils'
 
-export type ChatSidebarPanelTabItem = {
+export type RightSidebarPanelTabItem = {
   value: string
   /** Visible in tooltip and `aria-label`. */
   label: string
   icon: LucideIcon
 }
 
-export type ChatSidebarPanelTabsProps = {
+export type RightSidebarPanelTabsProps = {
   /** Rendered before the tab icons (e.g. new chat). */
   leading?: ReactNode
   value: string
   onValueChange: (next: string) => void
-  items: ChatSidebarPanelTabItem[]
+  items: RightSidebarPanelTabItem[]
   /**
    * `icon` — compact icon buttons (Chat / History).
    * `segmented` — equal-width pills with icon + label (Linked / Linking); parent should allow flex grow.
@@ -28,16 +28,16 @@ export type ChatSidebarPanelTabsProps = {
 }
 
 /**
- * Panel switcher for the chat sidebar: icon tabs (Chat / History) or segmented labeled tabs (Linked / Linking).
+ * Panel switcher for the right sidebar: icon tabs (Chat / History) or segmented labeled tabs (Linked / Linking).
  * Parent should wrap in macOS `no-drag` + `pointer-events-auto` when inside a titlebar row.
  */
-export function ChatSidebarPanelTabs({
+export function RightSidebarPanelTabs({
   leading,
   value,
   onValueChange,
   items,
   variant = 'icon'
-}: ChatSidebarPanelTabsProps): JSX.Element {
+}: RightSidebarPanelTabsProps): JSX.Element {
   const segmented = variant === 'segmented'
 
   const tabButtons = items.map((t) => {

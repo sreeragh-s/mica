@@ -2,14 +2,14 @@ import { BookOpenIcon, Link2Icon } from 'lucide-react'
 import type { JSX } from 'react'
 
 import { formatNoteTime, type SavedNote } from '@/lib/notes/notes-storage'
-import type { ChatSidebarLinkMode } from '@/features/notes/chat/chat-sidebar-panel-types'
-import type { NoteLinksData } from '@/features/notes/chat/chat-sidebar-types'
+import type { RightSidebarLinkMode } from '@/features/notes/right-sidebar/right-sidebar-panel-types'
+import type { NoteLinksData } from '@/features/notes/right-sidebar/right-sidebar-types'
 
 export type BidirectionalLinksPanelProps = {
   selectedNote: SavedNote | null
   foldersById: Map<string, string>
   noteLinkData: NoteLinksData
-  mode: ChatSidebarLinkMode
+  mode: RightSidebarLinkMode
   onOpenNote: (notePath: string) => void
 }
 

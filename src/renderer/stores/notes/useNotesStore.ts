@@ -1,15 +1,15 @@
 import { create } from 'zustand'
 import type { Dispatch, SetStateAction } from 'react'
 
-import { loadAppearanceSettings, loadEditorSettings } from '@/lib/config/notelab-app-config'
+import { loadAppearanceSettings, loadEditorSettings } from '@/lib/config/notelab-app-config-read'
 import { loadShortcutBindings, type ShortcutBindingsMap } from '@/lib/config/shortcuts-storage'
 import { loadSetupState } from '@/lib/workspace/setup-storage'
 import { type Folder, loadNotesState, type SavedNote } from '@/lib/notes/notes-storage'
 import type { AppMode, SettingsSection } from '@/features/notes/notes-app-types'
 import type {
-  ChatSidebarLinkMode,
-  ChatSidebarPanel
-} from '@/features/notes/chat/chat-sidebar-panel-types'
+  RightSidebarLinkMode,
+  RightSidebarPanel
+} from '@/features/notes/right-sidebar/right-sidebar-panel-types'
 import type { AppSidebarView } from '@/lib/notes/notes-types'
 import type { IndexingStatus } from '@/lib/ai/embedding-pipeline'
 
@@ -51,8 +51,8 @@ type NotesStoreState = {
   editorSettings: ReturnType<typeof loadEditorSettings>
   appearanceSettings: ReturnType<typeof loadAppearanceSettings>
   chatSidebarOpen: boolean
-  chatSidebarPanel: ChatSidebarPanel
-  chatSidebarLinkMode: ChatSidebarLinkMode
+  chatSidebarPanel: RightSidebarPanel
+  chatSidebarLinkMode: RightSidebarLinkMode
   graphViewOpen: boolean
   canvasViewOpen: boolean
   journalViewOpen: boolean
@@ -105,8 +105,8 @@ type NotesStoreActions = {
   setEditorSettings: Dispatch<SetStateAction<ReturnType<typeof loadEditorSettings>>>
   setAppearanceSettings: Dispatch<SetStateAction<ReturnType<typeof loadAppearanceSettings>>>
   setChatSidebarOpen: Dispatch<SetStateAction<boolean>>
-  setChatSidebarPanel: Dispatch<SetStateAction<ChatSidebarPanel>>
-  setChatSidebarLinkMode: Dispatch<SetStateAction<ChatSidebarLinkMode>>
+  setChatSidebarPanel: Dispatch<SetStateAction<RightSidebarPanel>>
+  setChatSidebarLinkMode: Dispatch<SetStateAction<RightSidebarLinkMode>>
   setGraphViewOpen: Dispatch<SetStateAction<boolean>>
   setCanvasViewOpen: Dispatch<SetStateAction<boolean>>
   setJournalViewOpen: Dispatch<SetStateAction<boolean>>

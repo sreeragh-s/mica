@@ -4,9 +4,9 @@
  */
 
 import {
-  loadWorkspaceViewSnapshot as loadFromConfig,
-  saveWorkspaceViewSnapshot as saveToConfig
-} from './notelab-app-config'
+  loadWorkspaceViewSnapshot as loadFromConfig
+} from './notelab-app-config-read'
+import { saveWorkspaceViewSnapshot as saveToConfig } from './notelab-app-config-write'
 import type { NotelabWorkspaceViewSnapshotV1 } from './notelab-config-schema'
 
 export function defaultWorkspaceViewSnapshot(): NotelabWorkspaceViewSnapshotV1 {

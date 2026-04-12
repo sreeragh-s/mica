@@ -52,20 +52,17 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { copyPlainTextToClipboard } from '@/lib/core/copy-to-clipboard'
 import { searchChatHistorySessions } from '@/lib/notes/notes-search'
 import { DEFAULT_WORKSPACE_ID, type SavedNote } from '@/lib/notes/notes-storage'
-import { ChatSidebarPanelTabs } from '@/features/notes/chat/ChatSidebarPanelTabs'
+import { RightSidebarPanelTabs } from '@/features/notes/right-sidebar/RightSidebarPanelTabs'
 import {
   ChatSidebarNewChatButton,
   ChatSidebarToolbarLeading,
   ChatSidebarTopBar
 } from '@/features/notes/chat/chat-sidebar-chrome'
-import { STARTER_SUGGESTIONS } from '@/features/notes/chat/chat-sidebar-constants'
-import { BidirectionalLinksPanel } from '@/features/notes/chat/BidirectionalLinksPanel'
-import { ChatSidebarOpenSessionTabs, HistoryItem } from '@/features/notes/chat/chat-sidebar-panels'
-import type {
-  ChatSidebarLinkMode,
-  ChatSidebarProps,
-  NoteLinksData
-} from '@/features/notes/chat/chat-sidebar-types'
+import { STARTER_SUGGESTIONS } from '@/features/notes/right-sidebar/right-sidebar-constants'
+import { BidirectionalLinksPanel } from '@/features/notes/right-sidebar/BidirectionalLinksPanel'
+import { HistoryItem, RightSidebarOpenSessionTabs } from '@/features/notes/right-sidebar/right-sidebar-panels'
+import type { RightSidebarProps } from '@/features/notes/right-sidebar/right-sidebar-types'
+import type { RightSidebarLinkMode, NoteLinksData } from '@/features/notes/right-sidebar/right-sidebar-types'
 import { ModePicker, PaywallBanner } from '@/features/notes/chat/chat-sidebar-input-controls'
 import { PipelineProgress } from '@/features/notes/chat/PipelineProgress'
 import type { ChatHistoryMeta, ChatPipelineStatus } from '@/hooks/notes/useNotesChat'
@@ -218,8 +215,8 @@ function AssistantMessage({
 // Main component
 // ---------------------------------------------------------------------------
 
-/** Chat UI; parent animates width/opacity when `open` toggles. */
-export function ChatSidebarInner({
+/** Right sidebar UI; parent animates width/opacity when `open` toggles. */
+export function RightSidebarInner({
   open,
   notes,
   folders,
@@ -234,7 +231,7 @@ export function ChatSidebarInner({
   onLinkModeChange,
   isMacNotelab,
   linkMentionIndex
-}: ChatSidebarProps): JSX.Element {
+}: RightSidebarProps): JSX.Element {
   const [selectedModelId, setSelectedModelId] = useState<string>(DEFAULT_NOTELAB_MODEL_ID)
   const [localSetupOpen, setLocalSetupOpen] = useState(false)
   const [modeOverride, setModeOverride] = useState<Mode | null>(null)
@@ -464,7 +461,7 @@ export function ChatSidebarInner({
 
   const handleCopy = useCallback((content: string) => {
     void copyPlainTextToClipboard(content).catch((err) => {
-      console.error('[ChatSidebar] copy failed', err)
+      console.error('[RightSidebar] copy failed', err)
     })
   }, [])
 
@@ -547,7 +544,7 @@ export function ChatSidebarInner({
   )
 
   const chatTabStrip = (
-    <ChatSidebarPanelTabs
+    <RightSidebarPanelTabs
       leading={
         panel === 'chat' ? <ChatSidebarNewChatButton onClick={() => void onNewChat()} /> : undefined
       }
@@ -565,12 +562,12 @@ export function ChatSidebarInner({
   )
 
   const linkTabStrip = (
-    <ChatSidebarPanelTabs
+    <RightSidebarPanelTabs
       items={[
         { value: 'linked', label: 'Linked', icon: Link2Icon },
         { value: 'linking', label: 'Linking', icon: PlusIcon }
       ]}
-      onValueChange={(v) => onLinkModeChange(v as ChatSidebarLinkMode)}
+      onValueChange={(v) => onLinkModeChange(v as RightSidebarLinkMode)}
       value={linkMode}
       variant="segmented"
     />
@@ -628,7 +625,7 @@ export function ChatSidebarInner({
         trailing={null}
       />
       {panel === 'chat' && (
-        <ChatSidebarOpenSessionTabs
+        <RightSidebarOpenSessionTabs
           activeSessionId={session.id}
           isMacNotelab={isMacNotelab}
           onClose={closeOpenSessionTab}

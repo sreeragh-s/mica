@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
 import { enableInfinityCanvas } from '@/lib/core/vite-flags'
-import { AppSidebar } from '@/features/notes/chat/AppSidebar'
+import { AppSidebar } from '@/features/notes/right-sidebar/AppSidebar'
 import { NotesPrimaryPane } from '@/features/notes/editor-area/NotesPrimaryPane'
 import type { NotesPrimaryPaneProps } from '@/features/notes/editor-area/NotesPrimaryPane'
 import type { OpenNoteTab } from '@/features/notes/editor-area/NoteTabStrip'
@@ -392,9 +392,6 @@ export function NotesMainAreaLayout({
     notes,
     notesCount,
     user,
-    guestMode,
-    onSignOut,
-    onConnectGitHub,
     selectedNotePath,
     selectNote,
     openNoteTabPaths,
@@ -570,10 +567,6 @@ export function NotesMainAreaLayout({
                       {appMode === 'settings' && settingsSection === 'account' ? (
                         <Suspense fallback={<LazyPaneFallback />}>
                           <AccountSettingsView
-                            user={user}
-                            guestMode={guestMode}
-                            onSignOut={onSignOut}
-                            onConnectGitHub={onConnectGitHub}
                             isMacNotelab={isMacNotelab}
                             macTitlebarStyles={macTitlebarStyles}
                           />
@@ -637,7 +630,6 @@ export function NotesMainAreaLayout({
                             isMacNotelab={isMacNotelab}
                             macTitlebarStyles={macTitlebarStyles}
                             workspacePath={dataRootPath}
-                            guestMode={guestMode}
                             isLoggedIn={Boolean(user?.email || user?.name)}
                             indexingStatus={indexingStatus}
                             refreshIndexingStatus={refreshIndexingStatus}
@@ -667,7 +659,7 @@ export function NotesMainAreaLayout({
                   notes={notes}
                   folders={folders}
                   workspacePath={dataRootPath}
-                  canAutoIndex={Boolean(user?.email || user?.name) && !guestMode}
+                  canAutoIndex={Boolean(user?.email || user?.name)}
                   indexingStatus={indexingStatus}
                   runIndexPending={runIndexPending}
                   selectedNote={vm.selectedNote}

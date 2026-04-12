@@ -28,7 +28,6 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
     folders,
     notes,
     user,
-    guestMode,
     selectedNotePath,
     selectedNote,
     focusedFolder,
@@ -55,7 +54,7 @@ export function NotesMainArea({ vm }: NotesMainAreaProps): JSX.Element {
 
   const propertyCatalog = useMemo(() => buildPropertyCatalogFromNotes(notes), [notes])
 
-  const canAutoIndex = Boolean(user?.email || user?.name) && !guestMode
+  const canAutoIndex = Boolean(user?.email || user?.name)
 
   const [zenHintVisible, setZenHintVisible] = useState(false)
   const [editorBottomBarEl, setEditorBottomBarEl] = useState<HTMLDivElement | null>(null)

@@ -2,11 +2,13 @@ import type { NotelabThemeConfigV1 } from '../config/notelab-config-schema'
 import {
   loadThemeConfig as loadThemeConfigFromDisk,
   loadThemePresetId as loadThemePresetFromConfig,
-  loadUiFont as loadFromConfig,
+  loadUiFont as loadFromConfig
+} from '../config/notelab-app-config-read'
+import {
   saveThemeConfig as persistThemeConfig,
   saveThemePresetId as persistThemePresetId,
   saveUiFont as saveToConfig
-} from '../config/notelab-app-config'
+} from '../config/notelab-app-config-write'
 import { notifyThemePresetChanged } from './theme-preset-apply'
 import type { UiFontId } from './ui-font-types'
 export type { UiFontId } from './ui-font-types'

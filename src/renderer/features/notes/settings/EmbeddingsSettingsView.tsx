@@ -20,7 +20,6 @@ export type EmbeddingsSettingsViewProps = {
   isMacNotelab: boolean
   macTitlebarStyles: MacTitlebarStyles
   workspacePath: string | null
-  guestMode?: boolean
   isLoggedIn: boolean
   indexingStatus: NotesAppViewModel['indexingStatus']
   refreshIndexingStatus: NotesAppViewModel['refreshIndexingStatus']
@@ -40,7 +39,6 @@ export function EmbeddingsSettingsView({
   isMacNotelab,
   macTitlebarStyles,
   workspacePath,
-  guestMode,
   isLoggedIn,
   indexingStatus,
   refreshIndexingStatus,
@@ -58,7 +56,7 @@ export function EmbeddingsSettingsView({
   const indexedPercent = totalCount > 0 ? Math.round((indexedCount / totalCount) * 100) : 0
   const showDebug = import.meta.env.DEV
 
-  const disabled = !isLoggedIn || guestMode || running
+  const disabled = !isLoggedIn || running
 
   return (
     <div
@@ -80,7 +78,7 @@ export function EmbeddingsSettingsView({
       </div>
 
       {/* Sign-in required notice */}
-      {(!isLoggedIn || guestMode) && (
+      {!isLoggedIn && (
         <div className="border-border bg-muted/40 flex items-start gap-3 rounded-lg border p-4">
           <AlertCircle className="text-muted-foreground mt-0.5 size-4 shrink-0" aria-hidden />
           <p className="text-muted-foreground text-sm leading-relaxed">
@@ -126,7 +124,7 @@ export function EmbeddingsSettingsView({
           onClick={() => void runIndexPending()}
           className="gap-2"
           title={
-            !isLoggedIn || guestMode
+            !isLoggedIn
               ? 'Sign in to enable indexing'
               : pendingCount === 0
                 ? 'No pending notes'
@@ -149,7 +147,7 @@ export function EmbeddingsSettingsView({
             onClick={() => void runReindexAll()}
             className="gap-2"
             title={
-              !isLoggedIn || guestMode
+              !isLoggedIn
                 ? 'Sign in to enable indexing'
                 : totalCount === 0
                   ? 'No notes to index'

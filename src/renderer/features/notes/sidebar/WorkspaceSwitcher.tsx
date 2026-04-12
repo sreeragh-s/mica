@@ -12,7 +12,8 @@ import {
 import { cn } from '@/lib/utils'
 import { getApi } from '@/bridges/auth/auth-bridge'
 import { loadSetupState, saveSetupState } from '@/lib/workspace/setup-storage'
-import { loadWorkspaces, upsertWorkspace } from '@/lib/config/notelab-app-config'
+import { loadWorkspaces } from '@/lib/config/notelab-app-config-read'
+import { upsertWorkspace } from '@/lib/config/notelab-app-config-write'
 import type { SavedWorkspace } from '@/lib/config/notelab-config-schema'
 
 export function deriveName(path: string): string {

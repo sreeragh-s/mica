@@ -7,7 +7,6 @@ import {
   MAC_WINDOW_OUTER_CORNER_RADIUS_PX
 } from '@shared/windowing/mac-window-chrome'
 
-import type { NotesAppProps } from '@/features/notes/notes-app-types'
 import { macTitlebarStyles } from '@/features/notes/notes-app-utils'
 import { GitRemoteDialog } from '@/features/notes/git/GitRemoteDialog'
 import { GitUserConfigDialog } from '@/features/notes/git/GitUserConfigDialog'
@@ -15,10 +14,8 @@ import { NotesMainArea } from '@/features/notes/editor-area/NotesMainArea'
 import { LeftSidebar } from '@/features/notes/sidebar/LeftSidebar'
 import { useNotesApp } from '@/hooks/notes/useNotesApp'
 
-export type { NotesAppProps } from '@/features/notes/notes-app-types'
-
-export function NotesApp(props: NotesAppProps): JSX.Element {
-  const vm = useNotesApp(props)
+export function NotesApp(): JSX.Element {
+  const vm = useNotesApp()
   const { sidebarCollapsed, zenMode, isMacNotelab } = vm
   const sidebarHidden = sidebarCollapsed || zenMode
   const cwd = vm.gitToolbarFolder?.localGitPath ?? ''

@@ -12,12 +12,12 @@ import { macTitlebarStyles } from '@/features/notes/notes-app-utils'
 import {
   CHAT_SIDEBAR_DEFAULT_WIDTH_PX,
   CHAT_SIDEBAR_WIDTH_LS_KEY,
-  clampChatSidebarWidth
-} from '@/features/notes/chat/chat-sidebar-constants'
-import { ChatSidebarInner } from '@/features/notes/chat/ChatSidebarInner'
-import type { ChatSidebarProps } from '@/features/notes/chat/chat-sidebar-types'
+  clampRightSidebarWidth
+} from '@/features/notes/right-sidebar/right-sidebar-constants'
+import { RightSidebarInner } from '@/features/notes/right-sidebar/RightSidebarInner'
+import type { RightSidebarProps } from '@/features/notes/right-sidebar/right-sidebar-types'
 
-export function ChatSidebar({
+export function RightSidebar({
   open,
   notes,
   folders,
@@ -32,13 +32,13 @@ export function ChatSidebar({
   onLinkModeChange,
   isMacNotelab,
   linkMentionIndex
-}: ChatSidebarProps): JSX.Element {
+}: RightSidebarProps): JSX.Element {
   const [sidebarWidthPx, setSidebarWidthPx] = useState(() => {
     try {
       const raw = localStorage.getItem(CHAT_SIDEBAR_WIDTH_LS_KEY)
       if (raw == null) return CHAT_SIDEBAR_DEFAULT_WIDTH_PX
       const n = Number(raw)
-      if (Number.isFinite(n)) return clampChatSidebarWidth(n)
+      if (Number.isFinite(n)) return clampRightSidebarWidth(n)
     } catch {
       /* ignore */
     }
@@ -67,7 +67,7 @@ export function ChatSidebar({
     const d = resizeDragRef.current
     if (!d) return
     const dx = d.startX - e.clientX
-    setSidebarWidthPx(clampChatSidebarWidth(d.startW + dx))
+    setSidebarWidthPx(clampRightSidebarWidth(d.startW + dx))
   }, [])
 
   const onResizePointerUp = useCallback((e: ReactPointerEvent<HTMLDivElement>) => {
@@ -110,7 +110,7 @@ export function ChatSidebar({
       >
         {open ? (
           <div
-            aria-label="Resize chat panel"
+            aria-label="Resize right sidebar"
             aria-orientation="vertical"
             className={cn(
               'absolute left-0 top-0 z-20 h-full w-2 shrink-0 cursor-col-resize touch-none',
@@ -126,7 +126,7 @@ export function ChatSidebar({
             style={isMacNotelab ? macTitlebarStyles.noDrag : undefined}
           />
         ) : null}
-        <ChatSidebarInner
+        <RightSidebarInner
           open={open}
           folders={folders}
           canAutoIndex={canAutoIndex}
@@ -148,8 +148,8 @@ export function ChatSidebar({
 }
 
 export type {
-  ChatSidebarLinkMode,
-  ChatSidebarPanel,
-  ChatSidebarProps,
+  RightSidebarLinkMode,
+  RightSidebarPanel,
+  RightSidebarProps,
   NoteLinksData
-} from '@/features/notes/chat/chat-sidebar-types'
+} from '@/features/notes/right-sidebar/right-sidebar-types'

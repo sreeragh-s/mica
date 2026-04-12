@@ -27,7 +27,7 @@ export function SearchHighlight({ segments }: { segments: SearchMatchSegment[] }
   )
 }
 
-export function ChatSidebarOpenSessionTabs({
+export function RightSidebarOpenSessionTabs({
   tabs,
   activeSessionId,
   onSelect,

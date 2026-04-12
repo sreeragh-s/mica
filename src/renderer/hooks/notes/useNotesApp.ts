@@ -16,7 +16,10 @@ import {
   type SavedNote,
   type Folder
 } from '@/lib/notes/notes-storage'
-import { saveEditorSettings, saveAppearanceSettings } from '@/lib/config/notelab-app-config'
+import {
+  saveEditorSettings,
+  saveAppearanceSettings
+} from '@/lib/config/notelab-app-config-write'
 import type { NotelabWorkspaceViewSnapshotV1 } from '@/lib/config/notelab-config-schema'
 import {
   loadWorkspaceChatSidebarOpen,
@@ -27,7 +30,6 @@ import {
   buildUniqueNoteRelativePath,
   newFolderPath
 } from '@/lib/workspace/workspace-markdown-sync'
-import type { NotesAppProps } from '@/features/notes/notes-app-types'
 import {
   createEmptyDrawing,
   createEmptyNote,
@@ -45,6 +47,7 @@ import { useNotesAppIndexing } from './internal/useNotesAppIndexing'
 import { useNotesAppUi } from './internal/useNotesAppUi'
 import { useNotesGitSourceControl } from '@/hooks/notes/useNotesGitSourceControl'
 import { useNotesGitSync } from '@/hooks/notes/useNotesGitSync'
+import { useAuth } from '@/hooks/app/useAuth'
 
 import { useNotesStore } from '@/stores/notes/useNotesStore'
 
@@ -52,12 +55,8 @@ const LOG = '[useNotesApp]'
 const log = createElectronLogger(LOG)
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type -- view-model shape is NotesAppViewModel below
-export function useNotesApp({
-  user,
-  guestMode = false,
-  onSignOut,
-  onConnectGitHub
-}: NotesAppProps) {
+export function useNotesApp() {
+  const { user } = useAuth()
   const isMacNotelab = checkIsMac()
   const folderInputRef = useRef<HTMLInputElement>(null)
   const folderDraftRef = useRef('')
@@ -1405,9 +1404,6 @@ export function useNotesApp({
 
   return {
     user,
-    guestMode,
-    onSignOut,
-    onConnectGitHub,
     isMacNotelab,
     macTitlebarStyles,
     appMode,

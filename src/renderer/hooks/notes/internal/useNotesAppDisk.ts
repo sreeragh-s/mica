@@ -9,7 +9,7 @@ import {
 import { getApi } from '@/bridges/auth/auth-bridge'
 import { createElectronLogger } from '@/lib/core/electron-log'
 import { loadSetupState } from '@/lib/workspace/setup-storage'
-import { switchDataRoot } from '@/lib/config/notelab-app-config'
+import { switchDataRoot } from '@/lib/config/notelab-app-config-write'
 import {
   restoreWorkspaceViewAfterIndex,
   type WindowSessionLike
