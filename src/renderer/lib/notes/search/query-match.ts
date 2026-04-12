@@ -48,20 +48,6 @@ export function findSubsequenceIndices(haystack: string, query: string): number[
   return qi === q.length ? indices : null
 }
 
-function segmentsFromIndexSet(str: string, highlight: Set<number>): SearchMatchSegment[] {
-  if (str.length === 0) return []
-  const out: SearchMatchSegment[] = []
-  let i = 0
-  while (i < str.length) {
-    const hi = highlight.has(i)
-    let j = i + 1
-    while (j < str.length && highlight.has(j) === hi) j++
-    out.push({ text: str.slice(i, j), highlight: hi })
-    i = j
-  }
-  return out
-}
-
 export function buildSegmentsFromPositions(
   str: string,
   positions: { tokenIdx: number; startIndex: number }[],
@@ -95,30 +81,19 @@ export function buildSegmentsFromPositions(
 export function buildHighlightSegments(haystack: string, query: string): SearchMatchSegment[] {
   const q = query.trim()
   if (!q || !haystack) return [{ text: haystack, highlight: false }]
-  const tokens = tokenizeQuery(q)
-  if (tokens.length === 0) return [{ text: haystack, highlight: false }]
-  if (tokens.length === 1) {
-    const lowerH = haystack.toLowerCase()
-    const lowerQ = tokens[0]!
-    const idx = lowerH.indexOf(lowerQ)
-    if (idx !== -1) {
-      const parts: SearchMatchSegment[] = []
-      if (idx > 0) parts.push({ text: haystack.slice(0, idx), highlight: false })
-      parts.push({ text: haystack.slice(idx, idx + q.length), highlight: true })
-      if (idx + q.length < haystack.length) {
-        parts.push({ text: haystack.slice(idx + q.length), highlight: false })
-      }
-      return parts
+  const lowerH = haystack.toLowerCase()
+  const lowerQ = q.toLowerCase()
+  const idx = lowerH.indexOf(lowerQ)
+  if (idx !== -1) {
+    const parts: SearchMatchSegment[] = []
+    if (idx > 0) parts.push({ text: haystack.slice(0, idx), highlight: false })
+    parts.push({ text: haystack.slice(idx, idx + q.length), highlight: true })
+    if (idx + q.length < haystack.length) {
+      parts.push({ text: haystack.slice(idx + q.length), highlight: false })
     }
-    const sub = findSubsequenceIndices(haystack, q)
-    if (!sub) return [{ text: haystack, highlight: false }]
-    const set = new Set(sub)
-    return segmentsFromIndexSet(haystack, set)
+    return parts
   }
-  const positions = findPrefixPositions(haystack, tokens)
-  if (positions.length < tokens.length) return [{ text: haystack, highlight: false }]
-  const tokenLengths = tokens.map((t) => t.length)
-  return buildSegmentsFromPositions(haystack, positions, tokenLengths)
+  return [{ text: haystack, highlight: false }]
 }
 
 export function scoreMatch(query: string, haystack: string): number | null {
@@ -126,43 +101,6 @@ export function scoreMatch(query: string, haystack: string): number | null {
   if (!q.length) return null
   const h = haystack.toLowerCase()
   if (!h.length) return null
-  const tokens = tokenizeQuery(q)
-  if (tokens.length === 0) return null
-  if (tokens.length === 1) {
-    const idx = h.indexOf(tokens[0]!)
-    if (idx !== -1) return 100_000 - idx - q.length
-    let qi = 0
-    let score = 0
-    let streak = 0
-    for (let i = 0; i < h.length && qi < q.length; i++) {
-      if (h[i] === q[qi]) {
-        streak++
-        score += 40 + streak * 8
-        if (i > 0 && (/\s/.test(h[i - 1]!) || h[i - 1] === '/' || h[i - 1] === '(')) {
-          score += 12
-        }
-        qi++
-      } else {
-        streak = 0
-      }
-    }
-    if (qi < q.length) return null
-    return 500 + score
-  }
-  if (tokens.length > 1) {
-    if (!matchAsPrefixes(haystack, tokens)) return null
-    const positions = findPrefixPositions(haystack, tokens)
-    if (positions.length < tokens.length) return null
-    let score = 0
-    const sortedPos = [...positions].sort((a, b) => a.startIndex - b.startIndex)
-    for (let i = 0; i < sortedPos.length; i++) {
-      score += 100 - sortedPos[i]!.startIndex
-      if (i > 0) {
-        const gap = sortedPos[i]!.startIndex - sortedPos[i - 1]!.startIndex
-        if (gap < 8) score += 20
-      }
-    }
-    return score
-  }
-  return null
+  const idx = h.indexOf(q.toLowerCase())
+  return idx === -1 ? null : 100_000 - idx - q.length
 }

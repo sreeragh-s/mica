@@ -25,6 +25,7 @@ import {
   syncMarkdownFilesToDisk,
   writeNotelabFile
 } from './workspace-fs'
+import { searchWorkspaceNotes } from './workspace-search'
 import { checkGitBinary, runGit } from '../git/git-runner'
 
 const LOG = '[notelab-workspace]'
@@ -339,6 +340,34 @@ export function registerWorkspaceIpc(): void {
         console.error(LOG, 'sync-markdown', msg)
         return { ok: false, error: msg }
       }
+    }
+  )
+
+  ipcMain.handle(
+    'workspace:search-notes',
+    async (
+      _evt,
+      payload: { cwd: string; query: string; limit?: number }
+    ): Promise<
+      | {
+          ok: true
+          hits: { notePath: string; lineNumber: number; lineText: string }[]
+          engine: 'git-grep' | 'ripgrep'
+        }
+      | { ok: false; error: string }
+    > => {
+      const cwd = payload.cwd?.trim() ?? ''
+      const query = payload.query?.trim() ?? ''
+      const limit = Math.max(1, Math.min(payload.limit ?? 20, 200))
+      if (!cwd || !allowWorkspaceFs(cwd)) {
+        return { ok: false, error: 'not_a_workspace' }
+      }
+      const result = searchWorkspaceNotes(cwd, query, limit)
+      if (!result.ok) {
+        console.error(LOG, 'search-notes', result.error)
+        return { ok: false, error: result.error }
+      }
+      return result
     }
   )
 

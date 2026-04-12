@@ -106,16 +106,38 @@ export function Sidebar({ vm }: SidebarProps): JSX.Element {
     () => new Map(folders.map((folder) => [folder.folder, folder])),
     [folders]
   )
-
-  const searchResults = useMemo(
-    () => searchNotes(allNotes, folders, searchQuery, { limit: 20 }),
-    [allNotes, folders, searchQuery]
-  )
+  const [searchResults, setSearchResults] = useState<Awaited<ReturnType<typeof searchNotes>>>([])
 
   const folderSearchResults = useMemo(
     () => searchFolders(folders, searchQuery, { limit: 10 }),
     [folders, searchQuery]
   )
+
+  useEffect(() => {
+    if (!searchOpen || searchQuery.trim().length === 0) {
+      setSearchResults([])
+      return
+    }
+
+    let cancelled = false
+    const timer = window.setTimeout(() => {
+      void searchNotes(allNotes, folders, searchQuery, workspaceRoot, { limit: 20 }).then(
+        (results) => {
+          if (!cancelled) setSearchResults(results)
+        }
+      ).catch((error: unknown) => {
+        if (!cancelled) {
+          console.warn('[sidebar-search] search failed', error)
+          setSearchResults([])
+        }
+      })
+    }, 120)
+
+    return () => {
+      cancelled = true
+      window.clearTimeout(timer)
+    }
+  }, [allNotes, folders, searchOpen, searchQuery, workspaceRoot])
 
   useEffect(() => {
     const clearDrop = (): void => {

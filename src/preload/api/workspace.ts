@@ -60,6 +60,14 @@ export const workspaceApi = {
     pruneOrphanNoteFiles?: boolean
   }): Promise<{ ok: true } | { ok: false; error: string }> =>
     ipcRenderer.invoke('workspace:sync-markdown', payload),
+  searchNotes: (payload: { cwd: string; query: string; limit?: number }): Promise<
+    | {
+        ok: true
+        hits: { notePath: string; lineNumber: number; lineText: string }[]
+        engine: 'git-grep' | 'ripgrep'
+      }
+    | { ok: false; error: string }
+  > => ipcRenderer.invoke('workspace:search-notes', payload),
   readNotelabIndex: (payload: {
     cwd: string
   }): Promise<
