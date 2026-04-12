@@ -1,4 +1,4 @@
-import { Folder, FolderOpen } from 'lucide-react'
+import { FileText, FolderOpen } from 'lucide-react'
 import type { JSX } from 'react'
 
 import type { NoteSearchResult, FolderSearchResult } from '@/lib/notes/search/search-types'
@@ -65,7 +65,7 @@ export function SidebarSearchResults({
             Notes
           </p>
           <ul className="flex flex-col gap-0.5">
-            {searchResults.map(({ note, snippetSegments, folderName }) => (
+            {searchResults.map(({ note, titleSegments, snippetSegments, folderName }) => (
               <li key={note.path}>
                 <button
                   type="button"
@@ -79,9 +79,17 @@ export function SidebarSearchResults({
                   className="hover:bg-sidebar-accent hover:text-sidebar-accent-foreground flex w-full min-w-0 flex-col items-start gap-1 rounded-md px-2 py-2 text-left transition-colors"
                 >
                   <div className="flex min-w-0 flex-1 items-center gap-1.5">
-                    <Folder className="text-muted-foreground size-3.5 shrink-0" aria-hidden />
-                    <span className="line-clamp-1 text-[13px] font-medium leading-snug">
-                      {note.title || 'Untitled'}
+                    <FileText className="text-muted-foreground size-3.5 shrink-0" aria-hidden />
+                    <span className="line-clamp-1 min-w-0 flex-1 text-[13px] font-medium leading-snug">
+                      {titleSegments.map((seg, i) =>
+                        seg.highlight ? (
+                          <mark key={i} className="bg-primary/20 text-foreground rounded-sm px-0.5">
+                            {seg.text}
+                          </mark>
+                        ) : (
+                          <span key={i}>{seg.text}</span>
+                        )
+                      )}
                     </span>
                     <span className="text-muted-foreground shrink-0 text-[11px]">{folderName}</span>
                   </div>

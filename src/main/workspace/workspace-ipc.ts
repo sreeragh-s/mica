@@ -349,10 +349,10 @@ export function registerWorkspaceIpc(): void {
       _evt,
       payload: { cwd: string; query: string; limit?: number }
     ): Promise<
-      | {
+        | {
           ok: true
           hits: { notePath: string; lineNumber: number; lineText: string }[]
-          engine: 'git-grep' | 'ripgrep'
+          engine: 'git-grep' | 'ripgrep' | 'grep'
         }
       | { ok: false; error: string }
     > => {

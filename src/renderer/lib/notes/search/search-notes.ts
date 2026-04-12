@@ -60,15 +60,18 @@ export async function searchNotes(
   }
 
   const noteByPath = new Map(notes.map((note) => [note.path, note]))
+  const seenPaths = new Set<string>()
 
   return response.hits
     .map((hit, index) => {
       const note = noteByPath.get(hit.notePath)
       if (!note) return null
+      if (seenPaths.has(note.path)) return null
+      seenPaths.add(note.path)
       return {
         note,
         score: limit - index,
-        titleSegments: [{ text: note.title || 'Untitled', highlight: false }],
+        titleSegments: buildHighlightSegments(note.title || 'Untitled', q),
         snippetSegments: buildBodySnippet(hit.lineText, q),
         folderName: folderName(note.folder)
       }

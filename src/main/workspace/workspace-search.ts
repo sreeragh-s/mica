@@ -9,7 +9,7 @@ type WorkspaceSearchHit = {
 }
 
 type WorkspaceSearchResult =
-  | { ok: true; hits: WorkspaceSearchHit[]; engine: 'git-grep' | 'ripgrep' }
+  | { ok: true; hits: WorkspaceSearchHit[]; engine: 'git-grep' | 'ripgrep' | 'grep' }
   | { ok: false; error: string }
 
 const NOTE_GLOBS = ['*.md', '*.excalidraw', '*/*.md', '*/*.excalidraw']
@@ -46,7 +46,10 @@ function parseSearchOutput(stdout: string, limit: number): WorkspaceSearchHit[] 
     const first = line.indexOf(':')
     const second = first === -1 ? -1 : line.indexOf(':', first + 1)
     if (first === -1 || second === -1) continue
-    const notePath = line.slice(0, first).replace(/\\/g, '/')
+    const notePath = line
+      .slice(0, first)
+      .replace(/\\/g, '/')
+      .replace(/^\.\//, '')
     const lineNumber = Number.parseInt(line.slice(first + 1, second), 10)
     if (!notePath || !Number.isFinite(lineNumber)) continue
     hits.push({
@@ -66,7 +69,11 @@ export function searchWorkspaceNotes(
 ): WorkspaceSearchResult {
   const trimmedQuery = query.trim()
   if (!trimmedQuery) {
-    return { ok: true, hits: [], engine: existsSync(join(cwd, '.git')) ? 'git-grep' : 'ripgrep' }
+    return {
+      ok: true,
+      hits: [],
+      engine: existsSync(join(cwd, '.git')) ? 'git-grep' : 'ripgrep'
+    }
   }
 
   const isGitWorkspace = existsSync(join(cwd, '.git'))
@@ -120,10 +127,33 @@ export function searchWorkspaceNotes(
     '.'
   ]
   const rgResult = runCommand('rg', rgArgs, cwd)
-  if (!rgResult.ok) return { ok: false, error: rgResult.error }
+  if (rgResult.ok) {
+    return {
+      ok: true,
+      hits: parseSearchOutput(rgResult.stdout, limit),
+      engine: 'ripgrep'
+    }
+  }
+  if (!/ENOENT/i.test(rgResult.error)) return { ok: false, error: rgResult.error }
+
+  const grepArgs = [
+    '-R',
+    '-I',
+    '-i',
+    '-F',
+    '-n',
+    '--include=*.md',
+    '--include=*.excalidraw',
+    '--exclude-dir=.git',
+    '--exclude-dir=.notelab',
+    trimmedQuery,
+    '.'
+  ]
+  const grepResult = runCommand('grep', grepArgs, cwd)
+  if (!grepResult.ok) return { ok: false, error: grepResult.error }
   return {
     ok: true,
-    hits: parseSearchOutput(rgResult.stdout, limit),
-    engine: 'ripgrep'
+    hits: parseSearchOutput(grepResult.stdout, limit),
+    engine: 'grep'
   }
 }
