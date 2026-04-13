@@ -38,6 +38,30 @@ const log = createElectronLogger(LOG)
 
 type Setter<T> = Dispatch<SetStateAction<T>>
 
+function persistGithubRemoteStateV3(githubRemoteUrl: string): void {
+  const remote = githubRemoteUrl.trim()
+  saveNotesState({
+    version: 3,
+    ...(remote ? { githubRemoteUrl: remote } : {})
+  })
+}
+
+function persistGithubRemoteStateV2(
+  githubRemoteUrl: string,
+  state: {
+    folders: Folder[]
+    notes: SavedNote[]
+  }
+): void {
+  const remote = githubRemoteUrl.trim()
+  saveNotesState({
+    version: 2,
+    folders: state.folders,
+    notes: state.notes,
+    ...(remote ? { githubRemoteUrl: remote } : {})
+  })
+}
+
 type UseNotesAppDiskArgs = {
   folders: Folder[]
   notes: SavedNote[]
@@ -137,15 +161,15 @@ export function useNotesAppDisk({
         }
         if (kind === 'pdf') {
           return {
-          path: n.note,
-          folder: n.folder,
-          title: n.title,
-          updatedAt: n.updatedAtMs,
-          content: null,
-          documentState: 'ready',
-          kind: 'pdf' as const,
-          pdfPath: n.note
-        }
+            path: n.note,
+            folder: n.folder,
+            title: n.title,
+            updatedAt: n.updatedAtMs,
+            content: null,
+            documentState: 'ready',
+            kind: 'pdf' as const,
+            pdfPath: n.note
+          }
         }
         return {
           path: n.note,
@@ -233,9 +257,7 @@ export function useNotesAppDisk({
       if (uniqueNotePaths.length === 0) return
 
       const pending = uniqueNotePaths.filter((notePath) => {
-        const note =
-          pendingSavedNotesRef.current.get(notePath) ??
-          notesRef.current.find((candidate) => candidate.path === notePath)
+        const note = getLatestNoteSnapshot(notePath)
         if (!note) return false
         if (note.kind === 'pdf') return false
         if (note.kind === 'drawing') return note.excalidrawScene == null
@@ -245,9 +267,7 @@ export function useNotesAppDisk({
 
       const hydratedEntries = await Promise.all(
         pending.map(async (notePath) => {
-          const note =
-            pendingSavedNotesRef.current.get(notePath) ??
-            notesRef.current.find((candidate) => candidate.path === notePath)
+          const note = getLatestNoteSnapshot(notePath)
           if (!note) return null
 
           const result = await api.workspace!.readNoteText!({ cwd, relativePath: notePath })
@@ -270,12 +290,12 @@ export function useNotesAppDisk({
 
           return [
             notePath,
-              {
-                ...note,
-                updatedAt: result.updatedAtMs,
-                documentState: 'ready',
-                content: diskBodyToContent(result.content, note.title)
-              } satisfies SavedNote
+            {
+              ...note,
+              updatedAt: result.updatedAtMs,
+              documentState: 'ready',
+              content: diskBodyToContent(result.content, note.title)
+            } satisfies SavedNote
           ] as const
         })
       )
@@ -289,7 +309,7 @@ export function useNotesAppDisk({
 
       setNotes((prev) => prev.map((note) => hydrated.get(note.path) ?? note))
     },
-    [dataRootRef, notesRef, pendingSavedNotesRef, setNotes]
+    [dataRootRef, getLatestNoteSnapshot, setNotes]
   )
 
   const flushNoteToDisk = useCallback(
@@ -595,11 +615,7 @@ export function useNotesAppDisk({
   useEffect(() => {
     if (!diskMode) return
     const t = window.setTimeout(() => {
-      const remote = githubRemoteUrl.trim()
-      saveNotesState({
-        version: 3,
-        ...(remote ? { githubRemoteUrl: remote } : {})
-      })
+      persistGithubRemoteStateV3(githubRemoteUrl)
     }, 350)
     return () => window.clearTimeout(t)
   }, [diskMode, githubRemoteUrl])
@@ -607,13 +623,7 @@ export function useNotesAppDisk({
   useEffect(() => {
     if (diskMode) return
     const t = window.setTimeout(() => {
-      const remote = githubRemoteUrl.trim()
-      saveNotesState({
-        version: 2,
-        folders,
-        notes,
-        ...(remote ? { githubRemoteUrl: remote } : {})
-      })
+      persistGithubRemoteStateV2(githubRemoteUrl, { folders, notes })
     }, 350)
     return () => window.clearTimeout(t)
   }, [diskMode, folders, githubRemoteUrl, notes])

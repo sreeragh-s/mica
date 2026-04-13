@@ -52,6 +52,10 @@ export function useNotesAppGit({
     setGitInitError
   } = useNotesStore()
   const gitStatusRefreshTimerRef = useRef<number | null>(null)
+  const hasGitWorkspace = useMemo(
+    () => folders.some((folder) => folder.localGitPath) || Boolean(diskMode && dataRootPath),
+    [dataRootPath, diskMode, folders]
+  )
 
   const refreshWorkspaceGitStatuses = useCallback(async () => {
     const api = getApi()
@@ -97,17 +101,17 @@ export function useNotesAppGit({
   )
 
   useEffect(() => {
-    if (!folders.some((folder) => folder.localGitPath) && !(diskMode && dataRootPath)) return
+    if (!hasGitWorkspace) return
     void refreshWorkspaceGitStatuses()
-  }, [dataRootPath, diskMode, folders, refreshWorkspaceGitStatuses])
+  }, [hasGitWorkspace, refreshWorkspaceGitStatuses])
 
   useEffect(() => {
-    if (!folders.some((folder) => folder.localGitPath) && !(diskMode && dataRootPath)) return
+    if (!hasGitWorkspace) return
     const id = window.setInterval(() => {
       void refreshWorkspaceGitStatuses()
     }, 12_000)
     return () => window.clearInterval(id)
-  }, [dataRootPath, diskMode, folders, refreshWorkspaceGitStatuses])
+  }, [hasGitWorkspace, refreshWorkspaceGitStatuses])
 
   useEffect(() => {
     return () => {
