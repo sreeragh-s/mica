@@ -88,7 +88,6 @@ export function LocalModelSetupPanel({
     downloadOllama,
     startOllama,
     stopOllama,
-    refreshModels,
     pullModel,
     deleteModel
   } = ollama
@@ -111,10 +110,6 @@ export function LocalModelSetupPanel({
   const pullCleanupRef = useRef<(() => void) | null>(null)
 
   const embeddingInstalled = useMemo(() => hasLocalEmbeddingModel(localModels), [localModels])
-
-  useEffect(() => {
-    if (status?.running) void refreshModels()
-  }, [status?.running, refreshModels])
 
   // Close suggestions when clicking outside
   useEffect(() => {

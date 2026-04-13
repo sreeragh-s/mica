@@ -60,9 +60,15 @@ import {
 } from '@/features/notes/chat/chat-sidebar-chrome'
 import { STARTER_SUGGESTIONS } from '@/features/notes/right-sidebar/right-sidebar-constants'
 import { BidirectionalLinksPanel } from '@/features/notes/right-sidebar/BidirectionalLinksPanel'
-import { HistoryItem, RightSidebarOpenSessionTabs } from '@/features/notes/right-sidebar/right-sidebar-panels'
+import {
+  HistoryItem,
+  RightSidebarOpenSessionTabs
+} from '@/features/notes/right-sidebar/right-sidebar-panels'
 import type { RightSidebarProps } from '@/features/notes/right-sidebar/right-sidebar-types'
-import type { RightSidebarLinkMode, NoteLinksData } from '@/features/notes/right-sidebar/right-sidebar-types'
+import type {
+  RightSidebarLinkMode,
+  NoteLinksData
+} from '@/features/notes/right-sidebar/right-sidebar-types'
 import { ModePicker, PaywallBanner } from '@/features/notes/chat/chat-sidebar-input-controls'
 import { PipelineProgress } from '@/features/notes/chat/PipelineProgress'
 import type { ChatHistoryMeta, ChatPipelineStatus } from '@/hooks/notes/useNotesChat'
@@ -262,7 +268,6 @@ export function RightSidebarInner({
     loadHistorySession
   } = useNotesChat({
     notes,
-    folders,
     workspacePath,
     selectedNote,
     linkMentionIndex,

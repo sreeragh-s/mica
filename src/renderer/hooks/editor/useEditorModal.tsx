@@ -14,7 +14,6 @@ export function useEditorModal(): [
   (title: string, showModal: (onClose: () => void) => JSX.Element) => void
 ] {
   const [modalContent, setModalContent] = useState<null | {
-    closeOnClickOutside: boolean
     content: JSX.Element
     title: string
   }>(null)
@@ -41,13 +40,8 @@ export function useEditorModal(): [
   }, [modalContent, onClose])
 
   const showModal = useCallback(
-    (
-      title: string,
-      getContent: (onClose: () => void) => JSX.Element,
-      closeOnClickOutside = false
-    ) => {
+    (title: string, getContent: (onClose: () => void) => JSX.Element) => {
       setModalContent({
-        closeOnClickOutside,
         content: getContent(onClose),
         title
       })

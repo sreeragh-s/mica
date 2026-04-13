@@ -13,7 +13,7 @@ import { getApi } from '@/bridges/auth/auth-bridge'
 import { getChatHistoryApi } from '@/bridges/chat/chat-history-bridge'
 import { createElectronLogger } from '@/lib/core/electron-log'
 import type { WorkspaceLinkMentionIndex } from '@/lib/notes/graph-types'
-import type { SavedNote, Folder } from '@/lib/notes/notes-storage'
+import type { SavedNote } from '@/lib/notes/notes-storage'
 
 const LOG = '[useNotesChat]'
 const log = createElectronLogger(LOG)
@@ -254,8 +254,6 @@ function parseSSEChunks(raw: string): { tokens: string[]; done: boolean } {
 
 export type UseNotesChatOptions = {
   notes: SavedNote[]
-  /** Passed through for the sidebar workspace filter UI — not used inside the hook. */
-  folders?: Folder[]
   selectedNote: SavedNote | null
   workspacePath: string | null
   linkMentionIndex?: WorkspaceLinkMentionIndex | null
