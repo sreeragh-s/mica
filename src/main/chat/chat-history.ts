@@ -1,8 +1,15 @@
 import { app, ipcMain } from 'electron'
-import { mkdir, writeFile, readFile, readdir } from 'fs/promises'
+import { mkdir, writeFile, readFile, readdir, stat } from 'fs/promises'
 import { join } from 'path'
 
 const LOG = '[chat-history]'
+
+interface CachedMeta {
+  session: ChatHistoryMeta
+  mtimeMs: number
+}
+
+let sessionMetaCache: Map<string, CachedMeta> = new Map()
 
 function chatHistoryDir(): string {
   return join(app.getPath('userData'), 'notelab-chat-history')
@@ -283,7 +290,20 @@ export function registerChatHistoryIpc(): void {
         await ensureDir()
         const md = buildMarkdown(payload)
         await writeFile(sessionFilePath(payload.sessionId), md, 'utf8')
-        console.info(LOG, 'wrote', sessionFilePath(payload.sessionId))
+
+        const filePath = sessionFilePath(payload.sessionId)
+        const fileStat = await stat(filePath)
+        sessionMetaCache.set(payload.sessionId, {
+          session: {
+            sessionId: payload.sessionId,
+            title: payload.title,
+            createdAt: payload.createdAt,
+            messageCount: payload.messages.length
+          },
+          mtimeMs: fileStat.mtimeMs
+        })
+
+        console.info(LOG, 'wrote', filePath)
         return { ok: true }
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e)
@@ -296,19 +316,35 @@ export function registerChatHistoryIpc(): void {
   ipcMain.handle(
     'chat-history:list',
     async (): Promise<{ ok: true; sessions: ChatHistoryMeta[] } | { ok: false; error: string }> => {
-      console.info(LOG, 'listing sessions in', chatHistoryDir())
       try {
         await ensureDir()
         const files = await readdir(chatHistoryDir())
         const mdFiles = files.filter((f) => f.endsWith('.md'))
-        console.info(LOG, `found ${mdFiles.length} session file(s)`)
-        const sessions = await Promise.all(
-          mdFiles.map(async (f) => {
-            const content = await readFile(join(chatHistoryDir(), f), 'utf8')
-            return parseSessionMeta(content, f.slice(0, -3))
-          })
-        )
+
+        const sessions: ChatHistoryMeta[] = []
+        for (const f of mdFiles) {
+          const sessionId = f.slice(0, -3)
+          const filePath = join(chatHistoryDir(), f)
+
+          try {
+            const fileStat = await stat(filePath)
+            const cached = sessionMetaCache.get(sessionId)
+
+            if (cached && cached.mtimeMs === fileStat.mtimeMs) {
+              sessions.push(cached.session)
+            } else {
+              const content = await readFile(filePath, 'utf8')
+              const session = parseSessionMeta(content, sessionId)
+              sessionMetaCache.set(sessionId, { session, mtimeMs: fileStat.mtimeMs })
+              sessions.push(session)
+            }
+          } catch {
+            sessionMetaCache.delete(sessionId)
+          }
+        }
+
         sessions.sort((a, b) => b.createdAt - a.createdAt)
+        console.info(LOG, `loaded ${sessions.length} session(s) from cache/disk`)
         return { ok: true, sessions }
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e)
