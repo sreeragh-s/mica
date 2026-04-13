@@ -1,4 +1,12 @@
-import { useCallback, useEffect, useMemo, useRef, type KeyboardEvent, type MouseEvent } from 'react'
+import {
+  startTransition,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  type KeyboardEvent,
+  type MouseEvent
+} from 'react'
 import type { SerializedEditorState } from 'lexical'
 import { toast } from 'sonner'
 
@@ -377,7 +385,14 @@ export function useNotesApp() {
   const commitPendingNoteToState = useCallback((notePath: string): void => {
     const pending = pendingSavedNotesRef.current.get(notePath)
     if (!pending) return
-    setNotes((prev) => prev.map((note) => (note.path === notePath ? pending : note)))
+    setNotes((prev) => {
+      const noteIndex = prev.findIndex((note) => note.path === notePath)
+      if (noteIndex === -1) return prev
+      if (prev[noteIndex] === pending) return prev
+      const next = [...prev]
+      next[noteIndex] = pending
+      return next
+    })
   }, [])
 
   const queueNoteSave = useCallback(
@@ -653,6 +668,27 @@ export function useNotesApp() {
     [selectedNotePath]
   )
 
+  const syncSidebarForOpenNote = useCallback(
+    (note: SavedNote) => {
+      const nextExpandIds = treeExpandIdsForFolderId(note.folder)
+      const shouldExpandTree =
+        nextExpandIds.length !== treeExpandIds.length ||
+        nextExpandIds.some((id, index) => treeExpandIds[index] !== id)
+
+      startTransition(() => {
+        setFocusedFolderId((current) => (current === null ? current : null))
+        setNewNoteDestinationFolderId((current) =>
+          current === DEFAULT_WORKSPACE_ID ? current : DEFAULT_WORKSPACE_ID
+        )
+        if (shouldExpandTree) {
+          setTreeExpandIds(nextExpandIds)
+          setTreeExpandNonce((n) => n + 1)
+        }
+      })
+    },
+    [treeExpandIds]
+  )
+
   const focusFolderWorkspace = useCallback(
     (folder: string, options: { openSettings?: boolean } = {}) => {
       enterNotesExplorer()
@@ -677,15 +713,12 @@ export function useNotesApp() {
       setWorkspaceSettingsFolderId(null)
       setJournalViewOpen(note.folder === JOURNAL_FOLDER_ID)
       setSelectedId(note.path)
-      setFocusedFolderId(null)
-      setNewNoteDestinationFolderId(DEFAULT_WORKSPACE_ID)
-      setTreeExpandIds(treeExpandIdsForFolderId(note.folder))
-      setTreeExpandNonce((n) => n + 1)
       if (options.openTab !== false && note.folder !== JOURNAL_FOLDER_ID) {
         syncOpenTabsForSelection(note.path, { replaceCurrentTab: options.replaceCurrentTab })
       }
+      syncSidebarForOpenNote(note)
     },
-    [closeGraphAndTabOverview, enterNotesExplorer, syncOpenTabsForSelection]
+    [closeGraphAndTabOverview, enterNotesExplorer, syncOpenTabsForSelection, syncSidebarForOpenNote]
   )
 
   /** Stores a pending subpath (e.g. `#my-heading`) to scroll to after note navigation. */
@@ -741,15 +774,10 @@ export function useNotesApp() {
       setSelectedId(fallback)
       if (fallback) {
         const n = findLatestNote(fallback)
-        if (n) {
-          setFocusedFolderId(null)
-          setNewNoteDestinationFolderId(DEFAULT_WORKSPACE_ID)
-          setTreeExpandIds(treeExpandIdsForFolderId(n.folder))
-          setTreeExpandNonce((x) => x + 1)
-        }
+        if (n) syncSidebarForOpenNote(n)
       }
     },
-    [commitPendingNoteToState, findLatestNote, selectedNotePath]
+    [commitPendingNoteToState, findLatestNote, selectedNotePath, syncSidebarForOpenNote]
   )
 
   const appendFolder = useCallback(
