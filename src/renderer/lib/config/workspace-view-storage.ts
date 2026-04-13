@@ -1,12 +1,12 @@
 /**
- * Per-workspace view state stored in the global app config at `~/.notelab/notelab.json`.
+ * Per-workspace view state stored in localStorage for fast async access.
  * Separate from per-workspace config under `<workspace>/.notelab/notelab.json`.
  */
 
 import {
-  loadWorkspaceViewSnapshot as loadFromConfig
-} from './notelab-app-config-read'
-import { saveWorkspaceViewSnapshot as saveToConfig } from './notelab-app-config-write'
+  loadWorkspaceViewFromLocalStorage,
+  saveWorkspaceViewToLocalStorageAsync
+} from './workspace-view-localstorage'
 import type { NotelabWorkspaceViewSnapshotV1 } from './notelab-config-schema'
 
 export function defaultWorkspaceViewSnapshot(): NotelabWorkspaceViewSnapshotV1 {
@@ -37,7 +37,7 @@ function filterSnapshotToExistingNotes(
 
 function loadWorkspaceViewSnapshot(cwd: string | null): NotelabWorkspaceViewSnapshotV1 | null {
   if (!cwd) return null
-  return loadFromConfig(cwd)
+  return loadWorkspaceViewFromLocalStorage(cwd)
 }
 
 export type WindowSessionLike = {
@@ -53,12 +53,25 @@ export function loadWorkspaceChatSidebarOpen(cwd: string | null): boolean {
 export function persistWorkspaceChatSidebarOpen(cwd: string | null, open: boolean): void {
   if (!cwd) return
   const current = loadWorkspaceViewSnapshot(cwd) ?? defaultWorkspaceViewSnapshot()
-  saveToConfig(cwd, { ...current, chatSidebarOpen: open })
+  saveWorkspaceViewToLocalStorageAsync(cwd, { ...current, chatSidebarOpen: open })
 }
 
-export function schedulePersistWorkspaceViewSnapshot(cwd: string | null, snap: NotelabWorkspaceViewSnapshotV1): void {
+let persistTimeout: ReturnType<typeof setTimeout> | null = null
+const PERSIST_DEBOUNCE_MS = 300
+
+export function schedulePersistWorkspaceViewSnapshot(
+  cwd: string | null,
+  snap: NotelabWorkspaceViewSnapshotV1
+): void {
   if (!cwd) return
-  saveToConfig(cwd, snap)
+
+  if (persistTimeout) {
+    clearTimeout(persistTimeout)
+  }
+  persistTimeout = setTimeout(() => {
+    persistTimeout = null
+    saveWorkspaceViewToLocalStorageAsync(cwd, snap)
+  }, PERSIST_DEBOUNCE_MS)
 }
 
 export async function restoreWorkspaceViewAfterIndex(

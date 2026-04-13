@@ -16,6 +16,40 @@ function firstScalarPropertyValue(v: NotePropertyValue | undefined): string | un
   return v.trim() === '' ? undefined : v
 }
 
+interface DirEntry {
+  name: string
+  isDirectory: () => boolean
+  isFile: () => boolean
+}
+
+async function* walkDirectory(
+  dirPath: string,
+  maxDepth: number = 2,
+  currentDepth: number = 0
+): AsyncGenerator<{ path: string; isDir: boolean; name: string }> {
+  if (currentDepth > maxDepth) return
+
+  let entries: DirEntry[]
+  try {
+    entries = await readdir(dirPath, { withFileTypes: true })
+  } catch {
+    return
+  }
+
+  for (const entry of entries) {
+    const fullPath = join(dirPath, entry.name)
+    const relativePath = fullPath.replace(dirPath, '').replace(/^[/\\]/, '')
+
+    if (entry.isDirectory()) {
+      if (relativePath.startsWith('.') && relativePath !== JOURNAL_FOLDER_ID) continue
+      yield { path: relativePath, isDir: true, name: entry.name }
+      yield* walkDirectory(fullPath, maxDepth, currentDepth + 1)
+    } else if (entry.isFile()) {
+      yield { path: relativePath, isDir: false, name: entry.name }
+    }
+  }
+}
+
 export const DEFAULT_WORKSPACE_ID = 'default'
 export const JOURNAL_FOLDER_ID = '.journal'
 
@@ -108,10 +142,7 @@ export function writeNotelabFile(cwd: string, relativePath: string, content: str
   writeFileSync(abs, content, 'utf8')
 }
 
-export async function readWorkspaceBinaryFile(
-  cwd: string,
-  relativePath: string
-): Promise<Buffer> {
+export async function readWorkspaceBinaryFile(cwd: string, relativePath: string): Promise<Buffer> {
   const abs = assertSafeRelativePath(cwd, relativePath)
   return readFile(abs)
 }
@@ -175,40 +206,110 @@ export async function readNotelabIndexImpl(
   const folders: { folder: string; name: string }[] = []
   if (!existsSync(cwd)) return { folders, notes: [] }
 
-  const topEnts = await readdir(cwd, { withFileTypes: true })
+  interface NoteTask {
+    folder: string
+    relativeFilePath: string
+  }
 
-  // Collect note file tasks: [folder, relativeFilePath]
-  const noteTasks: [string, string][] = []
-  for (const ent of topEnts) {
-    if (
-      ent.isFile() &&
-      (ent.name.endsWith('.md') || ent.name.endsWith('.excalidraw') || ent.name.endsWith('.pdf'))
-    ) {
-      noteTasks.push([DEFAULT_WORKSPACE_ID, ent.name])
-    } else if (ent.isDirectory()) {
-      const folder = ent.name
+  const noteTasks: NoteTask[] = []
+  const folderSet = new Set<string>()
+
+  for await (const entry of walkDirectory(cwd)) {
+    if (entry.isDir) {
+      const folder = entry.name
       if (folder.startsWith('.') && folder !== JOURNAL_FOLDER_ID) continue
-      if (folder !== JOURNAL_FOLDER_ID) {
+      if (folder !== JOURNAL_FOLDER_ID && !folderSet.has(folder)) {
+        folderSet.add(folder)
         folders.push({ folder, name: folder })
       }
-      const subEnts = await readdir(join(cwd, folder), { withFileTypes: true })
-      for (const file of subEnts) {
-        if (
-          !file.isFile() ||
-          (!file.name.endsWith('.md') &&
-            !file.name.endsWith('.excalidraw') &&
-            !file.name.endsWith('.pdf'))
-        )
-          continue
-        noteTasks.push([folder, `${folder}/${file.name}`])
-      }
+    } else {
+      const ext = extname(entry.name).toLowerCase()
+      if (ext !== '.md' && ext !== '.excalidraw' && ext !== '.pdf') continue
+
+      const relPath = entry.path.replace(/\\/g, '/')
+      const folder = relPath.includes('/') ? relPath.split('/')[0] : DEFAULT_WORKSPACE_ID
+
+      noteTasks.push({ folder, relativeFilePath: relPath })
     }
   }
 
-  // Read all note files in parallel
+  if (noteTasks.length === 0) {
+    return { folders, notes: [] }
+  }
+
+  if (!includeBody) {
+    const filePaths = noteTasks.map((t) => join(cwd, t.relativeFilePath))
+    const stats = await Promise.all(filePaths.map((p) => stat(p).catch(() => null)))
+
+    const notes: {
+      folder: string
+      note: string
+      title: string
+      updatedAtMs: number
+      kind: 'note' | 'drawing' | 'pdf'
+      coverImageSrc?: string
+      titleEmoji?: string
+      properties?: NotePropertyMap
+      hasFrontmatterBlock?: boolean
+    }[] = []
+
+    for (let i = 0; i < noteTasks.length; i++) {
+      const task = noteTasks[i]
+      const fileStat = stats[i]
+      if (!fileStat) continue
+
+      const extension = extname(task.relativeFilePath).toLowerCase()
+      if (extension === '.pdf') {
+        notes.push({
+          folder: task.folder,
+          note: task.relativeFilePath.replace(/\\/g, '/'),
+          title: basename(task.relativeFilePath, extension),
+          updatedAtMs: fileStat.mtimeMs,
+          kind: 'pdf' as const
+        })
+        continue
+      }
+
+      const content = await readFile(join(cwd, task.relativeFilePath), 'utf8').catch(() => '')
+      if (!content) continue
+
+      const hasFrontmatterBlock = content.startsWith('---')
+      let properties: NotePropertyMap = {}
+      let coverImageSrc: string | undefined
+      let titleEmoji: string | undefined
+
+      if (hasFrontmatterBlock) {
+        const fmEnd = content.indexOf('---', 3)
+        if (fmEnd > 3) {
+          const fmContent = content.slice(3, fmEnd).trim()
+          const parsedFm = parseOptionalFrontmatter(`---\n${fmContent}\n---`)
+          if (parsedFm) {
+            properties = parsedFm.properties
+            coverImageSrc = firstScalarPropertyValue(properties.cover_image)
+            titleEmoji = firstScalarPropertyValue(properties.title_emoji)
+          }
+        }
+      }
+
+      notes.push({
+        folder: task.folder,
+        note: task.relativeFilePath.replace(/\\/g, '/'),
+        title: basename(task.relativeFilePath, extname(task.relativeFilePath)),
+        updatedAtMs: fileStat.mtimeMs,
+        kind: extension === '.excalidraw' ? ('drawing' as const) : ('note' as const),
+        ...(coverImageSrc !== undefined ? { coverImageSrc } : {}),
+        ...(titleEmoji !== undefined && titleEmoji !== '' ? { titleEmoji } : {}),
+        ...(Object.keys(properties).length > 0 ? { properties } : {}),
+        ...(hasFrontmatterBlock ? { hasFrontmatterBlock: true } : {})
+      })
+    }
+
+    return { folders, notes }
+  }
+
   const notes = (
     await Promise.all(
-      noteTasks.map(async ([folder, relativeFilePath]) => {
+      noteTasks.map(async ({ folder, relativeFilePath }) => {
         const filePath = join(cwd, relativeFilePath)
         const fileStat = await stat(filePath)
         const extension = extname(relativeFilePath).toLowerCase()

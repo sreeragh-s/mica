@@ -21,13 +21,13 @@ import {
   DEFAULT_WORKSPACE_ID,
   deleteNoteFile,
   readNotelabIndexImpl,
-  readWorkspaceMtimeMs,
-  readWorkspaceTextFile,
   readWorkspaceBinaryFile,
   renameWorkspacePath,
   syncMarkdownFilesToDisk,
   writeNotelabFile
 } from './workspace-fs'
+import { startWatching, stopWatching } from './workspace-watcher'
+import { readNoteTextWithCache, invalidateNoteCache } from './workspace-cache'
 import {
   readWorkspaceLinkIndexImpl,
   updateWorkspaceLinkCacheForDelete,
@@ -380,7 +380,7 @@ export function registerWorkspaceIpc(): void {
       _evt,
       payload: { cwd: string; query: string; limit?: number }
     ): Promise<
-        | {
+      | {
           ok: true
           hits: { notePath: string; lineNumber: number; lineText: string }[]
           engine: 'git-grep' | 'ripgrep' | 'grep'
@@ -449,8 +449,7 @@ export function registerWorkspaceIpc(): void {
       _evt,
       payload: { cwd: string; relativePath: string }
     ): Promise<
-      | { ok: true; content: string; updatedAtMs: number }
-      | { ok: false; error: string }
+      { ok: true; content: string; updatedAtMs: number } | { ok: false; error: string }
     > => {
       const cwd = payload.cwd?.trim() ?? ''
       const relativePath = payload.relativePath?.trim() ?? ''
@@ -461,8 +460,7 @@ export function registerWorkspaceIpc(): void {
         return { ok: false, error: 'missing_path' }
       }
       try {
-        const content = await readWorkspaceTextFile(cwd, relativePath)
-        const updatedAtMs = await readWorkspaceMtimeMs(cwd, relativePath)
+        const { content, updatedAtMs } = await readNoteTextWithCache(cwd, relativePath)
         return {
           ok: true,
           content,
@@ -530,6 +528,7 @@ export function registerWorkspaceIpc(): void {
       }
       try {
         writeNotelabFile(cwd, rel, content)
+        invalidateNoteCache(cwd, rel)
         updateWorkspaceLinkCacheForWrite(cwd, rel, content)
         return { ok: true }
       } catch (e) {
@@ -615,6 +614,7 @@ export function registerWorkspaceIpc(): void {
       }
       try {
         deleteNoteFile(cwd, note)
+        invalidateNoteCache(cwd, note)
         updateWorkspaceLinkCacheForDelete(cwd, note)
         return { ok: true }
       } catch (e) {
@@ -642,11 +642,57 @@ export function registerWorkspaceIpc(): void {
       }
       try {
         renameWorkspacePath(cwd, from, to)
+        invalidateNoteCache(cwd, from)
+        if (from !== to) {
+          invalidateNoteCache(cwd, to)
+        }
         updateWorkspaceLinkCacheForRename(cwd, from, to)
         return { ok: true }
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e)
         console.error(LOG, 'rename-path', msg)
+        return { ok: false, error: msg }
+      }
+    }
+  )
+
+  ipcMain.handle(
+    'workspace:start-watching',
+    async (
+      _evt,
+      payload: { cwd: string }
+    ): Promise<{ ok: true } | { ok: false; error: string }> => {
+      const cwd = payload.cwd?.trim() ?? ''
+      if (!cwd || !allowWorkspaceFs(cwd)) {
+        return { ok: false, error: 'not_a_workspace' }
+      }
+      try {
+        startWatching(cwd)
+        return { ok: true }
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e)
+        console.error(LOG, 'start-watching', msg)
+        return { ok: false, error: msg }
+      }
+    }
+  )
+
+  ipcMain.handle(
+    'workspace:stop-watching',
+    async (
+      _evt,
+      payload: { cwd: string }
+    ): Promise<{ ok: true } | { ok: false; error: string }> => {
+      const cwd = payload.cwd?.trim() ?? ''
+      if (!cwd || !allowWorkspaceFs(cwd)) {
+        return { ok: false, error: 'not_a_workspace' }
+      }
+      try {
+        stopWatching(cwd)
+        return { ok: true }
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e)
+        console.error(LOG, 'stop-watching', msg)
         return { ok: false, error: msg }
       }
     }

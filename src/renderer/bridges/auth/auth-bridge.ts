@@ -145,10 +145,7 @@ export type NotelabApi = {
     readNoteText?: (payload: {
       cwd: string
       relativePath: string
-    }) => Promise<
-      | { ok: true; content: string; updatedAtMs: number }
-      | { ok: false; error: string }
-    >
+    }) => Promise<{ ok: true; content: string; updatedAtMs: number } | { ok: false; error: string }>
     readLinkIndex?: (payload: { cwd: string }) => Promise<
       | {
           ok: true
@@ -168,6 +165,17 @@ export type NotelabApi = {
       cwd: string
       relativePath: string
     }) => Promise<{ ok: true; base64: string } | { ok: false; error: string }>
+    startWatching?: (payload: {
+      cwd: string
+    }) => Promise<{ ok: true } | { ok: false; error: string }>
+    stopWatching?: (payload: {
+      cwd: string
+    }) => Promise<{ ok: true } | { ok: false; error: string }>
+    onFileChanged?: (payload: {
+      cwd: string
+      eventType: string
+      relativePath: string
+    }) => () => void
     writeNoteFile: (payload: {
       cwd: string
       relativePath: string
@@ -318,7 +326,9 @@ export type NotelabApi = {
         }
       | { ok: false; error: string }
     >
-    read: (sessionId: string) => Promise<{ ok: true; content: string } | { ok: false; error: string }>
+    read: (
+      sessionId: string
+    ) => Promise<{ ok: true; content: string } | { ok: false; error: string }>
     readSession: (sessionId: string) => Promise<
       | {
           ok: true

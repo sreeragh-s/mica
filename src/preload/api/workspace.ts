@@ -1,5 +1,7 @@
 import { ipcRenderer } from 'electron'
 
+import { subscribe } from './ipc'
+
 export const workspaceApi = {
   checkGit: (): Promise<{ ok: true; version: string } | { ok: false; error: string }> =>
     ipcRenderer.invoke('workspace:check-git'),
@@ -60,7 +62,11 @@ export const workspaceApi = {
     pruneOrphanNoteFiles?: boolean
   }): Promise<{ ok: true } | { ok: false; error: string }> =>
     ipcRenderer.invoke('workspace:sync-markdown', payload),
-  searchNotes: (payload: { cwd: string; query: string; limit?: number }): Promise<
+  searchNotes: (payload: {
+    cwd: string
+    query: string
+    limit?: number
+  }): Promise<
     | {
         ok: true
         hits: { notePath: string; lineNumber: number; lineText: string }[]
@@ -93,11 +99,11 @@ export const workspaceApi = {
   readNoteText: (payload: {
     cwd: string
     relativePath: string
+  }): Promise<{ ok: true; content: string; updatedAtMs: number } | { ok: false; error: string }> =>
+    ipcRenderer.invoke('workspace:read-note-text', payload),
+  readLinkIndex: (payload: {
+    cwd: string
   }): Promise<
-    | { ok: true; content: string; updatedAtMs: number }
-    | { ok: false; error: string }
-  > => ipcRenderer.invoke('workspace:read-note-text', payload),
-  readLinkIndex: (payload: { cwd: string }): Promise<
     | {
         ok: true
         backlinksByTarget: Record<
@@ -224,5 +230,15 @@ export const workspaceApi = {
     cwd: string
     config: unknown
   }): Promise<{ ok: true } | { ok: false; error: string }> =>
-    ipcRenderer.invoke('workspace:write-app-config', payload)
+    ipcRenderer.invoke('workspace:write-app-config', payload),
+  startWatching: (payload: { cwd: string }): Promise<{ ok: true } | { ok: false; error: string }> =>
+    ipcRenderer.invoke('workspace:start-watching', payload),
+  stopWatching: (payload: { cwd: string }): Promise<{ ok: true } | { ok: false; error: string }> =>
+    ipcRenderer.invoke('workspace:stop-watching', payload),
+  onFileChanged: (
+    callback: (payload: { cwd: string; eventType: string; relativePath: string }) => void
+  ): (() => void) =>
+    subscribe('workspace:file-changed', (payload) =>
+      callback(payload as { cwd: string; eventType: string; relativePath: string })
+    )
 }

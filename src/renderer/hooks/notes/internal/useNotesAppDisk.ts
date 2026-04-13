@@ -674,6 +674,46 @@ export function useNotesAppDisk({
   }, [dataRootRef, diskMode, pendingDiskWrites, refreshWorkspaceGitStatuses, reloadNotesFromDisk])
 
   useEffect(() => {
+    if (!diskMode) return
+    const ws = getApi()?.workspace
+    const cwd = dataRootRef.current
+    if (!ws?.startWatching || !cwd) return
+
+    let cancelled = false
+
+    const onFileChange = (payload: {
+      cwd: string
+      eventType: string
+      relativePath: string
+    }): void => {
+      if (cancelled) return
+      if (payload.cwd !== cwd) return
+      if (pendingDiskWrites.current.has(payload.relativePath)) return
+      log.info('File change detected via watcher', {
+        path: payload.relativePath,
+        event: payload.eventType
+      })
+      void reloadNotesFromDisk()
+    }
+
+    void ws.startWatching({ cwd })
+
+    const unsubscribe = ws.onFileChanged
+      ? (
+          ws.onFileChanged as unknown as (
+            callback: (payload: { cwd: string; eventType: string; relativePath: string }) => void
+          ) => () => void
+        )(onFileChange)
+      : () => {}
+
+    return () => {
+      cancelled = true
+      unsubscribe()
+      void ws.stopWatching?.({ cwd })
+    }
+  }, [diskMode, dataRootRef, reloadNotesFromDisk, pendingDiskWrites])
+
+  useEffect(() => {
     const flushTimers = noteFlushTimers.current
     return () => {
       for (const tid of flushTimers.values()) {
