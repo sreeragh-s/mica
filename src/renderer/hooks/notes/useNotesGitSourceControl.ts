@@ -6,7 +6,11 @@ import type { AppSidebarView } from '@/lib/notes/notes-types'
 import type { Folder } from '@/lib/notes/notes-storage'
 
 import type { AppMode, NotesUser } from '@/features/notes/notes-app-types'
-import type { GitSourceControlFile, GitSourceControlSnapshot } from './internal/shared'
+import {
+  resolveGitAuthor,
+  type GitSourceControlFile,
+  type GitSourceControlSnapshot
+} from './internal/shared'
 
 const LOG = '[useNotesGitSourceControl]'
 const log = createElectronLogger(LOG)
@@ -237,8 +241,7 @@ export function useNotesGitSourceControl({
     try {
       const r = await api.workspace.gitContinueRebase({
         cwd,
-        authorName: user?.name?.trim() || 'notelab.io',
-        authorEmail: user?.email?.trim() || 'notes@notelab.io'
+        ...resolveGitAuthor(user)
       })
       if (!r.ok) {
         log.warn('rebase --continue failed', {

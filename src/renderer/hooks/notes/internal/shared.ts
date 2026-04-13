@@ -45,3 +45,27 @@ export type NotelabIndexOk = {
     hasFrontmatterBlock?: boolean
   }[]
 }
+
+type GitIdentityUser = {
+  name?: string
+  email?: string
+} | null
+
+export function resolveGitAuthor(user?: GitIdentityUser): {
+  authorName: string
+  authorEmail: string
+} {
+  return {
+    authorName: user?.name?.trim() || 'notelab.io',
+    authorEmail: user?.email?.trim() || 'notes@notelab.io'
+  }
+}
+
+export function isMissingGitIdentityError(error: string): boolean {
+  const normalized = error.toLowerCase()
+  return (
+    normalized.includes('user.name') ||
+    normalized.includes('user.email') ||
+    normalized.includes('please tell me who you are')
+  )
+}

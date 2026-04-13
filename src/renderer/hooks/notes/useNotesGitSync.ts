@@ -6,7 +6,11 @@ import type { Folder } from '@/lib/notes/notes-storage'
 
 import { friendlyGitSyncError } from '@/features/notes/git/git-sync-errors'
 import type { NotesUser } from '@/features/notes/notes-app-types'
-import type { GitSourceControlSnapshot } from './internal/shared'
+import {
+  isMissingGitIdentityError,
+  resolveGitAuthor,
+  type GitSourceControlSnapshot
+} from './internal/shared'
 
 const LOG = '[useNotesGitSync]'
 const log = createElectronLogger(LOG)
@@ -185,12 +189,7 @@ export function useNotesGitSync({
     try {
       const r = await api.workspace.initGit({ cwd })
       if (!r.ok) {
-        const err = r.error.toLowerCase()
-        if (
-          err.includes('user.name') ||
-          err.includes('user.email') ||
-          err.includes('please tell me who you are')
-        ) {
+        if (isMissingGitIdentityError(r.error)) {
           setGitPendingRetry(() => handleInitGit)
           setGitUserConfigDialogOpen(true)
           return
@@ -228,8 +227,7 @@ export function useNotesGitSync({
         const r = await api.workspace.gitCommit({
           cwd: folder.localGitPath,
           message: gitCommitMessage.trim() || 'Update notes',
-          authorName: user?.name?.trim() || 'notelab.io',
-          authorEmail: user?.email?.trim() || 'notes@notelab.io'
+          ...resolveGitAuthor(user)
         })
         if (!r.ok && r.error !== 'nothing_to_commit') {
           await handleGitOperationError(r.error)
@@ -441,8 +439,7 @@ export function useNotesGitSync({
         const commitR = await api.workspace.gitCommit({
           cwd: folder.localGitPath,
           message: gitCommitMessage.trim() || 'Update notes',
-          authorName: user?.name?.trim() || 'notelab.io',
-          authorEmail: user?.email?.trim() || 'notes@notelab.io'
+          ...resolveGitAuthor(user)
         })
         if (!commitR.ok && commitR.error !== 'nothing_to_commit') {
           await handleGitOperationError(commitR.error)
@@ -523,12 +520,7 @@ export function useNotesGitSync({
     try {
       const r = await api.workspace.setGitRemote({ cwd, url })
       if (!r.ok) {
-        const err = r.error.toLowerCase()
-        if (
-          err.includes('user.name') ||
-          err.includes('user.email') ||
-          err.includes('please tell me who you are')
-        ) {
+        if (isMissingGitIdentityError(r.error)) {
           setGitPendingRetry(() => async () => {
             await handleApplyGithubRemote()
           })

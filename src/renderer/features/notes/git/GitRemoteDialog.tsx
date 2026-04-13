@@ -3,6 +3,7 @@ import { useCallback, useState, type JSX } from 'react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { getApi } from '@/bridges/auth/auth-bridge'
+import { isMissingGitIdentityError } from '@/hooks/notes/internal/shared'
 
 type Props = {
   open: boolean
@@ -46,12 +47,7 @@ export function GitRemoteDialog({
     try {
       const r = await workspace.setGitRemote({ cwd, url })
       if (!r.ok) {
-        const err = r.error.toLowerCase()
-        if (
-          err.includes('user.name') ||
-          err.includes('user.email') ||
-          err.includes('please tell me who you are')
-        ) {
+        if (isMissingGitIdentityError(r.error)) {
           onRequestUserConfig?.()
           if (onRetryWithUserConfig) {
             onRetryWithUserConfig(async () => {

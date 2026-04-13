@@ -24,10 +24,7 @@ import {
   type SavedNote,
   type Folder
 } from '@/lib/notes/notes-storage'
-import {
-  saveEditorSettings,
-  saveAppearanceSettings
-} from '@/lib/config/notelab-app-config-write'
+import { saveEditorSettings, saveAppearanceSettings } from '@/lib/config/notelab-app-config-write'
 import type { NotelabWorkspaceViewSnapshotV1 } from '@/lib/config/notelab-config-schema'
 import {
   loadWorkspaceChatSidebarOpen,
@@ -56,7 +53,7 @@ import { useNotesAppIndexing } from './internal/useNotesAppIndexing'
 import { useNotesAppUi } from './internal/useNotesAppUi'
 import { useNotesGitSourceControl } from '@/hooks/notes/useNotesGitSourceControl'
 import { useNotesGitSync } from '@/hooks/notes/useNotesGitSync'
-import { useAuth } from '@/hooks/app/useAuth'
+import type { NotesUser } from '@/features/notes/notes-app-types'
 
 import { useNotesStore } from '@/stores/notes/useNotesStore'
 
@@ -64,8 +61,7 @@ const LOG = '[useNotesApp]'
 const log = createElectronLogger(LOG)
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type -- view-model shape is NotesAppViewModel below
-export function useNotesApp() {
-  const { user } = useAuth()
+export function useNotesApp({ user = null }: { user?: NotesUser | null } = {}) {
   const isMacNotelab = checkIsMac()
   const folderInputRef = useRef<HTMLInputElement>(null)
   const folderDraftRef = useRef('')
@@ -257,13 +253,7 @@ export function useNotesApp() {
       openNoteTabPaths,
       chatSidebarOpen
     })
-  }, [
-    diskMode,
-    dataRootPath,
-    selectedNotePath,
-    openNoteTabPaths,
-    chatSidebarOpen
-  ])
+  }, [diskMode, dataRootPath, selectedNotePath, openNoteTabPaths, chatSidebarOpen])
 
   useEffect(() => {
     if (!diskMode) return
@@ -704,10 +694,7 @@ export function useNotesApp() {
   )
 
   const openNoteInEditor = useCallback(
-    (
-      note: SavedNote,
-      options: { openTab?: boolean; replaceCurrentTab?: boolean } = {}
-    ) => {
+    (note: SavedNote, options: { openTab?: boolean; replaceCurrentTab?: boolean } = {}) => {
       enterNotesExplorer()
       closeGraphAndTabOverview()
       setWorkspaceSettingsFolderId(null)
@@ -725,11 +712,7 @@ export function useNotesApp() {
   const pendingSubpathRef = useRef<string | null>(null)
 
   const selectNote = useCallback(
-    (
-      notePath: string,
-      subpath?: string,
-      options: { replaceCurrentTab?: boolean } = {}
-    ) => {
+    (notePath: string, subpath?: string, options: { replaceCurrentTab?: boolean } = {}) => {
       if (selectedNotePath && selectedNotePath !== notePath) {
         commitPendingNoteToState(selectedNotePath)
       }

@@ -12,10 +12,12 @@ import { GitRemoteDialog } from '@/features/notes/git/GitRemoteDialog'
 import { GitUserConfigDialog } from '@/features/notes/git/GitUserConfigDialog'
 import { NotesMainArea } from '@/features/notes/editor-area/NotesMainArea'
 import { LeftSidebar } from '@/features/notes/sidebar/LeftSidebar'
+import { useAuth } from '@/hooks/app/useAuth'
 import { useNotesApp } from '@/hooks/notes/useNotesApp'
 
 export function NotesApp(): JSX.Element {
-  const vm = useNotesApp()
+  const { user } = useAuth()
+  const vm = useNotesApp({ user })
   const { sidebarCollapsed, zenMode, isMacNotelab } = vm
   const sidebarHidden = sidebarCollapsed || zenMode
   const cwd = vm.gitToolbarFolder?.localGitPath ?? ''
@@ -81,7 +83,7 @@ export function NotesApp(): JSX.Element {
         onOpenChange={vm.setGitRemoteDialogOpen}
         cwd={cwd}
         defaultRepoName={dirName}
-        githubUsername={vm.user?.name ?? null}
+        githubUsername={user?.name ?? null}
         onRemoteSet={async (url) => {
           await vm.handleGitRemoteConnected(url)
         }}
