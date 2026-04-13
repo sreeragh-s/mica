@@ -97,6 +97,21 @@ export const workspaceApi = {
     | { ok: true; content: string; updatedAtMs: number }
     | { ok: false; error: string }
   > => ipcRenderer.invoke('workspace:read-note-text', payload),
+  readLinkIndex: (payload: { cwd: string }): Promise<
+    | {
+        ok: true
+        backlinksByTarget: Record<
+          string,
+          Array<{ source: string; target: string; linkText: string; contextText: string }>
+        >
+        outgoingBySource: Record<
+          string,
+          Array<{ source: string; target: string; linkText: string; contextText: string }>
+        >
+        validPaths: string[]
+      }
+    | { ok: false; error: string }
+  > => ipcRenderer.invoke('workspace:read-link-index', payload),
   readBinaryFile: (payload: {
     cwd: string
     relativePath: string

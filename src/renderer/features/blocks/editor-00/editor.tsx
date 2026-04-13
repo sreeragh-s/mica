@@ -60,6 +60,7 @@ export function Editor({
 }) {
   const latestEditorStateRef = useRef<EditorState | null>(null)
   const serializeTimerRef = useRef<number | null>(null)
+  const didReceiveInitialChangeRef = useRef(false)
 
   const flushSerializedChange = useCallback(() => {
     if (serializeTimerRef.current !== null) {
@@ -72,7 +73,9 @@ export function Editor({
 
   useEffect(() => {
     return () => {
-      flushSerializedChange()
+      if (serializeTimerRef.current !== null) {
+        flushSerializedChange()
+      }
     }
   }, [flushSerializedChange])
 
@@ -103,6 +106,10 @@ export function Editor({
                   latestEditorStateRef.current = editorState
                   onChange?.(editorState)
                   if (!onSerializedChange) return
+                  if (!didReceiveInitialChangeRef.current) {
+                    didReceiveInitialChangeRef.current = true
+                    return
+                  }
                   if (serializeTimerRef.current !== null) {
                     window.clearTimeout(serializeTimerRef.current)
                   }

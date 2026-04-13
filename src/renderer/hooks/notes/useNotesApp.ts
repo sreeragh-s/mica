@@ -33,6 +33,7 @@ import {
 import {
   createEmptyDrawing,
   createEmptyNote,
+  dehydrateNoteDocument,
   macTitlebarStyles,
   reorderFolderIdsBeforeTarget,
   reorderFolderIdsToEnd,
@@ -264,6 +265,29 @@ export function useNotesApp() {
     ]
     void hydrateNotesFromDisk(notePathsToHydrate)
   }, [diskMode, hydrateNotesFromDisk, openNoteTabPaths, selectedNotePath])
+
+  useEffect(() => {
+    if (!diskMode) return
+
+    const activeNotePaths = new Set<string>([
+      ...(selectedNotePath ? [selectedNotePath] : []),
+      ...openNoteTabPaths
+    ])
+
+    setNotes((prev) => {
+      let changed = false
+      const next = prev.map((note) => {
+        if (activeNotePaths.has(note.path)) return note
+        if (note.isTransient) return note
+        if (pendingSavedNotesRef.current.has(note.path)) return note
+        if (noteFlushTimers.current.has(note.path)) return note
+        const dehydrated = dehydrateNoteDocument(note)
+        if (dehydrated !== note) changed = true
+        return dehydrated
+      })
+      return changed ? next : prev
+    })
+  }, [diskMode, openNoteTabPaths, selectedNotePath, setNotes])
 
   const { indexingStatus, refreshIndexingStatus, runIndexPending, runReindexAll } =
     useNotesAppIndexing({

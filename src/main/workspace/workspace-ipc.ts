@@ -28,6 +28,13 @@ import {
   syncMarkdownFilesToDisk,
   writeNotelabFile
 } from './workspace-fs'
+import {
+  readWorkspaceLinkIndexImpl,
+  updateWorkspaceLinkCacheForDelete,
+  updateWorkspaceLinkCacheForDeletePrefix,
+  updateWorkspaceLinkCacheForRename,
+  updateWorkspaceLinkCacheForWrite
+} from './workspace-links'
 import { searchWorkspaceNotes } from './workspace-search'
 import { checkGitBinary, runGit } from '../git/git-runner'
 
@@ -470,6 +477,43 @@ export function registerWorkspaceIpc(): void {
   )
 
   ipcMain.handle(
+    'workspace:read-link-index',
+    async (
+      _evt,
+      payload: { cwd: string }
+    ): Promise<
+      | {
+          ok: true
+          backlinksByTarget: Record<
+            string,
+            Array<{ source: string; target: string; linkText: string; contextText: string }>
+          >
+          outgoingBySource: Record<
+            string,
+            Array<{ source: string; target: string; linkText: string; contextText: string }>
+          >
+          validPaths: string[]
+        }
+      | { ok: false; error: string }
+    > => {
+      const cwd = payload.cwd?.trim() ?? ''
+      if (!cwd || !allowWorkspaceFs(cwd)) {
+        return { ok: false, error: 'not_a_workspace' }
+      }
+      try {
+        return {
+          ok: true,
+          ...(await readWorkspaceLinkIndexImpl(cwd))
+        }
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e)
+        console.error(LOG, 'read-link-index', msg)
+        return { ok: false, error: msg }
+      }
+    }
+  )
+
+  ipcMain.handle(
     'workspace:write-note-file',
     async (
       _evt,
@@ -486,6 +530,7 @@ export function registerWorkspaceIpc(): void {
       }
       try {
         writeNotelabFile(cwd, rel, content)
+        updateWorkspaceLinkCacheForWrite(cwd, rel, content)
         return { ok: true }
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e)
@@ -523,6 +568,7 @@ export function registerWorkspaceIpc(): void {
         return { ok: false, error: 'missing_folder' }
       }
       rmSync(resolvedFolder, { recursive: true, force: true })
+      updateWorkspaceLinkCacheForDeletePrefix(cwd, folder)
       console.info(LOG, 'deleted folder', folder)
       return { ok: true }
     }
@@ -569,6 +615,7 @@ export function registerWorkspaceIpc(): void {
       }
       try {
         deleteNoteFile(cwd, note)
+        updateWorkspaceLinkCacheForDelete(cwd, note)
         return { ok: true }
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e)
@@ -595,6 +642,7 @@ export function registerWorkspaceIpc(): void {
       }
       try {
         renameWorkspacePath(cwd, from, to)
+        updateWorkspaceLinkCacheForRename(cwd, from, to)
         return { ok: true }
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e)

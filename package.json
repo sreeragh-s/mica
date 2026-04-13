@@ -1,6 +1,6 @@
 {
   "name": "notelab.io",
-  "version": "1.0.20",
+  "version": "0.0.1",
   "description": "notelab.io — notes app",
   "main": "./out/main/index.js",
   "author": "sreeragh",

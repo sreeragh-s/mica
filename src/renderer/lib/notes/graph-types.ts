@@ -15,3 +15,19 @@ export type WorkspaceLinkMentionIndex = {
   outgoingBySource: Map<string, LinkMention[]>
   validPaths: Set<string>
 }
+
+export type WorkspaceLinkMentionIndexPayload = {
+  backlinksByTarget: Record<string, LinkMention[]>
+  outgoingBySource: Record<string, LinkMention[]>
+  validPaths: string[]
+}
+
+export function reviveWorkspaceLinkMentionIndex(
+  payload: WorkspaceLinkMentionIndexPayload
+): WorkspaceLinkMentionIndex {
+  return {
+    backlinksByTarget: new Map(Object.entries(payload.backlinksByTarget)),
+    outgoingBySource: new Map(Object.entries(payload.outgoingBySource)),
+    validPaths: new Set(payload.validPaths)
+  }
+}

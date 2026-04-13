@@ -1,11 +1,11 @@
 'use client'
 
 import type { CSSProperties, JSX } from 'react'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import * as d3 from 'd3'
 
-import { buildNoteLinkGraph } from '@/lib/notes/note-link-graph'
 import type { SavedNote, Folder } from '@/lib/notes/notes-storage'
+import type { WorkspaceLinkMentionIndex } from '@/lib/notes/graph-types'
 import { cn } from '@/lib/utils'
 
 const FOLDER_COLORS = ['#6366f1', '#8b5cf6', '#0ea5e9', '#14b8a6', '#eab308', '#f97316', '#ec4899']
@@ -64,6 +64,7 @@ const DEFAULT_DISPLAY: DisplaySettings = {
 export type NotesGraphViewProps = {
   notes: SavedNote[]
   folders: Folder[]
+  linkMentionIndex?: WorkspaceLinkMentionIndex | null
   isMacNotelab: boolean
   macTitlebarStyles: { noDrag: CSSProperties }
   onSelectNote: (notePath: string) => void
@@ -111,15 +112,18 @@ function SliderRow({
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export function NotesGraphView({
-  notes,
-  folders,
-  isMacNotelab,
-  macTitlebarStyles,
-  onSelectNote,
-  localNotePath = null,
-  embedded = false
-}: NotesGraphViewProps): JSX.Element {
+export const NotesGraphView = memo(function NotesGraphView(
+  {
+    notes,
+    folders,
+    linkMentionIndex,
+    isMacNotelab,
+    macTitlebarStyles,
+    onSelectNote,
+    localNotePath,
+    embedded
+  }: NotesGraphViewProps
+): JSX.Element {
   const wrapRef = useRef<HTMLDivElement | null>(null)
   const svgRef = useRef<SVGSVGElement | null>(null)
   const [size, setSize] = useState({ w: 800, h: 600 })
@@ -160,7 +164,53 @@ export function NotesGraphView({
   const onSelectRef = useRef(onSelectNote)
   onSelectRef.current = onSelectNote
 
-  const fullGraph = useMemo(() => buildNoteLinkGraph(notes), [notes])
+  const fullGraph = useMemo(() => {
+    const idSet = new Set(notes.map((note) => note.path))
+    const linkKeys = new Set<string>()
+    const links: Array<{ source: string; target: string }> = []
+
+    if (linkMentionIndex) {
+      for (const [source, mentions] of linkMentionIndex.outgoingBySource.entries()) {
+        if (!idSet.has(source)) continue
+        for (const mention of mentions) {
+          const target = mention.target
+          if (!idSet.has(target) || target === source) continue
+          const key = `${source}\0${target}`
+          if (linkKeys.has(key)) continue
+          linkKeys.add(key)
+          links.push({ source, target })
+        }
+      }
+    }
+
+    const titleCount = new Map<string, number>()
+    for (const note of notes) {
+      const normalizedTitle = (note.title?.trim() || 'Untitled').toLowerCase()
+      titleCount.set(normalizedTitle, (titleCount.get(normalizedTitle) ?? 0) + 1)
+    }
+
+    const nodes = notes.map((note) => {
+      const baseTitle = (note.title?.trim() || 'Untitled').slice(0, 80)
+      const isDuplicate = (titleCount.get(baseTitle.toLowerCase()) ?? 0) > 1
+      let displayTitle = baseTitle
+      if (isDuplicate) {
+        const pathParts = note.path.replace(/\\/g, '/').split('/')
+        const parentDir = pathParts.length >= 2 ? pathParts[pathParts.length - 2] : note.folder
+        const qualifier = parentDir && parentDir !== 'default' ? parentDir : note.folder
+        if (qualifier && qualifier !== 'default') {
+          displayTitle = `${baseTitle} (${qualifier})`
+        }
+      }
+      return {
+        id: note.path,
+        title: displayTitle.slice(0, 80),
+        kind: note.kind ?? 'note',
+        folder: note.folder
+      }
+    })
+
+    return { nodes, links }
+  }, [linkMentionIndex, notes])
 
   const backlinkCount = useMemo(() => {
     const map = new Map<string, number>()
@@ -738,4 +788,4 @@ export function NotesGraphView({
       </div>
     </div>
   )
-}
+})

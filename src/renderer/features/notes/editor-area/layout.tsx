@@ -1,4 +1,4 @@
-import { lazy, Suspense, useMemo, type DragEvent, type JSX } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useState, type DragEvent, type JSX } from 'react'
 
 import { AlertCircleIcon, Loader2Icon, ScanTextIcon, X } from 'lucide-react'
 
@@ -19,8 +19,12 @@ import type { OpenNoteTab } from '@/features/notes/editor-area/NoteTabStrip'
 import { GraphPaneTopBar } from '@/features/notes/layout/GraphPaneTopBar'
 import { NotesMainTopBar } from '@/features/notes/layout/NotesMainTopBar'
 import type { NotesAppViewModel } from '@/hooks/notes/useNotesApp'
-import { buildLinkIndexFromNotes } from '@/lib/ai/chat-retrieval-pipeline'
 import { countIndexingStates } from '@/features/notes/editor-area/indexing-status'
+import { getApi } from '@/bridges/auth/auth-bridge'
+import {
+  reviveWorkspaceLinkMentionIndex,
+  type WorkspaceLinkMentionIndex
+} from '@/lib/notes/graph-types'
 
 const AccountSettingsView = lazy(async () => ({
   default: (await import('@/features/notes/settings/AccountSettingsView')).AccountSettingsView
@@ -144,9 +148,11 @@ function MainAreaIndexingOverlay({
   )
 }
 
+
 function NotesMainNotesContent({
   vm,
   primaryPaneProps,
+  linkMentionIndex,
   zenHintVisible,
   onDragOverMain,
   onDropPrimaryPane,
@@ -156,6 +162,7 @@ function NotesMainNotesContent({
 }: {
   vm: NotesAppViewModel
   primaryPaneProps: NotesPrimaryPaneProps
+  linkMentionIndex: WorkspaceLinkMentionIndex | null
   zenHintVisible: boolean
   onDragOverMain: (e: DragEvent) => void
   onDropPrimaryPane: (e: DragEvent) => void
@@ -260,6 +267,7 @@ function NotesMainNotesContent({
           <NotesGraphView
             notes={notes}
             folders={folders}
+            linkMentionIndex={linkMentionIndex}
             isMacNotelab={isMacNotelab}
             macTitlebarStyles={macTitlebarStyles}
             onSelectNote={selectNote}
@@ -292,6 +300,7 @@ function NotesMainNotesContent({
             <NotesGraphView
               notes={notes}
               folders={folders}
+              linkMentionIndex={linkMentionIndex}
               isMacNotelab={isMacNotelab}
               macTitlebarStyles={macTitlebarStyles}
               onSelectNote={selectNote}
@@ -395,7 +404,92 @@ export function NotesMainAreaLayout({
     confirmDeleteNote
   } = vm
 
-  const linkMentionIndex = useMemo(() => buildLinkIndexFromNotes(notes), [notes])
+  const [linkMentionIndex, setLinkMentionIndex] = useState<WorkspaceLinkMentionIndex | null>(null)
+  const [, setLinkIndexRunning] = useState(false)
+  const [, setLinkIndexError] = useState<string | null>(null)
+  const [linkIndexOverlayDismissed, setLinkIndexOverlayDismissed] = useState(false)
+  const linkIndexRefreshKey = useMemo(
+    () =>
+      notes
+        .map((note) => `${note.path}:${note.updatedAt}`)
+        .sort()
+        .join('|'),
+    [notes]
+  )
+
+  useEffect(() => {
+    if (!dataRootPath) {
+      setLinkMentionIndex(null)
+      setLinkIndexRunning(false)
+      setLinkIndexError(null)
+      return
+    }
+
+    const api = getApi()
+    if (!api?.workspace?.readLinkIndex) {
+      setLinkMentionIndex(null)
+      setLinkIndexRunning(false)
+      setLinkIndexError(null)
+      return
+    }
+
+    let cancelled = false
+    let hideTimer: number | null = null
+    let showTimer: number | null = null
+    const timer = window.setTimeout(() => {
+      setLinkIndexError(null)
+      showTimer = window.setTimeout(() => {
+        if (!cancelled && !linkIndexOverlayDismissed) {
+          setLinkIndexRunning(true)
+        }
+      }, 500)
+      void api.workspace!
+        .readLinkIndex!({ cwd: dataRootPath })
+        .then((result) => {
+          if (cancelled) return
+          if (showTimer != null) {
+            window.clearTimeout(showTimer)
+            showTimer = null
+          }
+          if (!result.ok) {
+            console.warn('[link-index] failed', result.error)
+            setLinkMentionIndex(null)
+            setLinkIndexRunning(false)
+            setLinkIndexOverlayDismissed(false)
+            setLinkIndexError(result.error)
+            return
+          }
+          setLinkMentionIndex(reviveWorkspaceLinkMentionIndex(result))
+          setLinkIndexRunning(false)
+          setLinkIndexError(null)
+          if (!linkIndexOverlayDismissed) {
+            hideTimer = window.setTimeout(() => {
+              if (!cancelled) setLinkIndexOverlayDismissed(true)
+            }, 900)
+          }
+        })
+        .catch((error: unknown) => {
+          if (cancelled) return
+          if (showTimer != null) {
+            window.clearTimeout(showTimer)
+            showTimer = null
+          }
+          const message = error instanceof Error ? error.message : String(error)
+          console.warn('[link-index] failed', message)
+          setLinkMentionIndex(null)
+          setLinkIndexRunning(false)
+          setLinkIndexOverlayDismissed(false)
+          setLinkIndexError(message)
+        })
+    }, 180)
+
+    return () => {
+      cancelled = true
+      window.clearTimeout(timer)
+      if (hideTimer != null) window.clearTimeout(hideTimer)
+      if (showTimer != null) window.clearTimeout(showTimer)
+    }
+  }, [dataRootPath, linkIndexOverlayDismissed, linkIndexRefreshKey])
 
   const showNotes = appMode === 'notes'
   const showJournalTimeline = showNotes && journalViewOpen
@@ -607,6 +701,7 @@ export function NotesMainAreaLayout({
                         <NotesMainNotesContent
                           vm={vm}
                           primaryPaneProps={primaryPaneProps}
+                          linkMentionIndex={linkMentionIndex}
                           zenHintVisible={zenHintVisible}
                           onDragOverMain={onDragOverMain}
                           onDropPrimaryPane={onDropPrimaryPane}

@@ -54,6 +54,26 @@ export function createEmptyDrawing(folder: string, notePath: string): SavedNote 
   }
 }
 
+export function dehydrateNoteDocument(note: SavedNote): SavedNote {
+  if (note.kind === 'pdf') {
+    return note.documentState === 'ready' ? note : { ...note, documentState: 'ready' }
+  }
+  if (note.kind === 'drawing') {
+    if (note.documentState === 'cold' && note.excalidrawScene == null) return note
+    return {
+      ...note,
+      documentState: 'cold',
+      excalidrawScene: null
+    }
+  }
+  if (note.documentState === 'cold' && note.content == null) return note
+  return {
+    ...note,
+    documentState: 'cold',
+    content: null
+  }
+}
+
 export function isDrawingNote(note: SavedNote): boolean {
   return note.kind === 'drawing'
 }
