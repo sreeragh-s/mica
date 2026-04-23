@@ -36,6 +36,27 @@ export type GhAuthDonePayload = {
   error: string | null
 }
 
+export type GhPublishProgressPayload = {
+  phase: string
+  line: string | null
+}
+
+export type GitSyncProgressPayload = {
+  phase: string
+  line: string | null
+}
+
+export type GitSyncResult = {
+  pulled: boolean
+  pushed: boolean
+  ahead: number
+  behind: number
+}
+
+export function gitSyncBranch(path: string): Promise<GitSyncResult> {
+  return invoke("git_sync_branch", { path })
+}
+
 export function checkGitInstallation(): Promise<GitCheckResult> {
   return invoke("check_git_installation")
 }

@@ -3,6 +3,7 @@
 import * as React from "react"
 import { remove } from "@tauri-apps/plugin-fs"
 import { revealItemInDir } from "@tauri-apps/plugin-opener"
+import { Menu, PredefinedMenuItem } from "@tauri-apps/api/menu"
 import {
   FileTree as PierreFileTree,
   useFileTree,
@@ -298,6 +299,24 @@ export const FileTree = React.memo(function FileTree() {
     []
   )
 
+  const contextMenuComposition = React.useMemo(
+    () => ({
+      enabled: true,
+      triggerMode: "right-click" as const,
+      onOpen: (
+        item: FileTreeContextMenuItem,
+        context: FileTreeContextMenuOpenContext
+      ) => {
+        context.close({ restoreFocus: false })
+        const model = modelRef.current
+        const store = storeInstanceRef.current
+        if (!model || !store) return
+        void showNativeContextMenu(item, model, store)
+      },
+    }),
+    []
+  )
+
   const { model } = useFileTree({
     preparedInput,
     initialExpansion: "closed",
@@ -306,7 +325,7 @@ export const FileTree = React.memo(function FileTree() {
     icons: TREE_ICONS,
     search: true,
     fileTreeSearchMode: "expand-matches",
-    composition: { contextMenu: { enabled: true, triggerMode: "right-click" } },
+    composition: { contextMenu: contextMenuComposition },
   })
   modelRef.current = model
 
@@ -392,12 +411,6 @@ export const FileTree = React.memo(function FileTree() {
       window.removeEventListener("active-file-changed", handleActiveFileChanged)
     }
   }, [applyDesiredSelection])
-
-  const renderContextMenu = React.useCallback(
-    (item: FileTreeContextMenuItem, context: FileTreeContextMenuOpenContext) =>
-      renderTreeContextMenu(item, context, model, store),
-    [model, store]
-  )
 
   const [isRootDropOver, setIsRootDropOver] = React.useState(false)
 
@@ -500,140 +513,108 @@ export const FileTree = React.memo(function FileTree() {
         onDragLeave={handleRootDragLeave}
         onDrop={handleRootDrop}
       >
-        <PierreFileTree
-          model={model}
-          renderContextMenu={renderContextMenu}
-          style={TREE_THEME_STYLE}
-        />
+        <PierreFileTree model={model} style={TREE_THEME_STYLE} />
       </div>
     </div>
   )
 })
 
-type ContextMenuAction = {
-  label: string
-  onSelect: () => void
-  danger?: boolean
-}
-
-function renderTreeContextMenu(
+async function showNativeContextMenu(
   item: FileTreeContextMenuItem,
-  context: FileTreeContextMenuOpenContext,
   model: FileTreeModel,
   store: WorkspacePathStore
-): React.ReactNode {
+): Promise<void> {
   const workspace = store.getWorkspace()
-  if (!workspace) return null
+  if (!workspace) return
 
   const absolutePath = toAbsolutePath(item.path, workspace)
   const isDir = item.kind === "directory"
   const name = item.name
 
-  const actions: ContextMenuAction[] = [
-    {
-      label: "Open",
-      onSelect: () => {
-        if (isDir) {
-          const handle = model.getItem(item.path)
-          if (handle && handle.isDirectory() === true) {
-            ;(handle as { toggle(): void }).toggle()
-          }
-        } else if (isSupportedEditorFile(absolutePath)) {
-          window.dispatchEvent(
-            new CustomEvent("file-selected", {
-              detail: { path: absolutePath, name },
-            })
-          )
-        }
-      },
-    },
-    {
-      label: "Rename",
-      onSelect: () => {
-        context.close({ restoreFocus: false })
-        model.startRenaming(item.path)
-      },
-    },
-    {
-      label: "Copy Name",
-      onSelect: () => {
-        void navigator.clipboard.writeText(name)
-      },
-    },
-    {
-      label: "Copy Path",
-      onSelect: () => {
-        void navigator.clipboard.writeText(absolutePath)
-      },
-    },
-    {
-      label: "Copy Relative Path",
-      onSelect: () => {
-        void navigator.clipboard.writeText(item.path)
-      },
-    },
-    {
-      label: "Delete",
-      danger: true,
-      onSelect: () => {
-        const confirmed = globalThis.confirm(
-          `Are you sure you want to delete "${name}"?`
-        )
-        if (!confirmed) return
-        remove(absolutePath, { recursive: true })
-          .then(() => {
+  const separator = await PredefinedMenuItem.new({ item: "Separator" })
+
+  const menu = await Menu.new({
+    items: [
+      {
+        id: "open",
+        text: "Open",
+        action: () => {
+          if (isDir) {
+            const handle = model.getItem(item.path)
+            if (handle && handle.isDirectory() === true) {
+              ;(handle as { toggle(): void }).toggle()
+            }
+          } else if (isSupportedEditorFile(absolutePath)) {
             window.dispatchEvent(
-              new CustomEvent("entry-deleted", {
-                detail: { path: absolutePath, isDir },
+              new CustomEvent("file-selected", {
+                detail: { path: absolutePath, name },
               })
             )
-          })
-          .catch((err) => {
-            console.error("[FileTree] Failed to delete entry", err)
-            globalThis.alert(`Failed to delete: ${err}`)
-          })
-      },
-    },
-    {
-      label: "Show in Finder",
-      onSelect: () => {
-        void revealItemInDir(absolutePath)
-      },
-    },
-  ]
-
-  return <ContextMenuList actions={actions} onClose={() => context.close()} />
-}
-
-const ContextMenuList = React.memo(function ContextMenuList({
-  actions,
-  onClose,
-}: {
-  actions: ContextMenuAction[]
-  onClose: () => void
-}) {
-  return (
-    <div
-      role="menu"
-      className="min-w-[180px] rounded-md border border-sidebar-border bg-popover p-1 text-[13px] shadow-md"
-    >
-      {actions.map((action) => (
-        <button
-          type="button"
-          key={action.label}
-          role="menuitem"
-          className={
-            "block w-full rounded-sm px-2 py-1 text-left hover:bg-accent hover:text-accent-foreground " +
-            (action.danger ? "text-destructive" : "text-popover-foreground")
           }
-          onClick={() => {
-            action.onSelect()
-            onClose()
-          }}
-        >
-          {action.label}
-        </button>
-      ))}
-    </div>
-  )
-})
+        },
+      },
+      {
+        id: "rename",
+        text: "Rename",
+        action: () => {
+          model.startRenaming(item.path)
+        },
+      },
+      separator,
+      {
+        id: "copy-name",
+        text: "Copy Name",
+        action: () => {
+          void navigator.clipboard.writeText(name)
+        },
+      },
+      {
+        id: "copy-path",
+        text: "Copy Path",
+        action: () => {
+          void navigator.clipboard.writeText(absolutePath)
+        },
+      },
+      {
+        id: "copy-relative-path",
+        text: "Copy Relative Path",
+        action: () => {
+          void navigator.clipboard.writeText(item.path)
+        },
+      },
+      separator,
+      {
+        id: "show-in-finder",
+        text: "Show in Finder",
+        action: () => {
+          void revealItemInDir(absolutePath)
+        },
+      },
+      separator,
+      {
+        id: "delete",
+        text: "Delete",
+        action: () => {
+          const confirmed = globalThis.confirm(
+            `Are you sure you want to delete "${name}"?`
+          )
+          if (!confirmed) return
+          remove(absolutePath, { recursive: true })
+            .then(() => {
+              window.dispatchEvent(
+                new CustomEvent("entry-deleted", {
+                  detail: { path: absolutePath, isDir },
+                })
+              )
+            })
+            .catch((err) => {
+              console.error("[FileTree] Failed to delete entry", err)
+              globalThis.alert(`Failed to delete: ${err}`)
+            })
+        },
+      },
+    ],
+  })
+
+  await menu.popup()
+}

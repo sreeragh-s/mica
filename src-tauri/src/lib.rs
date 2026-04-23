@@ -52,8 +52,17 @@ pub struct GitFileStatus {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct GitBranch {
+    /// Short name users recognize. For remotes this is the part after the
+    /// remote name, e.g. `origin/feature/foo` -> `feature/foo`.
     pub name: String,
+    /// Full ref identifier. For a local branch this matches `name`; for a
+    /// remote it's `origin/<name>` so a checkout command can disambiguate.
+    pub full_ref: String,
     pub is_current: bool,
+    /// "local" or "remote". Used by the UI to group branches.
+    pub kind: String,
+    /// Remote name (e.g. "origin"). None for local branches.
+    pub remote: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -447,6 +456,15 @@ fn extract_device_url(line: &str) -> Option<String> {
     Some(rest[..end].to_string())
 }
 
+#[derive(Debug, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct GhPublishProgressPayload {
+    /// A short, user-facing label for the current step.
+    pub phase: String,
+    /// Most recent line of output from gh/git, for live feedback.
+    pub line: Option<String>,
+}
+
 /// Publish the current branch of the repo at `path` to GitHub.
 ///
 /// - If the repo has no `origin` remote, runs `gh repo create` (which creates
@@ -456,13 +474,19 @@ fn extract_device_url(line: &str) -> Option<String> {
 /// - Otherwise, pushes the branch with `-u origin <branch>` so tracking is set.
 ///
 /// `visibility` must be one of: `"public"`, `"private"`, `"internal"`.
+///
+/// Streams progress via the `gh-publish-progress` event while it runs so the
+/// UI isn't a dead spinner during the (often slow) push phase.
 #[tauri::command]
-fn gh_publish_branch(
+async fn gh_publish_branch(
+    app: AppHandle,
     path: String,
     branch_name: String,
     visibility: String,
     repo_name: Option<String>,
 ) -> Result<GhPublishResult, String> {
+    use tokio::io::{AsyncBufReadExt, BufReader};
+    use tokio::process::Command as TokioCommand;
     let p = Path::new(&path);
     if !p.exists() || !p.is_dir() {
         return Err(format!("Path '{}' is not a valid directory", path));
@@ -470,7 +494,7 @@ fn gh_publish_branch(
     if !matches!(visibility.as_str(), "public" | "private" | "internal") {
         return Err(format!("Invalid visibility: {visibility}"));
     }
-    let branch = branch_name.trim();
+    let branch = branch_name.trim().to_string();
     if branch.is_empty() {
         return Err("Branch name cannot be empty.".to_string());
     }
@@ -480,61 +504,165 @@ fn gh_publish_branch(
         "[gh] publish_branch path={path:?} branch={branch} visibility={visibility} repo_name={repo_name:?} existing_remote={existing_remote:?}"
     );
 
+    let emit_progress = |phase: &str, line: Option<String>| {
+        let _ = app.emit(
+            "gh-publish-progress",
+            GhPublishProgressPayload {
+                phase: phase.to_string(),
+                line,
+            },
+        );
+    };
+
     if existing_remote.is_none() {
-        // Fresh repo / no origin: `gh repo create` does the whole handshake.
-        // `--source=.` uses cwd, `--push` pushes the current branch after
-        // wiring up origin. Visibility is required when not interactive.
+        // Fresh repo / no origin: `gh repo create` does the whole handshake —
+        // creates the GitHub repo, wires up origin, and pushes the current
+        // branch. This can easily take 30+ seconds depending on repo size and
+        // network, so we stream gh's output to the UI as progress.
+        emit_progress("Creating GitHub repository…", None);
         let visibility_flag = format!("--{visibility}");
-        let mut args: Vec<&str> = Vec::with_capacity(6);
-        args.push("repo");
-        args.push("create");
-        // Owner defaults to the authenticated user when the name has no slash.
+        let mut args: Vec<String> = Vec::with_capacity(6);
+        args.push("repo".into());
+        args.push("create".into());
         let trimmed_name = repo_name.as_deref().map(str::trim).filter(|s| !s.is_empty());
         if let Some(name) = trimmed_name {
-            args.push(name);
+            args.push(name.to_string());
         }
-        args.push("--source=.");
-        args.push("--push");
-        args.push(&visibility_flag);
+        args.push("--source=.".into());
+        args.push("--push".into());
+        args.push(visibility_flag);
 
         eprintln!("[gh] exec gh {args:?}");
-        let output = Command::new("gh")
+        let mut child = TokioCommand::new("gh")
             .args(&args)
             .current_dir(p)
-            .output()
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped())
+            .stdin(std::process::Stdio::null())
+            .spawn()
             .map_err(|e| format!("Failed to run gh: {e}"))?;
-        let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
-        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
-        eprintln!(
-            "[gh] exit status={} stdout={stdout:?} stderr={stderr:?}",
-            output.status
-        );
-        if !output.status.success() {
-            return Err(if stderr.is_empty() {
-                format!("gh exited with status {}", output.status)
+
+        let stdout = child.stdout.take().ok_or("No stdout")?;
+        let stderr = child.stderr.take().ok_or("No stderr")?;
+
+        let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<String>();
+        let tx_out = tx.clone();
+        let tx_err = tx;
+        tokio::spawn(async move {
+            let mut lines = BufReader::new(stdout).lines();
+            while let Ok(Some(line)) = lines.next_line().await {
+                let _ = tx_out.send(line);
+            }
+        });
+        tokio::spawn(async move {
+            let mut lines = BufReader::new(stderr).lines();
+            while let Ok(Some(line)) = lines.next_line().await {
+                let _ = tx_err.send(line);
+            }
+        });
+
+        let mut captured_err = String::new();
+        let app_for_lines = app.clone();
+        let drain_task = tokio::spawn(async move {
+            while let Some(line) = rx.recv().await {
+                eprintln!("[gh] :: {line}");
+                // Crude but effective phase detection — gh prints these in
+                // order so the UI labels track what's actually happening.
+                let phase = if line.contains("Pushing") || line.to_lowercase().contains("push") {
+                    "Pushing to GitHub…"
+                } else if line.contains("Created repository") {
+                    "Pushing to GitHub…"
+                } else {
+                    "Creating GitHub repository…"
+                };
+                let _ = app_for_lines.emit(
+                    "gh-publish-progress",
+                    GhPublishProgressPayload {
+                        phase: phase.to_string(),
+                        line: Some(line.clone()),
+                    },
+                );
+                captured_err.push_str(&line);
+                captured_err.push('\n');
+            }
+            captured_err
+        });
+
+        let status = child
+            .wait()
+            .await
+            .map_err(|e| format!("Failed waiting for gh: {e}"))?;
+        let captured = drain_task.await.unwrap_or_default();
+        eprintln!("[gh] exit status={status}");
+        if !status.success() {
+            let trimmed = captured.trim().to_string();
+            return Err(if trimmed.is_empty() {
+                format!("gh exited with status {status}")
             } else {
-                stderr
+                trimmed
             });
         }
     } else {
         // Remote already set up — just publish the branch with tracking.
+        emit_progress("Pushing to GitHub…", None);
         eprintln!("[gh] exec git push -u origin {branch}");
-        let output = Command::new("git")
-            .args(["push", "-u", "origin", branch])
+        let mut child = TokioCommand::new("git")
+            .args(["push", "-u", "origin", &branch])
             .current_dir(p)
-            .output()
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped())
+            .stdin(std::process::Stdio::null())
+            .spawn()
             .map_err(|e| format!("Failed to run git push: {e}"))?;
-        let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
-        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
-        eprintln!(
-            "[gh] git push exit status={} stdout={stdout:?} stderr={stderr:?}",
-            output.status
-        );
-        if !output.status.success() {
-            return Err(if stderr.is_empty() {
-                format!("git push exited with status {}", output.status)
+
+        let stdout = child.stdout.take().ok_or("No stdout")?;
+        let stderr = child.stderr.take().ok_or("No stderr")?;
+        let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<String>();
+        let tx_out = tx.clone();
+        let tx_err = tx;
+        tokio::spawn(async move {
+            let mut lines = BufReader::new(stdout).lines();
+            while let Ok(Some(line)) = lines.next_line().await {
+                let _ = tx_out.send(line);
+            }
+        });
+        tokio::spawn(async move {
+            let mut lines = BufReader::new(stderr).lines();
+            while let Ok(Some(line)) = lines.next_line().await {
+                let _ = tx_err.send(line);
+            }
+        });
+
+        let mut captured_err = String::new();
+        let app_for_lines = app.clone();
+        let drain_task = tokio::spawn(async move {
+            while let Some(line) = rx.recv().await {
+                eprintln!("[git push] :: {line}");
+                let _ = app_for_lines.emit(
+                    "gh-publish-progress",
+                    GhPublishProgressPayload {
+                        phase: "Pushing to GitHub…".to_string(),
+                        line: Some(line.clone()),
+                    },
+                );
+                captured_err.push_str(&line);
+                captured_err.push('\n');
+            }
+            captured_err
+        });
+
+        let status = child
+            .wait()
+            .await
+            .map_err(|e| format!("Failed waiting for git push: {e}"))?;
+        let captured = drain_task.await.unwrap_or_default();
+        eprintln!("[gh] git push exit status={status}");
+        if !status.success() {
+            let trimmed = captured.trim().to_string();
+            return Err(if trimmed.is_empty() {
+                format!("git push exited with status {status}")
             } else {
-                stderr
+                trimmed
             });
         }
     }
@@ -543,7 +671,206 @@ fn gh_publish_branch(
     eprintln!("[gh] publish ok remote={remote_url:?}");
     Ok(GhPublishResult {
         remote_url,
-        branch: branch.to_string(),
+        branch,
+    })
+}
+
+#[derive(Debug, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct GitSyncProgressPayload {
+    pub phase: String,
+    pub line: Option<String>,
+}
+
+#[derive(Debug, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct GitSyncResult {
+    pub pulled: bool,
+    pub pushed: bool,
+    pub ahead: u32,
+    pub behind: u32,
+}
+
+/// Run `git` with streamed output, emitting lines over the given event name
+/// with a caller-supplied phase label. Returns the combined output captured
+/// from stdout+stderr so the caller can surface meaningful errors.
+async fn run_git_streamed(
+    app: &AppHandle,
+    cwd: &Path,
+    args: &[&str],
+    event: &str,
+    phase: &str,
+) -> Result<(std::process::ExitStatus, String), String> {
+    use tokio::io::{AsyncBufReadExt, BufReader};
+    use tokio::process::Command as TokioCommand;
+
+    eprintln!("[sync] exec git {args:?}");
+    let mut child = TokioCommand::new("git")
+        .args(args)
+        .current_dir(cwd)
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .stdin(std::process::Stdio::null())
+        .spawn()
+        .map_err(|e| format!("Failed to run git: {e}"))?;
+
+    let stdout = child.stdout.take().ok_or("No stdout")?;
+    let stderr = child.stderr.take().ok_or("No stderr")?;
+    let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<String>();
+    let tx_out = tx.clone();
+    let tx_err = tx;
+    tokio::spawn(async move {
+        let mut lines = BufReader::new(stdout).lines();
+        while let Ok(Some(line)) = lines.next_line().await {
+            let _ = tx_out.send(line);
+        }
+    });
+    tokio::spawn(async move {
+        let mut lines = BufReader::new(stderr).lines();
+        while let Ok(Some(line)) = lines.next_line().await {
+            let _ = tx_err.send(line);
+        }
+    });
+
+    let mut captured = String::new();
+    let app_for_lines = app.clone();
+    let event_name = event.to_string();
+    let phase_label = phase.to_string();
+    let drain_task = tokio::spawn(async move {
+        let mut buf = String::new();
+        while let Some(line) = rx.recv().await {
+            eprintln!("[sync] :: {line}");
+            let _ = app_for_lines.emit(
+                event_name.as_str(),
+                GitSyncProgressPayload {
+                    phase: phase_label.clone(),
+                    line: Some(line.clone()),
+                },
+            );
+            buf.push_str(&line);
+            buf.push('\n');
+        }
+        buf
+    });
+
+    let status = child
+        .wait()
+        .await
+        .map_err(|e| format!("Failed waiting for git: {e}"))?;
+    let output = drain_task.await.unwrap_or_default();
+    captured.push_str(&output);
+    Ok((status, captured))
+}
+
+/// Sync the current branch with its remote. Used by the "Sync Changes" CTA
+/// once a remote is configured.
+///
+/// - Fetches first to get accurate ahead/behind.
+/// - Pulls (rebase) if behind, to avoid an unnecessary merge commit.
+/// - Pushes if ahead (or if this is the first push on a tracked branch).
+///
+/// Streams each step via `git-sync-progress`.
+#[tauri::command]
+async fn git_sync_branch(app: AppHandle, path: String) -> Result<GitSyncResult, String> {
+    let p = Path::new(&path);
+    if !p.exists() || !p.is_dir() {
+        return Err(format!("Path '{}' is not a valid directory", path));
+    }
+
+    let branch = git_stdout_trim(&["branch", "--show-current"], Some(p))
+        .ok_or_else(|| "No current branch (detached HEAD?).".to_string())?;
+    let has_origin = git_stdout_trim(&["remote", "get-url", "origin"], Some(p)).is_some();
+    if !has_origin {
+        return Err("This repository has no `origin` remote.".to_string());
+    }
+
+    eprintln!("[sync] branch={branch}");
+    let _ = app.emit(
+        "git-sync-progress",
+        GitSyncProgressPayload {
+            phase: "Fetching from origin…".to_string(),
+            line: None,
+        },
+    );
+    let (status, captured) = run_git_streamed(
+        &app,
+        p,
+        &["fetch", "origin", &branch],
+        "git-sync-progress",
+        "Fetching from origin…",
+    )
+    .await?;
+    if !status.success() {
+        let trimmed = captured.trim().to_string();
+        return Err(if trimmed.is_empty() {
+            format!("git fetch exited with status {status}")
+        } else {
+            trimmed
+        });
+    }
+
+    let ahead: u32 = git_stdout_trim(&["rev-list", "--count", "@{upstream}..HEAD"], Some(p))
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(0);
+    let behind: u32 = git_stdout_trim(&["rev-list", "--count", "HEAD..@{upstream}"], Some(p))
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(0);
+    eprintln!("[sync] ahead={ahead} behind={behind}");
+
+    let mut pulled = false;
+    if behind > 0 {
+        let (status, captured) = run_git_streamed(
+            &app,
+            p,
+            &["pull", "--rebase", "origin", &branch],
+            "git-sync-progress",
+            "Pulling from origin…",
+        )
+        .await?;
+        if !status.success() {
+            let trimmed = captured.trim().to_string();
+            return Err(if trimmed.is_empty() {
+                format!("git pull exited with status {status}")
+            } else {
+                trimmed
+            });
+        }
+        pulled = true;
+    }
+
+    let mut pushed = false;
+    // Push if we're ahead *or* if upstream tracking isn't set yet (first push
+    // after `git branch --set-upstream-to`-less setup).
+    let upstream_missing = git_stdout_trim(
+        &["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}"],
+        Some(p),
+    )
+    .is_none();
+    if ahead > 0 || upstream_missing {
+        let (status, captured) = run_git_streamed(
+            &app,
+            p,
+            &["push", "-u", "origin", &branch],
+            "git-sync-progress",
+            "Pushing to origin…",
+        )
+        .await?;
+        if !status.success() {
+            let trimmed = captured.trim().to_string();
+            return Err(if trimmed.is_empty() {
+                format!("git push exited with status {status}")
+            } else {
+                trimmed
+            });
+        }
+        pushed = true;
+    }
+
+    Ok(GitSyncResult {
+        pulled,
+        pushed,
+        ahead,
+        behind,
     })
 }
 
@@ -897,8 +1224,19 @@ fn get_git_branches(path: String) -> Result<Vec<GitBranch>, String> {
     if !p.exists() || !p.is_dir() {
         return Err(format!("Path '{}' is not a valid directory", path));
     }
+    // `for-each-ref` with a custom format is far easier to parse than
+    // `git branch -a`: tabs separate fields, no asterisk prefixes, no "(no
+    // branch)" surprises. We emit local + remote refs in one pass.
+    //   %(refname)          full ref (refs/heads/foo or refs/remotes/origin/foo)
+    //   %(refname:short)    short display name
+    //   %(HEAD)             "*" for the currently checked-out branch
     let output = Command::new("git")
-        .args(&["branch", "-a"])
+        .args([
+            "for-each-ref",
+            "--format=%(refname)%09%(refname:short)%09%(HEAD)",
+            "refs/heads",
+            "refs/remotes",
+        ])
         .current_dir(p)
         .output()
         .map_err(|e| format!("Failed to get branches: {}", e))?;
@@ -908,71 +1246,183 @@ fn get_git_branches(path: String) -> Result<Vec<GitBranch>, String> {
     }
 
     let output_str = String::from_utf8_lossy(&output.stdout);
+    let mut branches: Vec<GitBranch> = Vec::new();
+    for line in output_str.lines() {
+        let mut parts = line.splitn(3, '\t');
+        let refname = parts.next().unwrap_or("");
+        let short = parts.next().unwrap_or("").to_string();
+        let head = parts.next().unwrap_or("");
+        if refname.is_empty() || short.is_empty() {
+            continue;
+        }
 
-    let branches: Vec<GitBranch> = output_str
-        .lines()
-        .filter_map(|line| {
-            let trimmed = line.trim();
-            if trimmed.is_empty() {
-                return None;
+        if let Some(local) = refname.strip_prefix("refs/heads/") {
+            branches.push(GitBranch {
+                name: local.to_string(),
+                full_ref: local.to_string(),
+                is_current: head == "*",
+                kind: "local".to_string(),
+                remote: None,
+            });
+        } else if let Some(remote_path) = refname.strip_prefix("refs/remotes/") {
+            // Skip `refs/remotes/origin/HEAD` — it's a symbolic ref, not a
+            // checkoutable branch; showing it clutters the UI.
+            if remote_path.ends_with("/HEAD") {
+                continue;
             }
-            let is_current = trimmed.starts_with('*');
-            let name = if is_current {
-                trimmed.trim_start_matches("* ").trim_start_matches('*').to_string()
-            } else {
-                trimmed.to_string()
+            // `short` is already `origin/foo` — split off the remote name.
+            let (remote, name) = match short.split_once('/') {
+                Some((r, n)) => (r.to_string(), n.to_string()),
+                None => continue,
             };
-            Some(GitBranch {
+            branches.push(GitBranch {
                 name,
-                is_current,
-            })
-        })
-        .collect();
+                full_ref: short,
+                is_current: false,
+                kind: "remote".to_string(),
+                remote: Some(remote),
+            });
+        }
+    }
 
     Ok(branches)
 }
 
+/// Create a new branch. If `checkout` is true, switches to it immediately
+/// (`git checkout -b`); otherwise just creates the ref (`git branch`) so the
+/// user stays on their current branch.
 #[tauri::command]
-fn create_git_branch(path: String, branch_name: String) -> Result<(), String> {
+fn create_git_branch(
+    path: String,
+    branch_name: String,
+    checkout: Option<bool>,
+) -> Result<(), String> {
     let p = Path::new(&path);
     if !p.exists() || !p.is_dir() {
         return Err(format!("Path '{}' is not a valid directory", path));
     }
+    let name = branch_name.trim();
+    if name.is_empty() {
+        return Err("Branch name cannot be empty.".to_string());
+    }
+    let args: &[&str] = if checkout.unwrap_or(true) {
+        &["checkout", "-b", name]
+    } else {
+        &["branch", name]
+    };
     let output = Command::new("git")
-        .args(&["checkout", "-b", &branch_name])
+        .args(args)
         .current_dir(p)
         .output()
         .map_err(|e| format!("Failed to create branch: {}", e))?;
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
-        return Err(stderr);
+        return Err(if stderr.is_empty() {
+            format!("git exited with status {}", output.status)
+        } else {
+            stderr
+        });
     }
     Ok(())
 }
 
+/// Checkout a branch. Accepts either a local short name (`feature/foo`) or a
+/// remote ref (`origin/feature/foo`) — in the remote case a local tracking
+/// branch is created automatically.
+///
+/// Refuses to run when the working tree has changes that checkout would
+/// clobber. The caller is expected to either commit, stash, or discard first;
+/// we deliberately *don't* auto-stash since that's a destructive side effect
+/// most users want to see happen explicitly.
 #[tauri::command]
 fn checkout_branch(path: String, branch_name: String) -> Result<(), String> {
     let p = Path::new(&path);
     if !p.exists() || !p.is_dir() {
         return Err(format!("Path '{}' is not a valid directory", path));
     }
-    // Checking out the current branch is a no-op. Short-circuit here so the
-    // command also succeeds on an unborn HEAD (where the branch exists only
-    // as a symbolic ref and `git checkout` would fail with "pathspec did not
-    // match").
+
     let current = git_stdout_trim(&["branch", "--show-current"], Some(p))
         .or_else(|| git_stdout_trim(&["symbolic-ref", "--short", "HEAD"], Some(p)));
+    // No-op when already on that branch; also works around unborn HEAD.
     if current.as_deref() == Some(branch_name.as_str()) {
         return Ok(());
     }
+
+    // Detect a remote ref like `origin/feature/foo` and promote it to a
+    // local tracking branch so the user doesn't end up detached. We only
+    // check the first segment against known remotes — otherwise a local
+    // branch named `origin/foo` (unusual but legal) would be misrouted.
+    let remotes = git_stdout_trim(&["remote"], Some(p)).unwrap_or_default();
+    let is_remote_ref = branch_name.split_once('/').is_some_and(|(head, _)| {
+        remotes.lines().any(|r| r.trim() == head)
+    }) && git_stdout_trim(
+        &[
+            "show-ref",
+            "--verify",
+            "--quiet",
+            &format!("refs/remotes/{branch_name}"),
+        ],
+        Some(p),
+    )
+    .is_some() == false
+        // `show-ref --verify --quiet` exits 0 on match but prints nothing, so
+        // `git_stdout_trim` returns None; re-run explicitly to check.
+        && Command::new("git")
+            .args([
+                "show-ref",
+                "--verify",
+                "--quiet",
+                &format!("refs/remotes/{branch_name}"),
+            ])
+            .current_dir(p)
+            .status()
+            .map(|s| s.success())
+            .unwrap_or(false);
+
+    let args: Vec<String> = if is_remote_ref {
+        // `git checkout -t origin/foo` creates local `foo` tracking the remote.
+        let local_name = branch_name
+            .split_once('/')
+            .map(|(_, rest)| rest.to_string())
+            .unwrap_or_else(|| branch_name.clone());
+        // If a local branch with that name already exists (diverged), fall
+        // back to a plain checkout so git does the right thing.
+        let local_exists = Command::new("git")
+            .args([
+                "show-ref",
+                "--verify",
+                "--quiet",
+                &format!("refs/heads/{local_name}"),
+            ])
+            .current_dir(p)
+            .status()
+            .map(|s| s.success())
+            .unwrap_or(false);
+        if local_exists {
+            vec!["checkout".into(), local_name]
+        } else {
+            vec!["checkout".into(), "-t".into(), branch_name.clone()]
+        }
+    } else {
+        vec!["checkout".into(), branch_name.clone()]
+    };
+
     let output = Command::new("git")
-        .args(&["checkout", &branch_name])
+        .args(&args)
         .current_dir(p)
         .output()
         .map_err(|e| format!("Failed to checkout branch: {}", e))?;
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
-        return Err(stderr);
+        // Surface git's "would be overwritten" error as a cleaner message.
+        let friendly = if stderr.contains("would be overwritten") {
+            "You have uncommitted changes that would be overwritten by switching branches. Commit, stash, or discard them and try again.".to_string()
+        } else if stderr.is_empty() {
+            format!("git checkout exited with status {}", output.status)
+        } else {
+            stderr
+        };
+        return Err(friendly);
     }
     Ok(())
 }
@@ -1332,6 +1782,7 @@ pub fn run() {
             install_gh_cli,
             start_gh_auth_login,
             gh_publish_branch,
+            git_sync_branch,
             init_git_repo,
             get_git_repo_info,
             get_git_status,

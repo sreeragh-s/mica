@@ -27,7 +27,7 @@ import {
 import { readCachedAuthUser } from "./lib/cached-auth-user";
 import { isOnboardingComplete } from "./lib/onboarding";
 import { DiffViewer } from "./components/source-control/diff-viewer";
-import { exists, mkdir, readDir, writeTextFile } from "@tauri-apps/plugin-fs";
+import { exists, mkdir, stat, writeTextFile } from "@tauri-apps/plugin-fs";
 import {
   getCurrentWorkspace,
   getWorkspaceScopedStorageKey,
@@ -543,20 +543,42 @@ function App() {
     const resolveParentDir = async (workspace: string): Promise<string> => {
       const activePath = activePathRef.current;
       if (!activePath) return workspace;
-      const entries = await readDir(workspace);
-      const activeEntry = entries.find(e => `${workspace}/${e.name}` === activePath);
-      if (activeEntry?.isDirectory) return activePath;
-      if (activeEntry) return activePath.split("/").slice(0, -1).join("/");
-      return workspace;
+      if (!activePath.startsWith(`${workspace}/`) && activePath !== workspace) {
+        return workspace;
+      }
+      try {
+        const info = await stat(activePath);
+        if (info.isDirectory) return activePath;
+        return activePath.split("/").slice(0, -1).join("/");
+      } catch {
+        return workspace;
+      }
+    };
+
+    const resolveAvailableName = async (
+      parentDir: string,
+      base: string,
+      extension: string
+    ): Promise<string> => {
+      if (!(await exists(`${parentDir}/${base}${extension}`))) {
+        return `${base}${extension}`;
+      }
+      if (!(await exists(`${parentDir}/${base} copy${extension}`))) {
+        return `${base} copy${extension}`;
+      }
+      let counter = 1;
+      while (await exists(`${parentDir}/${base} copy ${counter}${extension}`)) {
+        counter++;
+      }
+      return `${base} copy ${counter}${extension}`;
     };
 
     const handleNewFolder = async () => {
       const workspace = getCurrentWorkspace();
       if (!workspace) return;
       const parentDir = await resolveParentDir(workspace);
-      let counter = 0;
-      while (await exists(`${parentDir}/Untitled${counter === 0 ? "" : ` ${counter}`}`)) counter++;
-      const finalPath = `${parentDir}/Untitled${counter === 0 ? "" : ` ${counter}`}`;
+      const finalName = await resolveAvailableName(parentDir, "Untitled", "");
+      const finalPath = `${parentDir}/${finalName}`;
       try {
         await mkdir(finalPath, { recursive: true });
         window.dispatchEvent(new CustomEvent("directory-refresh", { detail: { path: parentDir } }));
@@ -570,9 +592,7 @@ function App() {
       const workspace = getCurrentWorkspace();
       if (!workspace) return;
       const parentDir = await resolveParentDir(workspace);
-      let counter = 0;
-      while (await exists(`${parentDir}/Untitled${counter === 0 ? "" : ` ${counter}`}.md`)) counter++;
-      const finalName = `Untitled${counter === 0 ? "" : ` ${counter}`}.md`;
+      const finalName = await resolveAvailableName(parentDir, "Untitled", ".md");
       const finalPath = `${parentDir}/${finalName}`;
       try {
         await writeTextFile(finalPath, `# Untitled\n\n`);
@@ -587,13 +607,7 @@ function App() {
       const workspace = getCurrentWorkspace();
       if (!workspace) return;
       const parentDir = await resolveParentDir(workspace);
-      let counter = 0;
-      while (
-        await exists(`${parentDir}/Untitled${counter === 0 ? "" : ` ${counter}`}.excalidraw`)
-      ) {
-        counter++;
-      }
-      const finalName = `Untitled${counter === 0 ? "" : ` ${counter}`}.excalidraw`;
+      const finalName = await resolveAvailableName(parentDir, "Untitled", ".excalidraw");
       const finalPath = `${parentDir}/${finalName}`;
       try {
         await writeTextFile(finalPath, EMPTY_EXCALIDRAW_DOCUMENT);
@@ -612,13 +626,7 @@ function App() {
       const workspace = getCurrentWorkspace();
       if (!workspace) return;
       const parentDir = await resolveParentDir(workspace);
-      let counter = 0;
-      while (
-        await exists(`${parentDir}/Untitled${counter === 0 ? "" : ` ${counter}`}.codedrawing`)
-      ) {
-        counter++;
-      }
-      const finalName = `Untitled${counter === 0 ? "" : ` ${counter}`}.codedrawing`;
+      const finalName = await resolveAvailableName(parentDir, "Untitled", ".codedrawing");
       const finalPath = `${parentDir}/${finalName}`;
       try {
         await writeTextFile(finalPath, EMPTY_CODE_DRAWING_DOCUMENT);

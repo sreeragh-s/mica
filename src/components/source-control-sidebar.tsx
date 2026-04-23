@@ -1,5 +1,6 @@
 import * as React from "react"
 import { invoke } from "@tauri-apps/api/core"
+import { listen, type UnlistenFn } from "@tauri-apps/api/event"
 import {
   AlertTriangle,
   Check,
@@ -7,6 +8,7 @@ import {
   ChevronRight,
   CloudUpload,
   GitBranchIcon,
+  GitBranchPlus,
   GitCommitHorizontal,
   Globe,
   Lock,
@@ -18,6 +20,15 @@ import {
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+  CommandSeparator,
+} from "@/components/ui/command"
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -27,12 +38,16 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { SidebarFooter } from "@/components/ui/sidebar"
 import {
   checkGhInstallation,
   ghPublishBranch,
+  gitSyncBranch,
   type GhCheckResult,
+  type GhPublishProgressPayload,
   type GhVisibility,
+  type GitSyncProgressPayload,
 } from "@/lib/setup-backend"
 import { cn } from "@/lib/utils"
 import { getCurrentWorkspace } from "@/lib/workspace"
@@ -52,17 +67,20 @@ interface RawGitFileStatus {
 
 interface GitBranch {
   name: string
-  is_current: boolean
+  fullRef: string
+  isCurrent: boolean
+  kind: "local" | "remote"
+  remote: string | null
 }
 
 interface GitRepoInfo {
   initialized: boolean
-  current_branch: string | null
+  currentBranch: string | null
   ahead: number
   behind: number
-  has_changes: boolean
-  has_remote: boolean
-  has_commits: boolean
+  hasChanges: boolean
+  hasRemote: boolean
+  hasCommits: boolean
 }
 
 function workspaceBasename(path: string): string {
@@ -536,7 +554,21 @@ export const SourceControlSidebar = React.memo(function SourceControlSidebar({
   const [publishVisibility, setPublishVisibility] = React.useState<GhVisibility>("private")
   const [publishBusy, setPublishBusy] = React.useState(false)
   const [publishError, setPublishError] = React.useState<string | null>(null)
+  const [publishProgress, setPublishProgress] = React.useState<GhPublishProgressPayload | null>(null)
   const [ghCheck, setGhCheck] = React.useState<GhCheckResult | null>(null)
+
+  const [syncBusy, setSyncBusy] = React.useState(false)
+  const [syncProgress, setSyncProgress] = React.useState<GitSyncProgressPayload | null>(null)
+  const [syncError, setSyncError] = React.useState<string | null>(null)
+
+  // Branch picker + create-branch dialog state.
+  const [branchSearch, setBranchSearch] = React.useState("")
+  const [checkoutError, setCheckoutError] = React.useState<string | null>(null)
+  const [createBranchOpen, setCreateBranchOpen] = React.useState(false)
+  const [newBranchName, setNewBranchName] = React.useState("")
+  const [newBranchSwitch, setNewBranchSwitch] = React.useState(true)
+  const [createBranchBusy, setCreateBranchBusy] = React.useState(false)
+  const [createBranchError, setCreateBranchError] = React.useState<string | null>(null)
   const [expanded, setExpanded] = React.useState<Record<SectionKey, boolean>>({
     conflicts: true,
     staged: true,
@@ -812,7 +844,7 @@ export const SourceControlSidebar = React.memo(function SourceControlSidebar({
   const openPublishDialog = React.useCallback(async () => {
     if (!workspace) return
     const defaultName = workspaceBasename(workspace)
-    console.log("[publish] open dialog", { workspace, defaultName, branch: repoInfo?.current_branch })
+    console.log("[publish] open dialog", { workspace, defaultName, branch: repoInfo?.currentBranch })
     setPublishError(null)
     setPublishRepoName(defaultName)
     setPublishVisibility("private")
@@ -830,10 +862,10 @@ export const SourceControlSidebar = React.memo(function SourceControlSidebar({
   }, [workspace, repoInfo])
 
   const handlePublishBranch = React.useCallback(async () => {
-    if (!workspace || !repoInfo?.current_branch) {
+    if (!workspace || !repoInfo?.currentBranch) {
       console.warn("[publish] aborted: missing workspace or branch", {
         workspace,
-        branch: repoInfo?.current_branch,
+        branch: repoInfo?.currentBranch,
       })
       return
     }
@@ -848,14 +880,22 @@ export const SourceControlSidebar = React.memo(function SourceControlSidebar({
     }
     console.log("[publish] invoke", {
       workspace,
-      branch: repoInfo.current_branch,
+      branch: repoInfo.currentBranch,
       visibility: publishVisibility,
       name,
     })
     setPublishBusy(true)
     setPublishError(null)
+    setPublishProgress({ phase: "Starting…", line: null })
+    // Listen for progress while gh/git run. `gh repo create --push` can take
+    // 30+ seconds on larger repos; without this the UI looks frozen.
+    let offProgress: UnlistenFn | undefined
     try {
-      const result = await ghPublishBranch(workspace, repoInfo.current_branch, publishVisibility, name)
+      offProgress = await listen<GhPublishProgressPayload>("gh-publish-progress", (event) => {
+        console.log("[publish] progress", event.payload)
+        setPublishProgress(event.payload)
+      })
+      const result = await ghPublishBranch(workspace, repoInfo.currentBranch, publishVisibility, name)
       console.log("[publish] success", result)
       setPublishOpen(false)
       await loadAll(workspace)
@@ -863,42 +903,99 @@ export const SourceControlSidebar = React.memo(function SourceControlSidebar({
       console.error("[publish] failed", err)
       setPublishError(err instanceof Error ? err.message : String(err))
     } finally {
+      offProgress?.()
       setPublishBusy(false)
+      setPublishProgress(null)
     }
   }, [workspace, repoInfo, publishRepoName, publishVisibility, loadAll])
 
+  const handleSyncChanges = React.useCallback(async () => {
+    if (!workspace) return
+    console.log("[sync] invoke", { workspace })
+    setSyncBusy(true)
+    setSyncError(null)
+    setSyncProgress({ phase: "Starting sync…", line: null })
+    let offProgress: UnlistenFn | undefined
+    try {
+      offProgress = await listen<GitSyncProgressPayload>("git-sync-progress", (event) => {
+        console.log("[sync] progress", event.payload)
+        setSyncProgress(event.payload)
+      })
+      const result = await gitSyncBranch(workspace)
+      console.log("[sync] done", result)
+      await loadAll(workspace)
+    } catch (err) {
+      console.error("[sync] failed", err)
+      setSyncError(err instanceof Error ? err.message : String(err))
+    } finally {
+      offProgress?.()
+      setSyncBusy(false)
+      setSyncProgress(null)
+    }
+  }, [workspace, loadAll])
+
   const handleCheckoutBranch = React.useCallback(
-    async (branchName: string) => {
+    async (branch: GitBranch) => {
       if (!workspace) return
-      // Clicking the branch you're already on is a no-op. This also avoids
-      // `git checkout <name>` failing on an unborn HEAD, where the branch is
-      // only a symbolic ref and has no object to check out yet.
-      if (branchName === repoInfo?.current_branch) {
+      setCheckoutError(null)
+      // Clicking the branch you're already on is a no-op.
+      if (branch.isCurrent || branch.name === repoInfo?.currentBranch) {
         setShowBranches(false)
         return
       }
+      // Remote branches (e.g. `origin/foo`) need the full ref so the backend
+      // knows to create a local tracking branch instead of detaching HEAD.
+      const target = branch.kind === "remote" ? branch.fullRef : branch.name
       try {
-        await invoke("checkout_branch", { path: workspace, branchName })
+        await invoke("checkout_branch", { path: workspace, branchName: target })
         setShowBranches(false)
         await loadAll(workspace)
       } catch (err) {
         console.error("Failed to checkout branch:", err)
+        setCheckoutError(err instanceof Error ? err.message : String(err))
       }
     },
     [workspace, repoInfo, loadAll],
   )
 
-  const handleCreateBranch = React.useCallback(async () => {
+  const openCreateBranchDialog = React.useCallback(() => {
+    setNewBranchName("")
+    setNewBranchSwitch(true)
+    setCreateBranchError(null)
+    setShowBranches(false)
+    setCreateBranchOpen(true)
+  }, [])
+
+  const handleCreateBranchSubmit = React.useCallback(async () => {
     if (!workspace) return
-    const branchName = prompt("Enter new branch name:")
-    if (!branchName) return
+    const name = newBranchName.trim()
+    if (!name) {
+      setCreateBranchError("Enter a branch name.")
+      return
+    }
+    // `git check-ref-format` rules, loosely: no spaces, no `..`, no leading/
+    // trailing slash. Keep the validation pragmatic — the backend will reject
+    // anything git itself doesn't like.
+    if (/\s/.test(name) || name.includes("..") || name.startsWith("/") || name.endsWith("/")) {
+      setCreateBranchError("Branch names can't contain spaces, '..', or leading/trailing slashes.")
+      return
+    }
+    setCreateBranchBusy(true)
+    setCreateBranchError(null)
     try {
-      await invoke("create_git_branch", { path: workspace, branchName })
+      await invoke("create_git_branch", {
+        path: workspace,
+        branchName: name,
+        checkout: newBranchSwitch,
+      })
+      setCreateBranchOpen(false)
       await loadAll(workspace)
     } catch (err) {
-      console.error("Failed to create branch:", err)
+      setCreateBranchError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setCreateBranchBusy(false)
     }
-  }, [workspace, loadAll])
+  }, [workspace, newBranchName, newBranchSwitch, loadAll])
 
   const handleInitGit = React.useCallback(async () => {
     if (!workspace) return
@@ -918,19 +1015,45 @@ export const SourceControlSidebar = React.memo(function SourceControlSidebar({
 
   const totalChanges = stagedFiles.length + unstagedFiles.length + conflictedFiles.length
   const canCommit = stagedFiles.length > 0 && commitMessage.trim().length > 0 && !isCommitting
-  // Show the Publish Branch CTA when the repo has no remote and there's
-  // nothing to commit right now — either because the working tree is clean
-  // (post-initial-commit) or because the user has pending changes but none
-  // are staged yet. In the latter case the commit UI would be empty and
-  // non-actionable, so the publish shortcut is the more useful thing to
-  // surface. We still require at least one commit, since publishing an
-  // unborn HEAD has nothing to push.
+  // Partition once per branches update so the picker renders Local vs Remote
+  // groups without a filter pass on every keystroke.
+  const { localBranches, remoteBranches } = React.useMemo(() => {
+    const local: GitBranch[] = []
+    const remote: GitBranch[] = []
+    for (const b of branches) {
+      if (b.kind === "remote") remote.push(b)
+      else local.push(b)
+    }
+    // Current branch always first; otherwise alphabetical.
+    local.sort((a, b) => {
+      if (a.isCurrent !== b.isCurrent) return a.isCurrent ? -1 : 1
+      return a.name.localeCompare(b.name)
+    })
+    remote.sort((a, b) => a.fullRef.localeCompare(b.fullRef))
+    return { localBranches: local, remoteBranches: remote }
+  }, [branches])
+
+  // Swap the commit UI for a Publish / Sync CTA when that's the more useful
+  // next step. We only do this when no files are staged — otherwise the user
+  // is in the middle of crafting a commit and should finish that first.
   const hasPendingStagedCommit = stagedFiles.length > 0
-  const showPublishPanel =
-    repoInfo?.initialized === true &&
-    repoInfo.has_commits &&
-    !repoInfo.has_remote &&
-    !hasPendingStagedCommit
+  const initializedWithCommit =
+    repoInfo?.initialized === true && repoInfo.hasCommits && !hasPendingStagedCommit
+  const showPublishPanel = initializedWithCommit && repoInfo?.hasRemote === false
+  const showSyncPanel =
+    initializedWithCommit &&
+    repoInfo?.hasRemote === true &&
+    (repoInfo.ahead > 0 || repoInfo.behind > 0)
+  console.log("[publish] panel decision", {
+    initialized: repoInfo?.initialized,
+    hasCommits: repoInfo?.hasCommits,
+    hasRemote: repoInfo?.hasRemote,
+    ahead: repoInfo?.ahead,
+    behind: repoInfo?.behind,
+    stagedCount: stagedFiles.length,
+    showPublishPanel,
+    showSyncPanel,
+  })
 
   const handleCommitKeyDown = React.useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -1007,6 +1130,37 @@ export const SourceControlSidebar = React.memo(function SourceControlSidebar({
             <CloudUpload className="size-3.5" />
             Publish Branch
           </Button>
+        ) : showSyncPanel ? (
+          <>
+            <Button
+              type="button"
+              size="sm"
+              className="h-7 w-full gap-1.5 text-xs"
+              disabled={syncBusy}
+              onClick={() => void handleSyncChanges()}
+            >
+              {syncBusy ? (
+                <Loader2 className="size-3.5 animate-spin" />
+              ) : (
+                <RefreshCw className="size-3.5" />
+              )}
+              <span>{syncBusy ? syncProgress?.phase ?? "Syncing…" : "Sync Changes"}</span>
+              {!syncBusy && repoInfo && (repoInfo.ahead > 0 || repoInfo.behind > 0) ? (
+                <span className="opacity-80">
+                  {repoInfo.behind > 0 && `↓${repoInfo.behind}`}
+                  {repoInfo.ahead > 0 && ` ↑${repoInfo.ahead}`}
+                </span>
+              ) : null}
+            </Button>
+            {syncBusy && syncProgress?.line ? (
+              <p className="mt-1 truncate font-mono text-[10px] text-muted-foreground">
+                {syncProgress.line}
+              </p>
+            ) : null}
+            {syncError ? (
+              <p className="mt-1 text-[10px] text-destructive" role="alert">{syncError}</p>
+            ) : null}
+          </>
         ) : (
           <>
             <textarea
@@ -1088,75 +1242,125 @@ export const SourceControlSidebar = React.memo(function SourceControlSidebar({
       </div>
 
       <SidebarFooter>
-        <div className="relative flex items-center justify-between">
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="h-6 gap-1 text-xs"
-            onClick={() => setShowBranches((v) => !v)}
+        <div className="flex items-center justify-between gap-1">
+          <Popover
+            open={showBranches}
+            onOpenChange={(next) => {
+              setShowBranches(next)
+              if (!next) {
+                setBranchSearch("")
+                setCheckoutError(null)
+              }
+            }}
           >
-            <GitBranchIcon className="size-3" />
-            <span>{repoInfo?.current_branch || "No branch"}</span>
-            {repoInfo && (repoInfo.ahead > 0 || repoInfo.behind > 0) && (
-              <span className="text-muted-foreground">
-                {repoInfo.ahead > 0 && `↑${repoInfo.ahead}`}
-                {repoInfo.behind > 0 && `↓${repoInfo.behind}`}
-              </span>
-            )}
-            <ChevronDown className="size-3" />
-          </Button>
+            <PopoverTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-6 flex-1 justify-start gap-1 px-2 text-xs min-w-0"
+              >
+                <GitBranchIcon className="size-3 shrink-0" />
+                <span className="truncate">{repoInfo?.currentBranch || "No branch"}</span>
+                {repoInfo && (repoInfo.ahead > 0 || repoInfo.behind > 0) && (
+                  <span className="text-muted-foreground shrink-0">
+                    {repoInfo.ahead > 0 && `↑${repoInfo.ahead}`}
+                    {repoInfo.behind > 0 && `↓${repoInfo.behind}`}
+                  </span>
+                )}
+                <ChevronDown className="size-3 shrink-0 opacity-70" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent
+              side="top"
+              align="start"
+              sideOffset={6}
+              className="w-72 p-0"
+            >
+              <Command
+                // cmdk matches on `value`. Using fullRef means typing "origin"
+                // matches remote branches; typing the short name matches
+                // locals. Current-branch bias comes from our pre-sort.
+                shouldFilter
+              >
+                <CommandInput
+                  placeholder="Search branches…"
+                  value={branchSearch}
+                  onValueChange={setBranchSearch}
+                />
+                <CommandList className="max-h-[min(18rem,calc(100vh-10rem))]">
+                  <CommandEmpty>No branches match.</CommandEmpty>
+                  {localBranches.length > 0 ? (
+                    <CommandGroup heading="Local">
+                      {localBranches.map((branch) => (
+                        <CommandItem
+                          key={`local:${branch.fullRef}`}
+                          value={branch.name}
+                          keywords={[branch.fullRef]}
+                          onSelect={() => void handleCheckoutBranch(branch)}
+                          className="gap-2"
+                        >
+                          <GitBranchIcon className="size-3.5 shrink-0 text-muted-foreground" />
+                          <span className="truncate">{branch.name}</span>
+                          {branch.isCurrent ? (
+                            <Check className="size-3.5 ml-auto shrink-0 text-emerald-500" />
+                          ) : null}
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  ) : null}
+                  {remoteBranches.length > 0 ? (
+                    <>
+                      {localBranches.length > 0 ? <CommandSeparator /> : null}
+                      <CommandGroup heading="Remote">
+                        {remoteBranches.map((branch) => (
+                          <CommandItem
+                            key={`remote:${branch.fullRef}`}
+                            value={branch.fullRef}
+                            keywords={[branch.name]}
+                            onSelect={() => void handleCheckoutBranch(branch)}
+                            className="gap-2"
+                          >
+                            <GitBranchIcon className="size-3.5 shrink-0 text-muted-foreground" />
+                            <span className="truncate">{branch.fullRef}</span>
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </>
+                  ) : null}
+                  <CommandSeparator />
+                  <CommandGroup>
+                    <CommandItem
+                      value="__create_new_branch__"
+                      keywords={["create", "new", "branch"]}
+                      onSelect={openCreateBranchDialog}
+                      className="gap-2"
+                    >
+                      <GitBranchPlus className="size-3.5 shrink-0 text-muted-foreground" />
+                      <span>Create new branch…</span>
+                    </CommandItem>
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+              {checkoutError ? (
+                <div className="border-t border-border/60 px-3 py-2 text-[11px] text-destructive">
+                  {checkoutError}
+                </div>
+              ) : null}
+            </PopoverContent>
+          </Popover>
+
           <Button
             type="button"
             variant="ghost"
             size="icon-xs"
-            className="text-muted-foreground size-6"
+            className="text-muted-foreground size-6 shrink-0"
             title="Refresh"
             onClick={handleRefresh}
             disabled={isLoading}
           >
             {isLoading ? <Loader2 className="size-3.5 animate-spin" /> : <RefreshCw className="size-3.5" />}
           </Button>
-
-          {/* Popover: anchored to the branch button row, rendered *above* it
-              (bottom-full) so it can't overflow the window below. Capped at
-              the available viewport height so long branch lists scroll. */}
-          {showBranches && (
-            <div className="absolute bottom-full left-0 right-0 mb-1.5 z-50 rounded-md border border-sidebar-border/60 bg-sidebar shadow-lg">
-              <div className="max-h-[min(12rem,calc(100vh-8rem))] overflow-auto p-1">
-                <div className="px-2 py-1 text-xs text-muted-foreground">Branches</div>
-                {branches.length === 0 ? (
-                  <div className="px-2 py-1.5 text-xs text-muted-foreground/70 italic">
-                    No branches yet
-                  </div>
-                ) : (
-                  branches.map((branch) => (
-                    <button
-                      key={branch.name}
-                      className={cn(
-                        "flex w-full items-center gap-2 rounded px-2 py-1.5 text-xs hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-                        branch.is_current && "bg-sidebar-accent text-sidebar-accent-foreground",
-                      )}
-                      onClick={() => void handleCheckoutBranch(branch.name)}
-                    >
-                      <GitBranchIcon className="size-3" />
-                      <span className="truncate">{branch.name}</span>
-                      {branch.is_current && <Check className="size-3 ml-auto" />}
-                    </button>
-                  ))
-                )}
-                <div className="mt-1 border-t border-sidebar-border/60 pt-1">
-                  <button
-                    className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-xs hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-                    onClick={() => void handleCreateBranch()}
-                  >
-                    <Plus className="size-3" />
-                    Create new branch
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
         </div>
       </SidebarFooter>
 
@@ -1166,7 +1370,7 @@ export const SourceControlSidebar = React.memo(function SourceControlSidebar({
             <DialogTitle>Publish branch to GitHub</DialogTitle>
             <DialogDescription>
               Create a GitHub repository and push{" "}
-              <span className="font-mono text-foreground">{repoInfo?.current_branch ?? ""}</span>.
+              <span className="font-mono text-foreground">{repoInfo?.currentBranch ?? ""}</span>.
             </DialogDescription>
           </DialogHeader>
 
@@ -1238,6 +1442,20 @@ export const SourceControlSidebar = React.memo(function SourceControlSidebar({
               </div>
             ) : null}
 
+            {publishBusy && publishProgress ? (
+              <div className="rounded-md border border-border/60 bg-muted/30 px-3 py-2">
+                <div className="flex items-center gap-2">
+                  <Loader2 className="size-3.5 shrink-0 animate-spin text-muted-foreground" />
+                  <p className="text-xs font-medium text-foreground">{publishProgress.phase}</p>
+                </div>
+                {publishProgress.line ? (
+                  <p className="mt-1 truncate font-mono text-[10px] text-muted-foreground">
+                    {publishProgress.line}
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
+
             {publishError ? (
               <p className="text-xs text-destructive" role="alert">{publishError}</p>
             ) : null}
@@ -1260,12 +1478,91 @@ export const SourceControlSidebar = React.memo(function SourceControlSidebar({
               {publishBusy ? (
                 <>
                   <Loader2 className="mr-1.5 size-3.5 animate-spin" />
-                  Publishing…
+                  {publishProgress?.phase ?? "Publishing…"}
                 </>
               ) : (
                 <>
                   <CloudUpload className="mr-1.5 size-3.5" />
                   Publish
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={createBranchOpen} onOpenChange={setCreateBranchOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Create branch</DialogTitle>
+            <DialogDescription>
+              From{" "}
+              <span className="font-mono text-foreground">
+                {repoInfo?.currentBranch ?? "HEAD"}
+              </span>
+              .
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="new-branch-name">Branch name</Label>
+              <Input
+                id="new-branch-name"
+                value={newBranchName}
+                onChange={(e) => setNewBranchName(e.target.value)}
+                disabled={createBranchBusy}
+                autoFocus
+                spellCheck={false}
+                placeholder="feature/my-idea"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !createBranchBusy) {
+                    e.preventDefault()
+                    void handleCreateBranchSubmit()
+                  }
+                }}
+              />
+            </div>
+
+            <label className="flex items-center gap-2 text-xs text-muted-foreground">
+              <input
+                type="checkbox"
+                className="size-3.5 rounded border-border"
+                checked={newBranchSwitch}
+                onChange={(e) => setNewBranchSwitch(e.target.checked)}
+                disabled={createBranchBusy}
+              />
+              Switch to the new branch after creating
+            </label>
+
+            {createBranchError ? (
+              <p className="text-xs text-destructive" role="alert">{createBranchError}</p>
+            ) : null}
+          </div>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => setCreateBranchOpen(false)}
+              disabled={createBranchBusy}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={() => void handleCreateBranchSubmit()}
+              disabled={createBranchBusy || !newBranchName.trim()}
+            >
+              {createBranchBusy ? (
+                <>
+                  <Loader2 className="mr-1.5 size-3.5 animate-spin" />
+                  Creating…
+                </>
+              ) : (
+                <>
+                  <GitBranchPlus className="mr-1.5 size-3.5" />
+                  Create
                 </>
               )}
             </Button>
