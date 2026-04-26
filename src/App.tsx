@@ -33,7 +33,6 @@ import {
   getWorkspaceScopedStorageKey,
 } from "./lib/workspace";
 import {
-  checkWorkspaceWikiLinkIndexFreshness,
   refreshWorkspaceWikiLinkIndex,
   rebuildWorkspaceWikiLinkIndex,
   useOpenWikiLinkGraph,
@@ -57,6 +56,7 @@ import {
   UPDATE_BROWSER_TAB_EVENT,
   type BrowserTabUpdate,
 } from "./lib/browser-settings";
+import { MeetingRecorderDialog } from "./components/meeting-recorder-dialog";
 
 interface SelectedFile {
   id: string;
@@ -377,8 +377,6 @@ function App() {
   useOpenWikiLinkGraph(openGraphTab);
 
   useEffect(() => {
-    let cancelled = false;
-
     if (!currentWorkspace) {
       if (wikiLinkIncrementalTimerRef.current) {
         clearTimeout(wikiLinkIncrementalTimerRef.current);
@@ -398,36 +396,7 @@ function App() {
       return;
     }
 
-    void checkWorkspaceWikiLinkIndexFreshness(currentWorkspace)
-      .then((result) => {
-        if (cancelled || currentWorkspaceRef.current !== currentWorkspace) {
-          return;
-        }
-
-        if (result.stale) {
-          queueWikiLinkRebuild();
-          return;
-        }
-
-        setWikiLinkIndexingState({
-          currentFile: null,
-          error: null,
-          phase: "idle",
-          processedFiles: 0,
-          totalFiles: 0,
-          workspace: null,
-        });
-      })
-      .catch((error) => {
-        console.error("[WikiLinkIndex] Failed to check freshness:", error);
-        if (!cancelled) {
-          queueWikiLinkRebuild();
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
+    queueWikiLinkRebuild();
   }, [currentWorkspace, queueWikiLinkRebuild]);
 
   useEffect(() => {
@@ -998,6 +967,7 @@ function App() {
           )}
         </div>
       </SidebarProvider>
+      <MeetingRecorderDialog />
     </TooltipProvider>
   );
 }

@@ -8,7 +8,6 @@ import type {
 } from '@platejs/code-drawing';
 import {
   VIEW_MODE,
-  DEFAULT_MIN_HEIGHT,
   CODE_DRAWING_TYPE_ARRAY,
   VIEW_MODE_ARRAY,
   renderCodeDrawing,
@@ -20,7 +19,6 @@ import debounce from 'lodash/debounce.js';
 import mermaid from 'mermaid';
 import { readTextFile, writeTextFile } from '@tauri-apps/plugin-fs';
 
-import { Button } from '@/components/ui/button';
 import { useIsMobile } from '@/hooks/use-mobile';
 import {
   Select,
@@ -29,7 +27,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Trash2, DownloadIcon } from 'lucide-react';
 import { BottomDrawingBar } from '@/components/editor/bottom-drawing-bar';
 
 const AUTOSAVE_DEBOUNCE_MS = 600;

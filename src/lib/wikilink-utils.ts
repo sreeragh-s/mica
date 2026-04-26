@@ -2,17 +2,18 @@
 
 import * as React from 'react';
 
-import { readDir, readTextFile, stat } from '@tauri-apps/plugin-fs';
+import { listen } from '@tauri-apps/api/event';
+import { invoke } from '@tauri-apps/api/core';
+import { readDir, stat } from '@tauri-apps/plugin-fs';
 
 import { isMarkdownFile, isSupportedEditorFile } from '@/lib/file-types';
 import { getCurrentWorkspace, getWorkspaceScopedStorageKey } from '@/lib/workspace';
 
 const ACTIVE_FILE_PATH_KEY = 'active-file-path';
-const WIKILINK_INDEX_DB_NAME = 'notelab-wikilink-index';
-const WIKILINK_INDEX_DB_VERSION = 3;
 const WIKILINK_INDEX_UPDATED_EVENT = 'wikilink-index-updated';
 const WIKILINK_REBUILD_REQUESTED_EVENT = 'wikilink-rebuild-requested';
 const OPEN_WIKILINK_GRAPH_EVENT = 'open-wikilink-graph';
+const WORKSPACE_INDEX_PROGRESS_EVENT = 'workspace-index-progress';
 
 export const WIKI_GRAPH_TAB_PATH = '__wiki-graph__';
 export const WIKI_GRAPH_TAB_NAME = 'Wiki Graph';
@@ -166,6 +167,12 @@ export type WikiLinkIndexSummary = {
   workspace: string | null;
 };
 
+type WorkspaceIndexSnapshot = {
+  links: WikiLinkLinkRecord[];
+  meta: WikiLinkMetaRecord | null;
+  notes: WikiLinkNoteRecord[];
+};
+
 export function isWorkspaceRelativeLink(href?: string) {
   if (!href) {
     return false;
@@ -261,7 +268,7 @@ function stripMarkdownToText(content: string) {
   );
 }
 
-function getPreviewSnippet(content: string) {
+export function getPreviewSnippet(content: string) {
   return stripMarkdownToText(content).slice(0, 180);
 }
 
@@ -313,7 +320,7 @@ function splitLinkTarget(rawTarget: string) {
   };
 }
 
-function extractAliases(content: string) {
+export function extractAliases(content: string) {
   if (!content.startsWith('---\n')) {
     return [];
   }
@@ -368,7 +375,7 @@ function extractAliases(content: string) {
   return Array.from(new Set(aliases.filter(Boolean)));
 }
 
-function extractWikilinks(content: string) {
+export function extractWikilinks(content: string) {
   return Array.from(content.matchAll(/(!)?\[\[([^[\]]+)\]\]/g), (match) => ({
     displayText: getWikiLinkDisplayText(match[2] ?? ''),
     rawTarget: splitWikiLinkValue(match[2] ?? ''),
@@ -379,7 +386,7 @@ function extractWikilinks(content: string) {
   })).filter((link) => Boolean(link.rawTarget) || Boolean(link.targetSubpath));
 }
 
-function extractMarkdownLinks(content: string) {
+export function extractMarkdownLinks(content: string) {
   return Array.from(content.matchAll(/(!)?\[([^\]]*)\]\(([^)]+)\)/g), (match) => {
     const rawHref = decodeLinkTarget((match[3] ?? '').trim().replace(/^<|>$/g, ''));
     const [hrefWithoutQuery] = rawHref.split('?');
@@ -523,7 +530,7 @@ function resolveCandidateTarget(
   };
 }
 
-function createNoteRecordId(workspace: string, path: string) {
+export function createNoteRecordId(workspace: string, path: string) {
   return `${getWorkspaceId(workspace)}::${path}`;
 }
 
@@ -551,7 +558,7 @@ function sortLinkRecords(records: WikiLinkLinkRecord[]) {
   });
 }
 
-function buildWorkspaceSnapshot(
+export function buildWorkspaceSnapshot(
   workspace: string,
   noteRecords: WikiLinkNoteRecord[],
   metaOverrides: Pick<WikiLinkMetaRecord, 'status' | 'processedFiles' | 'lastIndexedAt' | 'lastError'>
@@ -640,193 +647,13 @@ function buildWorkspaceSnapshot(
   };
 }
 
-function ensureWikiLinkIndexStores(db: IDBDatabase) {
-  if (!db.objectStoreNames.contains('notes')) {
-    db.createObjectStore('notes', { keyPath: 'id' });
-  }
-
-  if (!db.objectStoreNames.contains('links')) {
-    db.createObjectStore('links', { keyPath: 'id' });
-  }
-
-  if (!db.objectStoreNames.contains('meta')) {
-    db.createObjectStore('meta', { keyPath: 'id' });
-  }
-}
-
-function openWikiLinkIndexDbWithVersion(version?: number) {
-  return new Promise<IDBDatabase>((resolve, reject) => {
-    const request =
-      typeof version === 'number'
-        ? window.indexedDB.open(WIKILINK_INDEX_DB_NAME, version)
-        : window.indexedDB.open(WIKILINK_INDEX_DB_NAME);
-
-    request.onerror = () => {
-      reject(request.error ?? new Error('Could not open wiki link index database.'));
-    };
-
-    request.onupgradeneeded = () => {
-      ensureWikiLinkIndexStores(request.result);
-    };
-
-    request.onsuccess = () => {
-      resolve(request.result);
-    };
-  });
-}
-
-async function resolveWikiLinkIndexDbVersion() {
-  const indexedDbWithDatabases = window.indexedDB as IDBFactory & {
-    databases?: () => Promise<Array<{ name?: string; version?: number }>>;
-  };
-
-  if (!indexedDbWithDatabases.databases) {
-    return WIKILINK_INDEX_DB_VERSION;
-  }
-
-  try {
-    const databases = await indexedDbWithDatabases.databases();
-    const existingDatabase = databases.find((database) => database.name === WIKILINK_INDEX_DB_NAME);
-    const existingVersion =
-      typeof existingDatabase?.version === 'number' && existingDatabase.version > 0
-        ? existingDatabase.version
-        : null;
-
-    return Math.max(WIKILINK_INDEX_DB_VERSION, existingVersion ?? 0);
-  } catch {
-    return WIKILINK_INDEX_DB_VERSION;
-  }
-}
-
-async function openWikiLinkIndexDb() {
-  const targetVersion = await resolveWikiLinkIndexDbVersion();
-
-  try {
-    return await openWikiLinkIndexDbWithVersion(targetVersion);
-  } catch (error) {
-    if (error instanceof DOMException && error.name === 'VersionError') {
-      return openWikiLinkIndexDbWithVersion();
-    }
-
-    throw error;
-  }
-}
-
-function requestToPromise<T>(request: IDBRequest<T>) {
-  return new Promise<T>((resolve, reject) => {
-    request.onerror = () => reject(request.error ?? new Error('IndexedDB request failed.'));
-    request.onsuccess = () => resolve(request.result);
-  });
-}
-
-function transactionDone(transaction: IDBTransaction) {
-  return new Promise<void>((resolve, reject) => {
-    transaction.onerror = () =>
-      reject(transaction.error ?? new Error('IndexedDB transaction failed.'));
-    transaction.onabort = () =>
-      reject(transaction.error ?? new Error('IndexedDB transaction aborted.'));
-    transaction.oncomplete = () => resolve();
-  });
-}
-
-async function getAllFromStore<T>(store: IDBObjectStore) {
-  return requestToPromise<T[]>(store.getAll());
-}
-
-async function clearWorkspaceRecords(db: IDBDatabase, workspaceId: string) {
-  const transaction = db.transaction(['notes', 'links', 'meta'], 'readwrite');
-  const noteStore = transaction.objectStore('notes');
-  const linkStore = transaction.objectStore('links');
-  const metaStore = transaction.objectStore('meta');
-
-  const [notes, links, meta] = await Promise.all([
-    getAllFromStore<WikiLinkNoteRecord>(noteStore),
-    getAllFromStore<WikiLinkLinkRecord>(linkStore),
-    getAllFromStore<WikiLinkMetaRecord>(metaStore),
-  ]);
-
-  notes
-    .filter((record) => record.workspaceId === workspaceId)
-    .forEach((record) => noteStore.delete(record.id));
-  links
-    .filter((record) => record.workspaceId === workspaceId)
-    .forEach((record) => linkStore.delete(record.id));
-  meta
-    .filter((record) => record.workspaceId === workspaceId)
-    .forEach((record) => metaStore.delete(record.id));
-
-  await transactionDone(transaction);
-}
-
-async function writeWorkspaceIndexSnapshot(
-  workspace: string,
-  notes: WikiLinkNoteRecord[],
-  metaOverrides: Pick<WikiLinkMetaRecord, 'status' | 'processedFiles' | 'lastIndexedAt' | 'lastError'>
-) {
-  const db = await openWikiLinkIndexDb();
-
-  try {
-    await clearWorkspaceRecords(db, getWorkspaceId(workspace));
-    const snapshot = buildWorkspaceSnapshot(workspace, notes, metaOverrides);
-    const transaction = db.transaction(['notes', 'links', 'meta'], 'readwrite');
-    const noteStore = transaction.objectStore('notes');
-    const linkStore = transaction.objectStore('links');
-    const metaStore = transaction.objectStore('meta');
-
-    snapshot.notes.forEach((record) => noteStore.put(record));
-    snapshot.links.forEach((record) => linkStore.put(record));
-    metaStore.put(snapshot.meta);
-
-    await transactionDone(transaction);
-  } finally {
-    db.close();
-  }
-}
-
-async function writeWorkspaceIndexMeta(
-  meta: WikiLinkMetaRecord
-) {
-  const db = await openWikiLinkIndexDb();
-
-  try {
-    const transaction = db.transaction(['meta'], 'readwrite');
-    const metaStore = transaction.objectStore('meta');
-    metaStore.put(meta);
-    await transactionDone(transaction);
-  } finally {
-    db.close();
-  }
-}
-
 async function readWorkspaceIndex(workspace: string) {
-  const db = await openWikiLinkIndexDb();
-  const workspaceId = getWorkspaceId(workspace);
-
-  try {
-    const transaction = db.transaction(['notes', 'links', 'meta'], 'readonly');
-    const noteStore = transaction.objectStore('notes');
-    const linkStore = transaction.objectStore('links');
-    const metaStore = transaction.objectStore('meta');
-
-    const [notes, links, meta] = await Promise.all([
-      getAllFromStore<WikiLinkNoteRecord>(noteStore),
-      getAllFromStore<WikiLinkLinkRecord>(linkStore),
-      getAllFromStore<WikiLinkMetaRecord>(metaStore),
-    ]);
-
-    await transactionDone(transaction);
-
-    return {
-      links: links.filter((record) => record.workspaceId === workspaceId),
-      meta: meta.find((record) => record.workspaceId === workspaceId) ?? null,
-      notes: notes.filter((record) => record.workspaceId === workspaceId),
-    };
-  } finally {
-    db.close();
-  }
+  console.info('[WikiLinkIndex] Reading backend snapshot', { workspace });
+  return invoke<WorkspaceIndexSnapshot>('read_workspace_index_snapshot', { workspace });
 }
 
 function dispatchWikiLinkIndexUpdated(workspace: string) {
+  console.info('[WikiLinkIndex] Dispatching index updated event', { workspace });
   window.dispatchEvent(
     new CustomEvent(WIKILINK_INDEX_UPDATED_EVENT, {
       detail: {
@@ -874,45 +701,6 @@ async function listWorkspaceIndexedFilesForPath(workspace: string) {
   return files;
 }
 
-async function parseWorkspaceFile(workspace: string, file: WorkspaceIndexedFileEntry) {
-  if (!isMarkdownFile(file.path)) {
-    return {
-      aliases: [],
-      id: createNoteRecordId(workspace, file.path),
-      mtime: file.mtime,
-      name: file.name,
-      path: file.path,
-      previewSnippet: '',
-      rawLinks: [],
-      relativePath: file.relativePath,
-      size: file.size,
-      title: getFileTitle(file.name),
-      workspaceId: getWorkspaceId(workspace),
-      workspacePath: workspace,
-    } satisfies WikiLinkNoteRecord;
-  }
-
-  const content = await readTextFile(file.path);
-  const rawLinks = [...extractWikilinks(content), ...extractMarkdownLinks(content)].filter((link) => {
-    return !link.rawTarget || isWorkspaceRelativeLink(link.rawTarget);
-  });
-
-  return {
-    aliases: extractAliases(content),
-    id: createNoteRecordId(workspace, file.path),
-    mtime: file.mtime,
-    name: file.name,
-    path: file.path,
-    previewSnippet: getPreviewSnippet(content),
-    rawLinks,
-    relativePath: file.relativePath,
-    size: file.size,
-    title: getFileTitle(file.name),
-    workspaceId: getWorkspaceId(workspace),
-    workspacePath: workspace,
-  } satisfies WikiLinkNoteRecord;
-}
-
 export async function checkWorkspaceWikiLinkIndexFreshness(
   workspace: string
 ): Promise<WikiLinkFreshnessResult> {
@@ -955,173 +743,43 @@ async function runWorkspaceIndexRefresh(
   onProgress?: (state: WikiLinkIndexingState) => void,
   options?: RefreshOptions
 ) {
-  const forceFull = options?.forceFull ?? false;
-  const [workspaceFiles, existingIndex] = await Promise.all([
-    listWorkspaceIndexedFilesForPath(workspace),
-    readWorkspaceIndex(workspace),
-  ]);
-  const existingByPath = new Map(existingIndex.notes.map((note) => [note.path, note]));
-  const workspacePathSet = new Set(workspaceFiles.map((file) => file.path));
-  const freshness = !existingIndex.meta || existingIndex.meta.status !== 'ready'
-    ? {
-        changedFiles: workspaceFiles,
-        deletedPaths: existingIndex.notes.map((note) => note.path),
-        stale: workspaceFiles.length > 0 || existingIndex.notes.length > 0,
-        workspaceFiles,
+  console.info('[WikiLinkIndex] Requesting backend rebuild', {
+    forceFull: options?.forceFull ?? false,
+    workspace,
+  });
+  let unlisten: (() => void) | null = null;
+
+  if (onProgress) {
+    unlisten = await listen<WikiLinkIndexingState>(WORKSPACE_INDEX_PROGRESS_EVENT, (event) => {
+      if (event.payload.workspace === workspace) {
+        if (
+          event.payload.phase !== 'scanning' ||
+          event.payload.processedFiles === 0 ||
+          event.payload.processedFiles === event.payload.totalFiles ||
+          event.payload.processedFiles % 100 === 0
+        ) {
+          console.info('[WikiLinkIndex] Backend progress', event.payload);
+        }
+        onProgress(event.payload);
       }
-    : {
-        changedFiles: workspaceFiles.filter((file) => {
-          const existing = existingByPath.get(file.path);
-          if (!existing) return true;
-
-          return existing.size !== file.size || existing.mtime !== file.mtime;
-        }),
-        deletedPaths: existingIndex.notes
-          .filter((note) => !workspacePathSet.has(note.path))
-          .map((note) => note.path),
-        stale: false,
-        workspaceFiles,
-      };
-
-  freshness.stale =
-    freshness.changedFiles.length > 0 || freshness.deletedPaths.length > 0;
-
-  const changedFiles = forceFull ? workspaceFiles : freshness.changedFiles;
-  const deletedPaths = forceFull ? existingIndex.notes.map((note) => note.path) : freshness.deletedPaths;
-
-  if (!forceFull && !freshness.stale) {
-    return false;
+    });
   }
 
-  const noteMap = new Map(existingIndex.notes.map((note) => [note.path, note]));
-
-  if (forceFull) {
-    noteMap.clear();
-  }
-
-  for (const deletedPath of deletedPaths) {
-    noteMap.delete(deletedPath);
-  }
-
-  const totalToProcess = changedFiles.length;
-  const flushEvery = totalToProcess > 250 ? 50 : totalToProcess > 100 ? 25 : totalToProcess > 25 ? 10 : 5;
-  let processedFiles = 0;
-
-  if (totalToProcess === 0) {
-    onProgress?.({
-      currentFile: null,
-      error: null,
-      phase: 'saving',
-      processedFiles: 0,
-      totalFiles: 0,
+  try {
+    const changed = await invoke<boolean>('rebuild_workspace_index', {
+      forceFull: options?.forceFull ?? false,
       workspace,
     });
-
-    await writeWorkspaceIndexSnapshot(workspace, Array.from(noteMap.values()), {
-      status: 'ready',
-      processedFiles: noteMap.size,
-      lastIndexedAt: Date.now(),
-      lastError: null,
+    console.info('[WikiLinkIndex] Backend rebuild finished', {
+      changed,
+      forceFull: options?.forceFull ?? false,
+      workspace,
     });
     dispatchWikiLinkIndexUpdated(workspace);
-
-    onProgress?.({
-      currentFile: null,
-      error: null,
-      phase: 'complete',
-      processedFiles: 0,
-      totalFiles: 0,
-      workspace,
-    });
-    return true;
+    return changed;
+  } finally {
+    unlisten?.();
   }
-
-  onProgress?.({
-    currentFile: null,
-    error: null,
-    phase: 'scanning',
-    processedFiles: 0,
-    totalFiles: totalToProcess,
-    workspace,
-  });
-
-  for (const file of changedFiles) {
-    try {
-      const record = await parseWorkspaceFile(workspace, file);
-      noteMap.set(file.path, record);
-    } catch (error) {
-      console.error('[WikiLinkIndex] Failed to parse file:', file.path, error);
-      noteMap.set(file.path, {
-        aliases: [],
-        id: createNoteRecordId(workspace, file.path),
-        mtime: file.mtime,
-        name: file.name,
-        path: file.path,
-        previewSnippet: '',
-        rawLinks: [],
-        relativePath: file.relativePath,
-        size: file.size,
-        title: getFileTitle(file.name),
-        workspaceId: getWorkspaceId(workspace),
-        workspacePath: workspace,
-      });
-    }
-
-    processedFiles += 1;
-    onProgress?.({
-      currentFile: file.relativePath,
-      error: null,
-      phase: 'scanning',
-      processedFiles,
-      totalFiles: totalToProcess,
-      workspace,
-    });
-
-    if (processedFiles % flushEvery === 0 || processedFiles === totalToProcess) {
-      await writeWorkspaceIndexMeta({
-        id: getWorkspaceId(workspace),
-        workspaceId: getWorkspaceId(workspace),
-        workspacePath: workspace,
-        status: 'indexing',
-        processedFiles,
-        totalFiles: existingIndex.meta?.totalFiles ?? noteMap.size,
-        totalMarkdownFiles: existingIndex.meta?.totalMarkdownFiles ?? 0,
-        totalResolvedLinks: existingIndex.meta?.totalResolvedLinks ?? 0,
-        totalDanglingLinks: existingIndex.meta?.totalDanglingLinks ?? 0,
-        lastIndexedAt: existingIndex.meta?.lastIndexedAt ?? null,
-        lastError: null,
-      });
-      dispatchWikiLinkIndexUpdated(workspace);
-    }
-  }
-
-  onProgress?.({
-    currentFile: null,
-    error: null,
-    phase: 'saving',
-    processedFiles: totalToProcess,
-    totalFiles: totalToProcess,
-    workspace,
-  });
-
-  await writeWorkspaceIndexSnapshot(workspace, Array.from(noteMap.values()), {
-    status: 'ready',
-    processedFiles: noteMap.size,
-    lastIndexedAt: Date.now(),
-    lastError: null,
-  });
-  dispatchWikiLinkIndexUpdated(workspace);
-
-  onProgress?.({
-    currentFile: null,
-    error: null,
-    phase: 'complete',
-    processedFiles: totalToProcess,
-    totalFiles: totalToProcess,
-    workspace,
-  });
-
-  return true;
 }
 
 export function requestWorkspaceWikiLinkRebuild(force = true) {
@@ -1155,8 +813,8 @@ export async function getWorkspaceWikiLinkIndexSummary(workspace: string | null)
     return null;
   }
 
-  const { meta } = await readWorkspaceIndex(workspace);
-  return meta;
+  console.info('[WikiLinkIndex] Reading backend summary', { workspace });
+  return invoke<WikiLinkMetaRecord | null>('get_workspace_index_summary', { workspace });
 }
 
 export function resolveWorkspaceLinkPath(href: string) {

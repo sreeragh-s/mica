@@ -2,7 +2,6 @@ import * as React from "react"
 
 import { XIcon } from "lucide-react"
 import {
-  FileJsonIcon,
   FileCodeIcon,
   FileTextIcon,
   FileImageIcon,

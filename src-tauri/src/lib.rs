@@ -6,6 +6,9 @@ use std::process::Command;
 use std::time::Duration;
 use tauri::{AppHandle, Emitter};
 
+mod meeting_capture;
+mod workspace_index;
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct GitCheckResult {
@@ -1768,12 +1771,41 @@ async fn chat_with_ollama_stream(
     Ok(())
 }
 
+#[tauri::command]
+async fn rebuild_workspace_index(
+    app: AppHandle,
+    workspace: String,
+    force_full: Option<bool>,
+) -> Result<bool, String> {
+    let handle = app.clone();
+    tokio::task::spawn_blocking(move || {
+        workspace_index::rebuild_workspace_index(&handle, &workspace, force_full.unwrap_or(false))
+    })
+    .await
+    .map_err(|error| format!("Workspace indexing task failed: {}", error))?
+}
+
+#[tauri::command]
+fn read_workspace_index_snapshot(
+    workspace: String,
+) -> Result<workspace_index::WorkspaceIndexSnapshot, String> {
+    workspace_index::read_workspace_index_snapshot(&workspace)
+}
+
+#[tauri::command]
+fn get_workspace_index_summary(
+    workspace: String,
+) -> Result<Option<workspace_index::WikiLinkMetaRecord>, String> {
+    workspace_index::get_workspace_index_summary(&workspace)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_shell::init())
         .invoke_handler(tauri::generate_handler![
             check_git_installation,
             get_git_global_identity,
@@ -1802,6 +1834,11 @@ pub fn run() {
             pull_ollama_model,
             search_ollama_models,
             chat_with_ollama_stream,
+            rebuild_workspace_index,
+            read_workspace_index_snapshot,
+            get_workspace_index_summary,
+            meeting_capture::start_meeting_capture,
+            meeting_capture::stop_meeting_capture,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

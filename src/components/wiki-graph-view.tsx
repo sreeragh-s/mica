@@ -1,8 +1,17 @@
 import * as React from "react"
+import ForceGraph2D, {
+  type ForceGraphMethods,
+  type LinkObject,
+  type NodeObject,
+} from "react-force-graph-2d"
 
 import { Button } from "@/components/ui/button"
-import { useSigma } from "@/hooks/useSigma"
-import { wikiGraphToGraphology, type WikiGraphTheme } from "@/lib/wiki-graph-adapter"
+import {
+  buildForceGraphData,
+  type ForceGraphLink,
+  type ForceGraphNode,
+  type WikiGraphTheme,
+} from "@/lib/wiki-graph-adapter"
 import {
   requestWorkspaceWikiLinkRebuild,
   useWikiLinkGraphData,
@@ -17,6 +26,11 @@ import {
   RefreshCwIcon,
   WaypointsIcon,
 } from "lucide-react"
+
+type FGNode = NodeObject<ForceGraphNode>
+type FGLink = LinkObject<ForceGraphNode, ForceGraphLink>
+
+const nodeCanvasObjectModeAll = () => "replace" as const
 
 function toCanvasColor(value: string, fallback: string) {
   if (typeof document === "undefined") {
@@ -35,6 +49,21 @@ function toCanvasColor(value: string, fallback: string) {
   return resolved
 }
 
+function withAlpha(color: string, alpha: number) {
+  const match = color.match(/^rgba?\(([^)]+)\)$/i)
+  if (!match) {
+    return color
+  }
+
+  const parts = match[1].split(",").map((part) => part.trim())
+  if (parts.length < 3) {
+    return color
+  }
+
+  const [r, g, b] = parts
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`
+}
+
 type WikiGraphViewProps = {
   activeFilePath: string | null
   indexingState: WikiLinkIndexingState
@@ -45,23 +74,19 @@ export const WikiGraphView = React.memo(function WikiGraphView({
   indexingState,
 }: WikiGraphViewProps) {
   const { edges, isIndexed, isLoading, meta, nodes } = useWikiLinkGraphData()
-  const [graphTheme, setGraphTheme] = React.useState<WikiGraphTheme & {
-    background: string
-    border: string
-    fontFamily: string
-    foreground: string
-    mutedForeground: string
-  }>(() => ({
-    activeEdge: "currentColor",
-    activeNode: "currentColor",
-    background: "transparent",
-    border: "currentColor",
-    danglingEdge: "currentColor",
-    edge: "currentColor",
+
+  const [graphTheme, setGraphTheme] = React.useState<WikiGraphTheme>(() => ({
+    activeEdge: "rgb(96, 165, 250)",
+    activeNode: "rgb(96, 165, 250)",
+    background: "rgb(18, 18, 28)",
+    border: "rgb(42, 42, 58)",
+    danglingEdge: "rgb(239, 68, 68)",
+    danglingNode: "rgb(148, 163, 184)",
+    edge: "rgb(42, 42, 58)",
     fontFamily: "inherit",
-    foreground: "currentColor",
-    mutedForeground: "currentColor",
-    node: "currentColor",
+    foreground: "rgb(245, 245, 247)",
+    mutedForeground: "rgb(148, 163, 184)",
+    node: "rgb(96, 165, 250)",
   }))
 
   React.useEffect(() => {
@@ -75,7 +100,8 @@ export const WikiGraphView = React.memo(function WikiGraphView({
         baseColor
       )
       const highlightColor = toCanvasColor(
-        styles.getPropertyValue("--highlight").trim() || styles.getPropertyValue("--primary").trim(),
+        styles.getPropertyValue("--highlight").trim() ||
+          styles.getPropertyValue("--primary").trim(),
         primaryColor
       )
       const backgroundColor = toCanvasColor(
@@ -105,6 +131,7 @@ export const WikiGraphView = React.memo(function WikiGraphView({
         background: backgroundColor,
         border: borderColor,
         danglingEdge: destructiveColor,
+        danglingNode: mutedColor,
         edge: borderColor,
         fontFamily: bodyStyles.fontFamily || "inherit",
         foreground: foregroundColor,
@@ -127,50 +154,289 @@ export const WikiGraphView = React.memo(function WikiGraphView({
     return () => observer.disconnect()
   }, [])
 
-  const highlightedNodeIds = React.useMemo(
-    () => (activeFilePath ? new Set([activeFilePath]) : new Set<string>()),
-    [activeFilePath]
+  const graphData = React.useMemo(
+    () => buildForceGraphData(nodes, edges),
+    [nodes, edges]
   )
-  const {
-    containerRef,
-    focusNode,
-    isLayoutRunning,
-    resetZoom,
-    setGraph,
-    startLayout,
-    stopLayout,
-    zoomIn,
-    zoomOut,
-  } = useSigma({
-    highlightedNodeIds,
-    theme: {
-      accent: graphTheme.activeNode,
-      background: graphTheme.background,
-      border: graphTheme.border,
-      edge: graphTheme.edge,
-      fontFamily: graphTheme.fontFamily,
-      foreground: graphTheme.foreground,
-      mutedForeground: graphTheme.mutedForeground,
-      node: graphTheme.node,
+
+  const fgData = React.useMemo(
+    () => ({ links: graphData.links, nodes: graphData.nodes }),
+    [graphData]
+  )
+
+  const containerRef = React.useRef<HTMLDivElement>(null)
+  const fgRef = React.useRef<ForceGraphMethods<ForceGraphNode, ForceGraphLink>>(undefined)
+  const [dimensions, setDimensions] = React.useState({ height: 0, width: 0 })
+  const [isLayoutRunning, setIsLayoutRunning] = React.useState(false)
+  const [hoverNode, setHoverNode] = React.useState<FGNode | null>(null)
+  const [selectedNodeId, setSelectedNodeId] = React.useState<string | null>(null)
+
+  React.useEffect(() => {
+    const element = containerRef.current
+    if (!element) return
+
+    const update = () => {
+      const rect = element.getBoundingClientRect()
+      setDimensions({
+        height: Math.max(0, Math.round(rect.height)),
+        width: Math.max(0, Math.round(rect.width)),
+      })
+    }
+
+    update()
+
+    const observer = new ResizeObserver(update)
+    observer.observe(element)
+    return () => observer.disconnect()
+  }, [])
+
+  const highlightedNodeIds = React.useMemo(() => {
+    const set = new Set<string>()
+    if (activeFilePath) set.add(activeFilePath)
+    if (selectedNodeId) set.add(selectedNodeId)
+    if (hoverNode?.id != null) set.add(String(hoverNode.id))
+    return set
+  }, [activeFilePath, hoverNode, selectedNodeId])
+
+  const focusedNodeId = selectedNodeId ?? (hoverNode?.id != null ? String(hoverNode.id) : null)
+
+  const connectedNodeIds = React.useMemo(() => {
+    if (!focusedNodeId) return new Set<string>()
+    const neighbors = graphData.neighborsByNode.get(focusedNodeId)
+    return neighbors ? new Set(neighbors) : new Set<string>()
+  }, [focusedNodeId, graphData.neighborsByNode])
+
+  const connectedLinkIds = React.useMemo(() => {
+    if (!focusedNodeId) return new Set<string>()
+    const linkIds = graphData.linksByNode.get(focusedNodeId)
+    return linkIds ? new Set(linkIds) : new Set<string>()
+  }, [focusedNodeId, graphData.linksByNode])
+
+  const hasFocus = focusedNodeId != null
+
+  const derivedColors = React.useMemo(
+    () => ({
+      activeNodeRing: withAlpha(graphTheme.activeNode, 0.18),
+      dimmedEdge: withAlpha(graphTheme.edge, 0.2),
+      dimmedLabel: withAlpha(graphTheme.mutedForeground, 0.5),
+      dimmedNode: withAlpha(graphTheme.mutedForeground, 0.35),
+    }),
+    [graphTheme]
+  )
+
+  const nodeColor = React.useCallback(
+    (node: FGNode) => {
+      const id = String(node.id)
+      if (highlightedNodeIds.has(id)) return graphTheme.activeNode
+      if (hasFocus) {
+        if (connectedNodeIds.has(id)) return graphTheme.activeNode
+        return derivedColors.dimmedNode
+      }
+      return node.isDangling ? graphTheme.danglingNode : graphTheme.node
     },
-  })
+    [connectedNodeIds, derivedColors, graphTheme, hasFocus, highlightedNodeIds]
+  )
+
+  const linkColor = React.useCallback(
+    (link: FGLink) => {
+      const id = String(link.id)
+      const isDangling = Boolean(link.isDangling)
+      if (hasFocus) {
+        if (connectedLinkIds.has(id)) return graphTheme.activeEdge
+        return derivedColors.dimmedEdge
+      }
+      return isDangling ? graphTheme.danglingEdge : graphTheme.edge
+    },
+    [connectedLinkIds, derivedColors, graphTheme, hasFocus]
+  )
+
+  const linkWidth = React.useCallback(
+    (link: FGLink) => {
+      const id = String(link.id)
+      const base = typeof link.width === "number" ? link.width : 1
+      if (connectedLinkIds.has(id)) return Math.max(1.6, base * 2.2)
+      return base
+    },
+    [connectedLinkIds]
+  )
+
+  const linkDirectionalParticles = React.useCallback(
+    (link: FGLink) => (connectedLinkIds.has(String(link.id)) ? 3 : 0),
+    [connectedLinkIds]
+  )
+
+  const nodeVal = React.useCallback((node: FGNode) => {
+    const size = typeof node.size === "number" ? node.size : 8
+    return size
+  }, [])
+
+  const LABEL_ZOOM_THRESHOLD = 0.5
+
+  const renderNode = React.useCallback(
+    (node: FGNode, ctx: CanvasRenderingContext2D, globalScale: number) => {
+      const x = node.x
+      const y = node.y
+      if (x == null || y == null) return
+
+      const id = String(node.id)
+      const isHighlighted = highlightedNodeIds.has(id)
+      const isConnected = hasFocus && connectedNodeIds.has(id)
+      const size = typeof node.size === "number" ? node.size : 8
+      const radius = size * 0.9 > 5 ? size * 0.9 : 5
+
+      if (isHighlighted) {
+        const invScale = 1 / globalScale
+        ctx.beginPath()
+        ctx.arc(x, y, radius + 4 * invScale, 0, Math.PI * 2)
+        ctx.fillStyle = derivedColors.activeNodeRing
+        ctx.fill()
+
+        ctx.beginPath()
+        ctx.arc(x, y, radius + 2 * invScale, 0, Math.PI * 2)
+        ctx.strokeStyle = graphTheme.activeNode
+        ctx.lineWidth = 1.5 * invScale
+        ctx.stroke()
+      }
+
+      ctx.beginPath()
+      ctx.arc(x, y, radius, 0, Math.PI * 2)
+      ctx.fillStyle = nodeColor(node)
+      ctx.fill()
+
+      const label = node.label
+      if (!label) return
+      if (!isHighlighted && !isConnected && globalScale < LABEL_ZOOM_THRESHOLD) return
+
+      const invScale = 1 / globalScale
+      const fontSize = 13 * invScale > 10 ? 13 * invScale : 10
+      ctx.font = `500 ${fontSize}px ${graphTheme.fontFamily}`
+      ctx.textAlign = "center"
+      ctx.textBaseline = "top"
+
+      const textY = y + radius + 3 * invScale
+
+      if (isHighlighted) {
+        const textWidth = ctx.measureText(label).width
+        const paddingX = 4 * invScale
+        const paddingY = 2 * invScale
+        const bgX = x - textWidth / 2 - paddingX
+        const bgY = textY - paddingY
+        const bgW = textWidth + paddingX * 2
+        const bgH = fontSize + paddingY * 2
+        const r = 3 * invScale
+
+        ctx.fillStyle = graphTheme.background
+        ctx.beginPath()
+        if (typeof ctx.roundRect === "function") {
+          ctx.roundRect(bgX, bgY, bgW, bgH, r)
+        } else {
+          ctx.rect(bgX, bgY, bgW, bgH)
+        }
+        ctx.fill()
+
+        ctx.strokeStyle = graphTheme.activeNode
+        ctx.lineWidth = invScale
+        ctx.stroke()
+
+        ctx.fillStyle = graphTheme.foreground
+      } else {
+        ctx.fillStyle =
+          hasFocus && !isConnected ? derivedColors.dimmedLabel : graphTheme.foreground
+      }
+
+      ctx.fillText(label, x, textY)
+    },
+    [connectedNodeIds, derivedColors, graphTheme, hasFocus, highlightedNodeIds, nodeColor]
+  )
+
+  const paintPointerArea = React.useCallback(
+    (node: FGNode, color: string, ctx: CanvasRenderingContext2D) => {
+      if (node.x == null || node.y == null) return
+      const size = typeof node.size === "number" ? node.size : 8
+      ctx.fillStyle = color
+      ctx.beginPath()
+      ctx.arc(node.x, node.y, Math.max(6, size * 1.0), 0, 2 * Math.PI, false)
+      ctx.fill()
+    },
+    []
+  )
+
+  const handleNodeClick = React.useCallback(
+    (node: FGNode) => {
+      if (node.id == null) return
+      const id = String(node.id)
+      setSelectedNodeId(id)
+      if (node.x != null && node.y != null) {
+        fgRef.current?.centerAt(node.x, node.y, 500)
+        fgRef.current?.zoom(3, 500)
+      }
+    },
+    []
+  )
+
+  const handleBackgroundClick = React.useCallback(() => {
+    setSelectedNodeId(null)
+  }, [])
+
+  const handleNodeHover = React.useCallback((node: FGNode | null) => {
+    setHoverNode(node)
+    if (containerRef.current) {
+      containerRef.current.style.cursor = node ? "pointer" : "grab"
+    }
+  }, [])
+
+  const handleEngineStop = React.useCallback(() => {
+    setIsLayoutRunning(false)
+  }, [])
 
   React.useEffect(() => {
-    if (meta?.status === "indexing") {
-      return
-    }
-
-    const graph = wikiGraphToGraphology(nodes, edges, activeFilePath, graphTheme)
-    setGraph(graph)
-  }, [activeFilePath, edges, graphTheme, meta?.status, nodes, setGraph])
+    setIsLayoutRunning(true)
+  }, [fgData])
 
   React.useEffect(() => {
-    if (!activeFilePath) {
-      return
+    if (!activeFilePath) return
+    const fg = fgRef.current
+    if (!fg) return
+
+    const match = graphData.nodes.find((node) => node.id === activeFilePath)
+    if (!match) return
+
+    const focus = () => {
+      if (match.x == null || match.y == null) return
+      fg.centerAt(match.x, match.y, 500)
+      fg.zoom(2.4, 500)
     }
 
-    focusNode(activeFilePath)
-  }, [activeFilePath, focusNode])
+    const timeout = window.setTimeout(focus, 200)
+    return () => window.clearTimeout(timeout)
+  }, [activeFilePath, graphData.nodes])
+
+  const zoomIn = React.useCallback(() => {
+    const fg = fgRef.current
+    if (!fg) return
+    fg.zoom(fg.zoom() * 1.4, 200)
+  }, [])
+
+  const zoomOut = React.useCallback(() => {
+    const fg = fgRef.current
+    if (!fg) return
+    fg.zoom(fg.zoom() / 1.4, 200)
+  }, [])
+
+  const resetZoom = React.useCallback(() => {
+    setSelectedNodeId(null)
+    fgRef.current?.zoomToFit(400, 60)
+  }, [])
+
+  const startLayout = React.useCallback(() => {
+    fgRef.current?.d3ReheatSimulation()
+    setIsLayoutRunning(true)
+  }, [])
+
+  const stopLayout = React.useCallback(() => {
+    fgRef.current?.pauseAnimation()
+    setIsLayoutRunning(false)
+  }, [])
 
   const isIndexingActive =
     Boolean(indexingState.workspace) &&
@@ -198,7 +464,38 @@ export const WikiGraphView = React.memo(function WikiGraphView({
   return (
     <div className="flex h-full min-h-0 flex-1 flex-col bg-background">
       <div className="relative min-h-0 flex-1 bg-background">
-        <div ref={containerRef} className="h-full w-full" />
+        <div ref={containerRef} className="h-full w-full">
+          {dimensions.width > 0 && dimensions.height > 0 ? (
+            <ForceGraph2D<ForceGraphNode, ForceGraphLink>
+              ref={fgRef}
+              autoPauseRedraw
+              backgroundColor={graphTheme.background}
+              cooldownTicks={Math.min(120, Math.max(60, Math.round(fgData.nodes.length * 0.6)))}
+              d3AlphaDecay={0.035}
+              d3VelocityDecay={0.4}
+              enableNodeDrag
+              graphData={fgData}
+              height={dimensions.height}
+              linkColor={linkColor}
+              linkDirectionalParticleColor={graphTheme.activeEdge}
+              linkDirectionalParticleSpeed={0.006}
+              linkDirectionalParticleWidth={2}
+              linkDirectionalParticles={linkDirectionalParticles}
+              linkWidth={linkWidth}
+              nodeCanvasObject={renderNode}
+              nodeCanvasObjectMode={nodeCanvasObjectModeAll}
+              nodePointerAreaPaint={paintPointerArea}
+              nodeRelSize={6}
+              nodeVal={nodeVal}
+              onBackgroundClick={handleBackgroundClick}
+              onEngineStop={handleEngineStop}
+              onNodeClick={handleNodeClick}
+              onNodeHover={handleNodeHover}
+              warmupTicks={10}
+              width={dimensions.width}
+            />
+          ) : null}
+        </div>
         {!isIndexed && isLoading && nodes.length === 0 ? (
           <GraphLoadingOverlay
             currentFile={indexingState.currentFile}

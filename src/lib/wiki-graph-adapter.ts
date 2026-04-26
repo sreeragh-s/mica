@@ -1,91 +1,114 @@
-import Graph from "graphology"
-
 import type { WikiLinkGraphEdge, WikiLinkGraphNode } from "@/lib/wikilink-utils"
-
-export interface SigmaNodeAttributes {
-  x: number
-  y: number
-  size: number
-  color: string
-  label: string
-  path: string | null
-  hidden?: boolean
-  zIndex?: number
-}
-
-export interface SigmaEdgeAttributes {
-  size: number
-  color: string
-  relationType: "wikilink"
-  type?: string
-  curvature?: number
-  zIndex?: number
-}
 
 export type WikiGraphTheme = {
   activeEdge: string
   activeNode: string
+  background: string
+  border: string
   danglingEdge: string
+  danglingNode: string
   edge: string
+  fontFamily: string
+  foreground: string
+  mutedForeground: string
   node: string
 }
 
-function getNodeColor(
-  _node: WikiLinkGraphNode,
-  _activeFilePath: string | null,
-  theme: WikiGraphTheme
-) {
-  return theme.node
+export interface ForceGraphNode {
+  id: string
+  label: string
+  path: string | null
+  degree: number
+  isDangling: boolean
+  size: number
+  x?: number
+  y?: number
+  fx?: number
+  fy?: number
+  vx?: number
+  vy?: number
 }
 
-function getNodeSize(node: WikiLinkGraphNode, activeFilePath: string | null) {
-  const baseSize = node.isDangling ? 5.75 : 7.25
-  const degreeBoost = Math.min(node.degree, 10) * 0.55
-  const activeBoost = node.path && node.path === activeFilePath ? 2.5 : 0
-
-  return baseSize + degreeBoost + activeBoost
+export interface ForceGraphLink {
+  id: string
+  source: string
+  target: string
+  count: number
+  isDangling: boolean
+  width: number
 }
 
-export function wikiGraphToGraphology(
+export interface ForceGraphData {
+  nodes: ForceGraphNode[]
+  links: ForceGraphLink[]
+  neighborsByNode: Map<string, Set<string>>
+  linksByNode: Map<string, Set<string>>
+}
+
+function getNodeSize(node: WikiLinkGraphNode) {
+  const baseSize = node.isDangling ? 10 : 13
+  const degreeBoost = Math.min(node.degree, 15) * 0.9
+
+  return baseSize + degreeBoost
+}
+
+export function buildForceGraphData(
   nodes: WikiLinkGraphNode[],
-  edges: WikiLinkGraphEdge[],
-  activeFilePath: string | null,
-  theme: WikiGraphTheme
-) {
-  const graph = new Graph<SigmaNodeAttributes, SigmaEdgeAttributes>()
-  const radius = Math.max(220, Math.sqrt(Math.max(nodes.length, 1)) * 68)
-  const goldenAngle = Math.PI * (3 - Math.sqrt(5))
+  edges: WikiLinkGraphEdge[]
+): ForceGraphData {
+  const neighborsByNode = new Map<string, Set<string>>()
+  const linksByNode = new Map<string, Set<string>>()
+  const validIds = new Set(nodes.map((node) => node.id))
 
-  nodes.forEach((node, index) => {
-    const angle = index * goldenAngle
-    const radialScale = radius * Math.sqrt((index + 1) / Math.max(nodes.length, 1))
-    const jitter = 28
+  const graphNodes: ForceGraphNode[] = nodes.map((node) => ({
+    degree: node.degree,
+    id: node.id,
+    isDangling: node.isDangling,
+    label: node.title,
+    path: node.path,
+    size: getNodeSize(node),
+  }))
 
-    graph.addNode(node.id, {
-      color: getNodeColor(node, activeFilePath, theme),
-      label: node.title,
-      path: node.path,
-      size: getNodeSize(node, activeFilePath),
-      x: radialScale * Math.cos(angle) + (Math.random() - 0.5) * jitter,
-      y: radialScale * Math.sin(angle) + (Math.random() - 0.5) * jitter,
-      zIndex: node.path && node.path === activeFilePath ? 2 : 1,
-    })
-  })
+  const graphLinks: ForceGraphLink[] = []
 
   edges.forEach((edge, index) => {
-    if (!graph.hasNode(edge.source) || !graph.hasNode(edge.target)) {
+    if (!validIds.has(edge.source) || !validIds.has(edge.target)) {
       return
     }
 
-    graph.addEdgeWithKey(edge.id || `edge-${index}`, edge.source, edge.target, {
-      color: edge.isDangling ? theme.danglingEdge : theme.edge,
-      curvature: index % 2 === 0 ? 0.12 : -0.12,
-      relationType: "wikilink",
-      size: edge.isDangling ? 0.45 : Math.max(0.3, Math.min(edge.count * 0.45, 1.1)),
-      type: "curved",
-      zIndex: 0,
+    const linkId = edge.id || `edge-${index}`
+    graphLinks.push({
+      count: edge.count,
+      id: linkId,
+      isDangling: edge.isDangling,
+      source: edge.source,
+      target: edge.target,
+      width: edge.isDangling ? 0.6 : Math.max(0.6, Math.min(edge.count * 0.6, 2.2)),
     })
+
+    if (!neighborsByNode.has(edge.source)) {
+      neighborsByNode.set(edge.source, new Set())
+    }
+    if (!neighborsByNode.has(edge.target)) {
+      neighborsByNode.set(edge.target, new Set())
+    }
+    neighborsByNode.get(edge.source)!.add(edge.target)
+    neighborsByNode.get(edge.target)!.add(edge.source)
+
+    if (!linksByNode.has(edge.source)) {
+      linksByNode.set(edge.source, new Set())
+    }
+    if (!linksByNode.has(edge.target)) {
+      linksByNode.set(edge.target, new Set())
+    }
+    linksByNode.get(edge.source)!.add(linkId)
+    linksByNode.get(edge.target)!.add(linkId)
   })
 
-  return graph
+  return {
+    links: graphLinks,
+    linksByNode,
+    neighborsByNode,
+    nodes: graphNodes,
+  }
 }
