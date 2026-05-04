@@ -12,6 +12,7 @@ import {
   ChevronRightIcon,
   Code2,
   Columns3Icon,
+  FileText,
   FileUpIcon,
   FilmIcon,
   Heading1Icon,
@@ -39,6 +40,8 @@ import {
   insertInlineElement,
 } from '@/components/editor/transforms';
 import { openMeetingRecorder } from '@/components/meeting-recorder-dialog';
+
+const OPEN_SELECT_WIKI_EVENT = 'open-select-wiki';
 
 const MEDIA_ACCEPT: Record<string, string> = {
   [KEYS.img]: 'image/*',
@@ -229,6 +232,16 @@ const groups: Group[] = [
   {
     group: 'Inline',
     items: [
+      {
+        focusEditor: false,
+        icon: <FileText />,
+        keywords: ['wiki', 'wikilink', 'reference', 'file', 'link'],
+        label: 'Select Wiki',
+        value: 'select_wiki',
+        onSelect: () => {
+          window.dispatchEvent(new CustomEvent(OPEN_SELECT_WIKI_EVENT));
+        },
+      },
       {
         focusEditor: true,
         icon: <CalendarIcon />,

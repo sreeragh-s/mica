@@ -4,9 +4,8 @@ import * as React from 'react';
 
 import { listen } from '@tauri-apps/api/event';
 import { invoke } from '@tauri-apps/api/core';
-import { readDir, stat } from '@tauri-apps/plugin-fs';
 
-import { isMarkdownFile, isSupportedEditorFile } from '@/lib/file-types';
+import { isMarkdownFile } from '@/lib/file-types';
 import { getCurrentWorkspace, getWorkspaceScopedStorageKey } from '@/lib/workspace';
 
 const ACTIVE_FILE_PATH_KEY = 'active-file-path';
@@ -173,6 +172,12 @@ type WorkspaceIndexSnapshot = {
   notes: WikiLinkNoteRecord[];
 };
 
+type WorkspaceNoteConnections = {
+  backlinks: WikiLinkListItem[];
+  meta: WikiLinkMetaRecord | null;
+  outgoingLinks: WikiLinkListItem[];
+};
+
 export function isWorkspaceRelativeLink(href?: string) {
   if (!href) {
     return false;
@@ -234,6 +239,25 @@ function decodeLinkTarget(value: string) {
   } catch {
     return value;
   }
+}
+
+function stripQueryAndFragment(value: string) {
+  const queryIndex = value.indexOf('?');
+
+  if (queryIndex === -1) {
+    return value;
+  }
+
+  const hashIndex = value.indexOf('#');
+  if (hashIndex !== -1 && hashIndex < queryIndex) {
+    return value;
+  }
+
+  return value.slice(0, queryIndex);
+}
+
+function normalizeMarkdownLinkTarget(value: string) {
+  return decodeLinkTarget(value.trim().replace(/^<|>$/g, ''));
 }
 
 function collapseWhitespace(value: string) {
@@ -320,6 +344,23 @@ function splitLinkTarget(rawTarget: string) {
   };
 }
 
+function isObsidianInternalMarkdownTarget(rawTarget: string) {
+  if (!rawTarget) {
+    return false;
+  }
+
+  const trimmedTarget = rawTarget.trim();
+  if (!trimmedTarget) {
+    return false;
+  }
+
+  if (trimmedTarget.startsWith('/')) {
+    return false;
+  }
+
+  return !/^[a-z][a-z\d+.-]*:/i.test(trimmedTarget);
+}
+
 export function extractAliases(content: string) {
   if (!content.startsWith('---\n')) {
     return [];
@@ -387,10 +428,13 @@ export function extractWikilinks(content: string) {
 }
 
 export function extractMarkdownLinks(content: string) {
-  return Array.from(content.matchAll(/(!)?\[([^\]]*)\]\(([^)]+)\)/g), (match) => {
-    const rawHref = decodeLinkTarget((match[3] ?? '').trim().replace(/^<|>$/g, ''));
-    const [hrefWithoutQuery] = rawHref.split('?');
-    const { path, subpath } = splitLinkTarget(hrefWithoutQuery);
+  const links = Array.from(content.matchAll(/(!)?\[([^\]]*)\]\(([^)]+)\)/g), (match) => {
+    const rawHref = normalizeMarkdownLinkTarget(match[3] ?? '');
+    if (!isObsidianInternalMarkdownTarget(rawHref)) {
+      return null;
+    }
+
+    const { path, subpath } = splitLinkTarget(stripQueryAndFragment(rawHref));
     const displayText = collapseWhitespace((match[2] ?? '').trim());
 
     return {
@@ -401,7 +445,15 @@ export function extractMarkdownLinks(content: string) {
       targetSubpath: subpath,
       isEmbed: Boolean(match[1]),
     };
-  }).filter((link) => Boolean(link.rawTarget) || Boolean(link.targetSubpath));
+  });
+
+  return links.filter((link): link is NonNullable<(typeof links)[number]> => {
+    if (!link) {
+      return false;
+    }
+
+    return Boolean(link.rawTarget) || Boolean(link.targetSubpath);
+  });
 }
 
 function buildFileLookup(notes: WikiLinkNoteRecord[]) {
@@ -440,6 +492,23 @@ function buildFileLookup(notes: WikiLinkNoteRecord[]) {
   }
 
   return lookup;
+}
+
+function createLookupNoteRecord(workspace: string, file: WorkspaceFileEntry): WikiLinkNoteRecord {
+  return {
+    id: createNoteRecordId(workspace, file.path),
+    workspaceId: getWorkspaceId(workspace),
+    workspacePath: workspace,
+    path: file.path,
+    relativePath: file.relativePath,
+    name: file.name,
+    title: getFileTitle(file.name),
+    aliases: [],
+    previewSnippet: '',
+    rawLinks: [],
+    size: 0,
+    mtime: null,
+  };
 }
 
 function resolveRelativePath(fromRelativePath: string, targetPath: string) {
@@ -664,48 +733,11 @@ function dispatchWikiLinkIndexUpdated(workspace: string) {
   );
 }
 
-async function listWorkspaceIndexedFilesForPath(workspace: string) {
-  const queue = [workspace];
-  const files: WorkspaceIndexedFileEntry[] = [];
-
-  while (queue.length > 0) {
-    const currentPath = queue.shift();
-    if (!currentPath) continue;
-
-    const entries = await readDir(currentPath);
-
-    for (const entry of entries) {
-      if (entry.name.startsWith('.')) continue;
-
-      const fullPath = `${currentPath}/${entry.name}`;
-
-      if (entry.isDirectory) {
-        queue.push(fullPath);
-        continue;
-      }
-
-      if (!isSupportedEditorFile(fullPath)) continue;
-
-      const fileInfo = await stat(fullPath);
-      files.push({
-        name: entry.name,
-        path: fullPath,
-        relativePath: getRelativeWorkspacePath(fullPath, workspace),
-        size: fileInfo.size,
-        mtime: fileInfo.mtime ? fileInfo.mtime.getTime() : null,
-      });
-    }
-  }
-
-  files.sort((a, b) => a.relativePath.localeCompare(b.relativePath));
-  return files;
-}
-
 export async function checkWorkspaceWikiLinkIndexFreshness(
   workspace: string
 ): Promise<WikiLinkFreshnessResult> {
   const [workspaceFiles, existingIndex] = await Promise.all([
-    listWorkspaceIndexedFilesForPath(workspace),
+    invoke<WorkspaceIndexedFileEntry[]>('list_workspace_files_snapshot', { workspace }),
     readWorkspaceIndex(workspace),
   ]);
 
@@ -817,24 +849,42 @@ export async function getWorkspaceWikiLinkIndexSummary(workspace: string | null)
   return invoke<WikiLinkMetaRecord | null>('get_workspace_index_summary', { workspace });
 }
 
-export function resolveWorkspaceLinkPath(href: string) {
+export async function resolveWorkspaceLinkPath(href: string) {
   const workspace = getCurrentWorkspace();
 
   if (!workspace) {
     return null;
   }
 
-  const normalizedWorkspace = normalizePathForCompare(workspace);
-  const normalizedHref = href.replace(/^\.?\//, '').replace(/\\/g, '/');
+  const normalizedHref = normalizeMarkdownLinkTarget(href);
+  const { path } = splitLinkTarget(stripQueryAndFragment(normalizedHref));
+  const activeFilePath = localStorage.getItem(
+    getWorkspaceScopedStorageKey(ACTIVE_FILE_PATH_KEY, workspace)
+  );
+  const activeRelativePath = activeFilePath
+    ? getRelativeWorkspacePath(activeFilePath, workspace)
+    : '';
+  const workspaceFiles = await invoke<WorkspaceFileEntry[]>('list_workspace_files_snapshot', {
+    workspace,
+  });
+  const lookup = buildFileLookup(
+    workspaceFiles.map((file) => createLookupNoteRecord(workspace, file))
+  );
+  const resolvedTarget = resolveCandidateTarget(path.trim(), lookup, activeRelativePath, 'markdown');
+
+  if (!resolvedTarget.path) {
+    return null;
+  }
 
   return {
-    name: normalizedHref.split('/').pop() ?? normalizedHref,
-    path: `${normalizedWorkspace}/${normalizedHref}`,
+    name: getWorkspaceFileName(resolvedTarget.path),
+    path: normalizePathForCompare(resolvedTarget.path),
+    relativePath: resolvedTarget.relativePath,
   };
 }
 
-export function openWorkspaceLink(href: string) {
-  const target = resolveWorkspaceLinkPath(href);
+export async function openWorkspaceLink(href: string) {
+  const target = await resolveWorkspaceLinkPath(href);
 
   if (!target) {
     return false;
@@ -878,8 +928,7 @@ export async function listWorkspaceFiles() {
     return null;
   }
 
-  const files = await listWorkspaceIndexedFilesForPath(workspace);
-  return files.map(({ name, path, relativePath }) => ({ name, path, relativePath }));
+  return invoke<WorkspaceFileEntry[]>('list_workspace_files_snapshot', { workspace });
 }
 
 export function isSameFilePath(a?: string | null, b?: string | null) {
@@ -1022,89 +1071,21 @@ export function useWikiLinkSidebarData(activeFilePath: string | null): WikiLinkS
       }));
 
       try {
-        const { links, meta, notes } = await readWorkspaceIndex(workspace);
+        const connections = await invoke<WorkspaceNoteConnections>(
+          'read_workspace_note_connections',
+          {
+            workspace,
+            activeFilePath,
+          }
+        );
         if (cancelled) return;
 
-        const notesByPath = new Map(notes.map((note) => [note.path, note]));
-        const backlinks = links
-          .filter((record) => record.targetPath === activeFilePath)
-          .map((record) => {
-            const sourceNote = notesByPath.get(record.sourcePath);
-
-            return {
-              count: record.count,
-              isDangling: false,
-              path: sourceNote?.path ?? record.sourcePath,
-              previewSnippet: record.snippets[0] ?? sourceNote?.previewSnippet ?? '',
-              relativePath: sourceNote?.relativePath ?? record.sourceRelativePath,
-              taggedText: null,
-              title:
-                sourceNote?.title ??
-                getFileTitle(sourceNote?.name ?? getWorkspaceFileName(record.sourcePath)),
-            };
-          })
-          .sort((a, b) => b.count - a.count || a.title.localeCompare(b.title));
-
-        const lookup = buildFileLookup(notes);
-        const activeNote = notesByPath.get(activeFilePath);
-        const outgoingLinks = activeNote
-          ? activeNote.rawLinks
-              .map((occurrence) => {
-            const targetDescriptor = splitLinkTarget(occurrence.rawTarget);
-            const resolvedTarget =
-              targetDescriptor.path || occurrence.targetSubpath
-                ? resolveCandidateTarget(
-                    targetDescriptor.path,
-                    lookup,
-                    activeNote.relativePath,
-                    occurrence.syntax
-                  )
-                : {
-                    path: activeNote.path,
-                    relativePath: activeNote.relativePath,
-                    title: activeNote.title,
-                  };
-            const targetNote = resolvedTarget.path ? notesByPath.get(resolvedTarget.path) : null;
-
-            return {
-              count: 0,
-              isDangling: !resolvedTarget.path,
-              path: targetNote?.path ?? resolvedTarget.path,
-              previewSnippet: targetNote?.previewSnippet ?? occurrence.snippet ?? '',
-              relativePath: targetNote?.relativePath ?? resolvedTarget.relativePath ?? null,
-              taggedText: occurrence.displayText || occurrence.rawTarget || null,
-              title: targetNote?.title ?? resolvedTarget.title,
-            };
-          })
-          .filter((item, index, items) => {
-            const itemKey = `${item.path ?? item.title}::${item.taggedText ?? ''}`;
-            return (
-              items.findIndex(
-                (candidate) =>
-                  `${candidate.path ?? candidate.title}::${candidate.taggedText ?? ''}` === itemKey
-              ) === index
-            );
-          })
-          .sort((a, b) => {
-            if (a.isDangling !== b.isDangling) {
-              return a.isDangling ? 1 : -1;
-            }
-
-            const taggedTextCompare = (a.taggedText ?? '').localeCompare(b.taggedText ?? '');
-            if (taggedTextCompare !== 0) {
-              return taggedTextCompare;
-            }
-
-            return a.title.localeCompare(b.title);
-          })
-          : [];
-
         setState({
-          backlinks,
-          isIndexed: Boolean(meta),
-          isLoading: meta?.status === 'indexing',
-          meta,
-          outgoingLinks,
+          backlinks: connections.backlinks,
+          isIndexed: Boolean(connections.meta),
+          isLoading: connections.meta?.status === 'indexing',
+          meta: connections.meta,
+          outgoingLinks: connections.outgoingLinks,
         });
       } catch (error) {
         console.error('[WikiLinkIndex] Failed to read sidebar data:', error);

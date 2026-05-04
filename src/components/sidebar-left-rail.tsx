@@ -1,10 +1,11 @@
 import * as React from "react"
 
-import { SidebarView } from "@/components/sidebar-view"
+import { SidebarView, useSidebarViewStore } from "@/components/sidebar-view"
 import { Button } from "@/components/ui/button"
 import {
   FolderTreeIcon,
   GitBranchIcon,
+  Loader2,
   Settings2Icon,
 } from "lucide-react"
 
@@ -41,6 +42,8 @@ export const SidebarLeftRail = React.memo(function SidebarLeftRail({
   activeView,
   onViewChange,
 }: SidebarLeftRailProps) {
+  const viewStatuses = useSidebarViewStore((state) => state.views)
+
   return (
     <div className="flex w-11 shrink-0 flex-col items-center border-r border-sidebar-border/60 bg-sidebar/95 px-1 py-2">
       <div className="titlebar-spacer w-full shrink-0" />
@@ -48,6 +51,7 @@ export const SidebarLeftRail = React.memo(function SidebarLeftRail({
         {railActions.map((action) => {
           const Icon = action.icon
           const isActive = activeView === action.key
+          const isLoading = viewStatuses[action.key].isLoading
 
           return (
             <Button
@@ -63,7 +67,12 @@ export const SidebarLeftRail = React.memo(function SidebarLeftRail({
               aria-label={action.label}
               title={action.label}
             >
-              <Icon className="size-4" />
+              <span className="relative flex items-center justify-center">
+                <Icon className="size-4" />
+                {isLoading ? (
+                  <Loader2 className="absolute -right-2 -top-1 size-3 animate-spin rounded-full bg-sidebar text-sidebar-foreground" />
+                ) : null}
+              </span>
             </Button>
           )
         })}

@@ -1,4 +1,5 @@
 import { startTransition, useEffect, useState, useCallback, useRef } from "react";
+import { flushSync } from "react-dom";
 import { SidebarInset, SidebarProvider } from "./components/ui/sidebar";
 import "./App.css";
 import { AppSidebar } from "./components/app-sidebar";
@@ -9,7 +10,11 @@ import {
 import { AppTopbar } from "./components/app-topbar";
 import { MainArea } from "./components/main-area";
 import type { OpenFileTab } from "./components/editor-tabs-panel";
-import { SidebarView } from "./components/sidebar-view";
+import {
+  SidebarView,
+  useActiveSidebarView,
+  useSidebarViewStore,
+} from "./components/sidebar-view";
 import {
   DEFAULT_SETTINGS_PANEL,
   OPEN_SETTINGS_PANEL_EVENT,
@@ -57,6 +62,7 @@ import {
   type BrowserTabUpdate,
 } from "./lib/browser-settings";
 import { MeetingRecorderDialog } from "./components/meeting-recorder-dialog";
+import { logInstantFeel } from "./lib/instant-feel-logger";
 
 interface SelectedFile {
   id: string;
@@ -111,7 +117,8 @@ function App() {
     () => getCurrentWorkspace()
   );
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [activeView, setActiveView] = useState<SidebarView>("explorer");
+  const activeView = useActiveSidebarView();
+  const setActiveView = useSidebarViewStore((state) => state.setActiveView);
   const [settingsPanel, setSettingsPanel] =
     useState<SettingsPanelId>(DEFAULT_SETTINGS_PANEL);
   const { data: authPayload, isPending: sessionPending } = useSession();
@@ -440,15 +447,21 @@ function App() {
       const { path, name } = (e as CustomEvent<SelectedFile>).detail;
       const existingTab = openFilesRef.current.find((file) => file.path === path);
       if (existingTab) {
+        logInstantFeel("activate-existing-tab", { path, tabId: existingTab.id });
         setActiveView("explorer");
-        setSelectedFile(existingTab);
+        flushSync(() => {
+          setSelectedFile(existingTab);
+        });
         return;
       }
 
       const nextTab = createTab(path, name);
+      logInstantFeel("open-tab-requested", { path, tabId: nextTab.id, name });
       setActiveView("explorer");
-      setOpenFiles((prev) => [...prev, nextTab]);
-      setSelectedFile(nextTab);
+      flushSync(() => {
+        setOpenFiles((prev) => [...prev, nextTab]);
+        setSelectedFile(nextTab);
+      });
     };
     const handleFileRenamed = (e: Event) => {
       const { path, nextPath, name } = (e as CustomEvent<{

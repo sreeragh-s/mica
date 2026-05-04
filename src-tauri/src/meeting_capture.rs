@@ -234,7 +234,10 @@ async fn forward_events(
 }
 
 async fn mint_client_secret(api_key: &str) -> Result<String, String> {
-    eprintln!("[meeting] minting client_secret via {}", OPENAI_CLIENT_SECRETS_URL);
+    eprintln!(
+        "[meeting] minting client_secret via {}",
+        OPENAI_CLIENT_SECRETS_URL
+    );
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(15))
         .build()
@@ -265,10 +268,7 @@ async fn mint_client_secret(api_key: &str) -> Result<String, String> {
         .map_err(|err| format!("client_secrets request failed: {err}"))?;
 
     let status = response.status();
-    let text = response
-        .text()
-        .await
-        .unwrap_or_else(|_| "<no body>".into());
+    let text = response.text().await.unwrap_or_else(|_| "<no body>".into());
     eprintln!("[meeting] client_secrets response status={}", status);
     if !status.is_success() {
         eprintln!("[meeting] client_secrets body: {}", text);
@@ -368,18 +368,13 @@ async fn run_source_pipeline_inner(
         while let Some(message) = ws_stream.next().await {
             match message {
                 Ok(Message::Text(text)) => {
-                    let parsed: Option<serde_json::Value> =
-                        serde_json::from_str(&text).ok();
+                    let parsed: Option<serde_json::Value> = serde_json::from_str(&text).ok();
                     let event_type = parsed
                         .as_ref()
                         .and_then(|v| v.get("type").and_then(|t| t.as_str()))
                         .unwrap_or("<unparsed>");
                     if event_type == "error" {
-                        eprintln!(
-                            "[{}] WS recv error: {}",
-                            source.as_str(),
-                            text
-                        );
+                        eprintln!("[{}] WS recv error: {}", source.as_str(), text);
                     } else {
                         eprintln!(
                             "[{}] WS recv type={} (len={})",

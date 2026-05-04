@@ -20,6 +20,7 @@ import type {
   FileTreeRenamingConfig,
 } from "@pierre/trees"
 import { prepareFileTreeInput } from "@pierre/trees"
+import { useSidebarViewStore } from "@/components/sidebar-view"
 import { isSupportedEditorFile } from "@/lib/file-types"
 import {
   WorkspacePathStore,
@@ -153,6 +154,8 @@ function resolveDropDestination(
 type FileTreeModel = ReturnType<typeof useFileTree>["model"]
 
 export const FileTree = React.memo(function FileTree() {
+  const setViewLoading = useSidebarViewStore((state) => state.setViewLoading)
+  const setViewError = useSidebarViewStore((state) => state.setViewError)
   const storeRef = React.useRef<WorkspacePathStore | null>(null)
   if (storeRef.current === null) {
     storeRef.current = new WorkspacePathStore()
@@ -174,6 +177,19 @@ export const FileTree = React.memo(function FileTree() {
 
   const desiredActivePathRef = React.useRef<string | null>(null)
   const lastDispatchedSelectionRef = React.useRef<string | null>(null)
+
+  React.useEffect(() => {
+    setViewLoading("explorer", isLoading)
+  }, [isLoading, setViewLoading])
+
+  React.useEffect(() => {
+    if (workspace) {
+      setViewError("explorer", null)
+      return
+    }
+    setViewLoading("explorer", false)
+    setViewError("explorer", null)
+  }, [workspace, setViewError, setViewLoading])
 
   const applyDesiredSelection = React.useCallback(() => {
     const ws = workspaceRef.current
@@ -330,19 +346,22 @@ export const FileTree = React.memo(function FileTree() {
   modelRef.current = model
 
   React.useEffect(() => {
+    const currentModel = modelRef.current
+    if (!currentModel) return
+
     const expandedBefore: string[] = []
     for (const p of paths) {
       if (!p.endsWith("/")) continue
-      const item = model.getItem(p)
+      const item = currentModel.getItem(p)
       if (item && item.isDirectory() === true) {
         if ((item as { isExpanded(): boolean }).isExpanded()) {
           expandedBefore.push(p)
         }
       }
     }
-    model.resetPaths(paths, { initialExpandedPaths: expandedBefore })
+    currentModel.resetPaths(paths, { initialExpandedPaths: expandedBefore })
     applyDesiredSelection()
-  }, [applyDesiredSelection, model, paths])
+  }, [applyDesiredSelection, paths])
 
   React.useEffect(() => {
     const loadFromStorage = () => {
@@ -493,17 +512,14 @@ export const FileTree = React.memo(function FileTree() {
     )
   }
 
-  if (isLoading && paths.length === 0) {
-    return (
-      <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-        Loading...
-      </div>
-    )
-  }
-
   return (
     <div className="flex h-full min-h-0 flex-col">
       <SidebarQuickActions />
+      {isLoading ? (
+        <div className="px-3 py-1 text-[11px] text-muted-foreground">
+          Loading files...
+        </div>
+      ) : null}
       <div
         className={
           "min-h-0 flex-1 rounded-md transition-colors " +
@@ -513,7 +529,13 @@ export const FileTree = React.memo(function FileTree() {
         onDragLeave={handleRootDragLeave}
         onDrop={handleRootDrop}
       >
-        <PierreFileTree model={model} style={TREE_THEME_STYLE} />
+        {isLoading && paths.length === 0 ? (
+          <div className="flex h-full items-center justify-center px-4 text-sm text-muted-foreground">
+            Loading files...
+          </div>
+        ) : (
+          <PierreFileTree model={model} style={TREE_THEME_STYLE} />
+        )}
       </div>
     </div>
   )

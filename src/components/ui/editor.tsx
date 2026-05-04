@@ -6,8 +6,11 @@ import type { VariantProps } from 'class-variance-authority';
 import type { PlateContentProps, PlateViewProps } from 'platejs/react';
 
 import { cva } from 'class-variance-authority';
+import { ImagePlusIcon, SmilePlusIcon, XIcon } from 'lucide-react';
 import { PlateContainer, PlateContent, PlateView } from 'platejs/react';
 
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 const editorContainerVariants = cva(
@@ -59,12 +62,219 @@ export function EditorTitleInput({
   return (
     <input
       className={cn(
-        'w-full border-b border-border/60 bg-transparent px-16 pt-8 pb-4 text-3xl font-semibold tracking-tight text-foreground outline-none placeholder:text-muted-foreground/70 sm:px-[max(64px,calc(50%-350px))]',
+        'w-full bg-transparent px-16 pt-8 pb-4 text-3xl font-semibold tracking-tight text-foreground outline-none placeholder:text-muted-foreground/70 sm:px-[max(64px,calc(50%-350px))]',
         'selection:bg-brand/25',
         className
       )}
       {...props}
     />
+  );
+}
+
+export function EditorHeaderActions({
+  className,
+  coverControl,
+  emojiControl,
+  onAddCover,
+}: {
+  className?: string;
+  coverControl?: React.ReactNode;
+  emojiControl?: React.ReactNode;
+  onAddCover?: () => void;
+}) {
+  return (
+    <div
+      className={cn(
+        'flex items-center gap-2 px-16 pt-6 sm:px-[max(64px,calc(50%-350px))]',
+        className
+      )}
+    >
+      {emojiControl === undefined ? (
+        <Button
+          className="h-7 rounded-full px-2.5 text-muted-foreground hover:text-foreground"
+          size="sm"
+          type="button"
+          variant="ghost"
+        >
+          <SmilePlusIcon className="size-3.5" />
+          Add emoji
+        </Button>
+      ) : (
+        emojiControl
+      )}
+      {coverControl === undefined ? (
+        <Button
+          className="h-7 rounded-full px-2.5 text-muted-foreground hover:text-foreground"
+          onClick={onAddCover}
+          size="sm"
+          type="button"
+          variant="ghost"
+        >
+          <ImagePlusIcon className="size-3.5" />
+          Add cover
+        </Button>
+      ) : (
+        coverControl
+      )}
+    </div>
+  );
+}
+
+export function EditorCoverImage({
+  className,
+  onRemove,
+  src,
+}: {
+  className?: string;
+  onRemove?: () => void;
+  src?: string | null;
+}) {
+  if (!src) {
+    return null;
+  }
+
+  return (
+    <div
+      className={cn(
+        'w-full pt-6',
+        className
+      )}
+    >
+      <div className="group relative overflow-hidden bg-muted/30">
+        <img
+          alt="Note cover"
+          className="h-52 w-full object-cover"
+          src={src}
+        />
+        {onRemove ? (
+          <button
+            className="absolute top-4 right-4 flex size-8 items-center justify-center rounded-full bg-background/85 text-muted-foreground shadow-sm backdrop-blur transition-colors hover:bg-background hover:text-foreground focus-visible:bg-background focus-visible:text-foreground"
+            onClick={onRemove}
+            type="button"
+          >
+            <XIcon className="size-4" />
+          </button>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+export function EditorTitleRow({
+  children,
+  className,
+  emojiSlot,
+}: {
+  children: React.ReactNode;
+  className?: string;
+  emojiSlot?: React.ReactNode;
+}) {
+  return (
+    <div
+      className={cn(
+        'flex items-start gap-3 px-16 sm:px-[max(64px,calc(50%-350px))]',
+        className
+      )}
+    >
+      {emojiSlot ? <div className="mt-3 flex shrink-0 items-center gap-1">{emojiSlot}</div> : null}
+      <div className="min-w-0 flex-1">{children}</div>
+    </div>
+  );
+}
+
+type EditorPropertyValue = boolean | null | number | string | string[];
+
+export interface EditorPropertyItem {
+  key: string;
+  value: EditorPropertyValue;
+}
+
+function formatPropertyValue(value: Exclude<EditorPropertyValue, string[]>) {
+  if (value === null) return 'Empty';
+  if (typeof value === 'boolean') return value ? 'True' : 'False';
+  return String(value);
+}
+
+export function EditorPropertiesSection({
+  editable = false,
+  className,
+  onPropertyChange,
+  properties,
+}: {
+  editable?: boolean;
+  className?: string;
+  onPropertyChange?: (key: string, value: EditorPropertyValue) => void;
+  properties: EditorPropertyItem[];
+}) {
+  if (properties.length === 0) {
+    return null;
+  }
+
+  return (
+    <section
+      className={cn(
+        'px-16 pt-1 pb-6 sm:px-[max(64px,calc(50%-350px))]',
+        className
+      )}
+    >
+      <div className="space-y-0">
+        {properties.map((property) => (
+          <div
+            key={property.key}
+            className="group grid grid-cols-[minmax(110px,160px)_1fr] items-center gap-1.5 rounded-md px-1 py-px transition-colors hover:bg-muted/35"
+          >
+            <div className="truncate text-sm font-medium text-muted-foreground">
+              {property.key}
+            </div>
+            <div className="min-w-0 text-sm text-foreground">
+              {editable && onPropertyChange ? (
+                Array.isArray(property.value) ? (
+                  <input
+                    className="h-8 w-full rounded-md bg-transparent px-2 text-sm outline-none transition-colors placeholder:text-muted-foreground/70 hover:bg-muted/25 focus:bg-muted/35"
+                    onChange={(event) => {
+                      const nextValues = event.target.value
+                        .split(',')
+                        .map((item) => item.trim())
+                        .filter(Boolean);
+                      onPropertyChange(property.key, nextValues);
+                    }}
+                    placeholder="Add values separated by commas"
+                    value={property.value.join(', ')}
+                  />
+                ) : (
+                  <input
+                    className="h-8 w-full rounded-md bg-transparent px-2 text-sm outline-none transition-colors placeholder:text-muted-foreground/70 hover:bg-muted/25 focus:bg-muted/35"
+                    onChange={(event) => {
+                      onPropertyChange(property.key, event.target.value);
+                    }}
+                    placeholder="Empty"
+                    value={property.value === null ? '' : String(property.value)}
+                  />
+                )
+              ) : Array.isArray(property.value) ? (
+                property.value.length > 0 ? (
+                  <div className="flex flex-wrap gap-2">
+                    {property.value.map((item) => (
+                      <Badge
+                        key={`${property.key}-${item}`}
+                        className="max-w-full truncate border-transparent bg-muted/50 text-foreground hover:bg-muted/70"
+                        variant="outline"
+                      >
+                        {item}
+                      </Badge>
+                    ))}
+                  </div>
+                ) : (
+                  <span className="text-muted-foreground">Empty</span>
+                )
+              ) : (
+                <span className="break-words">{formatPropertyValue(property.value)}</span>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }
 

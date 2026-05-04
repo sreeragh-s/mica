@@ -49,6 +49,7 @@ import {
   type GhVisibility,
   type GitSyncProgressPayload,
 } from "@/lib/setup-backend"
+import { useSidebarViewStore } from "@/components/sidebar-view"
 import { cn } from "@/lib/utils"
 import { getCurrentWorkspace } from "@/lib/workspace"
 
@@ -533,6 +534,8 @@ export const SourceControlSidebar = React.memo(function SourceControlSidebar({
   onViewDiff,
   onDiffLoaded,
 }: SourceControlSidebarProps) {
+  const setViewLoading = useSidebarViewStore((state) => state.setViewLoading)
+  const setViewError = useSidebarViewStore((state) => state.setViewError)
   const workspace = getCurrentWorkspace()
 
   const [repoInfo, setRepoInfo] = React.useState<GitRepoInfo | null>(null)
@@ -1065,6 +1068,23 @@ export const SourceControlSidebar = React.memo(function SourceControlSidebar({
     [canCommit, handleCommit],
   )
 
+  const sourceControlBusy =
+    isLoading || isCommitting || bulkBusy || publishBusy || syncBusy || createBranchBusy
+
+  React.useEffect(() => {
+    setViewLoading("source-control", sourceControlBusy)
+  }, [setViewLoading, sourceControlBusy])
+
+  React.useEffect(() => {
+    setViewError("source-control", syncError ?? publishError ?? checkoutError ?? createBranchError ?? null)
+  }, [checkoutError, createBranchError, publishError, setViewError, syncError])
+
+  React.useEffect(() => {
+    if (workspace) return
+    setViewLoading("source-control", false)
+    setViewError("source-control", null)
+  }, [workspace, setViewError, setViewLoading])
+
   // ── Render early returns ─────────────────────────────────────────────────
 
   if (!workspace) {
@@ -1118,6 +1138,13 @@ export const SourceControlSidebar = React.memo(function SourceControlSidebar({
           )}
         </span>
       </div>
+
+      {isLoading && repoInfo === null ? (
+        <div className="flex items-center gap-2 border-b border-sidebar-border/50 px-3 py-2 text-[11px] text-muted-foreground">
+          <Loader2 className="size-3.5 animate-spin" />
+          Loading source control...
+        </div>
+      ) : null}
 
       <div className="border-b border-sidebar-border/50 px-2 pb-2 pt-1 shrink-0">
         {showPublishPanel ? (

@@ -18,6 +18,37 @@ import {
 import { useGhAuthFlow } from "@/lib/use-gh-auth-flow"
 
 const GH_DOWNLOAD_URL = "https://cli.github.com/"
+const GH_CHECK_CACHE_TTL_MS = 60_000
+
+let ghCheckCache: { result: GhCheckResult; checkedAt: number } | null = null
+let ghCheckPromise: Promise<GhCheckResult> | null = null
+
+function readCachedGhCheck() {
+  if (!ghCheckCache) return null
+  if (Date.now() - ghCheckCache.checkedAt > GH_CHECK_CACHE_TTL_MS) return null
+  return ghCheckCache.result
+}
+
+function storeGhCheck(result: GhCheckResult) {
+  ghCheckCache = { result, checkedAt: Date.now() }
+  return result
+}
+
+function loadGhInstallation(force = false) {
+  const cached = force ? null : readCachedGhCheck()
+  if (cached) return Promise.resolve(cached)
+  if (!force && ghCheckPromise) return ghCheckPromise
+
+  const promise = checkGhInstallation()
+    .then(storeGhCheck)
+    .finally(() => {
+      if (ghCheckPromise === promise) {
+        ghCheckPromise = null
+      }
+    })
+  ghCheckPromise = promise
+  return ghCheckPromise
+}
 
 function GitHubAuthCodeCard({ code, url }: { code: string; url: string }) {
   const [copied, setCopied] = React.useState(false)
@@ -58,23 +89,30 @@ function GitHubAuthCodeCard({ code, url }: { code: string; url: string }) {
 }
 
 function GitHubCliSection() {
-  const [check, setCheck] = React.useState<GhCheckResult | null>(null)
+  const [initialCheck] = React.useState(() => readCachedGhCheck())
+  const [check, setCheck] = React.useState<GhCheckResult | null>(initialCheck)
   const [busy, setBusy] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
-  const [loaded, setLoaded] = React.useState(false)
+  const [loaded, setLoaded] = React.useState(Boolean(initialCheck))
 
   const applyCheck = React.useCallback((result: GhCheckResult) => {
-    setCheck(result)
+    setCheck(storeGhCheck(result))
     setLoaded(true)
   }, [])
 
   const { state: authState, start: startAuth, reset: resetAuth } = useGhAuthFlow(applyCheck)
 
-  const refresh = React.useCallback(async () => {
+  const refresh = React.useCallback(async (force = false) => {
+    const cached = force ? null : readCachedGhCheck()
+    if (cached) {
+      applyCheck(cached)
+      return
+    }
+
     setBusy(true)
     setError(null)
     try {
-      const result = await checkGhInstallation()
+      const result = await loadGhInstallation(force)
       applyCheck(result)
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
@@ -84,7 +122,10 @@ function GitHubCliSection() {
   }, [applyCheck])
 
   React.useEffect(() => {
-    void refresh()
+    const id = window.setTimeout(() => {
+      void refresh()
+    }, 0)
+    return () => window.clearTimeout(id)
   }, [refresh])
 
   const handleInstall = React.useCallback(async () => {
@@ -143,7 +184,7 @@ function GitHubCliSection() {
             ) : null}
           </div>
         </div>
-        <Button type="button" size="sm" variant="ghost" disabled={busy} onClick={() => void refresh()}>
+        <Button type="button" size="sm" variant="ghost" disabled={busy} onClick={() => void refresh(true)}>
           Re-check
         </Button>
       </div>
@@ -182,7 +223,7 @@ function GitHubCliSection() {
             {busy ? <Loader2 className="mr-1.5 size-3.5 animate-spin" /> : null}
             Install with {check.installer}
           </Button>
-          <Button type="button" size="sm" variant="ghost" disabled={busy} onClick={() => void refresh()}>
+          <Button type="button" size="sm" variant="ghost" disabled={busy} onClick={() => void refresh(true)}>
             Re-check
           </Button>
         </div>
@@ -192,7 +233,7 @@ function GitHubCliSection() {
             <ExternalLink className="mr-1.5 size-3.5" />
             Install GitHub CLI
           </Button>
-          <Button type="button" size="sm" variant="ghost" disabled={busy} onClick={() => void refresh()}>
+          <Button type="button" size="sm" variant="ghost" disabled={busy} onClick={() => void refresh(true)}>
             Re-check
           </Button>
         </div>

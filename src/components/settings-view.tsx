@@ -1,6 +1,5 @@
 import * as React from "react"
 import type { SettingsPanelId } from "@/lib/settings-panel"
-import { AccountSettingsPanel } from "@/components/settings/account-settings-panel"
 import { WorkspaceSettingsPanel } from "@/components/settings/workspace-settings-panel"
 import { WikiSettingsPanel } from "@/components/settings/wiki-settings-panel"
 import { ShortcutsSettingsPanel } from "@/components/settings/shortcuts-settings-panel"
@@ -8,6 +7,12 @@ import { ThemeSettingsPanel } from "@/components/settings/theme-settings-panel"
 import { ModelsSettingsPanel } from "@/components/settings/models-settings-panel"
 import { Button } from "@/components/ui/button"
 import type { ShortcutAction, ShortcutConfig } from "@/lib/shortcuts"
+
+const AccountSettingsPanel = React.lazy(() =>
+  import("@/components/settings/account-settings-panel").then((module) => ({
+    default: module.AccountSettingsPanel,
+  })),
+)
 
 const panelHeadings: Record<
   SettingsPanelId,
@@ -46,6 +51,18 @@ export type SettingsViewProps = {
   onResetShortcuts: () => void
 }
 
+function SettingsPanelFallback() {
+  return (
+    <section className="rounded-xl border border-border/60 bg-card px-4 py-4 shadow-sm">
+      <div className="h-3 w-20 rounded bg-muted" />
+      <div className="mt-4 space-y-3">
+        <div className="h-14 rounded-md bg-muted/50" />
+        <div className="h-9 rounded-md bg-muted/40" />
+      </div>
+    </section>
+  )
+}
+
 export const SettingsView = React.memo(function SettingsView({
   panel,
   shortcuts,
@@ -68,7 +85,11 @@ export const SettingsView = React.memo(function SettingsView({
             </Button>
           )}
         </div>
-        {panel === "account" && <AccountSettingsPanel />}
+        {panel === "account" && (
+          <React.Suspense fallback={<SettingsPanelFallback />}>
+            <AccountSettingsPanel />
+          </React.Suspense>
+        )}
         {panel === "workspace" && <WorkspaceSettingsPanel />}
         {panel === "wiki" && <WikiSettingsPanel />}
         {panel === "shortcuts" && (

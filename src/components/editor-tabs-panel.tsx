@@ -64,13 +64,6 @@ function TabItem({
   onClose: (tabId: string) => void
 }) {
   const [isClosing, setIsClosing] = React.useState(false)
-  const [isMounted, setIsMounted] = React.useState(false)
-
-  React.useEffect(() => {
-    requestAnimationFrame(() => {
-      setIsMounted(true)
-    })
-  }, [])
 
   const handleClose = () => {
     setIsClosing(true)
@@ -82,8 +75,8 @@ function TabItem({
   return (
     <div
       style={{
-        maxWidth: isClosing || !isMounted ? "0px" : "240px",
-        opacity: isClosing || !isMounted ? 0 : 1,
+        maxWidth: isClosing ? "0px" : "240px",
+        opacity: isClosing ? 0 : 1,
         overflow: "hidden",
       }}
       className="transition-all duration-200 ease-out"

@@ -1,5 +1,5 @@
 import { moveEntry, readWorkspaceTree, watchDirectory } from "./fs-adapter"
-import type { UnwatchFn } from "@tauri-apps/plugin-fs"
+import type { UnwatchFn } from "./fs-adapter"
 
 function normalize(path: string): string {
   return path.replace(/\\/g, "/").replace(/\/+$/, "")

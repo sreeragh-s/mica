@@ -5,7 +5,8 @@ use std::fs;
 use std::hash::{Hash, Hasher};
 use std::io::Write;
 use std::path::{Path, PathBuf};
-use std::time::UNIX_EPOCH;
+use std::sync::{Mutex, OnceLock};
+use std::time::{Instant, UNIX_EPOCH};
 use tauri::{AppHandle, Emitter};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -79,6 +80,36 @@ pub struct WorkspaceIndexSnapshot {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
+pub struct WorkspaceFileEntryLite {
+    pub name: String,
+    pub path: String,
+    pub relative_path: String,
+    pub size: u64,
+    pub mtime: Option<i64>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct WikiLinkListItem {
+    pub count: u32,
+    pub is_dangling: bool,
+    pub path: Option<String>,
+    pub preview_snippet: String,
+    pub relative_path: Option<String>,
+    pub tagged_text: Option<String>,
+    pub title: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct WorkspaceNoteConnections {
+    pub backlinks: Vec<WikiLinkListItem>,
+    pub meta: Option<WikiLinkMetaRecord>,
+    pub outgoing_links: Vec<WikiLinkListItem>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct WikiLinkIndexingState {
     pub current_file: Option<String>,
     pub error: Option<String>,
@@ -119,8 +150,18 @@ struct FrontmatterData {
     aliases: Vec<String>,
 }
 
+static SNAPSHOT_CACHE: OnceLock<Mutex<HashMap<String, WorkspaceIndexSnapshot>>> = OnceLock::new();
+
+fn snapshot_cache() -> &'static Mutex<HashMap<String, WorkspaceIndexSnapshot>> {
+    SNAPSHOT_CACHE.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
 fn log_index(message: impl AsRef<str>) {
     println!("[workspace_index] {}", message.as_ref());
+}
+
+fn ms_since(started_at: Instant) -> u128 {
+    started_at.elapsed().as_millis()
 }
 
 fn normalize_path(path: &str) -> String {
@@ -138,17 +179,34 @@ fn snapshot_file_path(workspace: &str) -> Result<PathBuf, String> {
     let cache_root = dirs::cache_dir()
         .ok_or_else(|| "Could not resolve the application cache directory.".to_string())?;
     let dir = cache_root.join("notelab").join("workspace-index");
-    fs::create_dir_all(&dir)
-        .map_err(|error| format!("Could not create workspace index cache directory: {}", error))?;
+    fs::create_dir_all(&dir).map_err(|error| {
+        format!(
+            "Could not create workspace index cache directory: {}",
+            error
+        )
+    })?;
     Ok(dir.join(format!("{}.json", workspace_id(workspace))))
 }
 
 fn read_snapshot_from_disk(workspace: &str) -> Result<Option<WorkspaceIndexSnapshot>, String> {
+    let started_at = Instant::now();
+    let normalized_workspace = normalize_path(workspace);
+    if let Ok(cache) = snapshot_cache().lock() {
+        if let Some(snapshot) = cache.get(&normalized_workspace) {
+            log_index(format!(
+                "Serving cached snapshot for workspace '{}' ({}ms)",
+                normalized_workspace,
+                ms_since(started_at)
+            ));
+            return Ok(Some(snapshot.clone()));
+        }
+    }
+
     let path = snapshot_file_path(workspace)?;
     if !path.exists() {
         log_index(format!(
             "No cached snapshot found for workspace '{}' at {}",
-            normalize_path(workspace),
+            normalized_workspace,
             path.display()
         ));
         return Ok(None);
@@ -156,17 +214,29 @@ fn read_snapshot_from_disk(workspace: &str) -> Result<Option<WorkspaceIndexSnaps
 
     log_index(format!(
         "Loading cached snapshot for workspace '{}' from {}",
-        normalize_path(workspace),
+        normalized_workspace,
         path.display()
     ));
     let raw = fs::read_to_string(&path)
         .map_err(|error| format!("Could not read cached workspace index: {}", error))?;
     let snapshot = serde_json::from_str::<WorkspaceIndexSnapshot>(&raw)
         .map_err(|error| format!("Could not parse cached workspace index: {}", error))?;
+    if let Ok(mut cache) = snapshot_cache().lock() {
+        cache.insert(normalized_workspace.clone(), snapshot.clone());
+    }
+    log_index(format!(
+        "Loaded cached snapshot for workspace '{}' ({}ms)",
+        normalized_workspace,
+        ms_since(started_at)
+    ));
     Ok(Some(snapshot))
 }
 
-fn write_snapshot_to_disk(workspace: &str, snapshot: &WorkspaceIndexSnapshot) -> Result<(), String> {
+fn write_snapshot_to_disk(
+    workspace: &str,
+    snapshot: &WorkspaceIndexSnapshot,
+) -> Result<(), String> {
+    let started_at = Instant::now();
     let path = snapshot_file_path(workspace)?;
     let temp_path = path.with_extension("json.tmp");
     log_index(format!(
@@ -176,8 +246,8 @@ fn write_snapshot_to_disk(workspace: &str, snapshot: &WorkspaceIndexSnapshot) ->
         snapshot.notes.len(),
         snapshot.links.len()
     ));
-    let json =
-        serde_json::to_vec(snapshot).map_err(|error| format!("Could not serialize workspace index: {}", error))?;
+    let json = serde_json::to_vec(snapshot)
+        .map_err(|error| format!("Could not serialize workspace index: {}", error))?;
 
     let mut temp_file = fs::File::create(&temp_path)
         .map_err(|error| format!("Could not create temporary workspace index file: {}", error))?;
@@ -190,6 +260,14 @@ fn write_snapshot_to_disk(workspace: &str, snapshot: &WorkspaceIndexSnapshot) ->
 
     fs::rename(&temp_path, &path)
         .map_err(|error| format!("Could not finalize workspace index cache write: {}", error))?;
+    if let Ok(mut cache) = snapshot_cache().lock() {
+        cache.insert(normalize_path(workspace), snapshot.clone());
+    }
+    log_index(format!(
+        "Snapshot write complete for workspace '{}' ({}ms)",
+        normalize_path(workspace),
+        ms_since(started_at)
+    ));
     Ok(())
 }
 
@@ -200,8 +278,7 @@ fn is_markdown_file(path: &str) -> bool {
 fn is_supported_editor_file(path: &str) -> bool {
     let lower = path.to_lowercase();
     let image_extensions = [
-        ".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".ico", ".svg", ".avif", ".heic",
-        ".heif",
+        ".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".ico", ".svg", ".avif", ".heic", ".heif",
     ];
     let video_extensions = [".mp4", ".webm", ".mov", ".m4v", ".ogv", ".mkv", ".avi"];
 
@@ -380,7 +457,11 @@ fn extract_wikilinks(content: &str) -> Vec<ParsedLinkOccurrence> {
     let mut links = Vec::new();
 
     while cursor + 1 < bytes.len() {
-        let is_embed = if cursor + 2 < bytes.len() && bytes[cursor] == b'!' && bytes[cursor + 1] == b'[' && bytes[cursor + 2] == b'[' {
+        let is_embed = if cursor + 2 < bytes.len()
+            && bytes[cursor] == b'!'
+            && bytes[cursor + 1] == b'['
+            && bytes[cursor + 2] == b'['
+        {
             cursor += 1;
             true
         } else {
@@ -403,7 +484,8 @@ fn extract_wikilinks(content: &str) -> Vec<ParsedLinkOccurrence> {
         }
 
         let raw = &content[cursor..end];
-        let (raw_target_part, target_subpath) = split_link_target(raw.split('|').next().unwrap_or("").trim());
+        let (raw_target_part, target_subpath) =
+            split_link_target(raw.split('|').next().unwrap_or("").trim());
         let display_text = raw
             .split_once('|')
             .map(|(_, display)| display.trim().to_string())
@@ -514,26 +596,31 @@ fn build_file_lookup(notes: &[WikiLinkNoteRecord]) -> FileLookup {
     lookup
 }
 
-fn resolve_from_candidates(candidates: Option<&Vec<WikiLinkNoteRecord>>, fallback_title: &str) -> Option<ResolvedTarget> {
-    candidates.and_then(|items| {
-        items.first().map(|note| ResolvedTarget {
-            path: Some(note.path.clone()),
-            relative_path: Some(note.relative_path.clone()),
-            title: note.title.clone(),
-            lookup_key: normalize_lookup_key(&note.relative_path),
-        })
-    }).or_else(|| {
-        if fallback_title.is_empty() {
-            None
-        } else {
-            Some(ResolvedTarget {
-                path: None,
-                relative_path: None,
-                title: fallback_title.to_string(),
-                lookup_key: normalize_lookup_key(fallback_title),
+fn resolve_from_candidates(
+    candidates: Option<&Vec<WikiLinkNoteRecord>>,
+    fallback_title: &str,
+) -> Option<ResolvedTarget> {
+    candidates
+        .and_then(|items| {
+            items.first().map(|note| ResolvedTarget {
+                path: Some(note.path.clone()),
+                relative_path: Some(note.relative_path.clone()),
+                title: note.title.clone(),
+                lookup_key: normalize_lookup_key(&note.relative_path),
             })
-        }
-    })
+        })
+        .or_else(|| {
+            if fallback_title.is_empty() {
+                None
+            } else {
+                Some(ResolvedTarget {
+                    path: None,
+                    relative_path: None,
+                    title: fallback_title.to_string(),
+                    lookup_key: normalize_lookup_key(fallback_title),
+                })
+            }
+        })
 }
 
 fn resolve_candidate_target(
@@ -552,7 +639,8 @@ fn resolve_candidate_target(
     } else {
         normalize_lookup_key(&format!("{}/{}", source_dir, raw_target))
     };
-    let source_relative_candidate_no_ext = normalize_lookup_key(&remove_file_extension(&source_relative_candidate));
+    let source_relative_candidate_no_ext =
+        normalize_lookup_key(&remove_file_extension(&source_relative_candidate));
     let fallback_title = if raw_target.is_empty() {
         "Untitled".to_string()
     } else {
@@ -583,7 +671,10 @@ fn resolve_candidate_target(
             lookup_key: source_relative_candidate,
         };
     }
-    if let Some(note) = lookup.by_relative_no_ext.get(&source_relative_candidate_no_ext) {
+    if let Some(note) = lookup
+        .by_relative_no_ext
+        .get(&source_relative_candidate_no_ext)
+    {
         return ResolvedTarget {
             path: Some(note.path.clone()),
             relative_path: Some(note.relative_path.clone()),
@@ -601,13 +692,20 @@ fn resolve_candidate_target(
     let base_name_key = normalize_lookup_key(&base_name);
     let base_name_no_ext_key = normalize_lookup_key(&file_title(&base_name));
 
-    if let Some(target) = resolve_from_candidates(lookup.by_basename_with_ext.get(&base_name_key), &fallback_title) {
+    if let Some(target) = resolve_from_candidates(
+        lookup.by_basename_with_ext.get(&base_name_key),
+        &fallback_title,
+    ) {
         return target;
     }
-    if let Some(target) = resolve_from_candidates(lookup.by_basename_no_ext.get(&base_name_no_ext_key), &fallback_title) {
+    if let Some(target) = resolve_from_candidates(
+        lookup.by_basename_no_ext.get(&base_name_no_ext_key),
+        &fallback_title,
+    ) {
         return target;
     }
-    if let Some(target) = resolve_from_candidates(lookup.by_alias.get(&normalized), &fallback_title) {
+    if let Some(target) = resolve_from_candidates(lookup.by_alias.get(&normalized), &fallback_title)
+    {
         return target;
     }
 
@@ -643,6 +741,7 @@ fn create_link_record_id(
 }
 
 fn list_workspace_files(workspace: &str) -> Result<Vec<IndexedFileEntry>, String> {
+    let started_at = Instant::now();
     let root = Path::new(workspace);
     if !root.exists() {
         log_index(format!(
@@ -711,17 +810,24 @@ fn list_workspace_files(workspace: &str) -> Result<Vec<IndexedFileEntry>, String
     }
 
     files.sort_by(|a, b| a.relative_path.cmp(&b.relative_path));
-    let markdown_files = files.iter().filter(|file| is_markdown_file(&file.path)).count();
+    let markdown_files = files
+        .iter()
+        .filter(|file| is_markdown_file(&file.path))
+        .count();
     log_index(format!(
-        "Workspace scan complete for '{}': {} supported files ({} markdown)",
+        "Workspace scan complete for '{}': {} supported files ({} markdown, {}ms)",
         normalize_path(workspace),
         files.len(),
-        markdown_files
+        markdown_files,
+        ms_since(started_at)
     ));
     Ok(files)
 }
 
-fn parse_workspace_file(workspace: &str, file: &IndexedFileEntry) -> Result<WikiLinkNoteRecord, String> {
+fn parse_workspace_file(
+    workspace: &str,
+    file: &IndexedFileEntry,
+) -> Result<WikiLinkNoteRecord, String> {
     if !is_markdown_file(&file.path) {
         return Ok(WikiLinkNoteRecord {
             aliases: Vec::new(),
@@ -744,7 +850,8 @@ fn parse_workspace_file(workspace: &str, file: &IndexedFileEntry) -> Result<Wiki
     let frontmatter = parse_frontmatter(&content);
     let mut raw_links = extract_wikilinks(&content);
     raw_links.extend(extract_markdown_links(&content));
-    raw_links.retain(|link| !link.raw_target.is_empty() && is_workspace_relative_link(&link.raw_target));
+    raw_links
+        .retain(|link| !link.raw_target.is_empty() && is_workspace_relative_link(&link.raw_target));
 
     Ok(WikiLinkNoteRecord {
         aliases: frontmatter.aliases,
@@ -779,7 +886,8 @@ fn build_workspace_snapshot(
 
     for note in &notes {
         for occurrence in &note.raw_links {
-            let resolved = resolve_candidate_target(&occurrence.raw_target, &lookup, &note.relative_path);
+            let resolved =
+                resolve_candidate_target(&occurrence.raw_target, &lookup, &note.relative_path);
             let key = create_link_record_id(
                 workspace,
                 &note.path,
@@ -791,34 +899,47 @@ fn build_workspace_snapshot(
                 .path
                 .as_ref()
                 .and_then(|path| notes_by_path.get(path));
-            let entry = aggregated_links.entry(key.clone()).or_insert_with(|| WikiLinkLinkRecord {
-                id: key.clone(),
-                workspace_id: workspace_id(workspace),
-                source_path: note.path.clone(),
-                source_relative_path: note.relative_path.clone(),
-                target_path: resolved.path.clone(),
-                target_relative_path: resolved.relative_path.clone(),
-                target_name: target_note
-                    .map(|record| record.title.clone())
-                    .unwrap_or_else(|| resolved.title.clone()),
-                target_lookup_key: resolved.lookup_key.clone(),
-                target_subpath: occurrence.target_subpath.clone(),
-                is_embed: occurrence.is_embed,
-                count: 0,
-                snippets: Vec::new(),
-            });
+            let entry = aggregated_links
+                .entry(key.clone())
+                .or_insert_with(|| WikiLinkLinkRecord {
+                    id: key.clone(),
+                    workspace_id: workspace_id(workspace),
+                    source_path: note.path.clone(),
+                    source_relative_path: note.relative_path.clone(),
+                    target_path: resolved.path.clone(),
+                    target_relative_path: resolved.relative_path.clone(),
+                    target_name: target_note
+                        .map(|record| record.title.clone())
+                        .unwrap_or_else(|| resolved.title.clone()),
+                    target_lookup_key: resolved.lookup_key.clone(),
+                    target_subpath: occurrence.target_subpath.clone(),
+                    is_embed: occurrence.is_embed,
+                    count: 0,
+                    snippets: Vec::new(),
+                });
 
             entry.count += 1;
-            if !occurrence.snippet.is_empty() && !entry.snippets.iter().any(|snippet| snippet == &occurrence.snippet) {
+            if !occurrence.snippet.is_empty()
+                && !entry
+                    .snippets
+                    .iter()
+                    .any(|snippet| snippet == &occurrence.snippet)
+            {
                 entry.snippets.push(occurrence.snippet.clone());
             }
         }
     }
 
     let links = aggregated_links.into_values().collect::<Vec<_>>();
-    let total_resolved_links = links.iter().filter(|record| record.target_path.is_some()).count();
+    let total_resolved_links = links
+        .iter()
+        .filter(|record| record.target_path.is_some())
+        .count();
     let total_dangling_links = links.len().saturating_sub(total_resolved_links);
-    let total_markdown_files = notes.iter().filter(|record| is_markdown_file(&record.path)).count();
+    let total_markdown_files = notes
+        .iter()
+        .filter(|record| is_markdown_file(&record.path))
+        .count();
     let total_files = notes.len();
 
     let mut notes = notes;
@@ -866,11 +987,13 @@ pub fn read_workspace_index_snapshot(workspace: &str) -> Result<WorkspaceIndexSn
         "Snapshot requested for workspace '{}'",
         normalize_path(workspace)
     ));
-    Ok(read_snapshot_from_disk(workspace)?.unwrap_or(WorkspaceIndexSnapshot {
-        notes: Vec::new(),
-        links: Vec::new(),
-        meta: None,
-    }))
+    Ok(
+        read_snapshot_from_disk(workspace)?.unwrap_or(WorkspaceIndexSnapshot {
+            notes: Vec::new(),
+            links: Vec::new(),
+            meta: None,
+        }),
+    )
 }
 
 pub fn get_workspace_index_summary(workspace: &str) -> Result<Option<WikiLinkMetaRecord>, String> {
@@ -881,11 +1004,164 @@ pub fn get_workspace_index_summary(workspace: &str) -> Result<Option<WikiLinkMet
     Ok(read_snapshot_from_disk(workspace)?.and_then(|snapshot| snapshot.meta))
 }
 
+pub fn list_workspace_files_snapshot(workspace: &str) -> Result<Vec<WorkspaceFileEntryLite>, String> {
+    if let Some(snapshot) = read_snapshot_from_disk(workspace)? {
+        return Ok(snapshot
+            .notes
+            .into_iter()
+            .map(|note| WorkspaceFileEntryLite {
+                name: note.name,
+                path: note.path,
+                relative_path: note.relative_path,
+                size: note.size,
+                mtime: note.mtime,
+            })
+            .collect());
+    }
+
+    Ok(list_workspace_files(workspace)?
+        .into_iter()
+        .map(|file| WorkspaceFileEntryLite {
+            name: file.name,
+            path: file.path,
+            relative_path: file.relative_path,
+            size: file.size,
+            mtime: file.mtime,
+        })
+        .collect())
+}
+
+fn tagged_text_for_occurrence(occurrence: &ParsedLinkOccurrence) -> Option<String> {
+    if !occurrence.display_text.trim().is_empty() {
+        return Some(occurrence.display_text.trim().to_string());
+    }
+    if !occurrence.raw_target.trim().is_empty() {
+        return Some(occurrence.raw_target.trim().to_string());
+    }
+    occurrence
+        .target_subpath
+        .as_ref()
+        .map(|subpath| subpath.trim().to_string())
+        .filter(|subpath| !subpath.is_empty())
+}
+
+pub fn read_workspace_note_connections(
+    workspace: &str,
+    active_file_path: &str,
+) -> Result<WorkspaceNoteConnections, String> {
+    let snapshot = read_workspace_index_snapshot(workspace)?;
+    let Some(active_note) = snapshot
+        .notes
+        .iter()
+        .find(|note| note.path == active_file_path)
+        .cloned()
+    else {
+        return Ok(WorkspaceNoteConnections {
+            backlinks: Vec::new(),
+            meta: snapshot.meta,
+            outgoing_links: Vec::new(),
+        });
+    };
+
+    let notes_by_path = snapshot
+        .notes
+        .iter()
+        .cloned()
+        .map(|note| (note.path.clone(), note))
+        .collect::<HashMap<_, _>>();
+    let lookup = build_file_lookup(&snapshot.notes);
+
+    let mut backlinks = snapshot
+        .links
+        .iter()
+        .filter(|record| record.target_path.as_deref() == Some(active_file_path))
+        .map(|record| {
+            let source_note = notes_by_path.get(&record.source_path);
+            WikiLinkListItem {
+                count: record.count,
+                is_dangling: false,
+                path: Some(
+                    source_note
+                        .map(|note| note.path.clone())
+                        .unwrap_or_else(|| record.source_path.clone()),
+                ),
+                preview_snippet: source_note
+                    .map(|note| note.preview_snippet.clone())
+                    .unwrap_or_else(|| record.snippets.first().cloned().unwrap_or_default()),
+                relative_path: Some(
+                    source_note
+                        .map(|note| note.relative_path.clone())
+                        .unwrap_or_else(|| record.source_relative_path.clone()),
+                ),
+                tagged_text: None,
+                title: source_note
+                    .map(|note| note.title.clone())
+                    .unwrap_or_else(|| file_title(&record.source_relative_path)),
+            }
+        })
+        .collect::<Vec<_>>();
+    backlinks.sort_by(|a, b| b.count.cmp(&a.count).then_with(|| a.title.cmp(&b.title)));
+
+    let mut outgoing_map = BTreeMap::<String, WikiLinkListItem>::new();
+    for occurrence in &active_note.raw_links {
+        let resolved =
+            resolve_candidate_target(&occurrence.raw_target, &lookup, &active_note.relative_path);
+        let target_note = resolved
+            .path
+            .as_ref()
+            .and_then(|path| notes_by_path.get(path))
+            .cloned();
+        let tagged_text = tagged_text_for_occurrence(occurrence);
+        let item = WikiLinkListItem {
+            count: 0,
+            is_dangling: resolved.path.is_none(),
+            path: target_note
+                .as_ref()
+                .map(|note| note.path.clone())
+                .or_else(|| resolved.path.clone()),
+            preview_snippet: target_note
+                .as_ref()
+                .map(|note| note.preview_snippet.clone())
+                .unwrap_or_else(|| occurrence.snippet.clone()),
+            relative_path: target_note
+                .as_ref()
+                .map(|note| note.relative_path.clone())
+                .or_else(|| resolved.relative_path.clone()),
+            tagged_text: tagged_text.clone(),
+            title: target_note
+                .as_ref()
+                .map(|note| note.title.clone())
+                .unwrap_or_else(|| resolved.title.clone()),
+        };
+        let dedupe_key = format!(
+            "{}::{}",
+            item.path.clone().unwrap_or_else(|| item.title.clone()),
+            tagged_text.unwrap_or_default()
+        );
+        outgoing_map.entry(dedupe_key).or_insert(item);
+    }
+
+    let mut outgoing_links = outgoing_map.into_values().collect::<Vec<_>>();
+    outgoing_links.sort_by(|a, b| {
+        a.is_dangling
+            .cmp(&b.is_dangling)
+            .then_with(|| a.tagged_text.cmp(&b.tagged_text))
+            .then_with(|| a.title.cmp(&b.title))
+    });
+
+    Ok(WorkspaceNoteConnections {
+        backlinks,
+        meta: snapshot.meta,
+        outgoing_links,
+    })
+}
+
 pub fn rebuild_workspace_index(
     app: &AppHandle,
     workspace: &str,
     force_full: bool,
 ) -> Result<bool, String> {
+    let rebuild_started_at = Instant::now();
     let workspace = normalize_path(workspace);
     log_index(format!(
         "Starting {} index rebuild for workspace '{}'",
@@ -893,6 +1169,7 @@ pub fn rebuild_workspace_index(
         workspace
     ));
     let files = list_workspace_files(&workspace)?;
+    let after_scan_at = Instant::now();
     let existing_snapshot = read_snapshot_from_disk(&workspace)?;
     let existing_notes = existing_snapshot
         .as_ref()
@@ -912,38 +1189,48 @@ pub fn rebuild_workspace_index(
         existing_notes.clone()
     };
     let mut changed_files = Vec::new();
-    let current_paths = files.iter().map(|file| file.path.clone()).collect::<Vec<_>>();
+    let current_paths = files
+        .iter()
+        .map(|file| file.path.clone())
+        .collect::<Vec<_>>();
 
     if force_full {
         changed_files = files.clone();
     } else {
         for file in &files {
-            let unchanged = existing_notes.get(&file.path).map(|note| {
-                note.size == file.size && note.mtime == file.mtime
-            }).unwrap_or(false);
+            let unchanged = existing_notes
+                .get(&file.path)
+                .map(|note| note.size == file.size && note.mtime == file.mtime)
+                .unwrap_or(false);
             if !unchanged {
                 changed_files.push(file.clone());
             }
         }
 
-        let current_path_set = current_paths.iter().cloned().collect::<std::collections::HashSet<_>>();
+        let current_path_set = current_paths
+            .iter()
+            .cloned()
+            .collect::<std::collections::HashSet<_>>();
         note_map.retain(|path, _| current_path_set.contains(path));
     }
 
     let deleted_files = files.len().saturating_sub(note_map.len().min(files.len()));
     log_index(format!(
-        "Index rebuild plan for '{}': total_files={} changed_files={} cached_notes_before={} force_full={}",
+        "Index rebuild plan for '{}': total_files={} changed_files={} cached_notes_before={} force_full={} (scan={}ms, preplan={}ms)",
         workspace,
         files.len(),
         changed_files.len(),
         existing_notes.len(),
-        force_full
+        force_full,
+        after_scan_at.duration_since(rebuild_started_at).as_millis(),
+        ms_since(after_scan_at)
     ));
 
     if changed_files.is_empty() && existing_snapshot.is_some() {
         log_index(format!(
-            "No file changes detected for '{}'; skipping rebuild",
-            workspace
+            "No file changes detected for '{}'; skipping rebuild ({}ms total)",
+            workspace,
+            ms_since(rebuild_started_at)
         ));
         return Ok(false);
     }
@@ -960,6 +1247,7 @@ pub fn rebuild_workspace_index(
         },
     );
 
+    let parse_started_at = Instant::now();
     for (index, file) in changed_files.iter().enumerate() {
         let record = parse_workspace_file(&workspace, file).unwrap_or_else(|error| {
             eprintln!(
@@ -995,6 +1283,7 @@ pub fn rebuild_workspace_index(
             },
         );
     }
+    let parse_duration_ms = ms_since(parse_started_at);
 
     emit_progress(
         app,
@@ -1008,6 +1297,7 @@ pub fn rebuild_workspace_index(
         },
     );
 
+    let snapshot_build_started_at = Instant::now();
     let last_indexed_at = std::time::SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .ok()
@@ -1020,15 +1310,20 @@ pub fn rebuild_workspace_index(
         last_indexed_at,
         None,
     );
+    let snapshot_build_duration_ms = ms_since(snapshot_build_started_at);
 
     write_snapshot_to_disk(&workspace, &snapshot)?;
     log_index(format!(
-        "Index rebuild complete for '{}': processed_changed_files={} final_notes={} final_links={} deleted_or_pruned_estimate={}",
+        "Index rebuild complete for '{}': processed_changed_files={} final_notes={} final_links={} deleted_or_pruned_estimate={} (scan={}ms, parse={}ms, snapshot_build={}ms, total={}ms)",
         workspace,
         changed_files.len(),
         snapshot.notes.len(),
         snapshot.links.len(),
-        deleted_files
+        deleted_files,
+        after_scan_at.duration_since(rebuild_started_at).as_millis(),
+        parse_duration_ms,
+        snapshot_build_duration_ms,
+        ms_since(rebuild_started_at)
     ));
 
     emit_progress(
