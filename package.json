@@ -74,7 +74,7 @@
     "@platejs/list": "^52.3.10",
     "@platejs/markdown": "^52.3.22",
     "@platejs/math": "^52.3.10",
-    "@platejs/media": "^52.3.10",
+    "@platejs/media": "^53.0.1",
     "@platejs/mention": "^52.3.10",
     "@platejs/resizable": "^52.3.10",
     "@platejs/selection": "^52.3.10",
