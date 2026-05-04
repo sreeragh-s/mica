@@ -39,6 +39,18 @@ body:
     attributes:
       label: Platform
       description: Example: macOS 14.5, Apple Silicon
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version or commit
+      description: App version, release tag, or commit SHA.
+  - type: textarea
+    id: impact
+    attributes:
+      label: Impact
+      description: Does this block startup, risk data loss, affect a single feature, or have a workaround?
   - type: textarea
     id: logs
     attributes:

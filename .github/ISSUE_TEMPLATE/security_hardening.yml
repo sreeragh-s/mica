@@ -1,0 +1,24 @@
+name: Security hardening
+description: Suggest a non-sensitive security improvement
+title: "[Security]: "
+labels:
+  - security
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not report exploitable vulnerabilities here. Follow SECURITY.md for private reports.
+  - type: textarea
+    id: area
+    attributes:
+      label: Area
+      description: Which area would this improve?
+      placeholder: Filesystem access, Git commands, auth, sidecars, API key handling...
+    validations:
+      required: true
+  - type: textarea
+    id: improvement
+    attributes:
+      label: Suggested improvement
+    validations:
+      required: true

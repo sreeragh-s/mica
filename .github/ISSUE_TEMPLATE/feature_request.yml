@@ -18,6 +18,20 @@ body:
       description: Describe the behavior you would like to see.
     validations:
       required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Editor
+        - Workspace and file tree
+        - Wiki links and graph
+        - Source control
+        - AI chat
+        - Meeting recorder
+        - Settings or onboarding
+        - Build, release, or platform support
+        - Documentation
   - type: textarea
     id: alternatives
     attributes:

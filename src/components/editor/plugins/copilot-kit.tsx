@@ -6,9 +6,6 @@ import { CopilotPlugin } from '@platejs/ai/react';
 import { serializeMd, stripMarkdown } from '@platejs/markdown';
 
 import { GhostText } from '@/components/ui/ghost-text';
-import { streamCliChat } from '@/lib/cli-chat';
-
-let chatCounter = 0;
 
 function isAutoSuggestEnabled(): boolean {
   if (typeof window === 'undefined') return true;
@@ -39,10 +36,10 @@ export const CopilotKit = [
         onError: (error) => {
           console.error('[CopilotKit] completion onError', error);
         },
-        onCompleted: (completion) => {
+        onCompleted: (completion: string) => {
           console.debug('[CopilotKit] onCompleted', { completion, completionType: typeof completion });
         },
-        onFinish: (_, completion) => {
+        onFinish: (_prompt: string, completion: string) => {
           console.debug('[CopilotKit] onFinish called', { completion, completionType: typeof completion, completionLength: completion?.length });
           if (!completion || completion === '0') {
             console.debug('[CopilotKit] onFinish early return', { reason: !completion ? 'empty' : 'zero' });
@@ -55,7 +52,7 @@ export const CopilotKit = [
             text,
           });
         },
-        onResponse: async (response) => {
+        onResponse: async (response: Response) => {
           console.debug('[CopilotKit] onResponse', { status: response.status, ok: response.ok });
           try {
             const cloned = response.clone();
@@ -76,67 +73,15 @@ export const CopilotKit = [
             promptLength: prompt?.length,
           });
 
-          const messages: Array<{ role: string; content: string }> = [];
-          if (system) messages.push({ role: 'system', content: system });
-          messages.push({ role: 'user', content: prompt ?? '' });
-
-          const chatId = `copilot-${Date.now()}-${++chatCounter}`;
-
           const res = await fetch(input, { ...init });
 
           console.debug('[CopilotKit] fetch response status', { status: res.status, ok: res.ok });
 
           if (!res.ok) {
-            console.debug('[CopilotKit] API unavailable, falling back to CLI stream', { chatId });
-            let accumulated = '';
-
-            const completion = new Promise<void>((resolve, reject) => {
-              const onChunk = (event: Event) => {
-                const payload = (event as CustomEvent).payload;
-                console.debug('[CopilotKit] cli-chat-chunk event', { delta: payload?.delta, done: payload?.done, error: payload?.error });
-                if (payload.error) {
-                  cleanup();
-                  reject(new Error(payload.error));
-                  return;
-                }
-                if (payload.delta) accumulated += payload.delta;
-                if (payload.done) {
-                  cleanup();
-                  resolve();
-                }
-              };
-
-              const cleanup = () => {
-                window.removeEventListener(`cli-chat-chunk:${chatId}`, onChunk);
-              };
-
-              window.addEventListener(`cli-chat-chunk:${chatId}`, onChunk);
-            });
-
-            await Promise.all([
-              streamCliChat({
-                chatId,
-                messages,
-                onDelta: () => {},
-                providerId: 'opencode',
-              }),
-              completion,
-            ]);
-
-            console.debug('[CopilotKit] CLI stream finished', {
-              accumulatedLength: accumulated.length,
-            });
-
-            const stream = new ReadableStream({
-              start(controller) {
-                const encoder = new TextEncoder();
-                controller.enqueue(encoder.encode(JSON.stringify({ text: accumulated })));
-                controller.close();
-              },
-            });
-
-            return new Response(stream, {
+            console.debug('[CopilotKit] autosuggest API unavailable; skipping suggestion');
+            return new Response(JSON.stringify({ text: '0' }), {
               headers: { 'Content-Type': 'application/json' },
+              status: 200,
             });
           }
 

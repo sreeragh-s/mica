@@ -1,8 +1,17 @@
-# NoteLab Tauri
+# NoteLab
 
 NoteLab is a local-first desktop notes workspace built with Tauri, React, and Rust. It combines a rich editor, workspace file tree, wiki-style linking, CLI AI chat, Git/source control flows, and a meeting transcription pipeline for turning live conversations into notes.
 
-This repository is the desktop client. It is optimized for personal knowledge work on macOS today, with some features already structured to support broader platform coverage over time.
+This repository contains the open-source desktop client. It is optimized for personal knowledge work on macOS today, with some features already structured to support broader platform coverage over time.
+
+## Project status
+
+NoteLab is early open-source software. The app is usable for local development, but contributors should expect some rough edges:
+
+- macOS is the primary supported platform today
+- meeting recording sidecars are macOS-focused
+- there is not yet a comprehensive automated test suite
+- auth and some API route helpers expect companion services outside this repo
 
 ## What it does
 
@@ -13,6 +22,10 @@ This repository is the desktop client. It is optimized for personal knowledge wo
 - AI chat through local Codex, OpenCode, or Claude Code CLI installations
 - Meeting transcription through OpenAI Realtime plus native macOS capture sidecars
 - Optional sign-in flow through a Better Auth-compatible backend
+
+## License
+
+NoteLab is released under the [MIT License](./LICENSE).
 
 ## Tech stack
 
@@ -32,7 +45,8 @@ This repository is the desktop client. It is optimized for personal knowledge wo
 ├── src-tauri/           # Tauri app, Rust commands, native sidecars, bundle config
 ├── public/              # Static assets
 ├── docs/                # Project, architecture, and collaboration documentation
-└── .github/             # Issue and pull-request templates
+├── .github/             # Issue, pull-request, and CI configuration
+└── LICENSE              # MIT license
 ```
 
 ## Getting started
@@ -101,18 +115,18 @@ The checked-in `.env.example` documents the expected shape.
 ## Project docs
 
 - [Architecture](./docs/ARCHITECTURE.md)
+- [Development guide](./docs/DEVELOPMENT.md)
+- [Dependency security](./docs/DEPENDENCY_SECURITY.md)
 - [Collaboration guide](./docs/COLLABORATION.md)
 - [Contributing](./CONTRIBUTING.md)
+- [Governance](./GOVERNANCE.md)
+- [Maintainers](./MAINTAINERS.md)
+- [Privacy](./docs/PRIVACY.md)
+- [Release process](./docs/RELEASES.md)
 - [Security policy](./SECURITY.md)
+- [Support](./SUPPORT.md)
+- [Changelog](./CHANGELOG.md)
 - [Open-source release checklist](./docs/OPEN_SOURCE_CHECKLIST.md)
-
-## Current development status
-
-This repo already contains substantial product code, but some edges are still evolving:
-
-- There is no full CI or automated test suite yet
-- Auth and some API helpers expect companion services outside this repo
-- Open-source release ownership items such as license choice should be finalized before public publication
 
 ## Contributing
 

@@ -1,0 +1,7 @@
+NoteLab
+
+This project is distributed under the MIT License. See LICENSE for details.
+
+NoteLab depends on third-party open-source packages from the JavaScript, Rust,
+and Tauri ecosystems. Their licenses remain governed by their respective
+projects and package metadata.

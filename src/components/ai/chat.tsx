@@ -496,9 +496,13 @@ export function Chat({
   const [workspace, setWorkspace] = React.useState<string | null>(() => getCurrentWorkspace())
   const [activeFileContent, setActiveFileContent] = React.useState<string | null>(null)
   const [providers, setProviders] = React.useState<CliProvider[]>([])
-  const [providerModels, setProviderModels] = React.useState<CliProviderModel[]>([])
+  const [modelsByProviderId, setModelsByProviderId] = React.useState<
+    Record<string, CliProviderModel[]>
+  >({})
+  const [loadingProviderModelIds, setLoadingProviderModelIds] = React.useState<Set<string>>(
+    () => new Set(),
+  )
   const [providersLoading, setProvidersLoading] = React.useState(true)
-  const [modelsLoading, setModelsLoading] = React.useState(false)
   const [messages, setMessages] = React.useState<ChatEntry[]>([])
   const [status, setStatus] = React.useState<"submitted" | "streaming" | "ready" | "error">(
     "ready",
@@ -506,6 +510,7 @@ export function Chat({
   const [selectedProviderId, setSelectedProviderId] = React.useState("")
   const [selectedModelId, setSelectedModelId] = React.useState("")
   const [_modelSelectorOpen, setModelSelectorOpen] = React.useState(false)
+  const modelLoadInFlightRef = React.useRef(new Set<string>())
 
   const availableProviders = React.useMemo(
     () => providers.filter(provider => provider.installed),
@@ -519,9 +524,60 @@ export function Chat({
     [availableProviders, selectedProviderId],
   )
 
+  const providerModels = React.useMemo(
+    () => (selectedProvider ? modelsByProviderId[selectedProvider.id] ?? [] : []),
+    [modelsByProviderId, selectedProvider],
+  )
+
+  const modelsLoading = selectedProvider
+    ? loadingProviderModelIds.has(selectedProvider.id) && !modelsByProviderId[selectedProvider.id]
+    : false
+
   const selectedModel = React.useMemo(
     () => providerModels.find(model => model.id === selectedModelId) ?? providerModels[0],
     [providerModels, selectedModelId],
+  )
+
+  const loadProviderModels = React.useCallback(
+    (providerId: string) => {
+      if (
+        Object.prototype.hasOwnProperty.call(modelsByProviderId, providerId) ||
+        modelLoadInFlightRef.current.has(providerId)
+      ) {
+        return
+      }
+
+      modelLoadInFlightRef.current.add(providerId)
+      setLoadingProviderModelIds(current => {
+        const next = new Set(current)
+        next.add(providerId)
+        return next
+      })
+
+      listCliProviderModels(providerId)
+        .then(models => {
+          setModelsByProviderId(current => ({
+            ...current,
+            [providerId]: models,
+          }))
+        })
+        .catch(error => {
+          console.error("Failed to load CLI provider models:", error)
+          setModelsByProviderId(current => ({
+            ...current,
+            [providerId]: [],
+          }))
+        })
+        .finally(() => {
+          modelLoadInFlightRef.current.delete(providerId)
+          setLoadingProviderModelIds(current => {
+            const next = new Set(current)
+            next.delete(providerId)
+            return next
+          })
+        })
+    },
+    [modelsByProviderId],
   )
 
   React.useEffect(() => {
@@ -618,40 +674,29 @@ export function Chat({
   }, [availableProviders, selectedProviderId])
 
   React.useEffect(() => {
+    availableProviders.forEach(provider => {
+      loadProviderModels(provider.id)
+    })
+  }, [availableProviders, loadProviderModels])
+
+  React.useEffect(() => {
     if (!selectedProvider) {
-      setProviderModels([])
       setSelectedModelId("")
       return
     }
 
-    let cancelled = false
-    setModelsLoading(true)
-    listCliProviderModels(selectedProvider.id)
-      .then(models => {
-        if (!cancelled) {
-          setProviderModels(models)
-          setSelectedModelId(current =>
-            models.some(model => model.id === current) ? current : models[0]?.id ?? "",
-          )
-        }
-      })
-      .catch(error => {
-        console.error("Failed to load CLI provider models:", error)
-        if (!cancelled) {
-          setProviderModels([])
-          setSelectedModelId("")
-        }
-      })
-      .finally(() => {
-        if (!cancelled) {
-          setModelsLoading(false)
-        }
-      })
-
-    return () => {
-      cancelled = true
+    const modelsLoaded = Object.prototype.hasOwnProperty.call(
+      modelsByProviderId,
+      selectedProvider.id,
+    )
+    if (!modelsLoaded) {
+      return
     }
-  }, [selectedProvider])
+
+    setSelectedModelId(current =>
+      providerModels.some(model => model.id === current) ? current : providerModels[0]?.id ?? "",
+    )
+  }, [modelsByProviderId, providerModels, selectedProvider])
 
   const sendMessage = React.useCallback(
     async (content: string) => {
@@ -856,7 +901,7 @@ export function Chat({
           }
         }
 
-        if (activeFilePath) {
+        if (activeFilePath && !hasPendingProposal) {
           await refreshExternalFile(activeFilePath, "active-file-fallback")
         }
 

@@ -40,7 +40,7 @@ Modules:
 
 ### Native sidecars: `src-tauri/native/`
 
-Swift command-line binaries capture microphone and system audio on macOS. They are compiled into `src-tauri/binaries/` via [`src-tauri/build_sidecars.sh`](/Users/sreeraghs/Documents/projects/notelab-tauri/src-tauri/build_sidecars.sh).
+Swift command-line binaries capture microphone and system audio on macOS. They are compiled into `src-tauri/binaries/` via [`src-tauri/build_sidecars.sh`](../src-tauri/build_sidecars.sh).
 
 ## Core flows
 
@@ -93,6 +93,28 @@ Swift command-line binaries capture microphone and system audio on macOS. They a
 - Codex, OpenCode, or Claude Code CLI for sidebar chat
 - OpenAI Realtime API for meeting transcription
 - Better Auth-compatible backend for authenticated flows
+
+## Contributor map
+
+Use these entry points when planning changes:
+
+- editor behavior: `src/components/editor/`, `src/components/ui/editor*`, and `src/lib/markdown-joiner-transform.ts`
+- file tree and workspace state: `src/components/FileTree.tsx`, `src/lib/file-tree/`, and `src-tauri/src/workspace_tree.rs`
+- wiki links and graph: `src/lib/wiki-graph-adapter.ts`, `src/lib/wikilink-utils.ts`, and `src-tauri/src/workspace_index.rs`
+- source control: `src/components/source-control-sidebar.tsx`, `src/components/source-control/`, and `src-tauri/src/git.rs`
+- CLI chat: `src/components/ai/`, `src/lib/cli-chat.ts`, and `src-tauri/src/cli_chat.rs`
+- meeting recorder: `src/components/meeting-recorder-dialog.tsx`, `src-tauri/src/meeting_capture.rs`, and `src-tauri/native/`
+
+## Safety boundaries
+
+Changes in these areas need extra review:
+
+- filesystem writes or deletes
+- Git commands that can discard user work
+- auth/session behavior
+- API key handling
+- native process spawning
+- microphone or system-audio capture
 
 ## Open architecture considerations
 
