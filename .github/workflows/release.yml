@@ -4,18 +4,68 @@ on:
   push:
     branches:
       - main
+    tags:
+      - "v*.*.*"
 
 permissions:
   contents: write
 
 concurrency:
-  group: release-main
+  group: release-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
-  release:
-    name: Version, build, and publish
-    if: ${{ !startsWith(github.event.head_commit.message, 'chore(release):') }}
+  release-tag:
+    name: Build and publish tagged release
+    if: ${{ startsWith(github.ref, 'refs/tags/v') }}
+    runs-on: macos-14
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Read tag version
+        id: version
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          PACKAGE_VERSION=$(node -p "require('./package.json').version")
+          TAURI_VERSION=$(node -p "require('./src-tauri/tauri.conf.json').version")
+          if [ "$VERSION" != "$PACKAGE_VERSION" ] || [ "$VERSION" != "$TAURI_VERSION" ]; then
+            echo "Tag v$VERSION does not match package.json ($PACKAGE_VERSION) and tauri.conf.json ($TAURI_VERSION)." >&2
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Build and publish release
+        uses: tauri-apps/tauri-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          tagName: v${{ steps.version.outputs.version }}
+          releaseName: NoteLab v${{ steps.version.outputs.version }}
+          releaseBody: "NoteLab v${{ steps.version.outputs.version }}"
+          releaseDraft: false
+          prerelease: false
+          generateReleaseNotes: true
+
+  release-main:
+    name: Bump, build, and publish main release
+    if: ${{ github.ref == 'refs/heads/main' && !startsWith(github.event.head_commit.message, 'chore(release):') }}
     runs-on: macos-14
     steps:
       - name: Checkout
