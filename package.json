@@ -65,7 +65,7 @@
     "@platejs/emoji": "^52.3.10",
     "@platejs/excalidraw": "^52.3.10",
     "@platejs/floating": "^52.3.10",
-    "@platejs/indent": "^52.3.10",
+    "@platejs/indent": "^53.0.0",
     "@platejs/juice": "^52.3.10",
     "@platejs/layout": "^52.3.10",
     "@platejs/link": "^52.3.17",
