@@ -14,11 +14,9 @@ Until `1.0.0`, minor versions may still include larger product changes.
 
 1. Confirm `npm run build` passes.
 2. Confirm `cargo check` passes from `src-tauri/`.
-3. Build the Tauri app on the target release platform.
-4. Review bundled files for secrets, machine-specific paths, and stale assets.
-5. Update release notes with user-facing changes, migration notes, and known issues.
-6. Create a signed tag when signing infrastructure is available.
-7. Publish GitHub release artifacts.
+3. For a local signed release build, set `TAURI_SIGNING_PRIVATE_KEY` or `TAURI_SIGNING_PRIVATE_KEY_PATH`, then run `npm run release:build`.
+4. Merges to `main` run the Release workflow. It bumps `0.1.0` to `0.1.1`, rolls `0.1.9` to `0.2.0`, commits the version, tags `vX.Y.Z`, builds the macOS app, publishes GitHub release assets, and uploads `latest.json` for the Tauri updater.
+5. The workflow requires `TAURI_SIGNING_PRIVATE_KEY` as a GitHub Actions secret. `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` is optional when the key has no password.
 
 ## Release notes
 

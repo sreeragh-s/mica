@@ -63,6 +63,7 @@ import {
 } from "./lib/browser-settings";
 import { MeetingRecorderDialog } from "./components/meeting-recorder-dialog";
 import { logInstantFeel } from "./lib/instant-feel-logger";
+import { checkForAppUpdateOnLaunch } from "./lib/app-updater";
 
 interface SelectedFile {
   id: string;
@@ -170,6 +171,7 @@ function App() {
 
   useEffect(() => {
     setOnboardingDone(isOnboardingComplete());
+    void checkForAppUpdateOnLaunch();
   }, []);
 
   useEffect(() => {

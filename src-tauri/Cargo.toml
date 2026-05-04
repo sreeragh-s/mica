@@ -1,5 +1,5 @@
 [package]
-name = "notelab-tauri"
+name = "notelab"
 version = "0.1.0"
 description = "Local-first Tauri notes workspace with wiki links, Git flows, CLI AI chat, and meeting transcription."
 authors = ["NoteLab contributors"]
@@ -11,7 +11,7 @@ edition = "2021"
 # The `_lib` suffix may seem redundant but it is necessary
 # to make the lib name unique and wouldn't conflict with the bin name.
 # This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
-name = "notelab_tauri_lib"
+name = "notelab_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
@@ -33,3 +33,5 @@ dirs = "6"
 tauri-plugin-dialog = "2.7.0"
 tauri-plugin-fs = "2.5.0"
 notify = "6.1.1"
+tauri-plugin-updater = "2"
+tauri-plugin-process = "2"
