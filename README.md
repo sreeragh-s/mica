@@ -1,6 +1,6 @@
 # NoteLab Tauri
 
-NoteLab is a local-first desktop notes workspace built with Tauri, React, and Rust. It combines a rich editor, workspace file tree, wiki-style linking, local model support through Ollama, Git/source control flows, and a meeting transcription pipeline for turning live conversations into notes.
+NoteLab is a local-first desktop notes workspace built with Tauri, React, and Rust. It combines a rich editor, workspace file tree, wiki-style linking, CLI AI chat, Git/source control flows, and a meeting transcription pipeline for turning live conversations into notes.
 
 This repository is the desktop client. It is optimized for personal knowledge work on macOS today, with some features already structured to support broader platform coverage over time.
 
@@ -10,7 +10,7 @@ This repository is the desktop client. It is optimized for personal knowledge wo
 - Local workspace browsing with file-tree watching and persisted tabs
 - Wiki-link indexing and graph views for note relationships
 - Built-in Git flows for status, staging, branching, commits, and publish helpers
-- Local AI chat through Ollama streaming
+- AI chat through local Codex, OpenCode, or Claude Code CLI installations
 - Meeting transcription through OpenAI Realtime plus native macOS capture sidecars
 - Optional sign-in flow through a Better Auth-compatible backend
 
@@ -21,7 +21,7 @@ This repository is the desktop client. It is optimized for personal knowledge wo
 - Native backend: Rust
 - Editor: Plate
 - State and UI: Zustand, Radix, custom UI primitives
-- Local AI: Ollama
+- AI chat: Codex, OpenCode, or Claude Code CLI
 - Meeting transcription: OpenAI Realtime API
 
 ## Repository layout

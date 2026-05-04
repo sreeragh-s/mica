@@ -39,8 +39,8 @@ const panelHeadings: Record<
     description: "Theme, accent, and interface density.",
   },
   models: {
-    title: "Models",
-    description: "Configure AI models and provider settings.",
+    title: "Providers",
+    description: "Check local Codex, OpenCode, and Claude CLI availability.",
   },
 }
 

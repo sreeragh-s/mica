@@ -139,7 +139,6 @@ export type ModelSelectorLogoProps = Omit<ComponentProps<"img">, "src" | "alt"> 
     | "scaleway"
     | "amazon-bedrock"
     | "cerebras"
-    | "ollama"
     | (string & {})
 }
 
@@ -173,12 +172,10 @@ export const ModelSelectorName = ({ className, ...props }: ModelSelectorNameProp
 )
 
 export type LocalModelSelectorEmptyStateProps = {
-  isOllamaRunning: boolean
   onNavigateToSettings?: () => void
 }
 
 export const LocalModelSelectorEmptyState = ({
-  isOllamaRunning,
   onNavigateToSettings,
 }: LocalModelSelectorEmptyStateProps) => {
   const handleNavigate = () => {
@@ -189,14 +186,13 @@ export const LocalModelSelectorEmptyState = ({
   return (
     <div className="px-3 py-6 text-center">
       <p className="text-sm font-medium text-foreground">
-        {isOllamaRunning ? "No local models added yet" : "Ollama is not running"}
+        No installed CLI providers found
       </p>
       <p className="mt-1 text-sm text-muted-foreground">
-        Go to Settings, open Models, then download models in Ollama and add the ones you want to
-        use in the switcher.
+        Install Codex, OpenCode, or Claude Code, then refresh provider status in Settings.
       </p>
       <Button className="mt-4" onClick={handleNavigate} size="sm" variant="outline">
-        Open Model Settings
+        Open Provider Settings
       </Button>
     </div>
   )

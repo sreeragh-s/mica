@@ -2,7 +2,7 @@
   "name": "notelab-tauri",
   "private": true,
   "version": "0.1.0",
-  "description": "Local-first Tauri notes workspace with wiki links, Git, Ollama, and meeting transcription.",
+  "description": "Local-first Tauri notes workspace with wiki links, Git, CLI AI chat, and meeting transcription.",
   "type": "module",
   "scripts": {
     "dev": "vite",

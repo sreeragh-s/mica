@@ -1,8 +1,8 @@
+mod cli_chat;
 mod git;
 mod git_support;
 mod github_cli;
 mod meeting_capture;
-mod ollama;
 mod workspace_index;
 mod workspace_tree;
 #[tauri::command]
@@ -68,10 +68,7 @@ fn read_workspace_tree(workspace: String) -> Result<Vec<String>, String> {
 }
 
 #[tauri::command]
-fn start_workspace_tree_watcher(
-    app: tauri::AppHandle,
-    workspace: String,
-) -> Result<(), String> {
+fn start_workspace_tree_watcher(app: tauri::AppHandle, workspace: String) -> Result<(), String> {
     workspace_tree::start_workspace_tree_watcher(&app, &workspace)
 }
 
@@ -111,10 +108,9 @@ pub fn run() {
             git::get_recent_commits,
             git::get_file_diff,
             get_default_workspace_path,
-            ollama::get_ollama_status,
-            ollama::pull_ollama_model,
-            ollama::search_ollama_models,
-            ollama::chat_with_ollama_stream,
+            cli_chat::list_cli_providers,
+            cli_chat::list_cli_provider_models,
+            cli_chat::chat_with_cli_provider_stream,
             rebuild_workspace_index,
             read_workspace_index_snapshot,
             get_workspace_index_summary,

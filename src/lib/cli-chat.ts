@@ -1,16 +1,42 @@
 import { invoke } from "@tauri-apps/api/core"
 import { listen, type UnlistenFn } from "@tauri-apps/api/event"
 
-export type OllamaChatMessage = {
+export type CliProvider = {
+  id: "codex" | "opencode" | "claude" | (string & {})
+  name: string
+  logoProvider: string
+  installed: boolean
+  version: string | null
+  error: string | null
+}
+
+export type CliProviderModel = {
+  id: string
+  name: string
+}
+
+export type CliChatMessage = {
   role: "user" | "assistant" | "system"
   content: string
 }
 
-type OllamaChunkPayload = {
+type CliChatChunkPayload = {
   chatId: string
   delta: string
   done: boolean
   error: string | null
+}
+
+type CliChatLogPayload = {
+  chatId: string
+  providerId: string
+  level: "debug" | "info" | "error" | (string & {})
+  message: string
+}
+
+type CliChatFileChangedPayload = {
+  chatId: string
+  path: string
 }
 
 export type SmoothStreamOptions = {
@@ -18,11 +44,15 @@ export type SmoothStreamOptions = {
   chunking?: "word" | "line" | RegExp
 }
 
-export type StreamOllamaChatOptions = {
+export type StreamCliChatOptions = {
   chatId: string
-  model: string
-  messages: OllamaChatMessage[]
+  providerId: string
+  model?: string | null
+  cwd?: string | null
+  messages: CliChatMessage[]
   onDelta: (delta: string) => void
+  onFileChanged?: (path: string) => void
+  onLog?: (payload: CliChatLogPayload) => void
   signal?: AbortSignal
   smooth?: SmoothStreamOptions | false
 }
@@ -76,15 +106,29 @@ function createSmoother(options: SmoothStreamOptions, onEmit: (text: string) => 
   }
 }
 
-export async function streamOllamaChat({
+export function listCliProviders() {
+  return invoke<CliProvider[]>("list_cli_providers")
+}
+
+export function listCliProviderModels(providerId: string) {
+  return invoke<CliProviderModel[]>("list_cli_provider_models", { providerId })
+}
+
+export async function streamCliChat({
   chatId,
+  providerId,
   model,
+  cwd,
   messages,
   onDelta,
+  onFileChanged,
+  onLog,
   signal,
   smooth,
-}: StreamOllamaChatOptions): Promise<void> {
+}: StreamCliChatOptions): Promise<void> {
   const unlistenRef: { current: UnlistenFn | null } = { current: null }
+  const logUnlistenRef: { current: UnlistenFn | null } = { current: null }
+  const fileChangedUnlistenRef: { current: UnlistenFn | null } = { current: null }
   let settled = false
 
   const cleanup = () => {
@@ -92,10 +136,17 @@ export async function streamOllamaChat({
       unlistenRef.current()
       unlistenRef.current = null
     }
+    if (logUnlistenRef.current) {
+      logUnlistenRef.current()
+      logUnlistenRef.current = null
+    }
+    if (fileChangedUnlistenRef.current) {
+      fileChangedUnlistenRef.current()
+      fileChangedUnlistenRef.current = null
+    }
   }
 
-  const smoother =
-    smooth === false ? null : createSmoother(smooth ?? {}, onDelta)
+  const smoother = smooth === false ? null : createSmoother(smooth ?? {}, onDelta)
 
   const pushDelta = (delta: string) => {
     if (smoother) {
@@ -121,7 +172,7 @@ export async function streamOllamaChat({
       signal.addEventListener("abort", onAbort, { once: true })
     }
 
-    listen<OllamaChunkPayload>(`ollama-chat-chunk:${chatId}`, event => {
+    listen<CliChatChunkPayload>(`cli-chat-chunk:${chatId}`, event => {
       const payload = event.payload
       if (payload.error) {
         settled = true
@@ -149,13 +200,57 @@ export async function streamOllamaChat({
         unlistenRef.current = stopListening
       })
       .catch(reject)
+
+    listen<CliChatLogPayload>(`cli-chat-log:${chatId}`, event => {
+      const payload = event.payload
+      onLog?.(payload)
+      const log = payload.level === "error" ? console.error : console.debug
+      log(
+        `[cli-chat:${payload.providerId}:${payload.chatId}:${payload.level}] ${payload.message}`,
+      )
+    })
+      .then(stopListening => {
+        if (settled) {
+          stopListening()
+          return
+        }
+        logUnlistenRef.current = stopListening
+      })
+      .catch(error => {
+        console.debug("[cli-chat] failed to attach log listener", error)
+      })
+
+    listen<CliChatFileChangedPayload>(`cli-chat-file-changed:${chatId}`, event => {
+      const payload = event.payload
+      console.debug("[cli-chat] changed file event", payload)
+      onFileChanged?.(payload.path)
+    })
+      .then(stopListening => {
+        if (settled) {
+          stopListening()
+          return
+        }
+        fileChangedUnlistenRef.current = stopListening
+      })
+      .catch(error => {
+        console.debug("[cli-chat] failed to attach changed file listener", error)
+      })
   })
 
   try {
+    console.debug("[cli-chat] invoking provider stream", {
+      chatId,
+      providerId,
+      model,
+      cwd,
+      messages: messages.length,
+    })
     await Promise.all([
-      invoke<void>("chat_with_ollama_stream", {
+      invoke<void>("chat_with_cli_provider_stream", {
         chatId,
+        providerId,
         model,
+        cwd,
         messages,
       }),
       completion,

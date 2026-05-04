@@ -15,7 +15,7 @@ The React app owns:
 - editor composition and slash-command UX
 - source-control UI
 - settings, onboarding, and auth UX
-- orchestration for wiki-link indexing, local model chat, and transcription dialogs
+- orchestration for wiki-link indexing, CLI provider chat, and transcription dialogs
 
 Key areas:
 
@@ -23,7 +23,7 @@ Key areas:
 - `src/components/editor/`: editor composition, plugins, toolbars, transforms
 - `src/components/source-control-sidebar.tsx`: Git UX backed by Tauri commands
 - `src/components/meeting-recorder-dialog.tsx`: transcription session UX
-- `src/lib/`: shared client-side helpers for auth, workspace state, shortcuts, indexing, and local model integration
+- `src/lib/`: shared client-side helpers for auth, workspace state, shortcuts, indexing, and CLI chat integration
 
 ### Native backend: `src-tauri/src/`
 
@@ -35,7 +35,7 @@ Modules:
 - `github_cli.rs`: GitHub CLI detection, auth, and publish flows
 - `workspace_tree.rs`: workspace snapshots and filesystem watchers
 - `workspace_index.rs`: wiki-link indexing and note connection data
-- `ollama.rs`: local model status, search, pull, and streaming chat
+- `cli_chat.rs`: local Codex, OpenCode, and Claude CLI status plus streaming chat
 - `meeting_capture.rs`: OpenAI Realtime transcription orchestration
 
 ### Native sidecars: `src-tauri/native/`
@@ -68,7 +68,7 @@ Swift command-line binaries capture microphone and system audio on macOS. They a
 
 ### Local AI flow
 
-1. The frontend checks Ollama availability through Tauri commands.
+1. The frontend checks CLI provider availability through Tauri commands.
 2. Model search and pull are handled natively.
 3. Chat requests stream back to the renderer through Tauri event channels.
 
@@ -90,7 +90,7 @@ Swift command-line binaries capture microphone and system audio on macOS. They a
 ## External dependencies
 
 - Git and optionally GitHub CLI for source-control publishing flows
-- Ollama for local model usage
+- Codex, OpenCode, or Claude Code CLI for sidebar chat
 - OpenAI Realtime API for meeting transcription
 - Better Auth-compatible backend for authenticated flows
 

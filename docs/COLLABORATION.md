@@ -53,7 +53,7 @@ For UI changes, note which of these you tested:
 - workspace open/switch
 - note create/open/save
 - source-control sidebar behavior
-- Ollama flows if touched
+- CLI provider chat flows if touched
 - meeting recorder flow if touched
 
 ## Communication norms

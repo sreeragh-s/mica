@@ -67,10 +67,17 @@ type WikiLinkFocusRequestDetail = {
   text?: string | null;
 };
 
+type ExternalNoteContentChangedDetail = {
+  content?: string | null;
+  path?: string | null;
+  source?: string | null;
+};
+
 const EMPTY_DOCUMENT = [{ type: 'p', children: [{ text: '' }] }];
 const AUTOSAVE_DEBOUNCE_MS = 600;
 const FRONTMATTER_PATTERN = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?/;
 const OPEN_SELECT_WIKI_EVENT = 'open-select-wiki';
+const NOTE_CONTENT_EXTERNAL_CHANGED_EVENT = 'note-content-external-changed';
 const LazySettingsDialog = React.lazy(async () => {
   const mod = await import('@/components/editor/settings-dialog');
   return { default: mod.SettingsDialog };
@@ -872,6 +879,85 @@ export function PlateEditor({
       window.removeEventListener('wiki-link-focus-request', handleWikiLinkFocusRequest);
     };
   }, [_isActive]);
+
+  React.useEffect(() => {
+    const handleExternalNoteContentChanged = (event: Event) => {
+      const detail = (event as CustomEvent<ExternalNoteContentChangedDetail>).detail;
+      const changedPath = detail?.path;
+      const currentPath = activeFilePathRef.current;
+
+      if (!_isActive || !changedPath || !currentPath || !isSameFilePath(changedPath, currentPath)) {
+        console.debug('[PlateEditor] Ignored external note update', {
+          changedPath,
+          currentPath,
+          isActive: _isActive,
+          source: detail?.source ?? null,
+        });
+        return;
+      }
+
+      const loadExternalContent = async () => {
+        try {
+          console.debug('[PlateEditor] Applying external note update', {
+            path: currentPath,
+            source: detail.source ?? null,
+            suppliedContent: typeof detail.content === 'string',
+          });
+
+          debouncedSave.cancel();
+          skipAutosaveRef.current = true;
+          hasUserEditRef.current = false;
+
+          const content = typeof detail.content === 'string'
+            ? detail.content
+            : await readTextFile(currentPath);
+          const { body, frontmatterBlock, properties: nextProperties } =
+            extractFrontmatter(content);
+
+          cacheEditorContent(currentPath, content);
+          lastPersistedContentRef.current = content;
+          applyEditorContent(body, currentPath);
+          setProperties(nextProperties);
+          setHasFrontmatter(Boolean(frontmatterBlock));
+          setActiveFilePath(currentPath);
+
+          requestAnimationFrame(() => {
+            if (activeFilePathRef.current === currentPath) {
+              skipAutosaveRef.current = false;
+            }
+          });
+
+          window.dispatchEvent(
+            new CustomEvent('note-content-saved', {
+              detail: {
+                path: currentPath,
+              },
+            })
+          );
+          console.debug('[PlateEditor] Applied external note update', {
+            path: currentPath,
+            source: detail.source ?? null,
+          });
+        } catch (error) {
+          console.error('[PlateEditor] Failed to apply external note update:', error);
+          skipAutosaveRef.current = false;
+        }
+      };
+
+      void loadExternalContent();
+    };
+
+    window.addEventListener(
+      NOTE_CONTENT_EXTERNAL_CHANGED_EVENT,
+      handleExternalNoteContentChanged
+    );
+    return () => {
+      window.removeEventListener(
+        NOTE_CONTENT_EXTERNAL_CHANGED_EVENT,
+        handleExternalNoteContentChanged
+      );
+    };
+  }, [_isActive, applyEditorContent, debouncedSave]);
 
   React.useEffect(() => {
     const nextTitle = fileName ?? '';

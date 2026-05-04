@@ -1,7 +1,8 @@
 import React from 'react'
+import { cn } from "@/lib/utils"
 
 function Shimmer({ className, duration, ...props }: React.ComponentProps<"div"> & { duration: number }) {
-    return <div className="animate-pulse rounded-md bg-muted" {...props} style={{ animationDuration: `${duration}s` }} />
+    return <div className={cn("animate-pulse rounded-md", className)} {...props} style={{ animationDuration: `${duration}s` }} />
 }
 
 export default Shimmer

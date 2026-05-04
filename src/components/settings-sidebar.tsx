@@ -22,7 +22,7 @@ const settingsSections: SettingsSection[] = [
   { id: "wiki", title: "Wiki", icon: Link2Icon },
   { id: "shortcuts", title: "Shortcuts", icon: KeyboardIcon },
   { id: "theme", title: "Appearance", icon: MoonStarIcon },
-  { id: "models", title: "Models", icon: BotIcon },
+  { id: "models", title: "Providers", icon: BotIcon },
 ]
 
 export type SettingsSidebarProps = {
