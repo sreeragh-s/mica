@@ -1,7 +1,123 @@
-# Tauri + React + Typescript
+# NoteLab Tauri
 
-This template should help get you started developing with Tauri, React and Typescript in Vite.
+NoteLab is a local-first desktop notes workspace built with Tauri, React, and Rust. It combines a rich editor, workspace file tree, wiki-style linking, local model support through Ollama, Git/source control flows, and a meeting transcription pipeline for turning live conversations into notes.
 
-## Recommended IDE Setup
+This repository is the desktop client. It is optimized for personal knowledge work on macOS today, with some features already structured to support broader platform coverage over time.
 
-- [VS Code](https://code.visualstudio.com/) + [Tauri](https://marketplace.visualstudio.com/items?itemName=tauri-apps.tauri-vscode) + [rust-analyzer](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer)
+## What it does
+
+- Rich note editing with Plate-based blocks, media, tables, slash commands, comments, and export helpers
+- Local workspace browsing with file-tree watching and persisted tabs
+- Wiki-link indexing and graph views for note relationships
+- Built-in Git flows for status, staging, branching, commits, and publish helpers
+- Local AI chat through Ollama streaming
+- Meeting transcription through OpenAI Realtime plus native macOS capture sidecars
+- Optional sign-in flow through a Better Auth-compatible backend
+
+## Tech stack
+
+- Frontend: React 19, TypeScript, Vite
+- Desktop shell: Tauri 2
+- Native backend: Rust
+- Editor: Plate
+- State and UI: Zustand, Radix, custom UI primitives
+- Local AI: Ollama
+- Meeting transcription: OpenAI Realtime API
+
+## Repository layout
+
+```text
+.
+├── src/                 # React app, editor UI, workspace UX, frontend helpers
+├── src-tauri/           # Tauri app, Rust commands, native sidecars, bundle config
+├── public/              # Static assets
+├── docs/                # Project, architecture, and collaboration documentation
+└── .github/             # Issue and pull-request templates
+```
+
+## Getting started
+
+### Prerequisites
+
+- Node.js 20+
+- npm 10+
+- Rust stable toolchain
+- Xcode Command Line Tools on macOS
+- Tauri system prerequisites for your platform
+
+For Tauri setup, follow the official guide:
+[Tauri prerequisites](https://tauri.app/start/prerequisites/)
+
+### Install
+
+```bash
+npm install
+cp .env.example .env
+```
+
+### Development
+
+Frontend only:
+
+```bash
+npm run dev
+```
+
+Desktop app:
+
+```bash
+./src-tauri/build_sidecars.sh
+npm run tauri dev
+```
+
+Production build:
+
+```bash
+npm run build
+npm run tauri build
+```
+
+## Environment variables
+
+The checked-in `.env.example` documents the expected shape.
+
+### Common
+
+- `VITE_BETTER_AUTH_URL`: optional auth service origin. Defaults to `http://localhost:8787`
+- `VITE_APP_ORIGIN`: optional app origin override for auth callback generation
+
+### AI and transcription
+
+- `OPENAI_API_KEY`: required for the meeting recorder flow
+- `VITE_OPENAI_API_KEY`: supported as a fallback by the Rust transcription pipeline, but `OPENAI_API_KEY` is preferred
+- `AI_GATEWAY_API_KEY`: used by the companion AI route handlers under `src/app/api`
+
+## Platform notes
+
+- Meeting recording sidecars are currently macOS-focused
+- System audio capture requires macOS 14.4+
+- The desktop app itself is Tauri-based and the codebase is structured for broader support, but some advanced flows are not yet cross-platform
+
+## Project docs
+
+- [Architecture](./docs/ARCHITECTURE.md)
+- [Collaboration guide](./docs/COLLABORATION.md)
+- [Contributing](./CONTRIBUTING.md)
+- [Security policy](./SECURITY.md)
+- [Open-source release checklist](./docs/OPEN_SOURCE_CHECKLIST.md)
+
+## Current development status
+
+This repo already contains substantial product code, but some edges are still evolving:
+
+- There is no full CI or automated test suite yet
+- Auth and some API helpers expect companion services outside this repo
+- Open-source release ownership items such as license choice should be finalized before public publication
+
+## Contributing
+
+Contributions are welcome. Start with [CONTRIBUTING.md](./CONTRIBUTING.md) and [docs/COLLABORATION.md](./docs/COLLABORATION.md) for workflow and review expectations.
+
+## Security
+
+Please do not open public issues for sensitive vulnerabilities. Follow [SECURITY.md](./SECURITY.md).
