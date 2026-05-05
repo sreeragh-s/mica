@@ -22,7 +22,6 @@ import {
   LightbulbIcon,
   ListIcon,
   ListOrdered,
-  MicIcon,
   PenToolIcon,
   PilcrowIcon,
   Quote,
@@ -39,7 +38,6 @@ import {
   insertBlock,
   insertInlineElement,
 } from '@/components/editor/transforms';
-import { openMeetingRecorder } from '@/components/meeting-recorder-dialog';
 
 const OPEN_SELECT_WIKI_EVENT = 'open-select-wiki';
 
@@ -261,21 +259,6 @@ const groups: Group[] = [
         insertInlineElement(editor, value);
       },
     })),
-  },
-  {
-    group: 'Meetings',
-    items: [
-      {
-        focusEditor: false,
-        icon: <MicIcon />,
-        keywords: ['record', 'meeting', 'audio', 'transcribe', 'transcript'],
-        label: 'Record Meeting',
-        value: 'record_meeting',
-        onSelect: (editor) => {
-          openMeetingRecorder(editor);
-        },
-      },
-    ],
   },
   {
     group: 'Media',

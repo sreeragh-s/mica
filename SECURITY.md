@@ -20,7 +20,6 @@ Areas that deserve extra scrutiny in this project:
 - local filesystem access
 - Git command execution
 - auth and session flows
-- native sidecars and capture permissions
 - API key handling and external AI integrations
 
 ## Secret handling

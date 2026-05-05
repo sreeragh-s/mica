@@ -61,7 +61,6 @@ import {
   UPDATE_BROWSER_TAB_EVENT,
   type BrowserTabUpdate,
 } from "./lib/browser-settings";
-import { MeetingRecorderDialog } from "./components/meeting-recorder-dialog";
 import { logInstantFeel } from "./lib/instant-feel-logger";
 
 interface SelectedFile {
@@ -987,7 +986,6 @@ function App() {
           )}
         </div>
       </SidebarProvider>
-      <MeetingRecorderDialog />
     </TooltipProvider>
   );
 }

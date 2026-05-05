@@ -27,13 +27,6 @@
     "fs:scope-home-recursive",
     "fs:scope-desktop-recursive",
     "fs:scope-document-recursive",
-    "fs:scope-download-recursive",
-    {
-      "identifier": "shell:allow-spawn",
-      "allow": [
-        { "name": "binaries/notelab-mic-capture", "sidecar": true, "args": [] },
-        { "name": "binaries/notelab-system-capture", "sidecar": true, "args": [] }
-      ]
-    }
+    "fs:scope-download-recursive"
   ]
 }

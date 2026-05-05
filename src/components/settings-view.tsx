@@ -23,7 +23,7 @@ const panelHeadings: Record<
   },
   editor: {
     title: "Editor",
-    description: "Auto suggestions, ghost text, link handling, and writing assistance.",
+    description: "Editor behavior, link handling, and writing assistance.",
   },
   shortcuts: {
     title: "Shortcuts",

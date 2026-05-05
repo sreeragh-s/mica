@@ -2,7 +2,6 @@ mod cli_chat;
 mod git;
 mod git_support;
 mod github_cli;
-mod meeting_capture;
 mod workspace_index;
 mod workspace_tree;
 #[tauri::command]
@@ -119,8 +118,6 @@ pub fn run() {
             read_workspace_tree,
             start_workspace_tree_watcher,
             stop_workspace_tree_watcher,
-            meeting_capture::start_meeting_capture,
-            meeting_capture::stop_meeting_capture,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -54,7 +54,6 @@ For UI changes, note which of these you tested:
 - note create/open/save
 - source-control sidebar behavior
 - CLI provider chat flows if touched
-- meeting recorder flow if touched
 
 ## Communication norms
 
@@ -71,4 +70,3 @@ Take extra care around:
 - Git commands that can discard user work
 - auth/session handling
 - environment variable usage
-- native sidecars and audio capture permissions

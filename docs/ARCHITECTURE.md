@@ -2,7 +2,7 @@
 
 ## Overview
 
-NoteLab is a Tauri desktop application with a React renderer and a Rust native backend. The app is designed around a local workspace on disk, with the frontend handling editing and interaction while the Tauri layer exposes native commands for filesystem-heavy work, Git operations, streaming model integrations, and meeting transcription.
+NoteLab is a Tauri desktop application with a React renderer and a Rust native backend. The app is designed around a local workspace on disk, with the frontend handling editing and interaction while the Tauri layer exposes native commands for filesystem-heavy work, Git operations, and streaming model integrations.
 
 ## High-level layers
 
@@ -15,14 +15,13 @@ The React app owns:
 - editor composition and slash-command UX
 - source-control UI
 - settings, onboarding, and auth UX
-- orchestration for wiki-link indexing, CLI provider chat, and transcription dialogs
+- orchestration for wiki-link indexing and CLI provider chat
 
 Key areas:
 
 - `src/App.tsx`: top-level shell, workspace/session orchestration, tabs, sidebars
 - `src/components/editor/`: editor composition, plugins, toolbars, transforms
 - `src/components/source-control-sidebar.tsx`: Git UX backed by Tauri commands
-- `src/components/meeting-recorder-dialog.tsx`: transcription session UX
 - `src/lib/`: shared client-side helpers for auth, workspace state, shortcuts, indexing, and CLI chat integration
 
 ### Native backend: `src-tauri/src/`
@@ -36,11 +35,6 @@ Modules:
 - `workspace_tree.rs`: workspace snapshots and filesystem watchers
 - `workspace_index.rs`: wiki-link indexing and note connection data
 - `cli_chat.rs`: local Codex, OpenCode, and Claude CLI status plus streaming chat
-- `meeting_capture.rs`: OpenAI Realtime transcription orchestration
-
-### Native sidecars: `src-tauri/native/`
-
-Swift command-line binaries capture microphone and system audio on macOS. They are compiled into `src-tauri/binaries/` via [`src-tauri/build_sidecars.sh`](/Users/sreeraghs/Documents/projects/notelab-tauri/src-tauri/build_sidecars.sh).
 
 ## Core flows
 
@@ -72,14 +66,6 @@ Swift command-line binaries capture microphone and system audio on macOS. They a
 2. Model search and pull are handled natively.
 3. Chat requests stream back to the renderer through Tauri event channels.
 
-### Meeting transcription flow
-
-1. The renderer opens the meeting recorder dialog and requests capture.
-2. Rust reads `OPENAI_API_KEY`, mints a Realtime client secret, and spawns audio sidecars.
-3. One WebSocket is opened per audio source to the OpenAI Realtime transcription API.
-4. Transcript deltas and completions are emitted back to the renderer.
-5. The user can insert the transcript into the current editor session.
-
 ## State boundaries
 
 - Persistent workspace UI state is stored in browser local storage
@@ -91,11 +77,9 @@ Swift command-line binaries capture microphone and system audio on macOS. They a
 
 - Git and optionally GitHub CLI for source-control publishing flows
 - Codex, OpenCode, or Claude Code CLI for sidebar chat
-- OpenAI Realtime API for meeting transcription
 - Better Auth-compatible backend for authenticated flows
 
 ## Open architecture considerations
 
 - The `src/app/api/` routes act like companion server handlers and are not the primary runtime entry point for the Tauri renderer
-- Some advanced features are macOS-specific today, especially around audio capture
 - The app currently favors direct module organization over a strict domain-package split, which keeps iteration fast but means contributors should read flow boundaries before large refactors

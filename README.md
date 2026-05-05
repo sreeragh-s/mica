@@ -1,6 +1,6 @@
 # NoteLab Tauri
 
-NoteLab is a local-first desktop notes workspace built with Tauri, React, and Rust. It combines a rich editor, workspace file tree, wiki-style linking, CLI AI chat, Git/source control flows, and a meeting transcription pipeline for turning live conversations into notes.
+NoteLab is a local-first desktop notes workspace built with Tauri, React, and Rust. It combines a rich editor, workspace file tree, wiki-style linking, CLI AI chat, and Git/source control flows.
 
 This repository is the desktop client. It is optimized for personal knowledge work on macOS today, with some features already structured to support broader platform coverage over time.
 
@@ -11,7 +11,6 @@ This repository is the desktop client. It is optimized for personal knowledge wo
 - Wiki-link indexing and graph views for note relationships
 - Built-in Git flows for status, staging, branching, commits, and publish helpers
 - AI chat through local Codex, OpenCode, or Claude Code CLI installations
-- Meeting transcription through OpenAI Realtime plus native macOS capture sidecars
 - Optional sign-in flow through a Better Auth-compatible backend
 
 ## Tech stack
@@ -22,14 +21,13 @@ This repository is the desktop client. It is optimized for personal knowledge wo
 - Editor: Plate
 - State and UI: Zustand, Radix, custom UI primitives
 - AI chat: Codex, OpenCode, or Claude Code CLI
-- Meeting transcription: OpenAI Realtime API
 
 ## Repository layout
 
 ```text
 .
 ├── src/                 # React app, editor UI, workspace UX, frontend helpers
-├── src-tauri/           # Tauri app, Rust commands, native sidecars, bundle config
+├── src-tauri/           # Tauri app, Rust commands, and bundle config
 ├── public/              # Static assets
 ├── docs/                # Project, architecture, and collaboration documentation
 └── .github/             # Issue and pull-request templates
@@ -66,7 +64,6 @@ npm run dev
 Desktop app:
 
 ```bash
-./src-tauri/build_sidecars.sh
 npm run tauri dev
 ```
 
@@ -86,16 +83,12 @@ The checked-in `.env.example` documents the expected shape.
 - `VITE_BETTER_AUTH_URL`: optional auth service origin. Defaults to `http://localhost:8787`
 - `VITE_APP_ORIGIN`: optional app origin override for auth callback generation
 
-### AI and transcription
+### AI
 
-- `OPENAI_API_KEY`: required for the meeting recorder flow
-- `VITE_OPENAI_API_KEY`: supported as a fallback by the Rust transcription pipeline, but `OPENAI_API_KEY` is preferred
 - `AI_GATEWAY_API_KEY`: used by the companion AI route handlers under `src/app/api`
 
 ## Platform notes
 
-- Meeting recording sidecars are currently macOS-focused
-- System audio capture requires macOS 14.4+
 - The desktop app itself is Tauri-based and the codebase is structured for broader support, but some advanced flows are not yet cross-platform
 
 ## Project docs

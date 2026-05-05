@@ -7,8 +7,7 @@ Thanks for contributing to NoteLab.
 1. Install the prerequisites from [README.md](./README.md).
 2. Install dependencies with `npm install`.
 3. Copy `.env.example` to `.env` and fill in only the variables you need.
-4. If you are working on the desktop app, build the macOS sidecars with `./src-tauri/build_sidecars.sh`.
-5. Start the app with `npm run tauri dev` or the frontend with `npm run dev`.
+4. Start the app with `npm run tauri dev` or the frontend with `npm run dev`.
 
 ## Where to start
 
