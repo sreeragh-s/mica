@@ -3,7 +3,7 @@
   "configVersion": 0,
   "workspaces": {
     "": {
-      "name": "notelab-tauri",
+      "name": "mica",
       "dependencies": {
         "@ai-sdk/react": "^3.0.163",
         "@ariakit/react": "^0.4.25",

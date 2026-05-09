@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Install or upgrade NoteLab on macOS.
+# Install or upgrade Mica on macOS.
 #
 # Usage:
-#   curl -fsSL https://github.com/sreeragh-s/notelab/releases/latest/download/install.sh | bash
+#   curl -fsSL https://github.com/sreeragh-s/mica/releases/latest/download/install.sh | bash
 #
 # Why this exists: the GitHub-hosted DMG isn't notarized with Apple, so a browser
 # download triggers macOS Gatekeeper's "app is damaged" warning. This script
@@ -11,8 +11,8 @@
 
 set -euo pipefail
 
-REPO="sreeragh-s/notelab"
-APP_NAME="notelab-tauri.app"
+REPO="sreeragh-s/mica"
+APP_NAME="mica.app"
 INSTALL_DIR="/Applications"
 
 if [ "$(uname -s)" != "Darwin" ]; then
@@ -29,7 +29,7 @@ esac
 # Optional first arg pins a specific version (e.g. "v0.1.3"). Falls back to latest.
 TAG="${1:-}"
 if [ -z "$TAG" ]; then
-  echo "Resolving the latest NoteLab release..."
+  echo "Resolving the latest Mica release..."
   TAG=$(curl -fsSL "https://api.github.com/repos/${REPO}/releases/latest" \
     | grep -m1 '"tag_name"' \
     | sed -E 's/.*"([^"]+)".*/\1/' \
@@ -43,10 +43,10 @@ else
 fi
 
 VERSION="${TAG#v}"
-ASSET="notelab-tauri_${VERSION}_${ARCH}.app.tar.gz"
+ASSET="mica_${VERSION}_${ARCH}.app.tar.gz"
 URL="https://github.com/${REPO}/releases/download/${TAG}/${ASSET}"
 
-echo "Installing NoteLab ${TAG} (${ARCH})..."
+echo "Installing Mica ${TAG} (${ARCH})..."
 
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
@@ -68,7 +68,7 @@ mv "${TMP}/${APP_NAME}" "${INSTALL_DIR}/"
 xattr -cr "${INSTALL_DIR}/${APP_NAME}" 2>/dev/null || true
 
 echo ""
-echo "✓ Installed NoteLab ${TAG} → ${INSTALL_DIR}/${APP_NAME}"
+echo "✓ Installed Mica ${TAG} → ${INSTALL_DIR}/${APP_NAME}"
 echo ""
 echo "Launch with:"
 echo "  open '${INSTALL_DIR}/${APP_NAME}'"

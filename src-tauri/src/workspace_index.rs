@@ -178,7 +178,7 @@ fn workspace_id(workspace: &str) -> String {
 fn snapshot_file_path(workspace: &str) -> Result<PathBuf, String> {
     let cache_root = dirs::cache_dir()
         .ok_or_else(|| "Could not resolve the application cache directory.".to_string())?;
-    let dir = cache_root.join("notelab").join("workspace-index");
+    let dir = cache_root.join("mica").join("workspace-index");
     fs::create_dir_all(&dir).map_err(|error| {
         format!(
             "Could not create workspace index cache directory: {}",

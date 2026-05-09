@@ -2,7 +2,7 @@
 
 ## Our standard
 
-We want NoteLab to be a respectful, constructive project where people can collaborate safely across different experience levels and perspectives.
+We want Mica to be a respectful, constructive project where people can collaborate safely across different experience levels and perspectives.
 
 Examples of positive behavior:
 

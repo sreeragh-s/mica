@@ -1,6 +1,6 @@
 import type { BetterFetchError } from "@better-fetch/fetch"
 
-const STORAGE_KEY = "notelab_cached_auth_user"
+const STORAGE_KEY = "mica_cached_auth_user"
 
 export type CachedAuthUser = {
   id: string

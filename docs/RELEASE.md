@@ -1,6 +1,6 @@
 # Release Runbook
 
-NoteLab ships as a macOS desktop app for both **Apple Silicon (arm64)** and **Intel (x86_64)**, built locally and published to GitHub Releases. The installed app uses Tauri's auto-updater to discover new releases from this repo.
+Mica ships as a macOS desktop app for both **Apple Silicon (arm64)** and **Intel (x86_64)**, built locally and published to GitHub Releases. The installed app uses Tauri's auto-updater to discover new releases from this repo.
 
 ## One-time setup
 
@@ -19,12 +19,12 @@ The release script will also run `rustup target add` defensively, so this is mos
 The Tauri updater refuses to apply unsigned bundles. Generate a keypair **once** and store it safely:
 
 ```bash
-npx tauri signer generate -w ~/.tauri/notelab.key
+npx tauri signer generate -w ~/.tauri/mica.key
 ```
 
 You'll get two pieces:
 
-- A **private key** at `~/.tauri/notelab.key` — keep secret, never commit.
+- A **private key** at `~/.tauri/mica.key` — keep secret, never commit.
 - A **public key** printed to the terminal (base64 string).
 
 Paste the public key into `src-tauri/tauri.conf.json` under `plugins.updater.pubkey`, replacing the placeholder.
@@ -32,7 +32,7 @@ Paste the public key into `src-tauri/tauri.conf.json` under `plugins.updater.pub
 ### 3. Set signing env vars in your shell profile
 
 ```bash
-export TAURI_SIGNING_PRIVATE_KEY="$(cat ~/.tauri/notelab.key)"
+export TAURI_SIGNING_PRIVATE_KEY="$(cat ~/.tauri/mica.key)"
 export TAURI_SIGNING_PRIVATE_KEY_PASSWORD="<the password you chose>"
 ```
 
@@ -69,7 +69,7 @@ Then run the printed commands to push the tag and create the GitHub Release with
 `src-tauri/tauri.conf.json` points at:
 
 ```
-https://github.com/sreeragh-s/notelab/releases/latest/download/latest.json
+https://github.com/sreeragh-s/mica/releases/latest/download/latest.json
 ```
 
 GitHub auto-redirects `/releases/latest/download/<asset>` to the newest non-draft, non-pre-release release. As long as you upload `latest.json` to each Release and don't mark it as a draft, the URL never changes.
@@ -96,7 +96,7 @@ The release script bakes the unblock command into every GitHub release's notes, 
 
 > **Mac users:** macOS will say the app is "damaged" because we don't notarize. After dragging to /Applications, run this once in Terminal:
 > ```
-> xattr -cr /Applications/notelab-tauri.app
+> xattr -cr /Applications/mica.app
 > ```
 
 If you ever want to switch on notarization later, set `APPLE_CERTIFICATE`, `APPLE_CERTIFICATE_PASSWORD`, `APPLE_SIGNING_IDENTITY`, `APPLE_ID`, `APPLE_TEAM_ID`, `APPLE_PASSWORD` in `.env` — Tauri picks them up automatically and the "damaged" warning disappears for end users.
@@ -107,4 +107,4 @@ If you ever want to switch on notarization later, set `APPLE_CERTIFICATE`, `APPL
 - **`Missing .app.tar.gz under .../macos/`** — `createUpdaterArtifacts` may be off in `tauri.conf.json`, or signing env isn't loaded.
 - **Updater says "no update"** when there should be one — check that the new release is marked latest, that `latest.json` is attached as an asset, and that the `version` field inside `latest.json` is greater than the installed version.
 - **Updater errors on signature** — the `pubkey` in `tauri.conf.json` doesn't match the private key used to sign. Regenerate or correct.
-- **"App is damaged and can't be opened"** on a downloaded DMG — see Apple notarization section above. For local testing: `sudo xattr -cr /Applications/notelab-tauri.app`.
+- **"App is damaged and can't be opened"** on a downloaded DMG — see Apple notarization section above. For local testing: `sudo xattr -cr /Applications/mica.app`.

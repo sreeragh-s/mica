@@ -1,6 +1,6 @@
-# NoteLab Tauri
+# Mica
 
-NoteLab is a local-first desktop notes workspace built with Tauri, React, and Rust. It combines a rich editor, workspace file tree, wiki-style linking, CLI AI chat, and Git/source control flows.
+Mica is a local-first desktop notes workspace built with Tauri, React, and Rust. It combines a rich editor, workspace file tree, wiki-style linking, CLI AI chat, and Git/source control flows.
 
 This repository is the desktop client. It is optimized for personal knowledge work on macOS today, with some features already structured to support broader platform coverage over time.
 

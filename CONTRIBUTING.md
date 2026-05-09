@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for contributing to NoteLab.
+Thanks for contributing to Mica.
 
 ## Development setup
 

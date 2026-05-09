@@ -200,7 +200,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                 </span>
               </div>
               <div className="space-y-2">
-                <h1 className="font-heading text-2xl font-semibold tracking-tight">Notelab</h1>
+                <h1 className="font-heading text-2xl font-semibold tracking-tight">Mica</h1>
                 <p className="text-sm leading-relaxed text-muted-foreground">
                   A calm place for notes and markdown, with your files on disk. Take a minute to
                   connect Git and choose where your workspace lives — then you can sign in or
@@ -216,7 +216,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
             <CardHeader className="border-b border-border/60">
               <CardTitle>Git setup</CardTitle>
               <CardDescription>
-                Notelab uses Git for version history. We check that Git is installed and set your
+                Mica uses Git for version history. We check that Git is installed and set your
                 global name and email (used by commits on this machine).
               </CardDescription>
             </CardHeader>
@@ -451,7 +451,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
               <CardTitle>Workspace folder</CardTitle>
               <CardDescription>
                 Notes and files live in this folder on your computer. We default to{" "}
-                <span className="font-medium text-foreground">Documents/notelab</span> and create
+                <span className="font-medium text-foreground">Documents/mica</span> and create
                 it if needed. You can pick another location anytime.
               </CardDescription>
             </CardHeader>

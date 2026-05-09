@@ -2,7 +2,7 @@
 
 ## Overview
 
-NoteLab is a Tauri desktop application with a React renderer and a Rust native backend. The app is designed around a local workspace on disk, with the frontend handling editing and interaction while the Tauri layer exposes native commands for filesystem-heavy work, Git operations, and streaming model integrations.
+Mica is a Tauri desktop application with a React renderer and a Rust native backend. The app is designed around a local workspace on disk, with the frontend handling editing and interaction while the Tauri layer exposes native commands for filesystem-heavy work, Git operations, and streaming model integrations.
 
 ## High-level layers
 

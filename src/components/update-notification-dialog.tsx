@@ -33,7 +33,7 @@ export function UpdateNotificationDialog() {
         <DialogHeader>
           <DialogTitle>Update available</DialogTitle>
           <DialogDescription>
-            NoteLab v{version} is ready to install. The app will restart to apply
+            Mica v{version} is ready to install. The app will restart to apply
             the update.
           </DialogDescription>
         </DialogHeader>

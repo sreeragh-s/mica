@@ -151,7 +151,7 @@ function main() {
 
     // GitHub release assets must have unique names. Tauri's tarball/sig don't
     // include the arch, so rename them per-target before staging + uploading.
-    const tarGzName = `notelab-tauri_${newVersion}_${dirName}.app.tar.gz`
+    const tarGzName = `mica_${newVersion}_${dirName}.app.tar.gz`
     const sigName = `${tarGzName}.sig`
     copyFileSync(dmg, join(targetDir, basename(dmg)))
     copyFileSync(tarGz, join(targetDir, tarGzName))
@@ -184,7 +184,7 @@ function main() {
   //    a manual fallback for users who prefer not to pipe curl into bash.
   const notesPath = join(versionDir, "RELEASE_NOTES.md")
   const releaseNotes = [
-    `## NoteLab v${newVersion}`,
+    `## Mica v${newVersion}`,
     ``,
     `### Install on macOS (recommended)`,
     ``,
@@ -197,13 +197,13 @@ function main() {
     `### Manual install`,
     ``,
     `1. Download the DMG for your Mac:`,
-    `   - Apple Silicon: \`notelab-tauri_${newVersion}_aarch64.dmg\``,
-    `   - Intel: \`notelab-tauri_${newVersion}_x64.dmg\``,
+    `   - Apple Silicon: \`mica_${newVersion}_aarch64.dmg\``,
+    `   - Intel: \`mica_${newVersion}_x64.dmg\``,
     `2. Open the DMG and drag the app into \`/Applications\`.`,
     `3. macOS will say the app is "damaged" because we don't notarize. Run this once in Terminal to allow it:`,
     ``,
     `   \`\`\``,
-    `   xattr -cr /Applications/notelab-tauri.app`,
+    `   xattr -cr /Applications/mica.app`,
     `   \`\`\``,
     ``,
     `4. Launch from /Applications. Future updates apply automatically — no need to repeat step 3.`,

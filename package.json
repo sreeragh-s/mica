@@ -1,5 +1,5 @@
 {
-  "name": "notelab-tauri",
+  "name": "mica",
   "private": true,
   "version": "0.1.0",
   "description": "Local-first Tauri notes workspace with wiki links, Git, and CLI AI chat.",

@@ -37,7 +37,7 @@ export const ModelsSettingsPanel = React.memo(function ModelsSettingsPanel() {
               CLI Providers
             </h2>
             <p className="mt-1.5 text-xs text-muted-foreground">
-              NoteLab chat connects directly to local Codex, OpenCode, and Claude Code CLI
+              Mica chat connects directly to local Codex, OpenCode, and Claude Code CLI
               installations available on PATH.
             </p>
           </div>

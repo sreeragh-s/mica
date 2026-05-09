@@ -188,7 +188,7 @@ function buildContextMessage({
   workspace: string | null
 }): CliChatMessage {
   const lines = [
-    "You are running inside NoteLab chat.",
+    "You are running inside Mica chat.",
     workspace ? `Current workspace: ${workspace}` : "No workspace is currently open.",
     activeFilePath
       ? `Current active note/file: ${activeFilePath}`

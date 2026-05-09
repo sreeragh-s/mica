@@ -50,9 +50,9 @@ export function LoginForm({
               <div className="flex size-8 items-center justify-center rounded-md">
                 <HugeiconsIcon icon={LayoutBottomIcon} strokeWidth={2} className="size-6" />
               </div>
-              <span className="sr-only">Notelab</span>
+              <span className="sr-only">Mica</span>
             </a>
-            <h1 className="text-xl font-bold">Welcome to Notelab</h1>
+            <h1 className="text-xl font-bold">Welcome to Mica</h1>
             <FieldDescription>
               Sign in to your account or continue as a guest
             </FieldDescription>
