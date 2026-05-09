@@ -7,6 +7,7 @@ import { SidebarLeftIcon } from "@hugeicons/core-free-icons"
 import { LinkIcon, MessageSquareIcon } from "lucide-react"
 import type { RightSidebarView } from "./app-sidebar-right"
 import type { WikiLinkIndexingState } from "@/lib/wikilink-utils"
+import { applyUpdate, useUpdaterStore } from "@/lib/updater"
 
 type AppTopbarProps = {
   isFullscreen: boolean
@@ -133,6 +134,7 @@ export const AppTopbar = React.memo(function AppTopbar({
             </span>
           </div>
         ) : null}
+        <UpdateStatusChip />
       </div>
       <Button
         type="button"
@@ -169,3 +171,38 @@ export const AppTopbar = React.memo(function AppTopbar({
     </div>
   )
 })
+
+function UpdateStatusChip() {
+  const status = useUpdaterStore((s) => s.status)
+
+  if (status.phase === "idle" || status.phase === "checking" || status.phase === "error") {
+    return null
+  }
+
+  if (status.phase === "available") {
+    return (
+      <button
+        type="button"
+        onClick={() => void applyUpdate()}
+        className="shrink-0 rounded-full border border-border/60 bg-background/80 px-2.5 py-1 text-[11px] text-foreground/80 hover:bg-sidebar-accent/50"
+        title={`Click to install v${status.version}`}
+      >
+        Update available
+      </button>
+    )
+  }
+
+  if (status.phase === "downloading") {
+    return (
+      <div className="flex shrink-0 items-center gap-2 rounded-full border border-border/60 bg-background/80 px-2.5 py-1 text-[11px] text-muted-foreground">
+        <span>Downloading update… {status.percent}%</span>
+      </div>
+    )
+  }
+
+  return (
+    <div className="shrink-0 rounded-full border border-border/60 bg-background/80 px-2.5 py-1 text-[11px] text-muted-foreground">
+      Restarting to update…
+    </div>
+  )
+}

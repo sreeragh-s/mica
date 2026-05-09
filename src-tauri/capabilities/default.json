@@ -27,6 +27,9 @@
     "fs:scope-home-recursive",
     "fs:scope-desktop-recursive",
     "fs:scope-document-recursive",
-    "fs:scope-download-recursive"
+    "fs:scope-download-recursive",
+    "updater:default",
+    "process:default",
+    "process:allow-restart"
   ]
 }

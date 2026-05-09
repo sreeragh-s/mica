@@ -8,7 +8,10 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "release": "node --env-file=.env scripts/release.mjs",
+    "release:minor": "node --env-file=.env scripts/release.mjs --minor",
+    "release:major": "node --env-file=.env scripts/release.mjs --major"
   },
   "dependencies": {
     "@ai-sdk/react": "^3.0.163",
@@ -65,6 +68,8 @@
     "@tauri-apps/plugin-dialog": "^2.7.0",
     "@tauri-apps/plugin-fs": "^2.5.0",
     "@tauri-apps/plugin-opener": "^2",
+    "@tauri-apps/plugin-process": "^2.3.1",
+    "@tauri-apps/plugin-updater": "^2",
     "@udecode/cn": "^52.3.4",
     "@uploadthing/react": "^7.3.3",
     "ai": "^6.0.168",

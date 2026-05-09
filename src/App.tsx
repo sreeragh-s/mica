@@ -62,6 +62,8 @@ import {
   type BrowserTabUpdate,
 } from "./lib/browser-settings";
 import { logInstantFeel } from "./lib/instant-feel-logger";
+import { armUpdateCheck } from "./lib/updater";
+import { UpdateNotificationDialog } from "./components/update-notification-dialog";
 
 interface SelectedFile {
   id: string;
@@ -169,6 +171,10 @@ function App() {
 
   useEffect(() => {
     setOnboardingDone(isOnboardingComplete());
+  }, []);
+
+  useEffect(() => {
+    armUpdateCheck();
   }, []);
 
   useEffect(() => {
@@ -986,6 +992,7 @@ function App() {
           )}
         </div>
       </SidebarProvider>
+      <UpdateNotificationDialog />
     </TooltipProvider>
   );
 }
