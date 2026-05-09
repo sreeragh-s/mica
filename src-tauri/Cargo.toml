@@ -1,6 +1,6 @@
 [package]
 name = "notelab-tauri"
-version = "0.1.0"
+version = "0.1.1"
 description = "Local-first Tauri notes workspace with wiki links, Git flows, and CLI AI chat."
 authors = ["NoteLab contributors"]
 edition = "2021"
@@ -27,4 +27,5 @@ tokio = { version = "1", features = ["rt", "rt-multi-thread", "macros", "sync", 
 dirs = "6"
 tauri-plugin-dialog = "2.7.0"
 tauri-plugin-fs = "2.5.0"
+tauri-plugin-updater = "2"
 notify = "6.1.1"

@@ -62,6 +62,7 @@ import {
   type BrowserTabUpdate,
 } from "./lib/browser-settings";
 import { logInstantFeel } from "./lib/instant-feel-logger";
+import { armUpdateCheck } from "./lib/updater";
 
 interface SelectedFile {
   id: string;
@@ -169,6 +170,10 @@ function App() {
 
   useEffect(() => {
     setOnboardingDone(isOnboardingComplete());
+  }, []);
+
+  useEffect(() => {
+    armUpdateCheck();
   }, []);
 
   useEffect(() => {
