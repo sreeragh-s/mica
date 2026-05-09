@@ -4,6 +4,7 @@ import * as React from "react"
 import { remove } from "@tauri-apps/plugin-fs"
 import { revealItemInDir } from "@tauri-apps/plugin-opener"
 import { Menu, PredefinedMenuItem } from "@tauri-apps/api/menu"
+import { message as messageDialog } from "@tauri-apps/plugin-dialog"
 import {
   FileTree as PierreFileTree,
   useFileTree,
@@ -32,40 +33,40 @@ const LUCIDE_SYMBOL_ATTRS =
   'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"'
 
 const CUSTOM_ICON_SPRITE = `<svg xmlns="http://www.w3.org/2000/svg" style="display:none">
-  <symbol id="notelab-icon-file" viewBox="0 0 24 24" ${LUCIDE_SYMBOL_ATTRS}>
+  <symbol id="mica-icon-file" viewBox="0 0 24 24" ${LUCIDE_SYMBOL_ATTRS}>
     <path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z"/>
     <path d="M14 2v5a1 1 0 0 0 1 1h5"/>
   </symbol>
-  <symbol id="notelab-icon-file-text" viewBox="0 0 24 24" ${LUCIDE_SYMBOL_ATTRS}>
+  <symbol id="mica-icon-file-text" viewBox="0 0 24 24" ${LUCIDE_SYMBOL_ATTRS}>
     <path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z"/>
     <path d="M14 2v5a1 1 0 0 0 1 1h5"/>
     <path d="M10 9H8"/>
     <path d="M16 13H8"/>
     <path d="M16 17H8"/>
   </symbol>
-  <symbol id="notelab-icon-file-code" viewBox="0 0 24 24" ${LUCIDE_SYMBOL_ATTRS}>
+  <symbol id="mica-icon-file-code" viewBox="0 0 24 24" ${LUCIDE_SYMBOL_ATTRS}>
     <path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z"/>
     <path d="M14 2v5a1 1 0 0 0 1 1h5"/>
     <path d="M10 12.5 8 15l2 2.5"/>
     <path d="m14 12.5 2 2.5-2 2.5"/>
   </symbol>
-  <symbol id="notelab-icon-file-image" viewBox="0 0 24 24" ${LUCIDE_SYMBOL_ATTRS}>
+  <symbol id="mica-icon-file-image" viewBox="0 0 24 24" ${LUCIDE_SYMBOL_ATTRS}>
     <path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z"/>
     <path d="M14 2v5a1 1 0 0 0 1 1h5"/>
     <circle cx="10" cy="12" r="2"/>
     <path d="m20 17-1.296-1.296a2.41 2.41 0 0 0-3.408 0L9 22"/>
   </symbol>
-  <symbol id="notelab-icon-video" viewBox="0 0 24 24" ${LUCIDE_SYMBOL_ATTRS}>
+  <symbol id="mica-icon-video" viewBox="0 0 24 24" ${LUCIDE_SYMBOL_ATTRS}>
     <path d="m16 13 5.223 3.482a.5.5 0 0 0 .777-.416V7.87a.5.5 0 0 0-.752-.432L16 10.5"/>
     <rect x="2" y="6" width="14" height="12" rx="2"/>
   </symbol>
 </svg>`
 
-const LUCIDE_FILE = { name: "notelab-icon-file", viewBox: "0 0 24 24" }
-const LUCIDE_FILE_TEXT = { name: "notelab-icon-file-text", viewBox: "0 0 24 24" }
-const LUCIDE_FILE_CODE = { name: "notelab-icon-file-code", viewBox: "0 0 24 24" }
-const LUCIDE_FILE_IMAGE = { name: "notelab-icon-file-image", viewBox: "0 0 24 24" }
-const LUCIDE_VIDEO = { name: "notelab-icon-video", viewBox: "0 0 24 24" }
+const LUCIDE_FILE = { name: "mica-icon-file", viewBox: "0 0 24 24" }
+const LUCIDE_FILE_TEXT = { name: "mica-icon-file-text", viewBox: "0 0 24 24" }
+const LUCIDE_FILE_CODE = { name: "mica-icon-file-code", viewBox: "0 0 24 24" }
+const LUCIDE_FILE_IMAGE = { name: "mica-icon-file-image", viewBox: "0 0 24 24" }
+const LUCIDE_VIDEO = { name: "mica-icon-video", viewBox: "0 0 24 24" }
 
 const CODE_EXTENSIONS = [
   "ts", "tsx", "js", "jsx", "mjs", "cjs",
@@ -151,6 +152,42 @@ function resolveDropDestination(
   return `${directoryPath}${sourceName}`
 }
 
+function splitNameAndExtension(name: string): { base: string; ext: string } {
+  const isFolder = name.endsWith("/")
+  const trimmed = isFolder ? name.slice(0, -1) : name
+  const dotIdx = trimmed.lastIndexOf(".")
+  if (dotIdx <= 0) {
+    return { base: trimmed, ext: isFolder ? "/" : "" }
+  }
+  return {
+    base: trimmed.slice(0, dotIdx),
+    ext: trimmed.slice(dotIdx) + (isFolder ? "/" : ""),
+  }
+}
+
+function resolveAvailableDestination(
+  model: FileTreeModel,
+  desiredDest: string,
+  sourcePath: string
+): string {
+  if (desiredDest === sourcePath) return desiredDest
+  if (!model.getItem(desiredDest)) return desiredDest
+
+  const directoryPath = desiredDest.includes("/")
+    ? desiredDest.slice(0, desiredDest.lastIndexOf("/", desiredDest.length - 2) + 1)
+    : ""
+  const sourceName = basename(desiredDest)
+  const { base, ext } = splitNameAndExtension(sourceName)
+  let counter = 1
+  while (counter < 1000) {
+    const candidate = `${directoryPath}${base} ${counter}${ext}`
+    if (candidate === sourcePath) return candidate
+    if (!model.getItem(candidate)) return candidate
+    counter++
+  }
+  return desiredDest
+}
+
 type FileTreeModel = ReturnType<typeof useFileTree>["model"]
 
 export const FileTree = React.memo(function FileTree() {
@@ -232,27 +269,30 @@ export const FileTree = React.memo(function FileTree() {
         for (const src of event.draggedPaths) {
           const dest = resolveDropDestination(src, destDir)
           if (dest === src) continue
-          try {
-            await storeInstanceRef.current.moveEntry(src, dest)
-            const sourceAbs = toAbsolutePath(src, ws)
-            const destAbs = toAbsolutePath(dest, ws)
-            const name = basename(dest).replace(/\/$/, "")
-            const isDir = src.endsWith("/")
+          const sourceAbs = toAbsolutePath(src, ws)
+          const destAbs = toAbsolutePath(dest, ws)
+          const name = basename(dest).replace(/\/$/, "")
+          const sourceName = basename(src).replace(/\/$/, "")
+          const isDir = src.endsWith("/")
+
+          if (desiredActivePathRef.current === sourceAbs) {
+            desiredActivePathRef.current = destAbs
+          }
+          window.dispatchEvent(
+            new CustomEvent("entry-moved", {
+              detail: { path: sourceAbs, nextPath: destAbs, name, isDir },
+            })
+          )
+          if (!isDir) {
             window.dispatchEvent(
-              new CustomEvent("entry-moved", {
-                detail: { path: sourceAbs, nextPath: destAbs, name, isDir },
+              new CustomEvent("file-renamed", {
+                detail: { path: sourceAbs, nextPath: destAbs, name },
               })
             )
-            if (!isDir) {
-              window.dispatchEvent(
-                new CustomEvent("file-renamed", {
-                  detail: { path: sourceAbs, nextPath: destAbs, name },
-                })
-              )
-              if (desiredActivePathRef.current === sourceAbs) {
-                desiredActivePathRef.current = destAbs
-              }
-            }
+          }
+
+          try {
+            await storeInstanceRef.current.moveEntry(src, dest)
           } catch (err) {
             console.error("[FileTree] Move failed", err)
             try {
@@ -260,12 +300,66 @@ export const FileTree = React.memo(function FileTree() {
             } catch {
               /* model already reverted or path gone */
             }
-            globalThis.alert(`Failed to move item: ${err}`)
+            window.dispatchEvent(
+              new CustomEvent("entry-moved", {
+                detail: { path: destAbs, nextPath: sourceAbs, name: sourceName, isDir },
+              })
+            )
+            if (!isDir) {
+              window.dispatchEvent(
+                new CustomEvent("file-renamed", {
+                  detail: { path: destAbs, nextPath: sourceAbs, name: sourceName },
+                })
+              )
+              if (desiredActivePathRef.current === destAbs) {
+                desiredActivePathRef.current = sourceAbs
+              }
+            }
+            void messageDialog(`Failed to move item: ${err}`, { title: "Move failed", kind: "error" })
           }
         }
       },
-      onDropError: (error: string) => {
-        console.error("[FileTree] Drop error", error)
+      onDropError: async (error: string, dropContext) => {
+        console.warn("[FileTree] Drop rejected, attempting rename-on-collision", error)
+        const ws = workspaceRef.current
+        const model = modelRef.current
+        if (!ws || !model) return
+        const destDir = dropContext.target.directoryPath ?? null
+
+        for (const src of dropContext.draggedPaths) {
+          const desiredDest = resolveDropDestination(src, destDir)
+          if (desiredDest === src) continue
+          const dest = resolveAvailableDestination(model, desiredDest, src)
+          if (dest === src) continue
+          const sourceAbs = toAbsolutePath(src, ws)
+          const destAbs = toAbsolutePath(dest, ws)
+          const name = basename(dest).replace(/\/$/, "")
+          const isDir = src.endsWith("/")
+
+          if (desiredActivePathRef.current === sourceAbs) {
+            desiredActivePathRef.current = destAbs
+          }
+          window.dispatchEvent(
+            new CustomEvent("entry-moved", {
+              detail: { path: sourceAbs, nextPath: destAbs, name, isDir },
+            })
+          )
+          if (!isDir) {
+            window.dispatchEvent(
+              new CustomEvent("file-renamed", {
+                detail: { path: sourceAbs, nextPath: destAbs, name },
+              })
+            )
+          }
+
+          try {
+            await storeInstanceRef.current.moveEntry(src, dest)
+            await storeInstanceRef.current.reload()
+          } catch (err) {
+            console.error("[FileTree] Move-with-rename failed", err)
+            void messageDialog(`Failed to move item: ${err}`, { title: "Move failed", kind: "error" })
+          }
+        }
       },
     }),
     []
@@ -305,11 +399,11 @@ export const FileTree = React.memo(function FileTree() {
           } catch {
             /* ignore */
           }
-          globalThis.alert(`Failed to rename: ${err}`)
+          void messageDialog(`Failed to rename: ${err}`, { title: "Rename failed", kind: "error" })
         }
       },
       onError: (error: string) => {
-        globalThis.alert(`Rename error: ${error}`)
+        void messageDialog(`Rename error: ${error}`, { title: "Rename error", kind: "error" })
       },
     }),
     []
@@ -333,6 +427,23 @@ export const FileTree = React.memo(function FileTree() {
     []
   )
 
+  const sortComparator = React.useMemo(
+    () => (left: { isDirectory: boolean; basename: string; path: string }, right: { isDirectory: boolean; basename: string; path: string }) => {
+      if (left.isDirectory !== right.isDirectory) {
+        return left.isDirectory ? -1 : 1
+      }
+      if (left.isDirectory) {
+        return left.basename.localeCompare(right.basename, undefined, { sensitivity: "base" })
+      }
+      const store = storeInstanceRef.current
+      const lm = store.getMtime(left.path) ?? 0
+      const rm = store.getMtime(right.path) ?? 0
+      if (lm !== rm) return rm - lm
+      return left.basename.localeCompare(right.basename, undefined, { sensitivity: "base" })
+    },
+    []
+  )
+
   const { model } = useFileTree({
     preparedInput,
     initialExpansion: "closed",
@@ -342,6 +453,7 @@ export const FileTree = React.memo(function FileTree() {
     search: true,
     fileTreeSearchMode: "expand-matches",
     composition: { contextMenu: contextMenuComposition },
+    sort: sortComparator,
   })
   modelRef.current = model
 
@@ -431,78 +543,131 @@ export const FileTree = React.memo(function FileTree() {
     }
   }, [applyDesiredSelection])
 
-  const [isRootDropOver, setIsRootDropOver] = React.useState(false)
-
-  const handleRootDragOver = React.useCallback((event: React.DragEvent) => {
-    if (event.defaultPrevented) return
-    const types = event.dataTransfer?.types
-    if (!types || !Array.from(types).includes("text/plain")) return
-    event.preventDefault()
-    if (event.dataTransfer) event.dataTransfer.dropEffect = "move"
-    setIsRootDropOver(true)
+  const isEventOverRow = React.useCallback((event: { nativeEvent: Event }) => {
+    const path =
+      typeof event.nativeEvent.composedPath === "function"
+        ? event.nativeEvent.composedPath()
+        : []
+    for (const el of path) {
+      if (!(el instanceof Element)) continue
+      if (
+        el.matches?.(
+          '[data-type="item"], [data-item-flattened-subitem], [data-file-tree-search-input], [data-file-tree-search-container]'
+        )
+      ) {
+        return true
+      }
+    }
+    return false
   }, [])
 
-  const handleRootDragLeave = React.useCallback((event: React.DragEvent) => {
-    const next = event.relatedTarget as Node | null
-    if (next && event.currentTarget.contains(next)) return
-    setIsRootDropOver(false)
-  }, [])
+  const handleEmptyClick = React.useCallback(
+    (event: React.MouseEvent) => {
+      if (isEventOverRow(event)) return
+      const currentModel = modelRef.current
+      if (!currentModel) return
+      for (const p of currentModel.getSelectedPaths()) {
+        currentModel.getItem(p)?.deselect()
+      }
+      desiredActivePathRef.current = null
+    },
+    [isEventOverRow]
+  )
 
-  const handleRootDrop = React.useCallback(
+  const handleEmptyDragOver = React.useCallback(
+    (event: React.DragEvent) => {
+      if (isEventOverRow(event)) return
+      const types = event.dataTransfer?.types
+      if (!types || !Array.from(types).includes("text/plain")) return
+      event.preventDefault()
+      if (event.dataTransfer) event.dataTransfer.dropEffect = "move"
+    },
+    [isEventOverRow]
+  )
+
+  const handleEmptyDrop = React.useCallback(
     async (event: React.DragEvent) => {
-      setIsRootDropOver(false)
-      if (event.defaultPrevented) return
+      if (isEventOverRow(event)) return
+      event.preventDefault()
       const src = event.dataTransfer?.getData("text/plain")
       if (!src) return
-      event.preventDefault()
 
       const ws = workspaceRef.current
       const model = modelRef.current
       if (!ws || !model) return
       if (!model.getItem(src)) return
-      const dest = basename(src)
+      const desiredDest = basename(src)
+      if (desiredDest === src) return
+      const dest = resolveAvailableDestination(model, desiredDest, src)
       if (dest === src) return
 
-      try {
-        model.move(src, dest)
-      } catch (err) {
-        console.error("[FileTree] Root move failed in model", err)
-        return
+      const sourceAbs = toAbsolutePath(src, ws)
+      const destAbs = toAbsolutePath(dest, ws)
+      const name = basename(dest).replace(/\/$/, "")
+      const sourceName = basename(src).replace(/\/$/, "")
+      const isDir = src.endsWith("/")
+
+      if (desiredActivePathRef.current === sourceAbs) {
+        desiredActivePathRef.current = destAbs
+      }
+      window.dispatchEvent(
+        new CustomEvent("entry-moved", {
+          detail: { path: sourceAbs, nextPath: destAbs, name, isDir },
+        })
+      )
+      if (!isDir) {
+        window.dispatchEvent(
+          new CustomEvent("file-renamed", {
+            detail: { path: sourceAbs, nextPath: destAbs, name },
+          })
+        )
       }
 
       try {
         await storeInstanceRef.current.moveEntry(src, dest)
-        const sourceAbs = toAbsolutePath(src, ws)
-        const destAbs = toAbsolutePath(dest, ws)
-        const name = basename(dest).replace(/\/$/, "")
-        const isDir = src.endsWith("/")
+        await storeInstanceRef.current.reload()
+      } catch (err) {
+        console.error("[FileTree] Root FS move failed", err)
         window.dispatchEvent(
           new CustomEvent("entry-moved", {
-            detail: { path: sourceAbs, nextPath: destAbs, name, isDir },
+            detail: { path: destAbs, nextPath: sourceAbs, name: sourceName, isDir },
           })
         )
         if (!isDir) {
           window.dispatchEvent(
             new CustomEvent("file-renamed", {
-              detail: { path: sourceAbs, nextPath: destAbs, name },
+              detail: { path: destAbs, nextPath: sourceAbs, name: sourceName },
             })
           )
-          if (desiredActivePathRef.current === sourceAbs) {
-            desiredActivePathRef.current = destAbs
+          if (desiredActivePathRef.current === destAbs) {
+            desiredActivePathRef.current = sourceAbs
           }
         }
-      } catch (err) {
-        console.error("[FileTree] Root FS move failed", err)
-        try {
-          model.move(dest, src)
-        } catch {
-          /* ignore */
-        }
-        globalThis.alert(`Failed to move item: ${err}`)
+        void messageDialog(`Failed to move item: ${err}`, { title: "Move failed", kind: "error" })
       }
     },
-    []
+    [isEventOverRow]
   )
+
+  React.useEffect(() => {
+    const handleDeleteRequested = () => {
+      const ws = workspaceRef.current
+      const model = modelRef.current
+      if (!ws || !model) return
+      const rel = model.getSelectedPaths()[0]
+      if (!rel) return
+      const item = model.getItem(rel)
+      if (!item) return
+      const isDir = item.isDirectory() === true
+      const absolutePath = toAbsolutePath(rel, ws)
+      const name = basename(rel).replace(/\/$/, "")
+      void deleteEntryWithConfirm(absolutePath, name, isDir)
+    }
+    window.addEventListener("workspace-delete-current", handleDeleteRequested)
+    return () => {
+      window.removeEventListener("workspace-delete-current", handleDeleteRequested)
+    }
+  }, [])
 
   if (!workspace) {
     return (
@@ -512,22 +677,24 @@ export const FileTree = React.memo(function FileTree() {
     )
   }
 
+  const workspaceName = workspace ? basename(workspace).replace(/\/$/, "") : ""
+
   return (
     <div className="flex h-full min-h-0 flex-col">
       <SidebarQuickActions />
+      <div className="mx-2 mb-1 truncate px-2 py-1.5 text-[11px] font-medium uppercase tracking-wide text-sidebar-foreground/60">
+        {workspaceName || "Workspace"}
+      </div>
       {isLoading ? (
         <div className="px-3 py-1 text-[11px] text-muted-foreground">
           Loading files...
         </div>
       ) : null}
       <div
-        className={
-          "min-h-0 flex-1 rounded-md transition-colors " +
-          (isRootDropOver ? "bg-sidebar-accent/40" : "")
-        }
-        onDragOver={handleRootDragOver}
-        onDragLeave={handleRootDragLeave}
-        onDrop={handleRootDrop}
+        className="min-h-0 flex-1"
+        onClick={handleEmptyClick}
+        onDragOver={handleEmptyDragOver}
+        onDrop={handleEmptyDrop}
       >
         {isLoading && paths.length === 0 ? (
           <div className="flex h-full items-center justify-center px-4 text-sm text-muted-foreground">
@@ -617,26 +784,29 @@ async function showNativeContextMenu(
         id: "delete",
         text: "Delete",
         action: () => {
-          const confirmed = globalThis.confirm(
-            `Are you sure you want to delete "${name}"?`
-          )
-          if (!confirmed) return
-          remove(absolutePath, { recursive: true })
-            .then(() => {
-              window.dispatchEvent(
-                new CustomEvent("entry-deleted", {
-                  detail: { path: absolutePath, isDir },
-                })
-              )
-            })
-            .catch((err) => {
-              console.error("[FileTree] Failed to delete entry", err)
-              globalThis.alert(`Failed to delete: ${err}`)
-            })
+          void deleteEntryWithConfirm(absolutePath, name, isDir)
         },
       },
     ],
   })
 
   await menu.popup()
+}
+
+async function deleteEntryWithConfirm(
+  absolutePath: string,
+  _name: string,
+  isDir: boolean
+): Promise<void> {
+  try {
+    await remove(absolutePath, { recursive: true })
+    window.dispatchEvent(
+      new CustomEvent("entry-deleted", {
+        detail: { path: absolutePath, isDir },
+      })
+    )
+  } catch (err) {
+    console.error("[FileTree] Failed to delete entry", err)
+    await messageDialog(`Failed to delete: ${err}`, { title: "Delete failed", kind: "error" })
+  }
 }

@@ -44,8 +44,18 @@ export const SidebarLeftRail = React.memo(function SidebarLeftRail({
 }: SidebarLeftRailProps) {
   const viewStatuses = useSidebarViewStore((state) => state.views)
 
+  const handleEmptyClick = React.useCallback((event: React.MouseEvent<HTMLDivElement>) => {
+    if (event.target instanceof Element && event.target.closest("button")) return
+    window.dispatchEvent(
+      new CustomEvent("active-file-changed", { detail: { path: null } })
+    )
+  }, [])
+
   return (
-    <div className="flex w-11 shrink-0 flex-col items-center border-r border-sidebar-border/60 bg-sidebar/95 px-1 py-2">
+    <div
+      className="flex w-11 shrink-0 flex-col items-center border-r border-sidebar-border/60 bg-sidebar/95 px-1 py-2"
+      onClick={handleEmptyClick}
+    >
       <div className="titlebar-spacer w-full shrink-0" />
       <div className="mt-1 flex flex-1 flex-col items-center gap-1">
         {railActions.map((action) => {
