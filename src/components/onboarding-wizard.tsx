@@ -195,9 +195,14 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
           <div className="flex w-full max-w-md flex-1 flex-col justify-between gap-10">
             <div className="flex flex-col items-center gap-4 pt-8 text-center">
               <div className="flex size-14 items-center justify-center rounded-xl bg-sidebar-accent ring-1 ring-foreground/10">
-                <span className="font-heading text-lg font-semibold tracking-tight text-sidebar-accent-foreground">
-                  N
-                </span>
+                <svg
+                  aria-hidden="true"
+                  viewBox="0 0 16 16"
+                  className="size-7 text-sidebar-accent-foreground"
+                  fill="currentColor"
+                >
+                  <path d="M0 1.94L6.5 1v6.49H0V1.94Zm0 12.12L6.5 15V8.51H0v5.55Zm7.25.97L16 16V8.51H7.25v6.52Zm0-13.06L16 0v7.49H7.25V1.97Z" />
+                </svg>
               </div>
               <div className="space-y-2">
                 <h1 className="font-heading text-2xl font-semibold tracking-tight">Mica</h1>
@@ -232,9 +237,10 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                 <div className="space-y-3 rounded-md border border-border/80 bg-muted/30 p-3">
                   <p className="text-sm font-medium text-foreground">Git was not found</p>
                   <p className="text-xs leading-relaxed text-muted-foreground">
-                    Install Git, restart the app if the installer asks, then verify here. On macOS,
-                    Xcode Command Line Tools include <code className="rounded bg-muted px-1">git</code>
-                    , or install from the official site.
+                    Install Git, restart the app if the installer asks, then verify here. On
+                    Windows, install with{" "}
+                    <code className="rounded bg-muted px-1">winget install Git.Git</code> from
+                    PowerShell, or download from the official site.
                   </p>
                   <div className="flex flex-wrap gap-2">
                     <Button

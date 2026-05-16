@@ -44,6 +44,11 @@
     "active": true,
     "targets": "all",
     "createUpdaterArtifacts": true,
+    "publisher": "Mica",
+    "category": "Productivity",
+    "shortDescription": "Local-first notes workspace with Git and AI chat.",
+    "longDescription": "Mica is a local-first Tauri notes workspace with wiki links, Git flows, and CLI AI chat.",
+    "copyright": "Copyright © Mica contributors",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -53,6 +58,22 @@
     ],
     "macOS": {
       "minimumSystemVersion": "14.4"
+    },
+    "windows": {
+      "webviewInstallMode": {
+        "type": "downloadBootstrapper",
+        "silent": true
+      },
+      "allowDowngrades": true,
+      "nsis": {
+        "installerIcon": "icons/icon.ico",
+        "installMode": "currentUser",
+        "displayLanguageSelector": false,
+        "languages": ["English"]
+      },
+      "wix": {
+        "language": "en-US"
+      }
     }
   },
   "plugins": {
