@@ -13,6 +13,14 @@ This repository is the desktop client. It is optimized for personal knowledge wo
 - AI chat through local Codex, OpenCode, or Claude Code CLI installations
 - Optional sign-in flow through a Better Auth-compatible backend
 
+
+## Installation
+
+```bash
+ curl -fsSL https://github.com/sreeragh-s/mica/releases/latest/download/install.sh | bash
+```
+
+
 ## Tech stack
 
 - Frontend: React 19, TypeScript, Vite
