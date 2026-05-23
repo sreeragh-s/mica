@@ -1,6 +1,6 @@
 [package]
 name = "mica"
-version = "0.1.0"
+version = "0.1.1"
 description = "Local-first Tauri notes workspace with wiki links, Git flows, and CLI AI chat."
 authors = ["Mica contributors"]
 edition = "2021"
